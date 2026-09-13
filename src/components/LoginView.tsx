@@ -20,18 +20,21 @@ export const LoginView: React.FC = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
-    setTimeout(() => {
-      const res = login(email, password);
+    try {
+      const res = await login(email, password);
       if (!res.success) {
         setError(res.error || 'Identifiants invalides.');
       }
+    } catch (err: any) {
+      setError(err?.message || 'Erreur lors de la connexion.');
+    } finally {
       setLoading(false);
-    }, 200);
+    }
   };
 
   return (

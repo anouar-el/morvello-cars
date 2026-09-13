@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { User, UserRole, UserPermissions, DEFAULT_PERMISSIONS_BY_ROLE } from '../types';
 import { CredentialsManager } from './CredentialsManager';
+import { generateStrongPassword } from '../utils/cryptoAuth';
 import {
   ShieldAlert,
   ShieldCheck,
@@ -345,18 +346,18 @@ export const PermissionsManager: React.FC = () => {
     triggerToast(`Toutes les permissions ont été suspendues pour ${user.name}.`);
   };
 
-  const handleSaveNewUser = (e: React.FormEvent) => {
+  const handleSaveNewUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newUserName.trim() || !newUserEmail.trim()) {
       setAddUserError('Veuillez renseigner le nom et l’adresse email.');
       return;
     }
 
-    const created = addUser({
+    const created = await addUser({
       name: newUserName.trim(),
       email: newUserEmail.trim().toLowerCase(),
       phone: newUserPhone.trim() || undefined,
-      password: newUserPassword.trim() || 'morvello123',
+      password: newUserPassword.trim() || generateStrongPassword(),
       role: newUserRole,
       assignedFleetName: newUserFleet.trim() || undefined,
       permissions: { ...DEFAULT_PERMISSIONS_BY_ROLE[newUserRole] },

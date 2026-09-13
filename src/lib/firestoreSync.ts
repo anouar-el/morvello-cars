@@ -1,5 +1,6 @@
-import { doc, getDoc, setDoc } from 'firebase/firestore/lite';
-import { db } from './firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { db, auth } from './firebase';
+import { handleFirestoreError, OperationType } from './firestoreErrors';
 import {
   Client,
   Driver,
@@ -71,6 +72,7 @@ function isAbortError(error: any): boolean {
 }
 
 export async function fetchRemoteAgencyData(): Promise<MorvelloCloudData | null> {
+  const fullPath = `${APP_DOC_PATH.collection}/${APP_DOC_PATH.docId}`;
   try {
     const docRef = doc(db, APP_DOC_PATH.collection, APP_DOC_PATH.docId);
     const snap = await getDoc(docRef);
@@ -80,15 +82,18 @@ export async function fetchRemoteAgencyData(): Promise<MorvelloCloudData | null>
     return null;
   } catch (error: any) {
     if (isAbortError(error)) {
-      // Benign abort during navigation / unmount
       return null;
     }
-    console.error('Firebase Firestore fetch error:', error);
+    if (error?.code === 'permission-denied' && auth.currentUser) {
+      handleFirestoreError(error, OperationType.GET, fullPath);
+    }
+    console.warn('Firebase Firestore fetch warning:', error?.message || error);
     return null;
   }
 }
 
 export async function saveRemoteAgencyData(data: Partial<MorvelloCloudData>): Promise<boolean> {
+  const fullPath = `${APP_DOC_PATH.collection}/${APP_DOC_PATH.docId}`;
   try {
     const docRef = doc(db, APP_DOC_PATH.collection, APP_DOC_PATH.docId);
     const rawPayload = {
@@ -100,10 +105,12 @@ export async function saveRemoteAgencyData(data: Partial<MorvelloCloudData>): Pr
     return true;
   } catch (error: any) {
     if (isAbortError(error)) {
-      // Benign abort during navigation / unmount
       return false;
     }
-    console.error('Firebase Firestore save error:', error);
+    if (error?.code === 'permission-denied' && auth.currentUser) {
+      handleFirestoreError(error, OperationType.WRITE, fullPath);
+    }
+    console.warn('Firebase Firestore save warning:', error?.message || error);
     return false;
   }
 }

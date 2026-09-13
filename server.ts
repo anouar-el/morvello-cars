@@ -4,12 +4,152 @@ import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 import dotenv from 'dotenv';
 
+import crypto from 'crypto';
+
 dotenv.config();
 
 const app = express();
 const PORT = 3000;
 
 app.use(express.json({ limit: '10mb' }));
+
+// Helper for secure PBKDF2 hash computation
+function computePBKDF2(password: string, salt: string): string {
+  return crypto.pbkdf2Sync(password.normalize('NFKC'), salt, 100000, 32, 'sha256').toString('hex');
+}
+
+// Fallback initial team hashes if not provided in sync
+const SERVER_TEAM_DEFAULTS = [
+  {
+    id: 'usr-1',
+    name: 'Anouar',
+    role: 'admin',
+    email: 'anouar@morvellocars.com',
+    salt: 'e64b4b49a67956c66dee0f07b8709198',
+    hash: 'dcbf718055124e58a94057fb20f2dec2b282f02de2f705682ee31736bd1f1ca3',
+  },
+  {
+    id: 'usr-2',
+    name: 'Said Khomri',
+    role: 'manager',
+    email: 'said.khomri@morvellocars.com',
+    salt: '4ed96200e56e78297a729252bbc75edb',
+    hash: 'd6297048b82235f1a7e8e1387810abced45110fb0db281fbc2d3141c206f79ad',
+  },
+  {
+    id: 'usr-3',
+    name: 'Abdelkader Ouahib',
+    role: 'manager',
+    email: 'abdelkader.ouahib@morvellocars.com',
+    salt: '40106f819e0c28be0a741c6b60ab8d77',
+    hash: 'e9ce195ff8ee4de85eb764b3b09940f2c18222a949a96eb72ffd0916847c73cf',
+  },
+  {
+    id: 'usr-5',
+    name: 'Mohamed Ezzay',
+    role: 'manager',
+    email: 'mohamed.ezzay@morvellocars.com',
+    salt: 'f9df5e068bf31c8fdbbc50f2c9b08b7c',
+    hash: 'eb5f3cc7eeeabae5831bb58c543023c868bcadacc6747635e618a2e90e3b69f9',
+  },
+  {
+    id: 'usr-6',
+    name: 'Larbi Khomri',
+    role: 'manager',
+    email: 'larbi.khomri@morvellocars.com',
+    salt: '1bb60d2f0c2984a19120cd07dd9024ce',
+    hash: '4ff690d06824cc09962803de888bc3be5b32ce9a9dea0aa19add99e85569b9c7',
+  },
+];
+
+// Backend Authentication Endpoint: validates credentials using server-side PBKDF2
+app.post('/api/auth/login', (req, res) => {
+  try {
+    const { email, password, users } = req.body;
+    if (!email || typeof email !== 'string' || !password || typeof password !== 'string') {
+      return res.status(400).json({ success: false, error: 'Email et mot de passe requis' });
+    }
+
+    const trimmedEmail = email.trim().toLowerCase();
+    const candidateList = Array.isArray(users) && users.length > 0 ? users : SERVER_TEAM_DEFAULTS;
+
+    const user = candidateList.find((u: any) => {
+      const uEmail = (u.email || '').toLowerCase();
+      if (uEmail === trimmedEmail) return true;
+      if (u.id === 'usr-1' || u.role === 'admin') {
+        if (
+          trimmedEmail === 'anouar7fac@gmail.com' ||
+          trimmedEmail === 'anouar@morvellocars.com' ||
+          trimmedEmail === 'anouar'
+        ) {
+          return true;
+        }
+      }
+      return false;
+    });
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        error: 'Aucun compte collaborateur trouvé avec cet e-mail.',
+      });
+    }
+
+    // Match against user salt/hash or fallback to initial hash table
+    const salt = user.passwordSalt || user.salt;
+    const expectedHash = user.passwordHash || user.hash;
+
+    if (salt && expectedHash) {
+      const computed = computePBKDF2(password, salt);
+      if (computed.toLowerCase() !== expectedHash.toLowerCase()) {
+        return res.status(401).json({
+          success: false,
+          error: 'Mot de passe incorrect pour ce compte.',
+        });
+      }
+    } else if (user.password) {
+      if (user.password !== password) {
+        return res.status(401).json({
+          success: false,
+          error: 'Mot de passe incorrect pour ce compte.',
+        });
+      }
+    } else {
+      return res.status(401).json({
+        success: false,
+        error: 'Compte protégé sans mot de passe local. Utilisez la connexion Google.',
+      });
+    }
+
+    // Generate secure session token and sanitize returned user object
+    const sessionToken = crypto.randomBytes(32).toString('hex');
+    const { password: _p, passwordHash: _ph, passwordSalt: _ps, salt: _s, hash: _h, ...safeUser } = user;
+
+    res.json({
+      success: true,
+      user: safeUser,
+      token: sessionToken,
+    });
+  } catch (error: any) {
+    console.error('Backend auth login error:', error);
+    res.status(500).json({ success: false, error: 'Erreur interne du serveur lors de la connexion' });
+  }
+});
+
+// Secure password hashing utility for credential updates
+app.post('/api/auth/hash-password', (req, res) => {
+  try {
+    const { password } = req.body;
+    if (!password || typeof password !== 'string' || password.length < 6) {
+      return res.status(400).json({ error: 'Mot de passe invalide (minimum 6 caractères).' });
+    }
+    const salt = crypto.randomBytes(16).toString('hex');
+    const hash = computePBKDF2(password, salt);
+    res.json({ salt, hash });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Erreur lors du hachage sécurisé' });
+  }
+});
 
 // Lazy initialization of GoogleGenAI
 let aiClient: GoogleGenAI | null = null;

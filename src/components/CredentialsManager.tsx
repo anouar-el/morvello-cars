@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { User, UserRole } from '../types';
+import { generateStrongPassword } from '../utils/cryptoAuth';
 import {
   KeyRound,
   ShieldCheck,
@@ -89,7 +90,7 @@ export const CredentialsManager: React.FC = () => {
     setEditingUser(user);
     setEditName(user.name);
     setEditEmail(user.email);
-    setEditPassword(user.password || (user.role === 'admin' ? 'admin123' : 'manager123'));
+    setEditPassword('');
     setEditPhone(user.phone || '');
     setEditRole(user.role);
     setEditFleet(user.assignedFleetName || '');
@@ -98,21 +99,26 @@ export const CredentialsManager: React.FC = () => {
   const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingUser) return;
-    if (!editEmail.trim() || !editPassword.trim() || !editName.trim()) {
-      triggerToast("Le nom, l'email et le mot de passe sont obligatoires.");
+    if (!editEmail.trim() || !editName.trim()) {
+      triggerToast("Le nom et l'email sont obligatoires.");
       return;
     }
 
-    updateUser(editingUser.id, {
+    const payload: Partial<User> = {
       name: editName.trim(),
       email: editEmail.trim().toLowerCase(),
-      password: editPassword.trim(),
       phone: editPhone.trim() || undefined,
       role: editRole,
       assignedFleetName: editFleet.trim() || undefined,
-    });
+    };
 
-    triggerToast(`Identifiants de ${editName} mis à jour avec succès.`);
+    if (editPassword.trim()) {
+      payload.password = editPassword.trim();
+    }
+
+    await updateUser(editingUser.id, payload);
+
+    triggerToast(`Identifiants de ${editName} mis à jour et chiffrés avec succès.`);
     setEditingUser(null);
 
     // Sync to Cloud Firestore automatically
@@ -126,15 +132,17 @@ export const CredentialsManager: React.FC = () => {
 
   const handleSaveNewUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newName.trim() || !newEmail.trim() || !newPassword.trim()) {
-      triggerToast("Veuillez renseigner le nom, l'email et le mot de passe.");
+    if (!newName.trim() || !newEmail.trim()) {
+      triggerToast("Veuillez renseigner au moins le nom et l'email.");
       return;
     }
 
-    const created = addUser({
+    const pass = newPassword.trim() || generateStrongPassword();
+
+    const created = await addUser({
       name: newName.trim(),
       email: newEmail.trim().toLowerCase(),
-      password: newPassword.trim(),
+      password: pass,
       phone: newPhone.trim() || undefined,
       role: newRole,
       assignedFleetName: newFleet.trim() || undefined,
@@ -147,7 +155,7 @@ export const CredentialsManager: React.FC = () => {
     setNewPhone('');
     setNewFleet('');
 
-    triggerToast(`Nouveau collaborateur ${created.name} créé avec mot de passe configuré !`);
+    triggerToast(`Nouveau collaborateur ${created.name} créé avec mot de passe chiffré !`);
 
     // Sync to cloud
     try {
@@ -298,19 +306,12 @@ export const CredentialsManager: React.FC = () => {
             <div className="flex items-center gap-2.5">
               <div className="bg-slate-950/80 border border-slate-800 px-3.5 py-2 rounded-xl flex items-center gap-3">
                 <div>
-                  <span className="text-[10px] text-slate-500 uppercase font-mono block">Mot de passe Gérant</span>
-                  <span className="text-xs font-mono font-bold text-purple-300 tracking-wider">
-                    {revealedPasswords[gerantUser.id] ? (gerantUser.password || 'admin123') : '••••••••••••'}
+                  <span className="text-[10px] text-slate-500 uppercase font-mono block">Sécurité Compte Gérant</span>
+                  <span className="text-xs font-mono font-bold text-emerald-400 tracking-wider flex items-center gap-1">
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    Chiffré PBKDF2 (SHA-256)
                   </span>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => togglePasswordVisibility(gerantUser.id)}
-                  className="text-slate-400 hover:text-white transition-colors cursor-pointer"
-                  title="Afficher/Masquer le mot de passe"
-                >
-                  {revealedPasswords[gerantUser.id] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
               </div>
 
               <button
@@ -357,8 +358,6 @@ export const CredentialsManager: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-slate-850 text-xs">
               {users.map((u) => {
-                const isRevealed = revealedPasswords[u.id] || false;
-                const userPassword = u.password || (u.role === 'admin' ? 'admin123' : 'manager123');
                 const isCurrent = u.id === currentUser?.id;
                 const isGerant = u.role === 'admin';
 
@@ -437,28 +436,17 @@ export const CredentialsManager: React.FC = () => {
                     {/* Mot de Passe */}
                     <td className="py-3.5 px-4">
                       <div className="flex items-center gap-2">
-                        <div className="bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800 font-mono text-xs text-amber-400">
-                          {isRevealed ? userPassword : '••••••••••••'}
+                        <div className="bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800 font-mono text-[11px] text-emerald-400 flex items-center gap-1.5">
+                          <Lock className="w-3 h-3 text-emerald-400" />
+                          <span>Chiffré PBKDF2</span>
                         </div>
                         <button
                           type="button"
-                          onClick={() => togglePasswordVisibility(u.id)}
-                          className="text-slate-500 hover:text-white transition-colors cursor-pointer p-1"
-                          title={isRevealed ? 'Masquer' : 'Afficher le mot de passe'}
+                          onClick={() => handleOpenEdit(u)}
+                          className="text-slate-400 hover:text-amber-400 transition-colors cursor-pointer p-1"
+                          title="Changer le mot de passe"
                         >
-                          {isRevealed ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => copyToClipboard(userPassword, `pass-${u.id}`)}
-                          className="text-slate-500 hover:text-amber-400 transition-colors cursor-pointer p-1"
-                          title="Copier le mot de passe"
-                        >
-                          {copiedId === `pass-${u.id}` ? (
-                            <Check className="w-3.5 h-3.5 text-emerald-400" />
-                          ) : (
-                            <Copy className="w-3.5 h-3.5" />
-                          )}
+                          <Edit3 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </td>
@@ -560,16 +548,25 @@ export const CredentialsManager: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Nouveau Mot de Passe *
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-slate-300">
+                      Nouveau Mot de Passe
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setEditPassword(generateStrongPassword())}
+                      className="text-[10px] text-amber-400 hover:text-amber-300 flex items-center gap-1 font-mono cursor-pointer"
+                    >
+                      <Sparkles className="w-3 h-3" />
+                      Générer sécurisé
+                    </button>
+                  </div>
                   <input
                     type="text"
                     value={editPassword}
                     onChange={(e) => setEditPassword(e.target.value)}
                     className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-amber-400 font-mono font-bold focus:outline-none focus:border-amber-500"
-                    placeholder="Min. 6 caractères"
-                    required
+                    placeholder="Laisser vide pour conserver le mot de passe actuel"
                   />
                 </div>
               </div>
@@ -697,9 +694,19 @@ export const CredentialsManager: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Mot de passe initial *
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-slate-300">
+                      Mot de passe initial *
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setNewPassword(generateStrongPassword())}
+                      className="text-[10px] text-amber-400 hover:text-amber-300 flex items-center gap-1 font-mono cursor-pointer"
+                    >
+                      <Sparkles className="w-3 h-3" />
+                      Générer sécurisé
+                    </button>
+                  </div>
                   <input
                     type="text"
                     value={newPassword}
