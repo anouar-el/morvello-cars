@@ -20,24 +20,12 @@ Application web complète de gestion locative automobile, conciergerie haut de g
 - **Persistance** : Firebase Cloud Firestore (NoSQL temps réel) + LocalStorage
 - **Moteur d'impression** : Impression vectorielle de contrats et fiches d'inspection
 
-## 🔐 Authentification, Logins & Mots de Passe
+## 🔐 Authentification & Sécurité
 
-L'application intègre un système d'authentification RBAC (Role-Based Access Control) multi-postes couplé à Firebase Cloud Firestore.
+L'application intègre un système d'authentification RBAC (*Role-Based Access Control*) multi-postes couplé à Firebase Cloud Firestore.
 
-### 1. Comptes & Identifiants par défaut
-
-| Collaborateur | Rôle | Agence / Flotte | Login / Email | Mot de passe initial |
-| :--- | :--- | :--- | :--- | :--- |
-| **Anouar** | Gérant (Super Admin) | Direction Générale | `anouar@morvellocars.com`<br>*(ou `anouar7fac@gmail.com`)* | `admin123` |
-| **Said Khomri** | Responsable Flotte | Casablanca Centre (Citadines & Berlines) | `said.khomri@morvellocars.com` | `manager123` |
-| **Abdelkader Ouahib** | Responsable Flotte | Aéroport Nouaceur (SUV & Prestige) | `abdelkader.ouahib@morvellocars.com` | `manager123` |
-| **Larbi Khomri** | Responsable Flotte | Casablanca Littoral (Hybrides & Éco) | `larbi.khomri@morvellocars.com` | `manager123` |
-| **Mohamed Ezzay** | Responsable Flotte | Marrakech & Région (SUV & Premium) | `mohamed.ezzay@morvellocars.com` | `manager123` |
-
-### 2. Personnalisation des Identifiants
-- Dans l'application, accédez à l'onglet **« Équipe & Accès »** (icône clé dorée dans la barre de navigation).
-- Cliquez sur le sous-onglet **« Identifiants, Logins & Mots de Passe »**.
-- Vous pouvez afficher les mots de passe, en définir de nouveaux pour chaque collaborateur, ajouter un nouveau compte ou synchroniser instantanément avec le Cloud Firestore.
+- **Comptes protégés** : Les accès et mots de passe sont configurés de manière confidentielle et administrés directement dans l'application par la Direction Générale.
+- **Gestion des accès** : La gestion des collaborateurs et de leurs habilitations s'effectue depuis le panneau d'administration interne sécurisé (*Équipe & Accès*).
 
 ## 📦 Installation Locale
 

@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import {
   Car,
-  Lock,
   Mail,
   ShieldCheck,
   KeyRound,
@@ -10,21 +9,16 @@ import {
   AlertTriangle,
   Eye,
   EyeOff,
-  HelpCircle,
-  CheckCircle2,
-  Crown,
-  Building2,
 } from 'lucide-react';
 
 export const LoginView: React.FC = () => {
-  const { login, users, companySettings } = useApp();
+  const { login, companySettings } = useApp();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [showDemoAccounts, setShowDemoAccounts] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,12 +32,6 @@ export const LoginView: React.FC = () => {
       }
       setLoading(false);
     }, 200);
-  };
-
-  const fillCredentials = (userEmail: string, userPass: string) => {
-    setEmail(userEmail);
-    setPassword(userPass);
-    setError('');
   };
 
   return (
@@ -114,19 +102,9 @@ export const LoginView: React.FC = () => {
 
             {/* Password Input */}
             <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label className="block text-xs font-semibold text-slate-300">
-                  Mot de passe
-                </label>
-                <button
-                  type="button"
-                  onClick={() => setShowDemoAccounts(!showDemoAccounts)}
-                  className="text-[11px] text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1 cursor-pointer"
-                >
-                  <HelpCircle className="w-3 h-3" />
-                  <span>Voir les comptes</span>
-                </button>
-              </div>
+              <label className="block text-xs font-semibold text-slate-300">
+                Mot de passe
+              </label>
               <div className="relative">
                 <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
                   <KeyRound className="w-4 h-4" />
@@ -161,62 +139,9 @@ export const LoginView: React.FC = () => {
             </button>
           </form>
 
-          {/* Collapsible Accounts Reference */}
-          {showDemoAccounts && (
-            <div className="border border-slate-800 bg-slate-950/90 rounded-2xl p-3.5 space-y-3 animate-in fade-in duration-200">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-slate-300 flex items-center gap-1.5">
-                  <KeyRound className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Comptes pré-configurés</span>
-                </span>
-                <span className="text-[10px] text-slate-500">Cliquez pour pré-remplir</span>
-              </div>
-
-              <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                {users.map((u) => {
-                  const pass = u.password || (u.role === 'admin' ? 'admin123' : 'manager123');
-                  const isGerant = u.role === 'admin';
-                  return (
-                    <button
-                      key={u.id}
-                      type="button"
-                      onClick={() => fillCredentials(u.email, pass)}
-                      className="w-full text-left p-2 rounded-xl bg-slate-900 hover:bg-slate-850 border border-slate-800 hover:border-amber-500/50 transition-colors flex items-center justify-between cursor-pointer group"
-                    >
-                      <div className="min-w-0 pr-2">
-                        <div className="flex items-center gap-1.5">
-                          {isGerant ? (
-                            <Crown className="w-3 h-3 text-amber-400 shrink-0" />
-                          ) : (
-                            <Building2 className="w-3 h-3 text-blue-400 shrink-0" />
-                          )}
-                          <span className="text-xs font-semibold text-white group-hover:text-amber-400 truncate">
-                            {u.name}
-                          </span>
-                          <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 capitalize shrink-0">
-                            {isGerant ? 'Gérant' : 'Resp.'}
-                          </span>
-                        </div>
-                        <div className="text-[10px] text-slate-400 font-mono truncate">
-                          {u.email}
-                        </div>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <span className="text-[10px] font-mono text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded">
-                          {pass}
-                        </span>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
           {/* Notice */}
-          <div className="pt-2 text-center text-[11px] text-slate-400 border-t border-slate-850">
-            <span>Mot de passe modifiable à tout moment dans</span>{' '}
-            <strong className="text-slate-300">Paramètres &gt; Équipe & Accès</strong>.
+          <div className="pt-2 text-center text-[11px] text-slate-500 border-t border-slate-850">
+            <span>Accès réservé au personnel autorisé Morvello Cars</span>
           </div>
         </div>
 

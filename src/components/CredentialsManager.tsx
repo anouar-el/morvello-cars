@@ -289,11 +289,7 @@ export const CredentialsManager: React.FC = () => {
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-xs text-slate-300">
                   <span className="flex items-center gap-1.5 font-mono text-amber-400">
                     <Mail className="w-3.5 h-3.5 text-slate-400" />
-                    Login principal : <strong>{gerantUser.email}</strong>
-                  </span>
-                  <span className="text-slate-500">•</span>
-                  <span className="text-slate-400 font-mono text-[11px]">
-                    Alias Google autorisé : <strong className="text-slate-300">anouar7fac@gmail.com</strong>
+                    Email d'agence : <strong>{gerantUser.email}</strong>
                   </span>
                 </div>
               </div>
