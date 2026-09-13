@@ -1,0 +1,8 @@
+﻿Marque;Modèle;Immatriculation;Carburant;Statut;Kilométrage;Tarif_Journalier_MAD;Année;Couleur;Responsable;Compagnie_Assurance;Date_Fin_Assurance;Date_Fin_Controle_Tech;Vignette_Annee;Prochaine_Vidange_KM;Date_Achat;Observations_Notes
+RENAULT;Kardian 1.0 TCe EDC Techno;54210 | A | 6;Essence;available;12500;450;2025;Orange Énergie;Anouar;Wafa Assurance;2027-06-30;2028-05-15;2026;20000;2025-01-15;"Boîte automatique EDC, caméra de recul, CarPlay"
+RENAULT;Clio 5 1.5 dCi Intens;84920 | A | 6;Diesel;available;42350;350;2024;Gris Titanium;Said Khomri;Wafa Assurance;2026-11-20;2026-12-15;2026;50000;2024-03-10;"Très économique, révision 40k faite"
+HYUNDAI;Tucson 1.6 CRDi DCT;19384 | D | 6;Diesel;available;58400;650;2024;Noir Fantôme;Said Khomri;Sanlam Maroc;2026-09-18;2026-11-30;2026;65000;2024-01-15;SUV familial tout confort
+VOLKSWAGEN;Golf 8 R-Line 2.0 TDI;77219 | H | 6;Diesel;available;31200;550;2024;Blanc Pur;Abdelkader Ouahib;RMA Watanya;2027-01-10;2026-08-28;2026;40000;2024-03-20;"Cockpit digital, régulateur adaptatif"
+PEUGEOT;208 Allure 1.2 PureTech;44510 | B | 6;Essence;available;28900;320;2023;Jaune Faro;Abdelkader Ouahib;AXA Assurance Maroc;2026-12-05;2026-10-25;2026;30000;2023-08-14;Citadine idéale trajets urbains
+DACIA;Duster Prestige 1.5 dCi;63201 | J | 6;Diesel;available;64100;400;2023;Orange Arizona;Mohamed Ezzay;Wafa Assurance;2027-04-12;2027-03-20;2026;75000;2023-04-05;"Grand coffre, barres de toit"
+MERCEDES-BENZ;Classe C 220d AMG Line;99014 | A | 6;Diesel;available;48900;1100;2024;Gris Sélénite;Larbi Khomri;AtlantaSanad;2026-10-15;2026-11-05;2026;50000;2024-02-01;Gamme Prestige VIP

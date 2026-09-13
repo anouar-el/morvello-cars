@@ -1,0 +1,58 @@
+{
+  "entities": {
+    "Agency": {
+      "title": "Agency",
+      "description": "Morvello rental agency central cloud record containing fleet, contracts, clients and settings",
+      "type": "object",
+      "properties": {
+        "updatedAt": {
+          "type": "string",
+          "description": "ISO timestamp of last update"
+        },
+        "updatedBy": {
+          "type": "string",
+          "description": "User or manager who updated the record"
+        },
+        "vehicles": {
+          "type": "array",
+          "description": "Fleet vehicles list"
+        },
+        "clients": {
+          "type": "array",
+          "description": "Registered clients list"
+        },
+        "drivers": {
+          "type": "array",
+          "description": "Registered drivers list"
+        },
+        "contracts": {
+          "type": "array",
+          "description": "Rental contracts list"
+        },
+        "deposits": {
+          "type": "array",
+          "description": "Security deposit records"
+        },
+        "companySettings": {
+          "type": "object",
+          "description": "Agency legal and general settings"
+        },
+        "termsVersion": {
+          "type": "object",
+          "description": "Active contractual terms clauses"
+        },
+        "users": {
+          "type": "array",
+          "description": "System users and managers"
+        }
+      },
+      "required": ["updatedAt"]
+    }
+  },
+  "firestore": {
+    "/agencies/{agencyId}": {
+      "schema": "Agency",
+      "description": "Central company agency document"
+    }
+  }
+}

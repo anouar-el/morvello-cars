@@ -1,0 +1,480 @@
+@import "tailwindcss";
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+}
+
+/* ========================================================================= */
+/* MORVELLO CARS THEME ENGINE: DARK PRESTIGE & LIGHT CORPORATE PALETTES     */
+/* ========================================================================= */
+
+:root,
+html.dark {
+  color-scheme: dark;
+  --color-slate-950: oklch(12.9% 0.042 264.695);
+  --color-slate-900: oklch(20.8% 0.042 265.755);
+  --color-slate-800: oklch(27.9% 0.041 260.031);
+  --color-slate-700: oklch(37.2% 0.044 257.287);
+  --color-slate-600: oklch(44.6% 0.043 257.281);
+  --color-slate-500: oklch(55.4% 0.046 257.417);
+  --color-slate-400: oklch(70.4% 0.04 256.788);
+  --color-slate-300: oklch(86.9% 0.022 252.894);
+  --color-slate-200: oklch(92.9% 0.013 255.508);
+  --color-slate-100: oklch(96.8% 0.007 247.896);
+  --color-slate-50: oklch(98.4% 0.003 247.858);
+}
+
+html.light {
+  color-scheme: light;
+  /* Palette Neutres : Fond slate-50 pur, cartes blanches, bordures nettes, texte haute lisibilité */
+  --color-slate-950: oklch(98.4% 0.003 247.858); /* #f8fafc fond principal */
+  --color-slate-900: oklch(100% 0 0);             /* #ffffff cartes et panneaux */
+  --color-slate-800: oklch(94% 0.01 250);         /* #e2e8f0 surfaces secondaires & bordures */
+  --color-slate-700: oklch(88% 0.015 250);        /* #cbd5e1 bordures visibles */
+  --color-slate-600: oklch(75% 0.02 250);         /* #94a3b8 */
+  --color-slate-500: oklch(45% 0.035 257);        /* #475569 texte secondaire lisible (WCAG AA) */
+  --color-slate-400: oklch(35% 0.04 257);         /* #334155 texte corps / labels (WCAG AAA) */
+  --color-slate-300: oklch(25% 0.04 260);         /* #1e293b texte sombre */
+  --color-slate-200: oklch(18% 0.04 265);         /* #0f172a texte primaire */
+  --color-slate-100: oklch(12% 0.04 265);         /* #020617 titres et emphase */
+  --color-slate-50: oklch(5% 0.02 265);           /* #000000 */
+
+  /* Variables d'accent rehaussées en mode clair : Teintes 800 profondes & contrastées (WCAG AAA > 7:1) */
+  --color-amber-200: oklch(48% 0.14 55);   /* #92400e / ambre-800 */
+  --color-amber-300: oklch(44% 0.15 52);   /* #78350f / ambre-900 */
+  --color-amber-400: oklch(47% 0.16 65);   /* #b45309 / ambre-700/800 */
+
+  --color-yellow-200: oklch(48% 0.13 65);  /* #854d0e */
+  --color-yellow-300: oklch(43% 0.13 65);  /* #713f12 */
+  --color-yellow-400: oklch(47% 0.14 70);  /* #a16207 */
+
+  --color-emerald-200: oklch(43% 0.12 165); /* #065f46 / émeraude-800 */
+  --color-emerald-300: oklch(38% 0.11 166); /* #064e3b / émeraude-900 */
+  --color-emerald-400: oklch(47% 0.13 165); /* #047857 / émeraude-700 */
+
+  --color-green-200: oklch(44% 0.13 150);   /* #166534 */
+  --color-green-300: oklch(38% 0.12 150);   /* #14532d */
+  --color-green-400: oklch(48% 0.15 150);   /* #15803d */
+
+  --color-blue-200: oklch(43% 0.19 265);    /* #1e40af / bleu-800 */
+  --color-blue-300: oklch(38% 0.18 265);    /* #1e3a8a / bleu-900 */
+  --color-blue-400: oklch(48% 0.22 265);    /* #1d4ed8 / bleu-700 */
+
+  --color-sky-200: oklch(44% 0.11 230);     /* #075985 */
+  --color-sky-300: oklch(38% 0.10 230);     /* #0c4a6e */
+  --color-sky-400: oklch(48% 0.13 230);     /* #0369a1 */
+
+  --color-indigo-200: oklch(43% 0.20 277);  /* #3730a3 */
+  --color-indigo-300: oklch(38% 0.18 277);  /* #312e81 */
+  --color-indigo-400: oklch(48% 0.23 277);  /* #4338ca */
+
+  --color-purple-200: oklch(44% 0.22 303);  /* #6b21a8 */
+  --color-purple-300: oklch(38% 0.20 303);  /* #581c87 */
+  --color-purple-400: oklch(49% 0.25 303);  /* #7e22ce */
+
+  --color-rose-200: oklch(45% 0.19 15);     /* #9f1239 */
+  --color-rose-300: oklch(39% 0.17 15);     /* #881337 */
+  --color-rose-400: oklch(50% 0.22 16);     /* #be123c */
+
+  --color-red-200: oklch(44% 0.20 25);      /* #991b1b */
+  --color-red-300: oklch(38% 0.18 25);      /* #7f1d1d */
+  --color-red-400: oklch(49% 0.22 25);      /* #b91c1c */
+
+  /* Bannières et conteneurs d'alerte en mode clair (fonds doux pastel élégants) */
+  --color-blue-950: oklch(97% 0.02 250);    /* #eff6ff */
+  --color-emerald-950: oklch(97% 0.02 165); /* #ecfdf5 */
+  --color-amber-950: oklch(97% 0.02 65);    /* #fffbeb */
+  --color-rose-950: oklch(97% 0.02 15);     /* #fff1f2 */
+  --color-purple-950: oklch(97% 0.02 303);  /* #faf5ff */
+}
+
+/* ========================================================================= */
+/* POLISSAGE ACCESSIBILITÉ & HAUTE LISIBILITÉ EN MODE CLAIR (WCAG AAA)      */
+/* ========================================================================= */
+
+html.light body {
+  background-color: #f8fafc;
+  color: #0f172a;
+}
+
+html.light header {
+  background-color: #ffffff !important;
+  border-bottom-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+html.light footer {
+  background-color: #ffffff !important;
+  border-top-color: #e2e8f0 !important;
+  color: #475569 !important;
+}
+
+/* 1. TEXTE SLATE & NEUTRES HAUTE DÉFINITION */
+html.light .text-slate-500 {
+  color: #475569 !important;
+}
+html.light .text-slate-400 {
+  color: #334155 !important;
+}
+html.light .text-slate-300 {
+  color: #1e293b !important;
+}
+html.light .text-slate-200 {
+  color: #0f172a !important;
+}
+html.light .text-slate-100,
+html.light .text-slate-50 {
+  color: #020617 !important;
+}
+
+/* 2. COULEURS D'ACCENT LISIBLES EN MODE CLAIR (Finis les jaunes/verts pastels invisibles sur fond blanc !) */
+html.light .text-amber-200,
+html.light .text-amber-300,
+html.light .text-amber-400 {
+  color: #92400e !important; /* ambre-800 riche et chaud (> 7.5:1 sur blanc) */
+}
+
+html.light .text-yellow-200,
+html.light .text-yellow-300,
+html.light .text-yellow-400 {
+  color: #854d0e !important; /* jaune/ambre-800 (> 7.5:1 sur blanc) */
+}
+
+html.light .text-emerald-200,
+html.light .text-emerald-300,
+html.light .text-emerald-400 {
+  color: #065f46 !important; /* vert forêt émeraude-800 (> 7.5:1 sur blanc) */
+}
+
+html.light .text-green-200,
+html.light .text-green-300,
+html.light .text-green-400 {
+  color: #166534 !important; /* vert-800 (> 7.5:1 sur blanc) */
+}
+
+html.light .text-blue-200,
+html.light .text-blue-300,
+html.light .text-blue-400 {
+  color: #1e40af !important; /* bleu saphir-800 (> 8.0:1 sur blanc) */
+}
+
+html.light .text-sky-200,
+html.light .text-sky-300,
+html.light .text-sky-400 {
+  color: #075985 !important; /* bleu ciel-800 (> 7.5:1 sur blanc) */
+}
+
+html.light .text-indigo-200,
+html.light .text-indigo-300,
+html.light .text-indigo-400 {
+  color: #3730a3 !important; /* indigo-800 (> 8.5:1 sur blanc) */
+}
+
+html.light .text-purple-200,
+html.light .text-purple-300,
+html.light .text-purple-400 {
+  color: #6b21a8 !important; /* pourpre-800 (> 8.0:1 sur blanc) */
+}
+
+html.light .text-rose-200,
+html.light .text-rose-300,
+html.light .text-rose-400 {
+  color: #9f1239 !important; /* rose rubis-800 (> 8.0:1 sur blanc) */
+}
+
+html.light .text-red-200,
+html.light .text-red-300,
+html.light .text-red-400 {
+  color: #991b1b !important; /* rouge carmin-800 (> 8.0:1 sur blanc) */
+}
+
+/* 3. BORDURES NETTES SUR CARTES, TABLEAUX ET SÉPARATEURS */
+html.light .border-slate-800,
+html.light .border-slate-700,
+html.light [class*="border-slate-800"],
+html.light [class*="border-slate-700"] {
+  border-color: #e2e8f0 !important;
+}
+
+html.light .border-slate-600 {
+  border-color: #cbd5e1 !important;
+}
+
+html.light .divide-slate-800 > :not([hidden]) ~ :not([hidden]),
+html.light .divide-slate-700 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #e2e8f0 !important;
+}
+
+/* 4. CARTES ET PANNEAUX BLANCS */
+html.light .bg-slate-900 {
+  background-color: #ffffff !important;
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.05), 0 1px 2px -1px rgb(0 0 0 / 0.05);
+}
+
+html.light .bg-slate-950 {
+  background-color: #f8fafc;
+}
+
+/* En-têtes de tableau et surfaces secondaires */
+html.light .bg-slate-950\/70,
+html.light .bg-slate-950\/80,
+html.light .bg-slate-950\/90,
+html.light thead.bg-slate-950\/70 {
+  background-color: #f1f5f9 !important;
+}
+
+/* Survol de lignes de tableau */
+html.light tr.hover\:bg-slate-850\/60:hover,
+html.light tr:hover {
+  background-color: #f8fafc !important;
+}
+
+/* 5. GESTION DU TEXTE BLANC & DES BOUTONS COLORÉS */
+/* Sur les cartes blanches, text-white général devient sombre */
+html.light .text-white {
+  color: #0f172a;
+}
+
+/* MAIS les boutons et conteneurs avec fond coloré solide CONSERVENT leur texte blanc pur */
+html.light button[class*="bg-blue-"],
+html.light button[class*="bg-emerald-"],
+html.light button[class*="bg-rose-"],
+html.light button[class*="bg-red-"],
+html.light button[class*="bg-indigo-"],
+html.light button[class*="bg-purple-"],
+html.light button[class*="bg-gradient-"],
+html.light [class*="bg-blue-6"],
+html.light [class*="bg-blue-5"],
+html.light [class*="bg-emerald-6"],
+html.light [class*="bg-emerald-5"],
+html.light [class*="bg-rose-6"],
+html.light [class*="bg-rose-5"],
+html.light [class*="bg-red-6"],
+html.light [class*="bg-indigo-6"],
+html.light [class*="bg-purple-6"],
+html.light .keep-white,
+/* Tous les enfants et icônes dans ces boutons restent blancs */
+html.light button[class*="bg-blue-"] *,
+html.light button[class*="bg-emerald-"] *,
+html.light button[class*="bg-rose-"] *,
+html.light button[class*="bg-red-"] *,
+html.light button[class*="bg-indigo-"] *,
+html.light button[class*="bg-purple-"] *,
+html.light button[class*="bg-gradient-"] *,
+html.light [class*="bg-blue-6"] *,
+html.light [class*="bg-blue-5"] *,
+html.light [class*="bg-emerald-6"] *,
+html.light [class*="bg-emerald-5"] *,
+html.light [class*="bg-rose-6"] *,
+html.light [class*="bg-rose-5"] *,
+html.light [class*="bg-red-6"] *,
+html.light [class*="bg-indigo-6"] *,
+html.light [class*="bg-purple-6"] *,
+html.light .keep-white * {
+  color: #ffffff !important;
+}
+
+/* Les boutons dorés ambrés avec text-slate-950 restent noirs contrastés */
+html.light .text-slate-950,
+html.light .text-slate-950 * {
+  color: #020617 !important;
+}
+
+/* 6. BANNIÈRES ET ENCADRÉS D'ALERTE / NOTIFICATION (Fonds doux pastel) */
+html.light [class*="bg-blue-950"],
+html.light [class*="bg-sky-950"] {
+  background-color: #eff6ff !important;
+  border-color: #bfdbfe !important;
+}
+
+html.light [class*="bg-emerald-950"],
+html.light [class*="bg-green-950"] {
+  background-color: #ecfdf5 !important;
+  border-color: #a7f3d0 !important;
+}
+
+html.light [class*="bg-amber-950"],
+html.light [class*="bg-yellow-950"] {
+  background-color: #fffbeb !important;
+  border-color: #fde68a !important;
+}
+
+html.light [class*="bg-rose-950"],
+html.light [class*="bg-red-950"] {
+  background-color: #fff1f2 !important;
+  border-color: #fecdd3 !important;
+}
+
+html.light [class*="bg-purple-950"],
+html.light [class*="bg-indigo-950"] {
+  background-color: #faf5ff !important;
+  border-color: #e9d5ff !important;
+}
+
+/* 7. CHAMPS DE FORMULAIRES & SÉLECTEURS */
+html.light input:not([type="checkbox"]):not([type="radio"]),
+html.light select,
+html.light textarea {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+html.light input:not([type="checkbox"]):not([type="radio"]):focus,
+html.light select:focus,
+html.light textarea:focus {
+  border-color: #f59e0b !important;
+  outline: 2px solid rgba(245, 158, 11, 0.2) !important;
+}
+
+html.light input::placeholder,
+html.light textarea::placeholder {
+  color: #94a3b8 !important;
+}
+
+/* 8. BADGES D'ÉTAT & PASTILLES DE STATUT EN MODE CLAIR */
+html.light [class*="bg-amber-500/"] {
+  background-color: rgba(245, 158, 11, 0.12) !important;
+  border-color: rgba(217, 119, 6, 0.35) !important;
+}
+
+html.light [class*="bg-emerald-500/"] {
+  background-color: rgba(16, 185, 129, 0.12) !important;
+  border-color: rgba(5, 150, 105, 0.35) !important;
+}
+
+html.light [class*="bg-blue-500/"] {
+  background-color: rgba(59, 130, 246, 0.12) !important;
+  border-color: rgba(37, 99, 235, 0.35) !important;
+}
+
+html.light [class*="bg-rose-500/"],
+html.light [class*="bg-red-500/"] {
+  background-color: rgba(244, 63, 94, 0.12) !important;
+  border-color: rgba(225, 29, 72, 0.35) !important;
+}
+
+html.light [class*="bg-purple-500/"] {
+  background-color: rgba(168, 85, 247, 0.12) !important;
+  border-color: rgba(147, 51, 234, 0.35) !important;
+}
+
+html.light .text-slate-600 {
+  color: #475569 !important;
+}
+
+/* Scrollbars personnalisées */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+html.light ::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+html.light ::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+}
+html.light ::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* A4 dimensions styling */
+.a4-page {
+  width: 210mm;
+  min-height: 297mm;
+  max-height: 297mm;
+  height: 297mm;
+  padding: 10mm 12mm;
+  background: white;
+  color: #0f172a;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+  position: relative;
+  overflow: hidden;
+  page-break-after: always;
+  break-after: page;
+}
+
+/* Strict Print Rules for A4 2 Pages */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Hide everything except the print container */
+  .no-print,
+  nav,
+  header,
+  aside,
+  button,
+  .print-hide {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  #printable-contract-container {
+    display: block !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .a4-page {
+    width: 210mm !important;
+    height: 297mm !important;
+    max-height: 297mm !important;
+    margin: 0 !important;
+    padding: 8mm 10mm !important;
+    box-shadow: none !important;
+    border: none !important;
+    page-break-after: always !important;
+    break-after: page !important;
+  }
+
+  .a4-page:last-child {
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
