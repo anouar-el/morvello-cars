@@ -758,13 +758,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const login = (email: string, pass: string): { success: boolean; error?: string } => {
     const trimmedEmail = email.trim().toLowerCase();
-    const user = users.find((u) => u.email.toLowerCase() === trimmedEmail);
+    const trimmedPass = pass.trim();
+
+    const user = users.find((u) => {
+      const uEmail = u.email.toLowerCase();
+      if (uEmail === trimmedEmail) return true;
+      // Allow Gérant Anouar to connect via his Google email or username
+      if (u.id === 'usr-1' || u.role === 'admin') {
+        if (trimmedEmail === 'anouar7fac@gmail.com' || trimmedEmail === 'anouar@morvellocars.com' || trimmedEmail === 'anouar') {
+          return true;
+        }
+      }
+      return false;
+    });
+
     if (!user) {
-      return { success: false, error: 'Aucun compte trouvé avec cet e-mail.' };
+      return { success: false, error: 'Aucun compte collaborateur trouvé avec cet e-mail.' };
     }
-    const storedPass = user.password || 'admin123';
-    if (pass !== storedPass) {
-      return { success: false, error: 'Mot de passe incorrect.' };
+    const storedPass = (user.password || 'admin123').trim();
+    if (trimmedPass !== storedPass) {
+      return { success: false, error: 'Mot de passe incorrect pour ce compte.' };
     }
     setCurrentUser(user);
     addAuditLog('Connexion', 'user_permission', user.id, `Connexion réussie de ${user.name} (${user.role.toUpperCase()})`);

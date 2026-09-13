@@ -116,9 +116,9 @@ export const Navbar: React.FC = () => {
     { id: 'terms', label: 'Conditions V1.0', icon: <ShieldCheck className="w-4 h-4" /> },
     {
       id: 'permissions',
-      label: 'Permissions',
+      label: 'Équipe & Accès',
       icon: <KeyRound className="w-4 h-4" />,
-      badge: currentUser.role === 'admin' ? 'Gérant' : undefined,
+      badge: currentUser.role === 'admin' ? 'Sécurité' : undefined,
     },
     { id: 'audit', label: 'Journal', icon: <History className="w-4 h-4" /> },
     { id: 'settings', label: 'Paramètres', icon: <Settings className="w-4 h-4" /> },

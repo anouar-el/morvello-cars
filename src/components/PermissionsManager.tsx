@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { User, UserRole, UserPermissions, DEFAULT_PERMISSIONS_BY_ROLE } from '../types';
+import { CredentialsManager } from './CredentialsManager';
 import {
   ShieldAlert,
   ShieldCheck,
@@ -198,6 +199,7 @@ export const PermissionsManager: React.FC = () => {
     setActiveTab,
   } = useApp();
 
+  const [activeSubTab, setActiveSubTab] = useState<'credentials' | 'permissions'>('credentials');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUserId, setSelectedUserId] = useState<string>(
     users.find((u) => u.id !== currentUser.id)?.id || users[0]?.id || ''
@@ -503,8 +505,50 @@ export const PermissionsManager: React.FC = () => {
         </div>
       </div>
 
-      {/* BANNIÈRE DE TEST RAPIDE DE RÔLES */}
-      <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-slate-950 border border-amber-500/30 rounded-2xl p-4 shadow-lg flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      {/* SOUS-NAVIGATION ONGLETS : IDENTIFIANTS VS HABILITATIONS */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-800 pb-3">
+        <button
+          type="button"
+          onClick={() => setActiveSubTab('credentials')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            activeSubTab === 'credentials'
+              ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20'
+              : 'bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-850 border border-slate-800'
+          }`}
+        >
+          <KeyRound className="w-4 h-4" />
+          <span>Identifiants, Logins & Mots de Passe</span>
+          <span className={`text-[10px] px-1.5 py-0.2 rounded font-mono ${
+            activeSubTab === 'credentials' ? 'bg-slate-950/30 text-slate-950 font-extrabold' : 'bg-slate-800 text-slate-400'
+          }`}>
+            {users.length}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveSubTab('permissions')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            activeSubTab === 'permissions'
+              ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20'
+              : 'bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-850 border border-slate-800'
+          }`}
+        >
+          <ShieldCheck className="w-4 h-4" />
+          <span>Matrice des Habilitations RBAC</span>
+          <span className="text-[10px] opacity-75 font-mono">
+            (Contrats, Flotte, Cautions)
+          </span>
+        </button>
+      </div>
+
+      {/* CONTENU SELON L'ONGLET SÉLECTIONNÉ */}
+      {activeSubTab === 'credentials' ? (
+        <CredentialsManager />
+      ) : (
+        <>
+          {/* BANNIÈRE DE TEST RAPIDE DE RÔLES */}
+          <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-slate-950 border border-amber-500/30 rounded-2xl p-4 shadow-lg flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shrink-0">
             <Sparkles className="w-5 h-5" />
@@ -909,6 +953,8 @@ export const PermissionsManager: React.FC = () => {
           )}
         </div>
       </div>
+        </>
+      )}
 
       {/* MODAL : AJOUT D'UN NOUVEAU MEMBRE D'ÉQUIPE */}
       {isAddUserModalOpen && (
