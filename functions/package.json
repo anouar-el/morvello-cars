@@ -1,0 +1,19 @@
+{
+  "name": "morvello-cloud-functions",
+  "description": "Firebase Cloud Functions for Morvello Cars — Custom Claims RBAC & Server-Side Team Provisioning",
+  "scripts": {
+    "serve": "firebase emulators:start --only functions",
+    "shell": "firebase functions:shell",
+    "start": "npm run shell",
+    "deploy": "firebase deploy --only functions"
+  },
+  "engines": {
+    "node": "18"
+  },
+  "main": "index.js",
+  "dependencies": {
+    "firebase-admin": "^12.0.0",
+    "firebase-functions": "^5.0.0"
+  },
+  "private": true
+}

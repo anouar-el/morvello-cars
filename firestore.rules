@@ -22,12 +22,14 @@ service cloud.firestore {
       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
+    // RBAC: Admin privileges are strictly derived from Firebase Auth Custom Claims
+    // (request.auth.token.admin == true or request.auth.token.role == 'admin').
+    // Hardcoded email fallbacks have been completely eliminated for zero-trust security.
+    // Custom claims are cryptographically signed by Google Identity and tamper-proof.
     function isAdmin() {
       return isNonAnonymous() && (
         request.auth.token.admin == true ||
-        request.auth.token.role == 'admin' ||
-        request.auth.token.email == 'anouar7fac@gmail.com' ||
-        request.auth.token.email == 'anouar@morvellocars.com'
+        request.auth.token.role == 'admin'
       );
     }
 

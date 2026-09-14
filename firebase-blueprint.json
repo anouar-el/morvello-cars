@@ -57,6 +57,10 @@
         "email": { "type": "string" },
         "name": { "type": "string" },
         "role": { "type": "string" },
+        "phone": { "type": "string" },
+        "agency": { "type": "string" },
+        "assignedFleetName": { "type": "string" },
+        "adminClaim": { "type": "boolean" },
         "updatedAt": { "type": "string" }
       },
       "required": ["uid", "email", "role"]

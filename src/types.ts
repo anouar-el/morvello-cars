@@ -52,12 +52,13 @@ export interface User {
   passwordHash?: string;
   passwordSalt?: string;
   firebaseUid?: string;
-  authProvider?: 'password' | 'google';
+  authProvider?: 'password' | 'google' | 'agency' | 'local';
   agency?: string;
   assignedFleetName?: string;
   permissions?: UserPermissions;
   assignedContractTemplate?: ContractTemplateId;
   mustChangePassword?: boolean;
+  passwordResetLink?: string;
 }
 
 export type ContractTemplateId = 'standard' | 'prestige' | 'corporate';

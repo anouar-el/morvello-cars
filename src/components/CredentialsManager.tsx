@@ -33,6 +33,7 @@ export const CredentialsManager: React.FC = () => {
     users,
     currentUser,
     updateUser,
+    updateUserRole,
     addUser,
     deleteUser,
     switchUser,
@@ -118,7 +119,11 @@ export const CredentialsManager: React.FC = () => {
 
     await updateUser(editingUser.id, payload);
 
-    triggerToast(`Identifiants de ${editName} mis à jour et chiffrés avec succès.`);
+    if (editRole !== editingUser.role) {
+      await updateUserRole(editingUser.id, editRole);
+    }
+
+    triggerToast(`Identifiants et rôle de ${editName} mis à jour avec succès.`);
     setEditingUser(null);
 
     // Sync to Cloud Firestore automatically

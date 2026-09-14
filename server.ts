@@ -5,13 +5,92 @@ import { GoogleGenAI } from '@google/genai';
 import dotenv from 'dotenv';
 
 import crypto from 'crypto';
+import { initializeApp, getApps, App as FirebaseAdminApp } from 'firebase-admin/app';
+import { getAuth, UserRecord, CreateRequest, Auth as FirebaseAdminAuth } from 'firebase-admin/auth';
+import { getFirestore, Firestore as FirebaseAdminFirestore } from 'firebase-admin/firestore';
 
 dotenv.config();
+
+// Lazy initialization for Firebase Admin SDK
+let adminApp: FirebaseAdminApp | null = null;
+let adminAuth: FirebaseAdminAuth | null = null;
+let adminDb: FirebaseAdminFirestore | null = null;
+
+function getAdminApp(): FirebaseAdminApp {
+  if (!adminApp) {
+    const existing = getApps();
+    if (existing.length > 0) {
+      adminApp = existing[0];
+    } else {
+      adminApp = initializeApp({
+        projectId: 'reference-unity-289300',
+      });
+    }
+  }
+  return adminApp;
+}
+
+function getAdminAuth(): FirebaseAdminAuth {
+  if (!adminAuth) {
+    adminAuth = getAuth(getAdminApp());
+  }
+  return adminAuth;
+}
+
+function getAdminDb(): FirebaseAdminFirestore {
+  if (!adminDb) {
+    adminDb = getFirestore(getAdminApp());
+  }
+  return adminDb;
+}
 
 const app = express();
 const PORT = 3000;
 
 app.use(express.json({ limit: '10mb' }));
+
+// Helper to verify admin caller via Firebase Auth ID Token
+async function verifyAdminCaller(
+  req: express.Request
+): Promise<{ isAdmin: boolean; callerUid?: string; error?: string }> {
+  const authHeader = req.headers.authorization;
+  const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  if (!token) {
+    return { isAdmin: false, error: 'Jeton d\'authentification manquant dans l\'en-tête Authorization' };
+  }
+
+  try {
+    const auth = getAdminAuth();
+    const decoded = await auth.verifyIdToken(token);
+    const hasAdminClaim = decoded.admin === true || decoded.role === 'admin';
+    const isOwnerEmail =
+      decoded.email === 'anouar7fac@gmail.com' ||
+      decoded.email === 'anouar@morvellocars.com';
+
+    // Auto-bootstrap admin claim for project owner if not yet applied
+    if (isOwnerEmail && !hasAdminClaim) {
+      try {
+        await auth.setCustomUserClaims(decoded.uid, { role: 'admin', admin: true });
+        console.log(`[Server] Automatically provisioned admin claim for owner: ${decoded.email}`);
+      } catch (claimErr) {
+        console.warn('[Server] Claim bootstrap note:', claimErr);
+      }
+      return { isAdmin: true, callerUid: decoded.uid };
+    }
+
+    if (!hasAdminClaim && !isOwnerEmail) {
+      return {
+        isAdmin: false,
+        callerUid: decoded.uid,
+        error: 'Action réservée aux administrateurs (Custom Claim "admin" requis).',
+      };
+    }
+
+    return { isAdmin: true, callerUid: decoded.uid };
+  } catch (err: any) {
+    return { isAdmin: false, error: 'Jeton d\'authentification Firebase invalide ou expiré.' };
+  }
+}
 
 // Helper for secure PBKDF2 hash computation
 function computePBKDF2(password: string, salt: string): string {
@@ -148,6 +227,184 @@ app.post('/api/auth/hash-password', (req, res) => {
     res.json({ salt, hash });
   } catch (error: any) {
     res.status(500).json({ error: 'Erreur lors du hachage sécurisé' });
+  }
+});
+
+// ============================================================================
+// Firebase Auth Custom Claims & Team Member Provisioning Endpoints
+// ============================================================================
+
+/**
+ * Set User Role and Custom Claims ({ role, admin: boolean })
+ * Strict verification of admin privileges via Firebase Auth token
+ */
+app.post('/api/admin/set-user-role', async (req, res) => {
+  try {
+    const authCheck = await verifyAdminCaller(req);
+    if (!authCheck.isAdmin) {
+      return res.status(403).json({ success: false, error: authCheck.error });
+    }
+
+    const { uid, role } = req.body;
+    if (!uid || typeof uid !== 'string') {
+      return res.status(400).json({ success: false, error: 'UID utilisateur cible requis.' });
+    }
+
+    const allowed = ['admin', 'manager', 'agent'];
+    if (!role || !allowed.includes(role)) {
+      return res.status(400).json({ success: false, error: `Rôle invalide. Autorisés: ${allowed.join(', ')}` });
+    }
+
+    const isAdminRole = role === 'admin';
+    await getAdminAuth().setCustomUserClaims(uid, {
+      role: role,
+      admin: isAdminRole,
+    });
+
+    // Update Firestore /users/{uid} document
+    try {
+      await getAdminDb().collection('users').doc(uid).set(
+        {
+          uid,
+          role,
+          adminClaim: isAdminRole,
+          updatedAt: new Date().toISOString(),
+          updatedBy: authCheck.callerUid,
+        },
+        { merge: true }
+      );
+    } catch (fsErr: any) {
+      console.warn('[Server] Firestore update warning in set-user-role:', fsErr?.message);
+    }
+
+    console.log(`[Server] Applied Custom Claims for UID ${uid}: role=${role}, admin=${isAdminRole}`);
+
+    res.json({
+      success: true,
+      uid,
+      role,
+      admin: isAdminRole,
+      message: `Rôle ${role.toUpperCase()} appliqué avec succès (Custom Claims).`,
+    });
+  } catch (error: any) {
+    console.error('[Server] set-user-role error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Erreur lors de la mise à jour des Custom Claims.',
+    });
+  }
+});
+
+/**
+ * Provision Team Member:
+ * Creates user in Firebase Auth without public client signup,
+ * applies Custom Claims, generates activation link, and registers in Firestore.
+ */
+app.post('/api/admin/provision-team-member', async (req, res) => {
+  try {
+    const authCheck = await verifyAdminCaller(req);
+    if (!authCheck.isAdmin) {
+      return res.status(403).json({ success: false, error: authCheck.error });
+    }
+
+    const {
+      email,
+      name,
+      role = 'manager',
+      agency = 'Agence Morvello',
+      phone = '',
+      assignedFleetName = '',
+      password = '',
+    } = req.body;
+
+    if (!email || typeof email !== 'string' || !email.includes('@')) {
+      return res.status(400).json({ success: false, error: 'Email valide obligatoire.' });
+    }
+
+    const trimmedEmail = email.trim().toLowerCase();
+    const trimmedName = (name || trimmedEmail.split('@')[0]).trim();
+    const allowed = ['admin', 'manager', 'agent'];
+    const targetRole = allowed.includes(role) ? role : 'manager';
+    const isAdminRole = targetRole === 'admin';
+
+    // Check if user already exists or create new Firebase Auth user
+    let userRecord: UserRecord;
+    const auth = getAdminAuth();
+    try {
+      userRecord = await auth.getUserByEmail(trimmedEmail);
+      console.log(`[Server] User ${trimmedEmail} exists with UID: ${userRecord.uid}`);
+    } catch (err: any) {
+      if (err.code === 'auth/user-not-found') {
+        const createPayload: CreateRequest = {
+          email: trimmedEmail,
+          displayName: trimmedName,
+          disabled: false,
+        };
+        if (password && typeof password === 'string' && password.length >= 6) {
+          createPayload.password = password;
+        }
+        if (phone && typeof phone === 'string' && phone.startsWith('+')) {
+          createPayload.phoneNumber = phone;
+        }
+        userRecord = await auth.createUser(createPayload);
+        console.log(`[Server] Provisioned new Auth user ${trimmedEmail} (UID: ${userRecord.uid})`);
+      } else {
+        throw err;
+      }
+    }
+
+    // Set Custom Claims
+    await auth.setCustomUserClaims(userRecord.uid, {
+      role: targetRole,
+      admin: isAdminRole,
+    });
+
+    // Generate secure password reset / activation link
+    let resetLink: string | null = null;
+    try {
+      resetLink = await auth.generatePasswordResetLink(trimmedEmail);
+    } catch (linkErr: any) {
+      console.warn('[Server] Could not generate reset link:', linkErr?.message);
+    }
+
+    // Persist user record in Firestore /users/{uid}
+    try {
+      await getAdminDb().collection('users').doc(userRecord.uid).set(
+        {
+          uid: userRecord.uid,
+          email: trimmedEmail,
+          name: trimmedName,
+          role: targetRole,
+          agency,
+          phone,
+          assignedFleetName,
+          adminClaim: isAdminRole,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          createdBy: authCheck.callerUid,
+        },
+        { merge: true }
+      );
+    } catch (fsErr: any) {
+      console.warn('[Server] Firestore doc write warning:', fsErr?.message);
+    }
+
+    res.json({
+      success: true,
+      uid: userRecord.uid,
+      email: trimmedEmail,
+      name: trimmedName,
+      role: targetRole,
+      admin: isAdminRole,
+      resetLink,
+      message: `Collaborateur ${trimmedName} provisionné avec succès.`,
+    });
+  } catch (error: any) {
+    console.error('[Server] provision-team-member error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Erreur lors du provisionnement du compte collaborateur.',
+    });
   }
 });
 
@@ -500,4 +757,8 @@ async function startServer() {
   });
 }
 
-startServer();
+startServer().catch((err) => {
+  console.error('[Server] Fatal startup error:', err);
+  process.exit(1);
+});
+

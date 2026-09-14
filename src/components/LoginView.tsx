@@ -30,6 +30,14 @@ export const LoginView: React.FC = () => {
   const [resetStatus, setResetStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [resetMessage, setResetMessage] = useState('');
 
+  const formatAuthError = (msg: string) => {
+    if (!msg) return 'Identifiants invalides.';
+    if (msg.includes('operation-not-allowed') || msg.includes('auth/operation-not-allowed')) {
+      return "Le mode Email/Mot de passe n'est pas activé dans la console Firebase. Veuillez vous connecter avec le bouton Google ci-dessus ou avec vos identifiants d'agence.";
+    }
+    return msg;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -38,10 +46,10 @@ export const LoginView: React.FC = () => {
     try {
       const res = await login(email, password);
       if (!res.success) {
-        setError(res.error || 'Identifiants invalides.');
+        setError(formatAuthError(res.error || 'Identifiants invalides.'));
       }
     } catch (err: any) {
-      setError(err?.message || 'Erreur lors de la connexion.');
+      setError(formatAuthError(err?.message || 'Erreur lors de la connexion.'));
     } finally {
       setLoading(false);
     }
