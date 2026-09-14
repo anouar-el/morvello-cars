@@ -309,7 +309,7 @@ export const CredentialsManager: React.FC = () => {
                   <span className="text-[10px] text-slate-500 uppercase font-mono block">Sécurité Compte Gérant</span>
                   <span className="text-xs font-mono font-bold text-emerald-400 tracking-wider flex items-center gap-1">
                     <ShieldCheck className="w-3.5 h-3.5" />
-                    Chiffré PBKDF2 (SHA-256)
+                    Firebase Auth Natif
                   </span>
                 </div>
               </div>
@@ -435,19 +435,27 @@ export const CredentialsManager: React.FC = () => {
 
                     {/* Mot de Passe */}
                     <td className="py-3.5 px-4">
-                      <div className="flex items-center gap-2">
-                        <div className="bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800 font-mono text-[11px] text-emerald-400 flex items-center gap-1.5">
-                          <Lock className="w-3 h-3 text-emerald-400" />
-                          <span>Chiffré PBKDF2</span>
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                          <div className="bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800 font-mono text-[11px] text-emerald-400 flex items-center gap-1.5">
+                            <Lock className="w-3 h-3 text-emerald-400" />
+                            <span>Firebase Auth</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEdit(u)}
+                            className="text-slate-400 hover:text-amber-400 transition-colors cursor-pointer p-1"
+                            title="Modifier le compte ou mot de passe"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => handleOpenEdit(u)}
-                          className="text-slate-400 hover:text-amber-400 transition-colors cursor-pointer p-1"
-                          title="Changer le mot de passe"
-                        >
-                          <Edit3 className="w-3.5 h-3.5" />
-                        </button>
+                        {u.mustChangePassword && (
+                          <span className="text-[10px] bg-amber-500/15 text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded font-mono font-bold flex items-center gap-1 w-fit">
+                            <AlertTriangle className="w-3 h-3 text-amber-400" />
+                            Renouvellement requis
+                          </span>
+                        )}
                       </div>
                     </td>
 

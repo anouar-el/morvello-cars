@@ -8,6 +8,7 @@ import { AppProvider, useApp } from './context/AppContext';
 import { Navbar } from './components/Navbar';
 import { Dashboard } from './components/Dashboard';
 import { LoginView } from './components/LoginView';
+import { ForcePasswordChangeModal } from './components/ForcePasswordChangeModal';
 import { Contract } from './types';
 import { Bot, Sparkles, Loader2 } from 'lucide-react';
 
@@ -179,6 +180,7 @@ function MainAppContent() {
       </footer>
 
       {/* GLOBAL MODALS */}
+      <ForcePasswordChangeModal />
       <Suspense fallback={null}>
         <PdfModal />
         <ReturnCheckInModal

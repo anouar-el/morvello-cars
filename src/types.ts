@@ -57,6 +57,7 @@ export interface User {
   assignedFleetName?: string;
   permissions?: UserPermissions;
   assignedContractTemplate?: ContractTemplateId;
+  mustChangePassword?: boolean;
 }
 
 export type ContractTemplateId = 'standard' | 'prestige' | 'corporate';

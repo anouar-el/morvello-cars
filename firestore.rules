@@ -2,13 +2,33 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Default deny for unmatched collections
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
     // Security Primitives
     function isSignedIn() {
       return request.auth != null;
     }
 
+    // Distinguish real authenticated users (email/password or Google) from anonymous sessions
+    function isNonAnonymous() {
+      return isSignedIn() &&
+        request.auth.token.firebase.sign_in_provider != 'anonymous';
+    }
+
     function isValidId(id) {
       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isAdmin() {
+      return isNonAnonymous() && (
+        request.auth.token.admin == true ||
+        request.auth.token.role == 'admin' ||
+        request.auth.token.email == 'anouar7fac@gmail.com' ||
+        request.auth.token.email == 'anouar@morvellocars.com'
+      );
     }
 
     // Connection validation document
@@ -17,15 +37,18 @@ service cloud.firestore {
     }
 
     // Individual user profile and role document (RBAC)
+    // Read: authenticated non-anonymous team member
+    // Write: strictly restricted to document owner (request.auth.uid == userId) or verified admin
     match /users/{userId} {
-      allow read, write: if isSignedIn() && isValidId(userId);
+      allow read: if isNonAnonymous() && isValidId(userId);
+      allow create, update: if isNonAnonymous() && (request.auth.uid == userId || isAdmin()) && isValidId(userId);
+      allow delete: if isAdmin() && isValidId(userId);
     }
 
     // Central agency cloud document
-    // Morvello Cars Rental Management Platform
-    // Accessible by authenticated team members
+    // Accessible only by verified, non-anonymous authenticated team members
     match /agencies/{agencyId} {
-      allow read, write: if isSignedIn() && isValidId(agencyId);
+      allow read, write: if isNonAnonymous() && isValidId(agencyId);
     }
   }
 }

@@ -11,12 +11,11 @@ import {
   signInWithPopup,
   signOut,
   onAuthStateChanged,
-  signInAnonymously,
   signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
+  updatePassword,
+  sendPasswordResetEmail,
   User as FirebaseUser,
 } from 'firebase/auth';
-import { hashPassword, generateSalt, verifyPassword, generateStrongPassword } from '../utils/cryptoAuth';
 import { isAbortException } from '../initErrorHandling';
 import { saveUserProfile } from '../lib/firestoreSync';
 
@@ -39,6 +38,7 @@ export interface AuthContextType {
   resetUserPermissions: (userId: string) => void;
   hasPermission: (perm: keyof UserPermissions) => boolean;
   changeUserPassword: (userId: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
+  sendResetEmail: (email: string) => Promise<{ success: boolean; error?: string }>;
   setUsersList: (users: User[]) => void;
 }
 
@@ -71,9 +71,8 @@ export const AuthProvider: React.FC<{
                 name: initialMatch?.name || u.name,
                 email: initialMatch?.email || u.email,
                 phone: u.phone || initialMatch?.phone,
-                passwordSalt: u.passwordSalt || initialMatch?.passwordSalt,
-                passwordHash: u.passwordHash || initialMatch?.passwordHash,
                 permissions: u.permissions || { ...DEFAULT_PERMISSIONS_BY_ROLE[u.role] },
+                mustChangePassword: u.mustChangePassword ?? initialMatch?.mustChangePassword ?? false,
               };
             });
 
@@ -97,13 +96,12 @@ export const AuthProvider: React.FC<{
       try {
         const parsed: User = JSON.parse(saved);
         const match = users.find((u) => u.id === parsed.id);
-        return match || users.find((u) => u.role === 'admin') || users[0] || null;
+        return match || null;
       } catch (e) {
         console.error('Failed to parse current user', e);
       }
     }
-    // Default to Gérant if local storage empty
-    return users.find((u) => u.role === 'admin') || users[0] || null;
+    return null;
   });
 
   // Listen to Firebase Authentication state changes
@@ -114,7 +112,7 @@ export const AuthProvider: React.FC<{
 
       if (fbUser && fbUser.email) {
         const emailLower = fbUser.email.toLowerCase();
-        // Check if Google user matches Gérant Anouar or a team member
+        // Check if Google/Firebase user matches Gérant Anouar or a team member
         const matched = users.find(
           (u) =>
             u.email.toLowerCase() === emailLower ||
@@ -127,46 +125,30 @@ export const AuthProvider: React.FC<{
         if (matched) {
           setCurrentUser((prev) => {
             if (!prev || prev.id !== matched.id) {
-              return { ...matched, firebaseUid: fbUser.uid, authProvider: 'google' };
+              return {
+                ...matched,
+                firebaseUid: fbUser.uid,
+                authProvider: fbUser.providerData?.[0]?.providerId === 'google.com' ? 'google' : 'password',
+              };
             }
             return { ...prev, firebaseUid: fbUser.uid };
           });
         }
+      } else if (!fbUser) {
+        // Logged out
+        setCurrentUser(null);
+        localStorage.removeItem(STORAGE_KEYS.USER);
       }
     });
 
     return () => unsubscribe();
   }, [users]);
 
-  // Ensure Firebase Auth session is active so Firestore rules (request.auth != null) allow access
-  useEffect(() => {
-    let unmounted = false;
-    const initAuth = async () => {
-      try {
-        if (typeof auth.authStateReady === 'function') {
-          await auth.authStateReady();
-        }
-        if (!auth.currentUser && !unmounted) {
-          await signInAnonymously(auth);
-        }
-      } catch (err: any) {
-        if (!unmounted && !isAbortException(err)) {
-          // Ignore offline or cancellation
-        }
-      }
-    };
-    initAuth();
-    return () => {
-      unmounted = true;
-    };
-  }, []);
-
-  // Persist users and currentUser
+  // Persist users and currentUser (without sensitive credentials)
   useEffect(() => {
     try {
-      // Strip plaintext passwords if any before writing to localStorage
       const sanitized = users.map((u) => {
-        const { password: _p, ...rest } = u;
+        const { password: _p, passwordHash: _ph, passwordSalt: _ps, ...rest } = u as any;
         return rest;
       });
       localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(sanitized));
@@ -177,7 +159,7 @@ export const AuthProvider: React.FC<{
 
   useEffect(() => {
     if (currentUser) {
-      const { password: _p, ...safe } = currentUser;
+      const { password: _p, passwordHash: _ph, passwordSalt: _ps, ...safe } = currentUser as any;
       localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(safe));
     } else {
       localStorage.removeItem(STORAGE_KEYS.USER);
@@ -194,9 +176,10 @@ export const AuthProvider: React.FC<{
   };
 
   /**
-   * Firebase Auth Login: authenticates via Firebase Auth (email/password),
-   * provisions account for verified team members if needed, and synchronizes
-   * the user RBAC profile into Firestore /users/{uid}.
+   * Native Firebase Auth Login:
+   * Identity verification handled 100% on Google Firebase Auth servers.
+   * No password hashes stored or checked client-side.
+   * No client-side createUserWithEmailAndPassword from public login form.
    */
   const login = async (
     email: string,
@@ -204,6 +187,10 @@ export const AuthProvider: React.FC<{
   ): Promise<{ success: boolean; error?: string }> => {
     const trimmedInput = email.trim().toLowerCase();
     const trimmedPass = pass.trim();
+
+    if (!trimmedInput || !trimmedPass) {
+      return { success: false, error: 'Veuillez saisir votre adresse email et votre mot de passe.' };
+    }
 
     // Normalize canonical email
     let canonicalEmail = trimmedInput;
@@ -213,70 +200,9 @@ export const AuthProvider: React.FC<{
     }
 
     try {
-      let fbUser: FirebaseUser | null = null;
-
-      // 1. Attempt native Firebase Auth sign-in with email & password
-      try {
-        const cred = await signInWithEmailAndPassword(auth, canonicalEmail, trimmedPass);
-        fbUser = cred.user;
-      } catch (fbErr: any) {
-        if (isAbortException(fbErr)) {
-          return { success: false, error: 'Connexion annulée.' };
-        }
-
-        const isNotFoundOrWrong =
-          fbErr.code === 'auth/user-not-found' ||
-          fbErr.code === 'auth/invalid-credential' ||
-          fbErr.code === 'auth/wrong-password';
-
-        // Check against verified backend or local PBKDF2 to authorize provisioning
-        const matched = users.find((u) => {
-          const uEmail = u.email.toLowerCase();
-          return (
-            uEmail === canonicalEmail ||
-            (u.role === 'admin' &&
-              (canonicalEmail.startsWith('anouar') || canonicalEmail === 'anouar7fac@gmail.com'))
-          );
-        });
-
-        if (!matched) {
-          return { success: false, error: 'Aucun compte collaborateur trouvé pour cet identifiant.' };
-        }
-
-        const isMatch = await verifyPassword(
-          trimmedPass,
-          matched.passwordHash || '',
-          matched.passwordSalt
-        );
-
-        if (!isMatch) {
-          return { success: false, error: 'Mot de passe incorrect pour ce compte.' };
-        }
-
-        // Collaborator credentials verified: provision native Firebase Auth account
-        if (isNotFoundOrWrong || fbErr.code === 'auth/invalid-email') {
-          try {
-            const newCred = await createUserWithEmailAndPassword(auth, canonicalEmail, trimmedPass);
-            fbUser = newCred.user;
-          } catch (createErr: any) {
-            // If already created or network bridge required
-            if (!auth.currentUser) {
-              try {
-                await signInAnonymously(auth);
-              } catch {}
-            }
-          }
-        }
-      }
-
-      // Ensure Firebase Auth session exists
-      if (!auth.currentUser && !fbUser) {
-        try {
-          await signInAnonymously(auth);
-        } catch {}
-      }
-
-      const effectiveUid = fbUser?.uid || auth.currentUser?.uid;
+      // 1. Native Firebase Auth sign-in
+      const cred = await signInWithEmailAndPassword(auth, canonicalEmail, trimmedPass);
+      const fbUser = cred.user;
 
       // 2. Identify application team user
       const matchedUser =
@@ -298,17 +224,19 @@ export const AuthProvider: React.FC<{
 
       const finalUser: User = {
         ...matchedUser,
-        firebaseUid: effectiveUid,
+        firebaseUid: fbUser.uid,
         authProvider: 'password',
       };
 
       // 3. Persist User Profile & RBAC role to Firestore /users/{uid}
-      if (effectiveUid) {
-        await saveUserProfile(effectiveUid, {
+      try {
+        await saveUserProfile(fbUser.uid, {
           role: finalUser.role,
           email: finalUser.email,
           name: finalUser.name,
         });
+      } catch (profileErr) {
+        console.warn('Profile sync warning:', profileErr);
       }
 
       setCurrentUser(finalUser);
@@ -320,12 +248,37 @@ export const AuthProvider: React.FC<{
       );
 
       return { success: true };
-    } catch (err: any) {
-      if (isAbortException(err)) {
+    } catch (fbErr: any) {
+      if (isAbortException(fbErr)) {
         return { success: false, error: 'Connexion annulée.' };
       }
-      console.error('Firebase Auth login error:', err);
-      return { success: false, error: err.message || 'Erreur inattendue lors de la connexion' };
+
+      const code = fbErr?.code;
+      if (
+        code === 'auth/invalid-credential' ||
+        code === 'auth/wrong-password' ||
+        code === 'auth/user-not-found' ||
+        code === 'auth/invalid-email'
+      ) {
+        return {
+          success: false,
+          error: 'Identifiants invalides. Vérifiez votre email et mot de passe Firebase Auth.',
+        };
+      }
+      if (code === 'auth/user-disabled') {
+        return { success: false, error: 'Ce compte utilisateur a été désactivé par un administrateur.' };
+      }
+      if (code === 'auth/too-many-requests') {
+        return {
+          success: false,
+          error: 'Trop de tentatives échouées. Veuillez patienter ou réinitialiser votre mot de passe.',
+        };
+      }
+
+      return {
+        success: false,
+        error: fbErr?.message || 'Erreur lors de la connexion avec Firebase Auth.',
+      };
     }
   };
 
@@ -366,11 +319,15 @@ export const AuthProvider: React.FC<{
       };
 
       // Synchronize role and profile in Firestore RBAC
-      await saveUserProfile(fbUser.uid, {
-        role: finalUser.role,
-        email: finalUser.email,
-        name: finalUser.name,
-      });
+      try {
+        await saveUserProfile(fbUser.uid, {
+          role: finalUser.role,
+          email: finalUser.email,
+          name: finalUser.name,
+        });
+      } catch (err) {
+        console.warn('Profile sync notice:', err);
+      }
 
       setCurrentUser(finalUser);
       logAction(
@@ -440,38 +397,31 @@ export const AuthProvider: React.FC<{
   };
 
   const addUser = async (userData: Omit<User, 'id'> & { password?: string }): Promise<User> => {
-    const salt = generateSalt();
-    const plainPwd = userData.password || generateStrongPassword();
-    const hash = await hashPassword(plainPwd, salt);
-
     const newUser: User = {
       ...userData,
-      passwordSalt: salt,
-      passwordHash: hash,
       id: `usr-${Date.now()}`,
       permissions: userData.permissions || { ...DEFAULT_PERMISSIONS_BY_ROLE[userData.role] },
+      mustChangePassword: true,
     };
+    delete (newUser as any).password;
+    delete (newUser as any).passwordSalt;
+    delete (newUser as any).passwordHash;
 
     setUsers((prev) => [...prev, newUser]);
     logAction(
       'Ajout membre d’équipe',
       'user_permission',
       newUser.id,
-      `Nouveau collaborateur créé : ${newUser.name} (${newUser.role.toUpperCase()}) avec identifiants sécurisés`
+      `Nouveau collaborateur créé : ${newUser.name} (${newUser.role.toUpperCase()})`
     );
     return newUser;
   };
 
   const updateUser = async (userId: string, data: Partial<User>) => {
-    let updatePayload = { ...data };
-    // If password was updated, securely compute new salt & hash
-    if (data.password) {
-      const salt = generateSalt();
-      const hash = await hashPassword(data.password, salt);
-      updatePayload.passwordSalt = salt;
-      updatePayload.passwordHash = hash;
-      delete updatePayload.password;
-    }
+    const updatePayload = { ...data };
+    delete (updatePayload as any).password;
+    delete (updatePayload as any).passwordSalt;
+    delete (updatePayload as any).passwordHash;
 
     setUsers((prev) =>
       prev.map((u) => {
@@ -503,22 +453,45 @@ export const AuthProvider: React.FC<{
       return { success: false, error: 'Le mot de passe doit contenir au moins 6 caractères.' };
     }
     try {
-      const salt = generateSalt();
-      const hash = await hashPassword(newPassword.trim(), salt);
+      // If current Firebase Auth session matches, update native password directly
+      if (auth.currentUser) {
+        await updatePassword(auth.currentUser, newPassword.trim());
+      }
       setUsers((prev) =>
         prev.map((u) =>
-          u.id === userId ? { ...u, passwordSalt: salt, passwordHash: hash } : u
+          u.id === userId ? { ...u, mustChangePassword: false } : u
         )
       );
+      if (currentUser?.id === userId) {
+        setCurrentUser((prev) => (prev ? { ...prev, mustChangePassword: false } : null));
+      }
       logAction(
         'Modification mot de passe',
         'user_permission',
         userId,
-        `Mot de passe mis à jour et chiffré pour l’utilisateur #${userId}`
+        `Mot de passe renouvelé avec succès pour l’utilisateur #${userId}`
       );
       return { success: true };
     } catch (e: any) {
-      return { success: false, error: e.message || 'Erreur lors du hachage du mot de passe' };
+      if (e?.code === 'auth/requires-recent-login') {
+        return {
+          success: false,
+          error: 'Sécurité : Veuillez vous reconnecter avant de modifier votre mot de passe.',
+        };
+      }
+      return { success: false, error: e?.message || 'Erreur lors de la mise à jour du mot de passe' };
+    }
+  };
+
+  const sendResetEmail = async (email: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      await sendPasswordResetEmail(auth, email.trim().toLowerCase());
+      return { success: true };
+    } catch (e: any) {
+      return {
+        success: false,
+        error: e?.message || 'Impossible d’envoyer l’email de réinitialisation.',
+      };
     }
   };
 
@@ -621,6 +594,7 @@ export const AuthProvider: React.FC<{
         resetUserPermissions,
         hasPermission,
         changeUserPassword,
+        sendResetEmail,
         setUsersList,
       }}
     >
@@ -636,3 +610,4 @@ export const useAuth = () => {
   }
   return context;
 };
+

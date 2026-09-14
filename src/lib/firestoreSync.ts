@@ -66,7 +66,7 @@ export async function fetchRemoteAgencyData(): Promise<MorvelloCloudData | null>
     if (typeof auth.authStateReady === 'function') {
       await auth.authStateReady();
     }
-    if (!auth.currentUser) {
+    if (!auth.currentUser || auth.currentUser.isAnonymous) {
       return null;
     }
     const docRef = doc(db, APP_DOC_PATH.collection, APP_DOC_PATH.docId);
@@ -79,7 +79,7 @@ export async function fetchRemoteAgencyData(): Promise<MorvelloCloudData | null>
     if (isAbortException(error)) {
       return null;
     }
-    if (error?.code === 'permission-denied' && auth.currentUser) {
+    if (error?.code === 'permission-denied' && auth.currentUser && !auth.currentUser.isAnonymous) {
       handleFirestoreError(error, OperationType.GET, fullPath);
     }
     return null;
@@ -92,7 +92,7 @@ export async function saveRemoteAgencyData(data: Partial<MorvelloCloudData>): Pr
     if (typeof auth.authStateReady === 'function') {
       await auth.authStateReady();
     }
-    if (!auth.currentUser) {
+    if (!auth.currentUser || auth.currentUser.isAnonymous) {
       return false;
     }
     const docRef = doc(db, APP_DOC_PATH.collection, APP_DOC_PATH.docId);
@@ -107,7 +107,7 @@ export async function saveRemoteAgencyData(data: Partial<MorvelloCloudData>): Pr
     if (isAbortException(error)) {
       return false;
     }
-    if (error?.code === 'permission-denied' && auth.currentUser) {
+    if (error?.code === 'permission-denied' && auth.currentUser && !auth.currentUser.isAnonymous) {
       handleFirestoreError(error, OperationType.WRITE, fullPath);
     }
     return false;
@@ -135,7 +135,7 @@ export function subscribeToRemoteAgencyData(
       snapshotUnsub = null;
     }
 
-    if (!user) {
+    if (!user || user.isAnonymous) {
       return;
     }
 
@@ -152,7 +152,7 @@ export function subscribeToRemoteAgencyData(
           if (isDisposed || isAbortException(error)) {
             return;
           }
-          if (error?.code === 'permission-denied' && auth.currentUser) {
+          if (error?.code === 'permission-denied' && auth.currentUser && !auth.currentUser.isAnonymous) {
             handleFirestoreError(error, OperationType.GET, fullPath);
           }
           if (onError) {

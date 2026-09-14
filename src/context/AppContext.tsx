@@ -86,7 +86,10 @@ export interface AppContextType {
   deleteUser: (userId: string) => void;
   hasPermission: (perm: keyof UserPermissions) => boolean;
   login: (email: string, pass: string) => Promise<{ success: boolean; error?: string }>;
+  loginWithGoogle: () => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void> | void;
+  changeUserPassword: (userId: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
+  sendResetEmail: (email: string) => Promise<{ success: boolean; error?: string }>;
 
   // Terms & Clauses Management (Gérant)
   updateTermsVersion: (terms: TermsVersion) => void;
@@ -408,7 +411,10 @@ const AppContextInner: React.FC<{ children: React.ReactNode }> = ({ children }) 
         deleteUser: auth.deleteUser,
         hasPermission: auth.hasPermission,
         login: auth.login,
+        loginWithGoogle: auth.loginWithGoogle,
         logout: auth.logout,
+        changeUserPassword: auth.changeUserPassword,
+        sendResetEmail: auth.sendResetEmail,
         updateTermsVersion: company.updateTermsVersion,
         addTermsClause: (clause) => company.addTermsClause(clause, auth.currentUser?.name),
         updateTermsClause: (number, data) => company.updateTermsClause(number, data, auth.currentUser?.name),
