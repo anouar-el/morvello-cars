@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { ContractPdfDocument } from './ContractPdfDocument';
-import jsPDF from 'jspdf';
-import { toJpeg } from 'html-to-image';
+import { getContractTemplate } from '../data/contractTemplates';
 import {
   Printer,
   Download,
@@ -78,6 +77,12 @@ export const PdfModal: React.FC = () => {
         throw new Error('Les pages du document sont introuvables.');
       }
 
+      setGenerationStep('Chargement du moteur PDF haute précision...');
+      const [{ default: jsPDF }, { toJpeg }] = await Promise.all([
+        import('jspdf'),
+        import('html-to-image'),
+      ]);
+
       setGenerationStep('Capture haute résolution Page 1 (Recto)...');
       const img1 = await toJpeg(page1Element, {
         quality: 0.95,
@@ -141,6 +146,15 @@ export const PdfModal: React.FC = () => {
               <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
                 2 Pages A4 Exactes
+              </span>
+              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+                pdfModalContract.templateId === 'prestige'
+                  ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                  : pdfModalContract.templateId === 'corporate'
+                  ? 'bg-blue-500/15 text-blue-300 border-blue-500/30'
+                  : 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+              }`}>
+                Modèle : {getContractTemplate(pdfModalContract.templateId || companySettings.defaultContractTemplate).name}
               </span>
             </div>
             <p className="text-xs text-slate-400">

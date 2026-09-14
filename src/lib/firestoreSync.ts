@@ -1,6 +1,8 @@
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot, Unsubscribe } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from './firebase';
 import { handleFirestoreError, OperationType } from './firestoreErrors';
+import { isAbortException } from '../initErrorHandling';
 import {
   Client,
   Driver,
@@ -58,22 +60,15 @@ export function sanitizeForFirestore<T>(val: T): T {
   return cleaned as T;
 }
 
-function isAbortError(error: any): boolean {
-  if (!error) return false;
-  const msg = typeof error.message === 'string' ? error.message.toLowerCase() : '';
-  const name = typeof error.name === 'string' ? error.name : '';
-  const code = typeof error.code === 'string' ? error.code : '';
-  return (
-    name === 'AbortError' ||
-    code === 'cancelled' ||
-    msg.includes('aborted') ||
-    msg.includes('abort')
-  );
-}
-
 export async function fetchRemoteAgencyData(): Promise<MorvelloCloudData | null> {
   const fullPath = `${APP_DOC_PATH.collection}/${APP_DOC_PATH.docId}`;
   try {
+    if (typeof auth.authStateReady === 'function') {
+      await auth.authStateReady();
+    }
+    if (!auth.currentUser) {
+      return null;
+    }
     const docRef = doc(db, APP_DOC_PATH.collection, APP_DOC_PATH.docId);
     const snap = await getDoc(docRef);
     if (snap.exists()) {
@@ -81,13 +76,12 @@ export async function fetchRemoteAgencyData(): Promise<MorvelloCloudData | null>
     }
     return null;
   } catch (error: any) {
-    if (isAbortError(error)) {
+    if (isAbortException(error)) {
       return null;
     }
     if (error?.code === 'permission-denied' && auth.currentUser) {
       handleFirestoreError(error, OperationType.GET, fullPath);
     }
-    console.warn('Firebase Firestore fetch warning:', error?.message || error);
     return null;
   }
 }
@@ -95,6 +89,12 @@ export async function fetchRemoteAgencyData(): Promise<MorvelloCloudData | null>
 export async function saveRemoteAgencyData(data: Partial<MorvelloCloudData>): Promise<boolean> {
   const fullPath = `${APP_DOC_PATH.collection}/${APP_DOC_PATH.docId}`;
   try {
+    if (typeof auth.authStateReady === 'function') {
+      await auth.authStateReady();
+    }
+    if (!auth.currentUser) {
+      return false;
+    }
     const docRef = doc(db, APP_DOC_PATH.collection, APP_DOC_PATH.docId);
     const rawPayload = {
       ...data,
@@ -104,13 +104,106 @@ export async function saveRemoteAgencyData(data: Partial<MorvelloCloudData>): Pr
     await setDoc(docRef, sanitizedPayload, { merge: true });
     return true;
   } catch (error: any) {
-    if (isAbortError(error)) {
+    if (isAbortException(error)) {
       return false;
     }
     if (error?.code === 'permission-denied' && auth.currentUser) {
       handleFirestoreError(error, OperationType.WRITE, fullPath);
     }
-    console.warn('Firebase Firestore save warning:', error?.message || error);
+    return false;
+  }
+}
+
+/**
+ * Real-time listener for multi-workstation agency data synchronization
+ */
+export function subscribeToRemoteAgencyData(
+  onData: (data: MorvelloCloudData) => void,
+  onError?: (err: any) => void
+): Unsubscribe {
+  const fullPath = `${APP_DOC_PATH.collection}/${APP_DOC_PATH.docId}`;
+  const docRef = doc(db, APP_DOC_PATH.collection, APP_DOC_PATH.docId);
+
+  let snapshotUnsub: Unsubscribe | null = null;
+  let isDisposed = false;
+
+  const authUnsub = onAuthStateChanged(auth, (user) => {
+    if (isDisposed) return;
+
+    if (snapshotUnsub) {
+      snapshotUnsub();
+      snapshotUnsub = null;
+    }
+
+    if (!user) {
+      return;
+    }
+
+    try {
+      snapshotUnsub = onSnapshot(
+        docRef,
+        (snap) => {
+          if (isDisposed) return;
+          if (snap.exists()) {
+            onData(snap.data() as MorvelloCloudData);
+          }
+        },
+        (error) => {
+          if (isDisposed || isAbortException(error)) {
+            return;
+          }
+          if (error?.code === 'permission-denied' && auth.currentUser) {
+            handleFirestoreError(error, OperationType.GET, fullPath);
+          }
+          if (onError) {
+            onError(error);
+          }
+        }
+      );
+    } catch (err: any) {
+      if (!isDisposed && !isAbortException(err) && onError) {
+        onError(err);
+      }
+    }
+  });
+
+  return () => {
+    isDisposed = true;
+    authUnsub();
+    if (snapshotUnsub) {
+      snapshotUnsub();
+      snapshotUnsub = null;
+    }
+  };
+}
+
+/**
+ * Sync individual user profile and RBAC role in Firestore /users/{uid}
+ */
+export async function saveUserProfile(
+  uid: string,
+  profile: { role: string; email: string; name?: string }
+): Promise<boolean> {
+  const fullPath = `users/${uid}`;
+  try {
+    const docRef = doc(db, 'users', uid);
+    await setDoc(
+      docRef,
+      sanitizeForFirestore({
+        uid,
+        ...profile,
+        updatedAt: new Date().toISOString(),
+      }),
+      { merge: true }
+    );
+    return true;
+  } catch (err: any) {
+    if (isAbortException(err)) {
+      return false;
+    }
+    if (err?.code === 'permission-denied' && auth.currentUser) {
+      handleFirestoreError(err, OperationType.WRITE, fullPath);
+    }
     return false;
   }
 }

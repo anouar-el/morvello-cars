@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { AgentChatMessage } from '../types';
+import { isAbortException } from '../initErrorHandling';
 import Markdown from 'react-markdown';
 import {
   Send,
@@ -169,6 +170,9 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
         throw new Error(data.error || 'Réponse indisponible');
       }
     } catch (err: any) {
+      if (isAbortException(err)) {
+        return;
+      }
       const errorMsg: AgentChatMessage = {
         id: `err-${Date.now()}`,
         role: 'model',

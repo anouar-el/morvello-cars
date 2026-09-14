@@ -47,12 +47,29 @@
         }
       },
       "required": ["updatedAt"]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Individual authenticated user RBAC profile",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["uid", "email", "role"]
     }
   },
   "firestore": {
     "/agencies/{agencyId}": {
       "schema": "Agency",
       "description": "Central company agency document"
+    },
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "Authenticated user RBAC record"
     }
   }
 }

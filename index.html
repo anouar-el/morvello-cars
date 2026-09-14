@@ -2,6 +2,53 @@
 <html lang="fr" class="h-full">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      (function() {
+        function isAbort(e) {
+          if (!e) return false;
+          var msg = (typeof e === 'string' ? e : (e.message || (e.reason && e.reason.message) || '')).toLowerCase();
+          var name = (e.name || (e.reason && e.reason.name) || '');
+          var code = (e.code || (e.reason && e.reason.code) || '');
+          return name === 'AbortError' ||
+                 code === 'cancelled' ||
+                 code === 'auth/popup-closed-by-user' ||
+                 code === 'auth/cancelled-popup-request' ||
+                 msg.indexOf('aborted') !== -1 ||
+                 msg.indexOf('abort') !== -1 ||
+                 msg.indexOf('the user aborted a request') !== -1;
+        }
+
+        var origError = console.error;
+        console.error = function() {
+          for (var i = 0; i < arguments.length; i++) {
+            if (isAbort(arguments[i])) return;
+          }
+          return origError.apply(console, arguments);
+        };
+
+        var origWarn = console.warn;
+        console.warn = function() {
+          for (var i = 0; i < arguments.length; i++) {
+            if (isAbort(arguments[i])) return;
+          }
+          return origWarn.apply(console, arguments);
+        };
+
+        window.addEventListener('unhandledrejection', function(event) {
+          if (isAbort(event.reason)) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+          }
+        }, true);
+
+        window.addEventListener('error', function(event) {
+          if (isAbort(event.error) || isAbort(event.message)) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+          }
+        }, true);
+      })();
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Morvello Cars App — Gestion de Flotte & Contrats</title>
     <meta name="description" content="Application de gestion de location automobile, contrats, cautions, flotte et archivage numérique pour Morvello Cars." />

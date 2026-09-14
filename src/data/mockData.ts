@@ -14,6 +14,7 @@ export const initialCompanySettings: CompanySettings = {
   contractPrefix: 'MC',
   contractYear: 2026,
   nextContractNumber: 50,
+  defaultContractTemplate: 'standard',
 };
 
 export const initialUsers: User[] = [
@@ -28,6 +29,7 @@ export const initialUsers: User[] = [
     agency: 'Siège & Direction Générale',
     assignedFleetName: 'Direction Générale (Supervision globale)',
     permissions: { ...DEFAULT_PERMISSIONS_BY_ROLE.admin },
+    assignedContractTemplate: 'standard',
   },
   {
     id: 'usr-2',
@@ -40,6 +42,7 @@ export const initialUsers: User[] = [
     agency: 'Agence Casablanca Centre',
     assignedFleetName: 'Flotte A (Citadines & Berlines)',
     permissions: { ...DEFAULT_PERMISSIONS_BY_ROLE.manager },
+    assignedContractTemplate: 'standard',
   },
   {
     id: 'usr-3',
@@ -52,6 +55,7 @@ export const initialUsers: User[] = [
     agency: 'Agence Aéroport Nouaceur',
     assignedFleetName: 'Flotte B (SUV, Compactes & Prestige)',
     permissions: { ...DEFAULT_PERMISSIONS_BY_ROLE.manager },
+    assignedContractTemplate: 'prestige',
   },
   {
     id: 'usr-5',
@@ -64,6 +68,7 @@ export const initialUsers: User[] = [
     agency: 'Agence Marrakech & Région',
     assignedFleetName: 'Flotte C (Berlines & SUV Premium)',
     permissions: { ...DEFAULT_PERMISSIONS_BY_ROLE.manager },
+    assignedContractTemplate: 'prestige',
   },
   {
     id: 'usr-6',
@@ -76,6 +81,7 @@ export const initialUsers: User[] = [
     agency: 'Agence Casablanca Littoral',
     assignedFleetName: 'Flotte D (Citadines & Hybrides)',
     permissions: { ...DEFAULT_PERMISSIONS_BY_ROLE.manager },
+    assignedContractTemplate: 'corporate',
   },
 ];
 

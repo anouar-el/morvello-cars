@@ -27,6 +27,7 @@ import {
   Moon,
   Bot,
   Sparkles,
+  Layers,
 } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
@@ -120,6 +121,16 @@ export const Navbar: React.FC = () => {
       icon: <KeyRound className="w-4 h-4" />,
       badge: currentUser.role === 'admin' ? 'Sécurité' : undefined,
     },
+    ...(currentUser.role === 'admin'
+      ? [
+          {
+            id: 'contract_templates' as ActiveTab,
+            label: 'Modèles de Contrat',
+            icon: <Layers className="w-4 h-4 text-amber-400" />,
+            badge: '3 Modèles',
+          },
+        ]
+      : []),
     { id: 'audit', label: 'Journal', icon: <History className="w-4 h-4" /> },
     { id: 'settings', label: 'Paramètres', icon: <Settings className="w-4 h-4" /> },
   ];

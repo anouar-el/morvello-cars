@@ -1,4 +1,5 @@
 import { auth } from './firebase';
+import { isAbortException } from '../initErrorHandling';
 
 export enum OperationType {
   CREATE = 'create',
@@ -31,6 +32,9 @@ export function handleFirestoreError(
   operationType: OperationType,
   path: string | null
 ): never {
+  if (isAbortException(error)) {
+    throw error;
+  }
   const errInfo: FirestoreErrorInfo = {
     error: error instanceof Error ? error.message : String(error),
     authInfo: {

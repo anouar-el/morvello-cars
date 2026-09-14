@@ -1,10 +1,12 @@
 import React from 'react';
-import { Contract, CompanySettings, TermsVersion } from '../types';
+import { Contract, CompanySettings, TermsVersion, ContractTemplateId } from '../types';
 import { CheckCircle2, Calendar, Clock, Gauge, Car, Shield, Phone, MapPin, User, Mail } from 'lucide-react';
 import { CompanyStamp } from './CompanyStamp';
 import { CompanyLogo } from './CompanyLogo';
 import { formatPlateFrench } from '../utils/plateUtils';
 import { useApp } from '../context/AppContext';
+import { PrestigeContractPdfLayout } from './templates/PrestigeContractPdfLayout';
+import { CorporateContractPdfLayout } from './templates/CorporateContractPdfLayout';
 
 interface ContractPdfDocumentProps {
   contract: Contract;
@@ -15,6 +17,7 @@ interface ContractPdfDocumentProps {
   idPrefix?: string;
   managerPhone?: string;
   managerName?: string;
+  templateId?: ContractTemplateId;
 }
 
 export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
@@ -26,6 +29,7 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
   idPrefix = 'preview',
   managerPhone: propManagerPhone,
   managerName: propManagerName,
+  templateId,
 }) => {
   const page1Id = `${idPrefix}-contract-pdf-page-1`;
   const page2Id = `${idPrefix}-contract-pdf-page-2`;
@@ -40,6 +44,16 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
   } catch {
     // Cas de secours si hors contexte
   }
+
+  // Résolution du modèle de contrat applicable
+  const activeTemplateId: ContractTemplateId =
+    templateId ||
+    contract.templateId ||
+    (contract.assignedManagerId && appUsers.length > 0
+      ? appUsers.find((u) => u.id === contract.assignedManagerId)?.assignedContractTemplate
+      : undefined) ||
+    companySettings.defaultContractTemplate ||
+    'standard';
 
   // Résolution intelligente du Manager responsable et de son téléphone direct
   const resolvedManager = (() => {
@@ -130,6 +144,43 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
   const col1Clauses = termsVersion.clauses.slice(0, halfClauses);
   const col2Clauses = termsVersion.clauses.slice(halfClauses);
 
+  // ROUTAGE VERS LES MAQUETTES SPÉCIFIQUES
+  if (activeTemplateId === 'prestige') {
+    return (
+      <PrestigeContractPdfLayout
+        contract={contract}
+        companySettings={companySettings}
+        termsVersion={termsVersion}
+        layout={layout}
+        page1Id={page1Id}
+        page2Id={page2Id}
+        activePhone={activePhone}
+        displayManagerName={displayManagerName}
+        formattedStartDate={formattedStartDate}
+        formattedEndDate={formattedEndDate}
+        formattedCreatedAt={formattedCreatedAt}
+      />
+    );
+  }
+
+  if (activeTemplateId === 'corporate') {
+    return (
+      <CorporateContractPdfLayout
+        contract={contract}
+        companySettings={companySettings}
+        termsVersion={termsVersion}
+        layout={layout}
+        page1Id={page1Id}
+        page2Id={page2Id}
+        activePhone={activePhone}
+        displayManagerName={displayManagerName}
+        formattedStartDate={formattedStartDate}
+        formattedEndDate={formattedEndDate}
+        formattedCreatedAt={formattedCreatedAt}
+      />
+    );
+  }
+
   return (
     <div
       className={`pdf-document-root flex ${
@@ -177,20 +228,10 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
                   </div>
 
                   {/* Coordonnées directes personnalisées selon le manager responsable */}
-                  <div className="flex items-center justify-between text-[7.5px] font-mono bg-slate-50 border border-slate-200 px-2 py-1 rounded-md shadow-2xs">
-                    <span className="flex items-center gap-1 text-slate-800" title={displayManagerName ? `Responsable : ${displayManagerName}` : undefined}>
+                  <div className="flex items-center justify-center text-[7.5px] font-mono bg-slate-50 border border-slate-200 px-2 py-1 rounded-md shadow-2xs">
+                    <span className="flex items-center gap-1 text-slate-800">
                       <Phone className="w-2.5 h-2.5 text-blue-700 shrink-0" />
                       <span>Tél : <strong className="text-slate-950 font-bold">{activePhone}</strong></span>
-                      {displayManagerName && (
-                        <span className="text-[6.5px] text-slate-500 font-sans font-medium truncate max-w-[80px]">
-                          ({displayManagerName})
-                        </span>
-                      )}
-                    </span>
-                    <span className="text-slate-300">•</span>
-                    <span className="flex items-center gap-1 text-slate-600 truncate max-w-[105px]">
-                      <Mail className="w-2.5 h-2.5 text-slate-400 shrink-0" />
-                      <span className="truncate">{companySettings.email || 'contact@morvellocars.com'}</span>
                     </span>
                   </div>
                 </div>
@@ -692,7 +733,7 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
             </div>
           )}
           <div className="text-slate-600 mt-0.5">
-            Tél : <strong className="text-slate-900">{activePhone}</strong> {displayManagerName && `(${displayManagerName})`} • <strong>Assistance &amp; Dépannage :</strong> <span className="font-bold text-slate-900 font-mono">{companySettings.assistancePhone || '0522582962 / 0522589535'}</span> • Web : {companySettings.website} • Email : {companySettings.email}
+            Tél : <strong className="text-slate-900">{activePhone}</strong> • <strong>Assistance &amp; Dépannage :</strong> <span className="font-bold text-slate-900 font-mono">{companySettings.assistancePhone || '0522582962 / 0522589535'}</span> • Web : {companySettings.website} • Email : {companySettings.email}
           </div>
           {showPageIndicator && (
             <div className="flex justify-between items-center mt-1 pt-1 border-t border-slate-200 text-[8px] font-mono text-slate-600">
@@ -743,7 +784,6 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
                   <Phone className="w-2.5 h-2.5 text-amber-700 inline shrink-0" />
                   <span>
                     Tél : <strong className="font-bold text-slate-950">{activePhone}</strong>
-                    {displayManagerName && <span className="text-slate-500 font-sans font-medium ml-1">({displayManagerName})</span>}
                   </span>
                 </span>
                 <span className="text-slate-300">•</span>

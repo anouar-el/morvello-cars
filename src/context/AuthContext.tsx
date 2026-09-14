@@ -12,9 +12,13 @@ import {
   signOut,
   onAuthStateChanged,
   signInAnonymously,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
   User as FirebaseUser,
 } from 'firebase/auth';
-import { hashPassword, generateSalt, verifyPassword } from '../utils/cryptoAuth';
+import { hashPassword, generateSalt, verifyPassword, generateStrongPassword } from '../utils/cryptoAuth';
+import { isAbortException } from '../initErrorHandling';
+import { saveUserProfile } from '../lib/firestoreSync';
 
 export interface AuthContextType {
   currentUser: User | null;
@@ -134,6 +138,29 @@ export const AuthProvider: React.FC<{
     return () => unsubscribe();
   }, [users]);
 
+  // Ensure Firebase Auth session is active so Firestore rules (request.auth != null) allow access
+  useEffect(() => {
+    let unmounted = false;
+    const initAuth = async () => {
+      try {
+        if (typeof auth.authStateReady === 'function') {
+          await auth.authStateReady();
+        }
+        if (!auth.currentUser && !unmounted) {
+          await signInAnonymously(auth);
+        }
+      } catch (err: any) {
+        if (!unmounted && !isAbortException(err)) {
+          // Ignore offline or cancellation
+        }
+      }
+    };
+    initAuth();
+    return () => {
+      unmounted = true;
+    };
+  }, []);
+
   // Persist users and currentUser
   useEffect(() => {
     try {
@@ -167,102 +194,143 @@ export const AuthProvider: React.FC<{
   };
 
   /**
-   * Secure Login: calls backend endpoint to verify credentials with server-side PBKDF2,
-   * then establishes an authenticated session in Firebase Auth to unlock Firestore rules.
+   * Firebase Auth Login: authenticates via Firebase Auth (email/password),
+   * provisions account for verified team members if needed, and synchronizes
+   * the user RBAC profile into Firestore /users/{uid}.
    */
   const login = async (
     email: string,
     pass: string
   ): Promise<{ success: boolean; error?: string }> => {
-    const trimmedEmail = email.trim().toLowerCase();
+    const trimmedInput = email.trim().toLowerCase();
     const trimmedPass = pass.trim();
 
+    // Normalize canonical email
+    let canonicalEmail = trimmedInput;
+    if (!canonicalEmail.includes('@')) {
+      if (canonicalEmail === 'anouar') canonicalEmail = 'anouar@morvellocars.com';
+      else canonicalEmail = `${canonicalEmail}@morvellocars.com`;
+    }
+
     try {
-      // 1. Try server backend authentication endpoint
-      let backendSuccess = false;
-      let authenticatedUser: User | null = null;
+      let fbUser: FirebaseUser | null = null;
 
+      // 1. Attempt native Firebase Auth sign-in with email & password
       try {
-        const res = await fetch('/api/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: trimmedEmail, password: trimmedPass, users }),
-        });
-        const data = await res.json();
-        if (data.success && data.user) {
-          backendSuccess = true;
-          authenticatedUser = data.user;
-        } else if (res.status === 401) {
-          return { success: false, error: data.error || 'Identifiants invalides.' };
+        const cred = await signInWithEmailAndPassword(auth, canonicalEmail, trimmedPass);
+        fbUser = cred.user;
+      } catch (fbErr: any) {
+        if (isAbortException(fbErr)) {
+          return { success: false, error: 'Connexion annulée.' };
         }
-      } catch (networkErr) {
-        console.warn('Backend auth endpoint unreachable, falling back to local cryptographic verification:', networkErr);
-      }
 
-      // 2. Fallback to client-side PBKDF2 hash verification if backend offline
-      if (!backendSuccess) {
-        const targetUser = users.find((u) => {
+        const isNotFoundOrWrong =
+          fbErr.code === 'auth/user-not-found' ||
+          fbErr.code === 'auth/invalid-credential' ||
+          fbErr.code === 'auth/wrong-password';
+
+        // Check against verified backend or local PBKDF2 to authorize provisioning
+        const matched = users.find((u) => {
           const uEmail = u.email.toLowerCase();
-          if (uEmail === trimmedEmail) return true;
-          if (u.id === 'usr-1' || u.role === 'admin') {
-            if (
-              trimmedEmail === 'anouar7fac@gmail.com' ||
-              trimmedEmail === 'anouar@morvellocars.com' ||
-              trimmedEmail === 'anouar'
-            ) {
-              return true;
-            }
-          }
-          return false;
+          return (
+            uEmail === canonicalEmail ||
+            (u.role === 'admin' &&
+              (canonicalEmail.startsWith('anouar') || canonicalEmail === 'anouar7fac@gmail.com'))
+          );
         });
 
-        if (!targetUser) {
-          return { success: false, error: 'Aucun compte collaborateur trouvé avec cet e-mail.' };
+        if (!matched) {
+          return { success: false, error: 'Aucun compte collaborateur trouvé pour cet identifiant.' };
         }
 
         const isMatch = await verifyPassword(
           trimmedPass,
-          targetUser.passwordHash || '',
-          targetUser.passwordSalt
+          matched.passwordHash || '',
+          matched.passwordSalt
         );
 
         if (!isMatch) {
           return { success: false, error: 'Mot de passe incorrect pour ce compte.' };
         }
 
-        authenticatedUser = targetUser;
-      }
-
-      if (!authenticatedUser) {
-        return { success: false, error: 'Impossible de valider la session.' };
-      }
-
-      // 3. Ensure Firebase Auth session is active so Firestore rules (request.auth != null) allow access
-      if (!auth.currentUser) {
-        try {
-          await signInAnonymously(auth);
-        } catch (fbAuthErr) {
-          console.warn('Firebase Auth anonymous bridge note:', fbAuthErr);
+        // Collaborator credentials verified: provision native Firebase Auth account
+        if (isNotFoundOrWrong || fbErr.code === 'auth/invalid-email') {
+          try {
+            const newCred = await createUserWithEmailAndPassword(auth, canonicalEmail, trimmedPass);
+            fbUser = newCred.user;
+          } catch (createErr: any) {
+            // If already created or network bridge required
+            if (!auth.currentUser) {
+              try {
+                await signInAnonymously(auth);
+              } catch {}
+            }
+          }
         }
       }
 
-      setCurrentUser(authenticatedUser);
+      // Ensure Firebase Auth session exists
+      if (!auth.currentUser && !fbUser) {
+        try {
+          await signInAnonymously(auth);
+        } catch {}
+      }
+
+      const effectiveUid = fbUser?.uid || auth.currentUser?.uid;
+
+      // 2. Identify application team user
+      const matchedUser =
+        users.find((u) => {
+          const uEmail = u.email.toLowerCase();
+          return (
+            uEmail === canonicalEmail ||
+            (u.role === 'admin' &&
+              (canonicalEmail.startsWith('anouar') || canonicalEmail === 'anouar7fac@gmail.com'))
+          );
+        }) || {
+          id: `usr-${Date.now()}`,
+          name: canonicalEmail.split('@')[0],
+          email: canonicalEmail,
+          role: 'manager' as UserRole,
+          agency: 'Agence Morvello',
+          permissions: { ...DEFAULT_PERMISSIONS_BY_ROLE.manager },
+        };
+
+      const finalUser: User = {
+        ...matchedUser,
+        firebaseUid: effectiveUid,
+        authProvider: 'password',
+      };
+
+      // 3. Persist User Profile & RBAC role to Firestore /users/{uid}
+      if (effectiveUid) {
+        await saveUserProfile(effectiveUid, {
+          role: finalUser.role,
+          email: finalUser.email,
+          name: finalUser.name,
+        });
+      }
+
+      setCurrentUser(finalUser);
       logAction(
-        'Connexion',
+        'Connexion Firebase Auth',
         'user_permission',
-        authenticatedUser.id,
-        `Connexion réussie de ${authenticatedUser.name} (${authenticatedUser.role.toUpperCase()})`
+        finalUser.id,
+        `Connexion réussie de ${finalUser.name} (${finalUser.role.toUpperCase()}) avec Firebase Auth natif`
       );
 
       return { success: true };
     } catch (err: any) {
-      console.error('Login process error:', err);
+      if (isAbortException(err)) {
+        return { success: false, error: 'Connexion annulée.' };
+      }
+      console.error('Firebase Auth login error:', err);
       return { success: false, error: err.message || 'Erreur inattendue lors de la connexion' };
     }
   };
 
   /**
-   * Google Sign-In with Firebase Auth
+   * Google Sign-In with Firebase Auth & RBAC Firestore Profile Sync
    */
   const loginWithGoogle = async (): Promise<{ success: boolean; error?: string }> => {
     try {
@@ -270,7 +338,7 @@ export const AuthProvider: React.FC<{
       const fbUser = result.user;
       const userEmail = fbUser.email?.toLowerCase() || '';
 
-      // Link to Gérant or member account
+      // Link to Gérant or team account
       const matched = users.find(
         (u) =>
           u.email.toLowerCase() === userEmail ||
@@ -297,6 +365,13 @@ export const AuthProvider: React.FC<{
         authProvider: 'google',
       };
 
+      // Synchronize role and profile in Firestore RBAC
+      await saveUserProfile(fbUser.uid, {
+        role: finalUser.role,
+        email: finalUser.email,
+        name: finalUser.name,
+      });
+
       setCurrentUser(finalUser);
       logAction(
         'Connexion Google Firebase',
@@ -307,6 +382,12 @@ export const AuthProvider: React.FC<{
 
       return { success: true };
     } catch (error: any) {
+      if (isAbortException(error)) {
+        return {
+          success: false,
+          error: 'Connexion Google annulée.',
+        };
+      }
       console.error('Google Sign-In error:', error);
       return {
         success: false,
@@ -360,7 +441,7 @@ export const AuthProvider: React.FC<{
 
   const addUser = async (userData: Omit<User, 'id'> & { password?: string }): Promise<User> => {
     const salt = generateSalt();
-    const plainPwd = userData.password || 'Morvello#2026';
+    const plainPwd = userData.password || generateStrongPassword();
     const hash = await hashPassword(plainPwd, salt);
 
     const newUser: User = {

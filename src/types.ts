@@ -56,6 +56,23 @@ export interface User {
   agency?: string;
   assignedFleetName?: string;
   permissions?: UserPermissions;
+  assignedContractTemplate?: ContractTemplateId;
+}
+
+export type ContractTemplateId = 'standard' | 'prestige' | 'corporate';
+
+export interface ContractTemplateInfo {
+  id: ContractTemplateId;
+  name: string;
+  subtitle: string;
+  badge: string;
+  badgeColor: string;
+  accentColor: string;
+  borderColor: string;
+  description: string;
+  features: string[];
+  recommendedFor: string;
+  isDefault?: boolean;
 }
 
 export interface ClientDocument {
@@ -195,6 +212,9 @@ export interface VehicleSnapshot {
   model: string;
   plate: string;
   fuelType: FuelType;
+  transmission?: string;
+  color?: string;
+  year?: number;
 }
 
 export type DepositMethod = 'preauth_card' | 'cheque' | 'cash' | 'virement';
@@ -326,6 +346,7 @@ export interface Contract {
   managerPhone?: string;
   notes?: string;
   pdfUrl?: string;
+  templateId?: ContractTemplateId;
 }
 
 export interface TermClause {
@@ -359,6 +380,7 @@ export interface CompanySettings {
   contractPrefix: string;
   contractYear: number;
   nextContractNumber: number;
+  defaultContractTemplate?: ContractTemplateId;
 }
 
 export interface AuditLog {
@@ -367,7 +389,7 @@ export interface AuditLog {
   userName: string;
   userRole: UserRole;
   action: string;
-  targetType: 'client' | 'contract' | 'vehicle' | 'driver' | 'terms' | 'settings' | 'user_permission';
+  targetType: 'client' | 'contract' | 'vehicle' | 'driver' | 'terms' | 'settings' | 'user_permission' | 'contract_template';
   targetId: string;
   details: string;
 }
@@ -386,7 +408,8 @@ export type ActiveTab =
   | 'terms'
   | 'settings'
   | 'audit'
-  | 'permissions';
+  | 'permissions'
+  | 'contract_templates';
 
 export interface AgentChatMessage {
   id: string;

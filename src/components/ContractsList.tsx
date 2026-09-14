@@ -362,6 +362,17 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                       <div className="text-[9px] text-slate-600 font-mono">
                         Conditions V{cnt.termsVersion}
                       </div>
+                      <div className="mt-1">
+                        <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded border font-mono ${
+                          cnt.templateId === 'prestige'
+                            ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                            : cnt.templateId === 'corporate'
+                            ? 'bg-blue-500/15 text-blue-300 border-blue-500/30'
+                            : 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                        }`}>
+                          {cnt.templateId === 'prestige' ? '★ VIP Prestige' : cnt.templateId === 'corporate' ? '🏢 Corporate B2B' : '📄 Standard'}
+                        </span>
+                      </div>
                     </td>
 
                     {/* CLIENT */}

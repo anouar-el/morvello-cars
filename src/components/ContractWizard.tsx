@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
-import { Contract, Client, DocumentType, DriverSnapshot } from '../types';
+import { Contract, Client, DocumentType, DriverSnapshot, ContractTemplateId } from '../types';
+import { CONTRACT_TEMPLATES, getContractTemplate } from '../data/contractTemplates';
 import { formatPlateFrench } from '../utils/plateUtils';
 import { ClientDocumentUpload } from './ClientDocumentUpload';
 import {
@@ -20,6 +21,11 @@ import {
   UserPlus,
   Users,
   Phone,
+  Crown,
+  Briefcase,
+  FileText,
+  Sparkles,
+  Layers,
 } from 'lucide-react';
 
 export const ContractWizard: React.FC = () => {
@@ -130,9 +136,19 @@ export const ContractWizard: React.FC = () => {
   const [assignedManagerId, setAssignedManagerId] = useState<string>('');
   const [managerPhone, setManagerPhone] = useState<string>('');
 
+  // Modèle de contrat assigné au créateur ou défini par défaut de l'entreprise
+  const userAssignedTemplate: ContractTemplateId =
+    currentUser?.assignedContractTemplate || companySettings.defaultContractTemplate || 'standard';
+  const [selectedTemplateId, setSelectedTemplateId] = useState<ContractTemplateId>(
+    editingContractData?.templateId || userAssignedTemplate
+  );
+
   // Handle edit mode pre-population
   useEffect(() => {
     if (editingContractData) {
+      if (editingContractData.templateId) {
+        setSelectedTemplateId(editingContractData.templateId);
+      }
       setSelectedClientId(editingContractData.clientId);
       setClientMode('existing');
       setSelectedVehicleId(editingContractData.vehicleId);
@@ -515,6 +531,7 @@ export const ContractWizard: React.FC = () => {
           totalAmount,
           depositAmount,
           notes: contractNotes,
+          templateId: selectedTemplateId,
         }
       );
       clearEditingData();
@@ -544,6 +561,7 @@ export const ContractWizard: React.FC = () => {
         newEndTime: hasProlongation ? prolongationTime : '',
       },
       termsVersion: termsVersion.version,
+      templateId: selectedTemplateId,
       totalDays,
       pricePerDay,
       totalAmount,
@@ -577,7 +595,7 @@ export const ContractWizard: React.FC = () => {
         </p>
 
         {/* Snapshot Summary Box */}
-        <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-4 my-6 text-left text-xs grid grid-cols-2 sm:grid-cols-5 gap-3">
+        <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-4 my-6 text-left text-xs grid grid-cols-2 sm:grid-cols-6 gap-3">
           <div>
             <span className="text-slate-400 block">Locataire :</span>
             <span className="font-bold text-white uppercase">
@@ -603,9 +621,15 @@ export const ContractWizard: React.FC = () => {
             </span>
           </div>
           <div>
-            <span className="text-slate-400 block">Carburant Départ :</span>
+            <span className="text-slate-400 block">Carburant :</span>
             <span className="font-bold font-mono text-amber-400">
               {createdContractResult.departureFuel || '8/8 (Plein)'}
+            </span>
+          </div>
+          <div>
+            <span className="text-slate-400 block">Modèle Contrat :</span>
+            <span className="font-bold text-emerald-400">
+              {getContractTemplate(createdContractResult.templateId).name.split(' ')[1] || 'Standard'}
             </span>
           </div>
         </div>
@@ -1798,6 +1822,78 @@ export const ContractWizard: React.FC = () => {
                     Numéro direct d'assistance affiché sur l'en-tête de la page 1.
                   </p>
                 </div>
+              </div>
+            </div>
+
+            {/* SÉLECTEUR DU MODÈLE DE CONTRAT POUR L'IMPRESSION A4 */}
+            <div className="bg-slate-950/80 p-4 rounded-xl border border-slate-800 space-y-3">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                <div className="flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-amber-400" />
+                  <span className="text-white font-bold text-xs uppercase tracking-wide">
+                    Modèle de Contrat Appliqué pour l'Impression A4
+                  </span>
+                </div>
+                <span className="text-[10px] text-slate-400 font-mono">
+                  {currentUser?.assignedContractTemplate === selectedTemplateId ? 'Attribué à votre compte' : 'Sélection personnalisée'}
+                </span>
+              </div>
+
+              <p className="text-xs text-slate-400">
+                Sélectionnez la maquette contractuelle haute définition à utiliser pour la génération du document A4 (Recto / Verso) :
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                {CONTRACT_TEMPLATES.map((tmpl) => {
+                  const isSelected = selectedTemplateId === tmpl.id;
+                  return (
+                    <button
+                      key={tmpl.id}
+                      type="button"
+                      onClick={() => setSelectedTemplateId(tmpl.id)}
+                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                        isSelected
+                          ? tmpl.id === 'prestige'
+                            ? 'bg-amber-500/15 border-amber-400 ring-1 ring-amber-400 text-white'
+                            : tmpl.id === 'corporate'
+                            ? 'bg-blue-500/15 border-blue-400 ring-1 ring-blue-400 text-white'
+                            : 'bg-emerald-500/15 border-emerald-400 ring-1 ring-emerald-400 text-white'
+                          : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between gap-2 mb-1.5">
+                          <div className="flex items-center gap-1.5">
+                            {tmpl.id === 'prestige' ? (
+                              <Crown className="w-4 h-4 text-amber-400" />
+                            ) : tmpl.id === 'corporate' ? (
+                              <Briefcase className="w-4 h-4 text-blue-400" />
+                            ) : (
+                              <FileText className="w-4 h-4 text-emerald-400" />
+                            )}
+                            <span className="font-bold text-xs text-white">
+                              {tmpl.id === 'standard' ? 'Standard Morvello' : tmpl.id === 'prestige' ? 'Prestige VIP' : 'Corporate B2B'}
+                            </span>
+                          </div>
+                          {isSelected && (
+                            <CheckCircle2 className={`w-4 h-4 ${tmpl.id === 'prestige' ? 'text-amber-400' : tmpl.id === 'corporate' ? 'text-blue-400' : 'text-emerald-400'}`} />
+                          )}
+                        </div>
+                        <p className="text-[11px] text-slate-300 line-clamp-2 leading-relaxed">
+                          {tmpl.subtitle}
+                        </p>
+                      </div>
+                      <div className="mt-2 pt-2 border-t border-slate-800/80 flex items-center justify-between text-[10px]">
+                        <span className={`px-1.5 py-0.2 rounded border font-semibold ${tmpl.badgeColor}`}>
+                          {tmpl.badge}
+                        </span>
+                        {tmpl.id === currentUser?.assignedContractTemplate && (
+                          <span className="text-amber-400 font-mono text-[9px]">Votre modèle</span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 

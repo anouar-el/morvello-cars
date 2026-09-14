@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useCallback, useRef } from 'react';
 import {
   Client,
   Driver,
@@ -29,7 +29,8 @@ import {
   initialDeposits,
 } from '../data/mockData';
 import { initialTermsVersion } from '../data/termsData';
-import { fetchRemoteAgencyData, saveRemoteAgencyData } from '../lib/firestoreSync';
+import { fetchRemoteAgencyData, saveRemoteAgencyData, subscribeToRemoteAgencyData } from '../lib/firestoreSync';
+import { isAbortException } from '../initErrorHandling';
 import { resolveClientManagerAndVehicle, ClientManagerAssignment } from '../utils/clientManagerUtils';
 
 import { AuthProvider, useAuth } from './AuthContext';
@@ -232,9 +233,91 @@ const AppContextInner: React.FC<{ children: React.ReactNode }> = ({ children }) 
     }
   }, [company, auth, vehiclesCtx, clientsDrivers, depositsCtx, contractsCtx]);
 
-  // Initial cloud sync on startup
+  // Store latest context references for stable callbacks without triggering effect loops
+  const contextsRef = useRef({
+    vehiclesCtx,
+    clientsDrivers,
+    contractsCtx,
+    depositsCtx,
+    company,
+    auth,
+    syncWithCloud,
+  });
+
   useEffect(() => {
-    syncWithCloud().catch((err) => console.warn('Initial cloud sync notice:', err));
+    contextsRef.current = {
+      vehiclesCtx,
+      clientsDrivers,
+      contractsCtx,
+      depositsCtx,
+      company,
+      auth,
+      syncWithCloud,
+    };
+  });
+
+  // Real-time multi-workstation sync using Firestore onSnapshot
+  useEffect(() => {
+    let active = true;
+
+    // Initial fetch to load remote state immediately
+    contextsRef.current.syncWithCloud().catch((err) => {
+      if (!active || isAbortException(err)) return;
+      console.warn('Initial cloud sync notice:', err);
+    });
+
+    // Subscribe to real-time Firestore updates across all agency workstations
+    const unsubscribe = subscribeToRemoteAgencyData(
+      (remote) => {
+        if (!active || !remote) return;
+        const ctx = contextsRef.current;
+        if (remote.vehicles && remote.vehicles.length > 0) {
+          ctx.vehiclesCtx.setVehiclesList(remote.vehicles);
+        }
+        if (remote.clients && remote.clients.length > 0) {
+          ctx.clientsDrivers.setClientsList(remote.clients);
+        }
+        if (remote.drivers && remote.drivers.length > 0) {
+          ctx.clientsDrivers.setDriversList(remote.drivers);
+        }
+        if (remote.contracts && remote.contracts.length > 0) {
+          ctx.contractsCtx.setContractsList(remote.contracts);
+        }
+        if (remote.deposits && remote.deposits.length > 0) {
+          ctx.depositsCtx.setDepositsList(remote.deposits);
+        }
+        if (remote.companySettings) {
+          ctx.company.setCompanySettingsList(remote.companySettings);
+        }
+        if (remote.termsVersion) {
+          ctx.company.setTermsVersionList(remote.termsVersion);
+        }
+        if (remote.aiSettings) {
+          ctx.company.setAiSettingsList(remote.aiSettings);
+        }
+        if (remote.auditLogs && remote.auditLogs.length > 0) {
+          ctx.company.setAuditLogsList(remote.auditLogs);
+        }
+        if (remote.users && remote.users.length > 0) {
+          ctx.auth.setUsersList(remote.users);
+        }
+
+        const syncTime = remote.updatedAt || new Date().toISOString();
+        ctx.company.setLastCloudSync(syncTime);
+        localStorage.setItem('morvello_last_cloud_sync', syncTime);
+        ctx.company.setCloudSyncStatus('synced');
+      },
+      (err) => {
+        if (!active || isAbortException(err)) return;
+        console.warn('Real-time Firestore sync notice:', err);
+        contextsRef.current.company.setCloudSyncStatus('error');
+      }
+    );
+
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, []);
 
   const createContract = (

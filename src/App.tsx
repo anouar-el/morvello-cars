@@ -3,25 +3,63 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, lazy, Suspense } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { Navbar } from './components/Navbar';
 import { Dashboard } from './components/Dashboard';
-import { ContractWizard } from './components/ContractWizard';
-import { ContractsList } from './components/ContractsList';
-import { ClientsList } from './components/ClientsList';
-import { VehiclesList } from './components/VehiclesList';
-import { TermsManager } from './components/TermsManager';
-import { SettingsView } from './components/SettingsView';
-import { AuditView } from './components/AuditView';
-import { DepositsManagement } from './components/DepositsManagement';
-import { PermissionsManager } from './components/PermissionsManager';
-import { PdfModal } from './components/PdfModal';
-import { ReturnCheckInModal } from './components/ReturnCheckInModal';
-import { MemberAiAssistant } from './components/MemberAiAssistant';
 import { LoginView } from './components/LoginView';
 import { Contract } from './types';
-import { Bot, Sparkles, X, MessageSquareText } from 'lucide-react';
+import { Bot, Sparkles, Loader2 } from 'lucide-react';
+
+// Code splitting / Lazy imports to minimize initial bundle size
+const ContractWizard = lazy(() =>
+  import('./components/ContractWizard').then((m) => ({ default: m.ContractWizard }))
+);
+const ContractsList = lazy(() =>
+  import('./components/ContractsList').then((m) => ({ default: m.ContractsList }))
+);
+const ClientsList = lazy(() =>
+  import('./components/ClientsList').then((m) => ({ default: m.ClientsList }))
+);
+const VehiclesList = lazy(() =>
+  import('./components/VehiclesList').then((m) => ({ default: m.VehiclesList }))
+);
+const TermsManager = lazy(() =>
+  import('./components/TermsManager').then((m) => ({ default: m.TermsManager }))
+);
+const SettingsView = lazy(() =>
+  import('./components/SettingsView').then((m) => ({ default: m.SettingsView }))
+);
+const AuditView = lazy(() =>
+  import('./components/AuditView').then((m) => ({ default: m.AuditView }))
+);
+const DepositsManagement = lazy(() =>
+  import('./components/DepositsManagement').then((m) => ({ default: m.DepositsManagement }))
+);
+const PermissionsManager = lazy(() =>
+  import('./components/PermissionsManager').then((m) => ({ default: m.PermissionsManager }))
+);
+const PdfModal = lazy(() =>
+  import('./components/PdfModal').then((m) => ({ default: m.PdfModal }))
+);
+const ReturnCheckInModal = lazy(() =>
+  import('./components/ReturnCheckInModal').then((m) => ({ default: m.ReturnCheckInModal }))
+);
+const MemberAiAssistant = lazy(() =>
+  import('./components/MemberAiAssistant').then((m) => ({ default: m.MemberAiAssistant }))
+);
+const ContractTemplatesManager = lazy(() =>
+  import('./components/ContractTemplatesManager').then((m) => ({
+    default: m.ContractTemplatesManager,
+  }))
+);
+
+const ViewLoadingFallback = () => (
+  <div className="flex flex-col items-center justify-center min-h-[400px] w-full gap-3 text-slate-400">
+    <Loader2 className="w-8 h-8 text-amber-500 animate-spin" />
+    <span className="text-xs font-mono tracking-wider text-slate-400">Chargement du module...</span>
+  </div>
+);
 
 function MainAppContent() {
   const { activeTab, currentUser } = useApp();
@@ -53,6 +91,8 @@ function MainAppContent() {
         return <TermsManager />;
       case 'permissions':
         return <PermissionsManager />;
+      case 'contract_templates':
+        return <ContractTemplatesManager />;
       case 'settings':
         return <SettingsView />;
       case 'audit':
@@ -69,7 +109,9 @@ function MainAppContent() {
 
       {/* MAIN CONTAINER */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
-        {renderContent()}
+        <Suspense fallback={<ViewLoadingFallback />}>
+          {renderContent()}
+        </Suspense>
       </main>
 
       {/* FLOATING AI ASSISTANT TRIGGER BUTTON (BOTTOM-RIGHT) */}
@@ -112,12 +154,14 @@ function MainAppContent() {
               isAssistantExpanded ? 'sm:w-[780px] md:w-[880px]' : 'sm:w-[520px] md:w-[580px]'
             } h-full bg-slate-900 shadow-2xl border-l border-slate-800 flex flex-col transform transition-all duration-300 ease-in-out`}
           >
-            <MemberAiAssistant
-              isDrawer={true}
-              onClose={() => setIsAssistantOpen(false)}
-              isExpanded={isAssistantExpanded}
-              onToggleExpand={() => setIsAssistantExpanded(!isAssistantExpanded)}
-            />
+            <Suspense fallback={<ViewLoadingFallback />}>
+              <MemberAiAssistant
+                isDrawer={true}
+                onClose={() => setIsAssistantOpen(false)}
+                isExpanded={isAssistantExpanded}
+                onToggleExpand={() => setIsAssistantExpanded(!isAssistantExpanded)}
+              />
+            </Suspense>
           </div>
         </div>
       )}
@@ -135,11 +179,13 @@ function MainAppContent() {
       </footer>
 
       {/* GLOBAL MODALS */}
-      <PdfModal />
-      <ReturnCheckInModal
-        contract={checkInContract}
-        onClose={() => setCheckInContract(null)}
-      />
+      <Suspense fallback={null}>
+        <PdfModal />
+        <ReturnCheckInModal
+          contract={checkInContract}
+          onClose={() => setCheckInContract(null)}
+        />
+      </Suspense>
     </div>
   );
 }
