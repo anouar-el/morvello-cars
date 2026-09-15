@@ -89,6 +89,7 @@ export interface AppContextType {
   loginWithGoogle: () => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void> | void;
   changeUserPassword: (userId: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
+  setAgencyFallbackPassword?: (userId: string, password: string) => { success: boolean; error?: string };
   sendResetEmail: (email: string) => Promise<{ success: boolean; error?: string }>;
 
   // Terms & Clauses Management (Gérant)
@@ -414,6 +415,7 @@ const AppContextInner: React.FC<{ children: React.ReactNode }> = ({ children }) 
         loginWithGoogle: auth.loginWithGoogle,
         logout: auth.logout,
         changeUserPassword: auth.changeUserPassword,
+        setAgencyFallbackPassword: auth.setAgencyFallbackPassword,
         sendResetEmail: auth.sendResetEmail,
         updateTermsVersion: company.updateTermsVersion,
         addTermsClause: (clause) => company.addTermsClause(clause, auth.currentUser?.name),

@@ -43,6 +43,7 @@ export interface AuthContextType {
   resetUserPermissions: (userId: string) => void;
   hasPermission: (perm: keyof UserPermissions) => boolean;
   changeUserPassword: (userId: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
+  setAgencyFallbackPassword: (userId: string, password: string) => { success: boolean; error?: string };
   sendResetEmail: (email: string) => Promise<{ success: boolean; error?: string }>;
   setUsersList: (users: User[]) => void;
   refreshClaims: () => Promise<{ admin: boolean; role?: UserRole; claims: Record<string, any> }>;
@@ -153,14 +154,9 @@ export const AuthProvider: React.FC<{
           console.warn('[AuthContext] Claims read notice:', claimsErr);
         }
 
-        // Check if Google/Firebase user matches Gérant Anouar or a team member
+        // Check if Google/Firebase user matches an existing team member (strict exact match)
         const matched = users.find(
-          (u) =>
-            u.email.toLowerCase() === emailLower ||
-            (u.role === 'admin' &&
-              (emailLower === 'anouar7fac@gmail.com' ||
-                emailLower === 'anouar@morvellocars.com' ||
-                emailLower.startsWith('anouar')))
+          (u) => (u.email || '').toLowerCase() === emailLower
         );
 
         if (matched) {
@@ -245,32 +241,10 @@ export const AuthProvider: React.FC<{
     canonicalEmail: string,
     trimmedPass: string
   ): { success: boolean; error?: string } => {
-    // Check if canonicalEmail matches any known user
-    const matchedUser =
-      users.find((u) => {
-        const uEmail = (u.email || '').toLowerCase();
-        return (
-          uEmail === canonicalEmail ||
-          (u.role === 'admin' &&
-            (canonicalEmail.startsWith('anouar') ||
-              canonicalEmail === 'anouar7fac@gmail.com' ||
-              canonicalEmail === 'anouar@morvellocars.com'))
-        );
-      }) ||
-      (canonicalEmail.startsWith('anouar') || canonicalEmail === 'anouar7fac@gmail.com'
-        ? {
-            id: 'usr-1',
-            name: 'Anouar',
-            email: 'anouar@morvellocars.com',
-            phone: '+212 666-995211',
-            role: 'admin' as UserRole,
-            agency: 'Siège & Direction Générale',
-            assignedFleetName: 'Direction Générale (Supervision globale)',
-            permissions: { ...DEFAULT_PERMISSIONS_BY_ROLE.admin },
-            assignedContractTemplate: 'standard' as const,
-            mustChangePassword: false,
-          }
-        : null);
+    // Check if canonicalEmail matches any known user (strict exact match)
+    const matchedUser = users.find(
+      (u) => (u.email || '').toLowerCase() === canonicalEmail
+    );
 
     if (!matchedUser) {
       return {
@@ -285,20 +259,21 @@ export const AuthProvider: React.FC<{
       passwords[matchedUser.email.toLowerCase()] ||
       (matchedUser as any).password;
 
-    if (storedPass) {
-      if (storedPass !== trimmedPass) {
-        return {
-          success: false,
-          error: 'Mot de passe incorrect pour ce compte.',
-        };
-      }
-    } else {
-      // First time login: register the entered password for future sessions
-      setStoredPassword(matchedUser.id, trimmedPass);
-      setStoredPassword(matchedUser.email, trimmedPass);
+    if (!storedPass) {
+      return {
+        success: false,
+        error: 'Aucun mot de passe local configuré pour ce compte. Contactez un administrateur ou utilisez la connexion Firebase.',
+      };
     }
 
-    const finalRole = matchedUser.role || 'admin';
+    if (storedPass !== trimmedPass) {
+      return {
+        success: false,
+        error: 'Mot de passe incorrect pour ce compte.',
+      };
+    }
+
+    const finalRole = matchedUser.role;
     const finalUser: User = {
       ...matchedUser,
       role: finalRole,
@@ -339,8 +314,7 @@ export const AuthProvider: React.FC<{
     // Normalize canonical email
     let canonicalEmail = trimmedInput;
     if (!canonicalEmail.includes('@')) {
-      if (canonicalEmail === 'anouar') canonicalEmail = 'anouar@morvellocars.com';
-      else canonicalEmail = `${canonicalEmail}@morvellocars.com`;
+      canonicalEmail = `${canonicalEmail}@morvellocars.com`;
     }
 
     try {
@@ -360,22 +334,15 @@ export const AuthProvider: React.FC<{
         console.warn('Claims read error:', e);
       }
 
-      // 2. Identify application team user
+      // 2. Identify application team user (strict exact match)
       const matchedUser =
-        users.find((u) => {
-          const uEmail = u.email.toLowerCase();
-          return (
-            uEmail === canonicalEmail ||
-            (u.role === 'admin' &&
-              (canonicalEmail.startsWith('anouar') || canonicalEmail === 'anouar7fac@gmail.com'))
-          );
-        }) || {
+        users.find((u) => (u.email || '').toLowerCase() === canonicalEmail) || {
           id: `usr-${Date.now()}`,
           name: canonicalEmail.split('@')[0],
           email: canonicalEmail,
-          role: (claimRole || 'manager') as UserRole,
+          role: (claimRole || 'agent') as UserRole,
           agency: 'Agence Morvello',
-          permissions: { ...DEFAULT_PERMISSIONS_BY_ROLE[claimRole || 'manager'] },
+          permissions: { ...DEFAULT_PERMISSIONS_BY_ROLE[claimRole || 'agent'] },
         };
 
       const finalRole = claimRole || matchedUser.role;
@@ -414,8 +381,8 @@ export const AuthProvider: React.FC<{
 
       const code = fbErr?.code;
 
-      // When Firebase Email/Password provider is disabled in Firebase Console
-      // (auth/operation-not-allowed) or blocked, seamlessly authenticate with Agency system:
+      // Case (a): When Firebase Email/Password provider is disabled in Firebase Console
+      // (auth/operation-not-allowed) or blocked, authenticate with Agency fallback system:
       const isProviderDisabled =
         code === 'auth/operation-not-allowed' ||
         code === 'auth/configuration-not-found' ||
@@ -429,18 +396,13 @@ export const AuthProvider: React.FC<{
         return performAgencyLoginFallback(canonicalEmail, trimmedPass);
       }
 
-      // Check standard Firebase Auth credential errors
+      // Case (b): Standard Firebase Auth credential errors - return clear error directly without fallback
       if (
         code === 'auth/invalid-credential' ||
         code === 'auth/wrong-password' ||
         code === 'auth/user-not-found' ||
         code === 'auth/invalid-email'
       ) {
-        // Also check if valid in agency local credentials
-        const fallbackRes = performAgencyLoginFallback(canonicalEmail, trimmedPass);
-        if (fallbackRes.success) {
-          return fallbackRes;
-        }
         return {
           success: false,
           error: 'Identifiants invalides. Vérifiez votre email et mot de passe.',
@@ -456,12 +418,7 @@ export const AuthProvider: React.FC<{
         };
       }
 
-      // Fallback for other issues
-      const safetyFallback = performAgencyLoginFallback(canonicalEmail, trimmedPass);
-      if (safetyFallback.success) {
-        return safetyFallback;
-      }
-
+      // Case (c): Return any other unhandled error as-is without fallback
       return {
         success: false,
         error: fbErr?.message || 'Erreur lors de la connexion.',
@@ -490,25 +447,19 @@ export const AuthProvider: React.FC<{
         console.warn('Claims read error on Google login:', e);
       }
 
-      // Link to Gérant or team account
+      // Link to team account (strict exact match)
       const matched = users.find(
-        (u) =>
-          u.email.toLowerCase() === userEmail ||
-          (u.role === 'admin' &&
-            (userEmail === 'anouar7fac@gmail.com' ||
-              userEmail === 'anouar@morvellocars.com' ||
-              userEmail.startsWith('anouar')))
+        (u) => (u.email || '').toLowerCase() === userEmail
       );
 
-      const targetRole = claimRole || (matched ? matched.role : 'admin');
+      const targetRole: UserRole = claimRole || (matched ? matched.role : 'agent');
       const targetUser =
-        matched ||
-        users.find((u) => u.role === 'admin') || {
+        matched || {
           id: `usr-google-${Date.now()}`,
-          name: fbUser.displayName || 'Gérant Morvello',
+          name: fbUser.displayName || userEmail.split('@')[0],
           email: userEmail,
           role: targetRole,
-          agency: 'Siège & Direction Générale',
+          agency: 'Agence Morvello',
           permissions: { ...DEFAULT_PERMISSIONS_BY_ROLE[targetRole] },
         };
 
@@ -882,6 +833,60 @@ export const AuthProvider: React.FC<{
     setUsers(newUsers);
   };
 
+  /**
+   * Admin-only function to explicitly preconfigure a user's agency fallback password.
+   * Requires the caller to be an active admin authenticated with native Firebase.
+   */
+  const setAgencyFallbackPassword = (
+    userId: string,
+    password: string
+  ): { success: boolean; error?: string } => {
+    if (!currentUser || currentUser.role !== 'admin') {
+      return {
+        success: false,
+        error: 'Action réservée aux administrateurs.',
+      };
+    }
+    if (currentUser.authProvider === 'agency') {
+      return {
+        success: false,
+        error: 'Cette action requiert une session administrateur authentifiée via Firebase natif.',
+      };
+    }
+
+    const trimmed = (password || '').trim();
+    if (!trimmed || trimmed.length < 6) {
+      return {
+        success: false,
+        error: 'Le mot de passe de secours doit contenir au moins 6 caractères.',
+      };
+    }
+
+    const targetUser = users.find(
+      (u) => u.id === userId || (u.email || '').toLowerCase() === userId.toLowerCase()
+    );
+    if (!targetUser) {
+      return {
+        success: false,
+        error: 'Collaborateur introuvable.',
+      };
+    }
+
+    setStoredPassword(targetUser.id, trimmed);
+    if (targetUser.email) {
+      setStoredPassword(targetUser.email, trimmed);
+    }
+
+    logAction(
+      'Configuration Mot de Passe Agence',
+      'user_permission',
+      targetUser.id,
+      `Mot de passe de secours agence configuré pour ${targetUser.name} par l'administrateur ${currentUser.name}`
+    );
+
+    return { success: true };
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -903,6 +908,7 @@ export const AuthProvider: React.FC<{
         resetUserPermissions,
         hasPermission,
         changeUserPassword,
+        setAgencyFallbackPassword,
         sendResetEmail,
         setUsersList,
         refreshClaims: forceRefreshTokenClaims,
