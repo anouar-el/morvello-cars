@@ -118,35 +118,167 @@ ALTER TABLE public.contracts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.deposits ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 
--- Politiques ouvertes pour l'application avec la clé anon et authentifiée
--- (Permet à Morvello Cars de lire et sauvegarder les données d'agence)
+-- 9. SÉCURISATION RLS (POLICIES STRICTEMENT AUTHENTIFIÉES & RBAC)
+ALTER TABLE public.agency_data ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.vehicles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.clients ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.contracts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.deposits ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
+
+-- Fonctions utilitaires sécurisées pour l'accès aux rôles (Security Definer)
+CREATE OR REPLACE FUNCTION public.current_user_role()
+RETURNS text
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT role FROM public.profiles WHERE id = auth.uid()::text;
+$$;
+
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT (public.current_user_role() = 'admin');
+$$;
+
+-- Nettoyage des anciennes policies permissives
 DROP POLICY IF EXISTS "morvello_agency_data_policy" ON public.agency_data;
-CREATE POLICY "morvello_agency_data_policy" ON public.agency_data
-  FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
-
 DROP POLICY IF EXISTS "morvello_profiles_policy" ON public.profiles;
-CREATE POLICY "morvello_profiles_policy" ON public.profiles
-  FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
-
 DROP POLICY IF EXISTS "morvello_vehicles_policy" ON public.vehicles;
-CREATE POLICY "morvello_vehicles_policy" ON public.vehicles
-  FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
-
 DROP POLICY IF EXISTS "morvello_clients_policy" ON public.clients;
-CREATE POLICY "morvello_clients_policy" ON public.clients
-  FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
-
 DROP POLICY IF EXISTS "morvello_contracts_policy" ON public.contracts;
-CREATE POLICY "morvello_contracts_policy" ON public.contracts
-  FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
-
 DROP POLICY IF EXISTS "morvello_deposits_policy" ON public.deposits;
-CREATE POLICY "morvello_deposits_policy" ON public.deposits
-  FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
-
 DROP POLICY IF EXISTS "morvello_audit_policy" ON public.audit_logs;
-CREATE POLICY "morvello_audit_policy" ON public.audit_logs
-  FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "morvello_audit_logs_policy" ON public.audit_logs;
+
+-- Policies PROFILES
+DROP POLICY IF EXISTS "profiles_select_authenticated" ON public.profiles;
+CREATE POLICY "profiles_select_authenticated" ON public.profiles
+  FOR SELECT TO authenticated USING (true);
+
+DROP POLICY IF EXISTS "profiles_insert_own" ON public.profiles;
+CREATE POLICY "profiles_insert_own" ON public.profiles
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    auth.uid()::text = id 
+    AND (role = 'staff' OR public.is_admin())
+  );
+
+DROP POLICY IF EXISTS "profiles_update" ON public.profiles;
+CREATE POLICY "profiles_update" ON public.profiles
+  FOR UPDATE TO authenticated
+  USING (auth.uid()::text = id OR public.is_admin())
+  WITH CHECK (
+    CASE 
+      WHEN public.is_admin() THEN true
+      ELSE (role = (SELECT p.role FROM public.profiles p WHERE p.id = auth.uid()::text))
+    END
+  );
+
+DROP POLICY IF EXISTS "profiles_delete_admin" ON public.profiles;
+CREATE POLICY "profiles_delete_admin" ON public.profiles
+  FOR DELETE TO authenticated USING (public.is_admin());
+
+-- Policies AUDIT_LOGS (Append-Only)
+DROP POLICY IF EXISTS "audit_logs_select" ON public.audit_logs;
+CREATE POLICY "audit_logs_select" ON public.audit_logs
+  FOR SELECT TO authenticated USING (true);
+
+DROP POLICY IF EXISTS "audit_logs_insert" ON public.audit_logs;
+CREATE POLICY "audit_logs_insert" ON public.audit_logs
+  FOR INSERT TO authenticated WITH CHECK (auth.uid() IS NOT NULL);
+
+-- Policies CLIENTS
+DROP POLICY IF EXISTS "clients_select" ON public.clients;
+CREATE POLICY "clients_select" ON public.clients
+  FOR SELECT TO authenticated USING (true);
+
+DROP POLICY IF EXISTS "clients_insert" ON public.clients;
+CREATE POLICY "clients_insert" ON public.clients
+  FOR INSERT TO authenticated WITH CHECK (auth.uid() IS NOT NULL);
+
+DROP POLICY IF EXISTS "clients_update" ON public.clients;
+CREATE POLICY "clients_update" ON public.clients
+  FOR UPDATE TO authenticated USING (auth.uid() IS NOT NULL) WITH CHECK (auth.uid() IS NOT NULL);
+
+DROP POLICY IF EXISTS "clients_delete" ON public.clients;
+CREATE POLICY "clients_delete" ON public.clients
+  FOR DELETE TO authenticated USING (public.is_admin());
+
+-- Policies CONTRACTS
+DROP POLICY IF EXISTS "contracts_select" ON public.contracts;
+CREATE POLICY "contracts_select" ON public.contracts
+  FOR SELECT TO authenticated USING (true);
+
+DROP POLICY IF EXISTS "contracts_insert" ON public.contracts;
+CREATE POLICY "contracts_insert" ON public.contracts
+  FOR INSERT TO authenticated WITH CHECK (auth.uid() IS NOT NULL);
+
+DROP POLICY IF EXISTS "contracts_update" ON public.contracts;
+CREATE POLICY "contracts_update" ON public.contracts
+  FOR UPDATE TO authenticated USING (auth.uid() IS NOT NULL) WITH CHECK (auth.uid() IS NOT NULL);
+
+DROP POLICY IF EXISTS "contracts_delete" ON public.contracts;
+CREATE POLICY "contracts_delete" ON public.contracts
+  FOR DELETE TO authenticated USING (public.is_admin());
+
+-- Policies DEPOSITS
+DROP POLICY IF EXISTS "deposits_select" ON public.deposits;
+CREATE POLICY "deposits_select" ON public.deposits
+  FOR SELECT TO authenticated USING (true);
+
+DROP POLICY IF EXISTS "deposits_insert" ON public.deposits;
+CREATE POLICY "deposits_insert" ON public.deposits
+  FOR INSERT TO authenticated WITH CHECK (auth.uid() IS NOT NULL);
+
+DROP POLICY IF EXISTS "deposits_update" ON public.deposits;
+CREATE POLICY "deposits_update" ON public.deposits
+  FOR UPDATE TO authenticated USING (auth.uid() IS NOT NULL) WITH CHECK (auth.uid() IS NOT NULL);
+
+DROP POLICY IF EXISTS "deposits_delete" ON public.deposits;
+CREATE POLICY "deposits_delete" ON public.deposits
+  FOR DELETE TO authenticated USING (public.is_admin());
+
+-- Policies VEHICLES
+DROP POLICY IF EXISTS "vehicles_select" ON public.vehicles;
+CREATE POLICY "vehicles_select" ON public.vehicles
+  FOR SELECT TO authenticated USING (true);
+
+DROP POLICY IF EXISTS "vehicles_insert" ON public.vehicles;
+CREATE POLICY "vehicles_insert" ON public.vehicles
+  FOR INSERT TO authenticated WITH CHECK (auth.uid() IS NOT NULL);
+
+DROP POLICY IF EXISTS "vehicles_update" ON public.vehicles;
+CREATE POLICY "vehicles_update" ON public.vehicles
+  FOR UPDATE TO authenticated USING (auth.uid() IS NOT NULL) WITH CHECK (auth.uid() IS NOT NULL);
+
+DROP POLICY IF EXISTS "vehicles_delete" ON public.vehicles;
+CREATE POLICY "vehicles_delete" ON public.vehicles
+  FOR DELETE TO authenticated USING (public.is_admin());
+
+-- Policies AGENCY_DATA
+DROP POLICY IF EXISTS "agency_data_select" ON public.agency_data;
+CREATE POLICY "agency_data_select" ON public.agency_data
+  FOR SELECT TO authenticated USING (true);
+
+DROP POLICY IF EXISTS "agency_data_insert" ON public.agency_data;
+CREATE POLICY "agency_data_insert" ON public.agency_data
+  FOR INSERT TO authenticated WITH CHECK (public.is_admin());
+
+DROP POLICY IF EXISTS "agency_data_update" ON public.agency_data;
+CREATE POLICY "agency_data_update" ON public.agency_data
+  FOR UPDATE TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
+
+DROP POLICY IF EXISTS "agency_data_delete" ON public.agency_data;
+CREATE POLICY "agency_data_delete" ON public.agency_data
+  FOR DELETE TO authenticated USING (public.is_admin());
 
 -- ==============================================================================
 -- 10. ACTIVATION DE LA RÉPLICATION TEMPS-RÉEL (SUPABASE REALTIME)

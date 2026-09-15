@@ -206,22 +206,51 @@ export const AuthProvider: React.FC<{
   useEffect(() => {
     if (!isSupabaseConfigured) return;
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user?.email) {
-        const emailLower = session.user.email.toLowerCase();
-        const isAdmin = emailLower === 'anouar7fac@gmail.com';
-        const matched = users.find((u) => (u.email || '').toLowerCase() === emailLower);
-        if (matched) {
-          const role = isAdmin ? 'admin' : matched.role;
+    const resolveSupabaseProfile = async (sbUser: any): Promise<User | null> => {
+      if (!sbUser?.email) return null;
+      const emailLower = sbUser.email.toLowerCase();
+
+      let fetchedRole: UserRole | undefined;
+      let fetchedName: string | undefined;
+      try {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('role, name')
+          .eq('id', sbUser.id)
+          .maybeSingle();
+
+        if (profileData?.role) {
+          fetchedRole = profileData.role as UserRole;
+        }
+        if (profileData?.name) {
+          fetchedName = profileData.name;
+        }
+      } catch (e) {
+        console.warn('[Supabase Auth] Session profile fetch notice:', e);
+      }
+
+      const matched = users.find((u) => (u.email || '').toLowerCase() === emailLower);
+      const role: UserRole = fetchedRole || (matched ? matched.role : 'agent');
+
+      return {
+        id: matched?.id || `usr-${sbUser.id.slice(0, 8)}`,
+        name: fetchedName || matched?.name || sbUser.user_metadata?.name || emailLower.split('@')[0],
+        email: emailLower,
+        role,
+        agency: matched?.agency || 'Agence Morvello',
+        permissions: { ...DEFAULT_PERMISSIONS_BY_ROLE[role] },
+        firebaseUid: sbUser.id,
+        authProvider: 'password',
+      };
+    };
+
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session?.user) {
+        const userObj = await resolveSupabaseProfile(session.user);
+        if (userObj) {
           setCurrentUser((prev) => {
-            if (!prev || prev.id !== matched.id || prev.role !== role) {
-              return {
-                ...matched,
-                role,
-                permissions: { ...DEFAULT_PERMISSIONS_BY_ROLE[role] },
-                firebaseUid: session.user.id,
-                authProvider: 'password',
-              };
+            if (!prev || prev.id !== userObj.id || prev.role !== userObj.role) {
+              return userObj;
             }
             return prev;
           });
@@ -230,34 +259,10 @@ export const AuthProvider: React.FC<{
     });
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      const sbUser = session?.user;
-      if (sbUser && sbUser.email) {
-        const emailLower = sbUser.email.toLowerCase();
-        const isAdmin = emailLower === 'anouar7fac@gmail.com';
-        const matched = users.find((u) => (u.email || '').toLowerCase() === emailLower);
-
-        if (matched) {
-          const role = isAdmin ? 'admin' : matched.role;
-          setCurrentUser((prev) => ({
-            ...(prev || matched),
-            ...matched,
-            role,
-            permissions: { ...DEFAULT_PERMISSIONS_BY_ROLE[role] },
-            firebaseUid: sbUser.id,
-            authProvider: 'password',
-          }));
-        } else {
-          const role: UserRole = isAdmin ? 'admin' : 'agent';
-          const newUser: User = {
-            id: `usr-${sbUser.id.slice(0, 8)}`,
-            name: sbUser.user_metadata?.name || emailLower.split('@')[0],
-            email: emailLower,
-            role,
-            firebaseUid: sbUser.id,
-            authProvider: 'password',
-            permissions: { ...DEFAULT_PERMISSIONS_BY_ROLE[role] },
-          };
-          setCurrentUser(newUser);
+      if (session?.user) {
+        const userObj = await resolveSupabaseProfile(session.user);
+        if (userObj) {
+          setCurrentUser(userObj);
         }
       }
     });
@@ -393,21 +398,36 @@ export const AuthProvider: React.FC<{
 
         if (!sbErr && sbData?.user) {
           const sbUser = sbData.user;
-          const isAdmin = canonicalEmail === 'anouar7fac@gmail.com';
-          const matchedUser =
-            users.find((u) => (u.email || '').toLowerCase() === canonicalEmail) || {
-              id: `usr-${sbUser.id.slice(0, 8)}`,
-              name: canonicalEmail.split('@')[0],
-              email: canonicalEmail,
-              role: (isAdmin ? 'admin' : 'agent') as UserRole,
-              agency: 'Agence Morvello',
-              permissions: { ...DEFAULT_PERMISSIONS_BY_ROLE[isAdmin ? 'admin' : 'agent'] },
-            };
+          
+          // Query user profile from Supabase profiles table (secured by RLS)
+          let fetchedRole: UserRole | undefined;
+          let fetchedName: string | undefined;
+          try {
+            const { data: profileData } = await supabase
+              .from('profiles')
+              .select('role, name')
+              .eq('id', sbUser.id)
+              .maybeSingle();
 
-          const finalRole = isAdmin ? 'admin' : matchedUser.role;
+            if (profileData?.role) {
+              fetchedRole = profileData.role as UserRole;
+            }
+            if (profileData?.name) {
+              fetchedName = profileData.name;
+            }
+          } catch (profileErr) {
+            console.warn('[Supabase Auth] Profile fetch notice:', profileErr);
+          }
+
+          const matchedUser = users.find((u) => (u.email || '').toLowerCase() === canonicalEmail);
+          const finalRole: UserRole = fetchedRole || (matchedUser ? matchedUser.role : 'agent');
+          
           const finalUser: User = {
-            ...matchedUser,
+            id: matchedUser?.id || `usr-${sbUser.id.slice(0, 8)}`,
+            name: fetchedName || matchedUser?.name || sbUser.user_metadata?.name || canonicalEmail.split('@')[0],
+            email: canonicalEmail,
             role: finalRole,
+            agency: matchedUser?.agency || 'Agence Morvello',
             permissions: { ...DEFAULT_PERMISSIONS_BY_ROLE[finalRole] },
             firebaseUid: sbUser.id,
             authProvider: 'password',
