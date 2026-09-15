@@ -168,7 +168,7 @@ CREATE POLICY "profiles_insert_own" ON public.profiles
   FOR INSERT TO authenticated
   WITH CHECK (
     auth.uid()::text = id 
-    AND (role = 'staff' OR public.is_admin())
+    AND (role = 'agent' OR public.is_admin())
   );
 
 DROP POLICY IF EXISTS "profiles_update" ON public.profiles;
@@ -263,18 +263,18 @@ DROP POLICY IF EXISTS "vehicles_delete" ON public.vehicles;
 CREATE POLICY "vehicles_delete" ON public.vehicles
   FOR DELETE TO authenticated USING (public.is_admin());
 
--- Policies AGENCY_DATA
+-- Policies AGENCY_DATA (Accessible en lecture et écriture à tout collaborateur authentifié pour le travail d'agence quotidien)
 DROP POLICY IF EXISTS "agency_data_select" ON public.agency_data;
 CREATE POLICY "agency_data_select" ON public.agency_data
   FOR SELECT TO authenticated USING (true);
 
 DROP POLICY IF EXISTS "agency_data_insert" ON public.agency_data;
 CREATE POLICY "agency_data_insert" ON public.agency_data
-  FOR INSERT TO authenticated WITH CHECK (public.is_admin());
+  FOR INSERT TO authenticated WITH CHECK (auth.uid() IS NOT NULL);
 
 DROP POLICY IF EXISTS "agency_data_update" ON public.agency_data;
 CREATE POLICY "agency_data_update" ON public.agency_data
-  FOR UPDATE TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
+  FOR UPDATE TO authenticated USING (auth.uid() IS NOT NULL) WITH CHECK (auth.uid() IS NOT NULL);
 
 DROP POLICY IF EXISTS "agency_data_delete" ON public.agency_data;
 CREATE POLICY "agency_data_delete" ON public.agency_data
@@ -299,3 +299,19 @@ END $$;
 INSERT INTO public.agency_data (id, data, updated_at, updated_by)
 VALUES ('morvello_main', '{"initialized": true}'::jsonb, now(), 'morvello_setup')
 ON CONFLICT (id) DO NOTHING;
+
+-- ==============================================================================
+-- 11. BOOTSTRAP DU PREMIER ADMINISTRATEUR
+-- Si l'utilisateur anouar7fac@gmail.com existe déjà dans auth.users, il reçoit le rôle 'admin'.
+-- ==============================================================================
+INSERT INTO public.profiles (id, email, name, role, agency)
+SELECT 
+  id::text, 
+  email, 
+  'Anouar', 
+  'admin', 
+  'Nouaceur Casablanca'
+FROM auth.users 
+WHERE email = 'anouar7fac@gmail.com'
+ON CONFLICT (id) 
+DO UPDATE SET role = 'admin', name = 'Anouar';

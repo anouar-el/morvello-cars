@@ -18,6 +18,7 @@ import {
 } from 'firebase/auth';
 import { isAbortException } from '../initErrorHandling';
 import { saveUserProfile } from '../lib/firestoreSync';
+import { saveUserProfileToSupabase } from '../lib/supabaseSync';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import {
   callSetUserRole,
@@ -433,10 +434,18 @@ export const AuthProvider: React.FC<{
             authProvider: 'password',
           };
 
+          // Sync profile to both Firestore and Supabase profiles table
           saveUserProfile(sbUser.id, {
             role: finalUser.role,
             email: finalUser.email,
             name: finalUser.name,
+          }).catch(() => {});
+
+          saveUserProfileToSupabase(sbUser.id, {
+            role: finalUser.role,
+            email: finalUser.email,
+            name: finalUser.name,
+            permissions: finalUser.permissions,
           }).catch(() => {});
 
           setCurrentUser(finalUser);
@@ -947,7 +956,7 @@ export const AuthProvider: React.FC<{
       );
     }
 
-    // 4. Update Firestore user profile
+    // 4. Update Firestore user profile & Supabase profiles table
     if (targetUid) {
       try {
         await saveUserProfile(targetUid, {
@@ -957,6 +966,17 @@ export const AuthProvider: React.FC<{
         });
       } catch (fsErr) {
         console.warn('[AuthContext] Firestore profile sync warning:', fsErr);
+      }
+
+      try {
+        await saveUserProfileToSupabase(targetUid, {
+          role,
+          email: target?.email || '',
+          name: target?.name,
+          permissions: { ...DEFAULT_PERMISSIONS_BY_ROLE[role] },
+        });
+      } catch (sbErr) {
+        console.warn('[AuthContext] Supabase profile sync warning:', sbErr);
       }
     }
 
