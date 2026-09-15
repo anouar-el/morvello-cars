@@ -222,13 +222,13 @@ export const CredentialsManager: React.FC = () => {
           </div>
         </div>
 
-        {/* Type de connexion 2 : Cloud Firestore */}
+        {/* Type de connexion 2 : Cloud Supabase */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4.5 shadow-lg flex flex-col justify-between">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-xs font-bold text-blue-400 font-mono uppercase tracking-wider">
-                <Cloud className="w-4 h-4" />
-                <span>Base Cloud Firestore</span>
+              <div className="flex items-center gap-2 text-xs font-bold text-emerald-400 font-mono uppercase tracking-wider">
+                <Database className="w-4 h-4" />
+                <span>Base Cloud Supabase (PostgreSQL)</span>
               </div>
               <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold border ${
                 cloudSyncStatus === 'synced'
@@ -239,23 +239,24 @@ export const CredentialsManager: React.FC = () => {
               </span>
             </div>
             <p className="text-xs text-slate-300 leading-relaxed">
-              Synchronisation instantanée des mots de passe et droits entre tous les ordinateurs et téléphones de l'agence.
+              Synchronisation instantanée des mots de passe et droits dans la table PostgreSQL <code className="text-emerald-300">agency_data</code>.
             </p>
           </div>
           <div className="mt-3 pt-3 border-t border-slate-800 flex items-center justify-between">
             <span className="text-[10px] text-slate-500">
-              {lastCloudSync ? `Sync: ${lastCloudSync}` : 'Prêt pour déploiement'}
+              {lastCloudSync ? `Sync: ${lastCloudSync}` : 'uxswtmfrrxagkmewpwyd'}
             </span>
             <button
               onClick={handleManualSync}
               disabled={isSyncing}
-              className="px-2.5 py-1 bg-blue-500/15 hover:bg-blue-500/25 text-blue-400 border border-blue-500/30 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="px-2.5 py-1 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <RefreshCw className={`w-3 h-3 ${isSyncing ? 'animate-spin' : ''}`} />
               <span>{isSyncing ? 'Sync...' : 'Synchroniser'}</span>
             </button>
           </div>
         </div>
+
 
         {/* Action Rapide Nouveau Collaborateur */}
         <div className="bg-gradient-to-br from-amber-500/10 via-slate-900 to-slate-900 border border-amber-500/30 rounded-2xl p-4.5 shadow-lg flex flex-col justify-between">

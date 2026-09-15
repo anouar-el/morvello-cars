@@ -124,6 +124,12 @@ const PERMISSION_DEFINITIONS: PermissionMeta[] = [
     category: 'fleet',
   },
   {
+    key: 'canManageMaintenanceExpenses',
+    label: 'Gérer les dépenses d’entretien & vidanges',
+    description: 'Enregistrer des factures d’entretien, réviser le seuil de vidange et suivre les coûts engagés.',
+    category: 'fleet',
+  },
+  {
     key: 'canDeleteVehicles',
     label: 'Supprimer un véhicule du parc',
     description: 'Permet de retirer et supprimer définitivement un véhicule de la flotte.',

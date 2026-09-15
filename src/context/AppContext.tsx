@@ -3,6 +3,7 @@ import {
   Client,
   Driver,
   Vehicle,
+  VehicleExpense,
   Contract,
   CompanySettings,
   TermsVersion,
@@ -108,6 +109,11 @@ export interface AppContextType {
   rejectVehicle: (vehicleId: string, reason?: string) => void;
   assignVehicleManager: (vehicleId: string, managerId: string, managerName: string) => void;
   deleteVehicle: (vehicleId: string) => { success: boolean; error?: string };
+  addVehicleExpense: (
+    vehicleId: string,
+    expenseData: Omit<VehicleExpense, 'id' | 'createdAt' | 'vehicleId'>
+  ) => VehicleExpense;
+  deleteVehicleExpense: (vehicleId: string, expenseId: string) => void;
   createContract: (contractData: Omit<Contract, 'id' | 'contractNumber' | 'createdAt' | 'createdBy'>) => Contract;
   updateContract: (id: string, data: Partial<Contract>) => Contract | undefined;
   startEditingContract: (contract: Contract) => void;
@@ -431,6 +437,10 @@ const AppContextInner: React.FC<{ children: React.ReactNode }> = ({ children }) 
         rejectVehicle: vehiclesCtx.rejectVehicle,
         assignVehicleManager: vehiclesCtx.assignVehicleManager,
         deleteVehicle: (id) => vehiclesCtx.deleteVehicle(id, auth.currentUser, auth.hasPermission),
+        addVehicleExpense: (vehicleId, expenseData) =>
+          vehiclesCtx.addVehicleExpense(vehicleId, expenseData, auth.currentUser),
+        deleteVehicleExpense: (vehicleId, expenseId) =>
+          vehiclesCtx.deleteVehicleExpense(vehicleId, expenseId, auth.currentUser),
         createContract,
         updateContract,
         startEditingContract: (contract) =>

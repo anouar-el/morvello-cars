@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Vehicle, User } from '../types';
+import { Vehicle, User, VehicleExpense } from '../types';
 import { initialVehicles, initialUsers } from '../data/mockData';
 import { formatPlateFrench } from '../utils/plateUtils';
 import { saveRemoteAgencyData } from '../lib/firestoreSync';
@@ -15,6 +15,16 @@ export interface VehiclesContextType {
   assignVehicleManager: (vehicleId: string, managerId: string, managerName: string, actorName?: string) => void;
   deleteVehicle: (vehicleId: string, currentUser?: User | null, activeContractCheck?: (vehicleId: string) => boolean) => { success: boolean; error?: string };
   releaseVehicle: (vehicleId: string, returnKm?: number) => void;
+  addVehicleExpense: (
+    vehicleId: string,
+    expenseData: Omit<VehicleExpense, 'id' | 'createdAt' | 'vehicleId'>,
+    currentUser?: User | null
+  ) => VehicleExpense;
+  deleteVehicleExpense: (
+    vehicleId: string,
+    expenseId: string,
+    currentUser?: User | null
+  ) => void;
   setVehiclesList: (vehicles: Vehicle[]) => void;
   setVehiclesListByUpdater: (updater: (prev: Vehicle[]) => Vehicle[]) => void;
 }
@@ -215,6 +225,92 @@ export const VehiclesProvider: React.FC<{
     return { success: true };
   };
 
+  const addVehicleExpense = (
+    vehicleId: string,
+    expenseData: Omit<VehicleExpense, 'id' | 'createdAt' | 'vehicleId'>,
+    currentUser?: User | null
+  ): VehicleExpense => {
+    const newExpense: VehicleExpense = {
+      ...expenseData,
+      id: `exp-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      vehicleId,
+      createdAt: new Date().toISOString(),
+      recordedBy: currentUser?.name || 'Collaborateur',
+    };
+
+    const targetVehicle = vehicles.find((v) => v.id === vehicleId);
+    const existingExpenses = targetVehicle?.maintenanceExpenses || [];
+    const updatedExpenses = [newExpense, ...existingExpenses];
+
+    const updatedVehicles = vehicles.map((v) => {
+      if (v.id === vehicleId) {
+        const updated: Vehicle = {
+          ...v,
+          maintenanceExpenses: updatedExpenses,
+        };
+        // Si l'intervention met à jour la prochaine vidange
+        if (expenseData.nextOilChangeTargetKm && expenseData.nextOilChangeTargetKm > 0) {
+          updated.nextOilChangeKm = expenseData.nextOilChangeTargetKm;
+        }
+        // Si le kilométrage constaté lors de l'entretien est supérieur au compteur actuel, mettre à jour
+        if (expenseData.kmAtExpense && expenseData.kmAtExpense > v.currentKm) {
+          updated.currentKm = expenseData.kmAtExpense;
+        }
+        // Date dernière révision
+        if (expenseData.date) {
+          updated.lastInspectionDate = expenseData.date;
+        }
+        return updated;
+      }
+      return v;
+    });
+
+    setVehicles(updatedVehicles);
+    saveRemoteAgencyData({ vehicles: updatedVehicles }).catch((err) =>
+      console.warn('Auto-save addVehicleExpense to Firestore note:', err)
+    );
+
+    logAction(
+      'Enregistrement dépense entretien',
+      'maintenance_expense' as any,
+      vehicleId,
+      `Dépense de ${expenseData.costMAD} MAD enregistrée pour ${targetVehicle?.brand} ${targetVehicle?.model} [${targetVehicle?.plate}] (${expenseData.title}) par ${currentUser?.name || 'Collaborateur'}`
+    );
+
+    return newExpense;
+  };
+
+  const deleteVehicleExpense = (
+    vehicleId: string,
+    expenseId: string,
+    currentUser?: User | null
+  ) => {
+    const targetVehicle = vehicles.find((v) => v.id === vehicleId);
+    const targetExpense = targetVehicle?.maintenanceExpenses?.find((e) => e.id === expenseId);
+
+    const updatedVehicles = vehicles.map((v) => {
+      if (v.id === vehicleId) {
+        return {
+          ...v,
+          maintenanceExpenses: (v.maintenanceExpenses || []).filter((e) => e.id !== expenseId),
+        };
+      }
+      return v;
+    });
+
+    setVehicles(updatedVehicles);
+    saveRemoteAgencyData({ vehicles: updatedVehicles }).catch((err) =>
+      console.warn('Auto-save deleteVehicleExpense to Firestore note:', err)
+    );
+
+    logAction(
+      'Suppression dépense entretien',
+      'maintenance_expense' as any,
+      vehicleId,
+      `Dépense "${targetExpense?.title || expenseId}" (${targetExpense?.costMAD || 0} MAD) supprimée par ${currentUser?.name || 'Collaborateur'}`
+    );
+  };
+
   const releaseVehicle = (vehicleId: string, returnKm?: number) => {
     setVehicles((prev) =>
       prev.map((v) => {
@@ -247,6 +343,8 @@ export const VehiclesProvider: React.FC<{
         assignVehicleManager,
         deleteVehicle,
         releaseVehicle,
+        addVehicleExpense,
+        deleteVehicleExpense,
         setVehiclesList,
         setVehiclesListByUpdater: setVehicles,
       }}

@@ -18,6 +18,7 @@ import {
 } from 'firebase/auth';
 import { isAbortException } from '../initErrorHandling';
 import { saveUserProfile } from '../lib/firestoreSync';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import {
   callSetUserRole,
   callProvisionTeamMember,
@@ -201,6 +202,71 @@ export const AuthProvider: React.FC<{
     return () => unsubscribe();
   }, [users]);
 
+  // Listen to Supabase Auth state changes
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user?.email) {
+        const emailLower = session.user.email.toLowerCase();
+        const isAdmin = emailLower === 'anouar7fac@gmail.com';
+        const matched = users.find((u) => (u.email || '').toLowerCase() === emailLower);
+        if (matched) {
+          const role = isAdmin ? 'admin' : matched.role;
+          setCurrentUser((prev) => {
+            if (!prev || prev.id !== matched.id || prev.role !== role) {
+              return {
+                ...matched,
+                role,
+                permissions: { ...DEFAULT_PERMISSIONS_BY_ROLE[role] },
+                firebaseUid: session.user.id,
+                authProvider: 'password',
+              };
+            }
+            return prev;
+          });
+        }
+      }
+    });
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const sbUser = session?.user;
+      if (sbUser && sbUser.email) {
+        const emailLower = sbUser.email.toLowerCase();
+        const isAdmin = emailLower === 'anouar7fac@gmail.com';
+        const matched = users.find((u) => (u.email || '').toLowerCase() === emailLower);
+
+        if (matched) {
+          const role = isAdmin ? 'admin' : matched.role;
+          setCurrentUser((prev) => ({
+            ...(prev || matched),
+            ...matched,
+            role,
+            permissions: { ...DEFAULT_PERMISSIONS_BY_ROLE[role] },
+            firebaseUid: sbUser.id,
+            authProvider: 'password',
+          }));
+        } else {
+          const role: UserRole = isAdmin ? 'admin' : 'agent';
+          const newUser: User = {
+            id: `usr-${sbUser.id.slice(0, 8)}`,
+            name: sbUser.user_metadata?.name || emailLower.split('@')[0],
+            email: emailLower,
+            role,
+            firebaseUid: sbUser.id,
+            authProvider: 'password',
+            permissions: { ...DEFAULT_PERMISSIONS_BY_ROLE[role] },
+          };
+          setCurrentUser(newUser);
+        }
+      }
+    });
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, [users]);
+
   // Persist users and currentUser (without sensitive credentials)
   useEffect(() => {
     try {
@@ -315,6 +381,56 @@ export const AuthProvider: React.FC<{
     let canonicalEmail = trimmedInput;
     if (!canonicalEmail.includes('@')) {
       canonicalEmail = `${canonicalEmail}@morvellocars.com`;
+    }
+
+    // 0. Primary: Check Supabase Auth if configured
+    if (isSupabaseConfigured) {
+      try {
+        const { data: sbData, error: sbErr } = await supabase.auth.signInWithPassword({
+          email: canonicalEmail,
+          password: trimmedPass,
+        });
+
+        if (!sbErr && sbData?.user) {
+          const sbUser = sbData.user;
+          const isAdmin = canonicalEmail === 'anouar7fac@gmail.com';
+          const matchedUser =
+            users.find((u) => (u.email || '').toLowerCase() === canonicalEmail) || {
+              id: `usr-${sbUser.id.slice(0, 8)}`,
+              name: canonicalEmail.split('@')[0],
+              email: canonicalEmail,
+              role: (isAdmin ? 'admin' : 'agent') as UserRole,
+              agency: 'Agence Morvello',
+              permissions: { ...DEFAULT_PERMISSIONS_BY_ROLE[isAdmin ? 'admin' : 'agent'] },
+            };
+
+          const finalRole = isAdmin ? 'admin' : matchedUser.role;
+          const finalUser: User = {
+            ...matchedUser,
+            role: finalRole,
+            permissions: { ...DEFAULT_PERMISSIONS_BY_ROLE[finalRole] },
+            firebaseUid: sbUser.id,
+            authProvider: 'password',
+          };
+
+          saveUserProfile(sbUser.id, {
+            role: finalUser.role,
+            email: finalUser.email,
+            name: finalUser.name,
+          }).catch(() => {});
+
+          setCurrentUser(finalUser);
+          logAction(
+            'Connexion Supabase Auth',
+            'user_permission',
+            finalUser.id,
+            `Connexion réussie de ${finalUser.name} (${finalUser.role.toUpperCase()}) avec Supabase Auth`
+          );
+          return { success: true };
+        }
+      } catch (sbEx) {
+        console.warn('[Supabase Auth] Login attempt notice:', sbEx);
+      }
     }
 
     try {
@@ -510,6 +626,13 @@ export const AuthProvider: React.FC<{
     if (currentUser) {
       logAction('Déconnexion', 'user_permission', currentUser.id, `Déconnexion de ${currentUser.name}`);
     }
+    if (isSupabaseConfigured) {
+      try {
+        await supabase.auth.signOut();
+      } catch (sbSignOutErr) {
+        console.warn('Supabase sign-out notice:', sbSignOutErr);
+      }
+    }
     try {
       await signOut(auth);
     } catch (e) {
@@ -678,8 +801,17 @@ export const AuthProvider: React.FC<{
       setStoredPassword(targetUser.email, trimmed);
     }
 
+    // 1. Supabase Auth update if user has active session
+    if (isSupabaseConfigured) {
+      try {
+        await supabase.auth.updateUser({ password: trimmed });
+      } catch (sbPassErr) {
+        console.warn('Supabase password update note:', sbPassErr);
+      }
+    }
+
     try {
-      // If current Firebase Auth session matches, update native password directly
+      // 2. If current Firebase Auth session matches, update native password directly
       if (auth.currentUser) {
         await updatePassword(auth.currentUser, trimmed);
       }
@@ -705,8 +837,23 @@ export const AuthProvider: React.FC<{
   };
 
   const sendResetEmail = async (email: string): Promise<{ success: boolean; error?: string }> => {
+    const cleanEmail = email.trim().toLowerCase();
+
+    // 1. Try Supabase Auth password reset
+    if (isSupabaseConfigured) {
+      try {
+        const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail);
+        if (!error) {
+          return { success: true };
+        }
+      } catch (sbResetErr) {
+        console.warn('Supabase reset notice:', sbResetErr);
+      }
+    }
+
+    // 2. Try Firebase Auth password reset
     try {
-      await sendPasswordResetEmail(auth, email.trim().toLowerCase());
+      await sendPasswordResetEmail(auth, cleanEmail);
       return { success: true };
     } catch (e: any) {
       return {

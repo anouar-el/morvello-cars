@@ -7,22 +7,27 @@ import {
   checkOilChangeStatus,
   getVehicleHealthSummary,
 } from '../../utils/vehicleExpiryUtils';
-import { Shield, FileCheck, Award, Wrench, AlertTriangle, CheckCircle2, AlertOctagon } from 'lucide-react';
+import { Shield, FileCheck, Award, Wrench, AlertTriangle, CheckCircle2, AlertOctagon, Receipt, ChevronRight } from 'lucide-react';
 
 interface VehicleCompliancePanelProps {
   vehicle: Vehicle;
   compact?: boolean;
+  onOpenMaintenanceModal?: () => void;
 }
 
 export const VehicleCompliancePanel: React.FC<VehicleCompliancePanelProps> = ({
   vehicle,
   compact = false,
+  onOpenMaintenanceModal,
 }) => {
   const insurance = checkInsuranceStatus(vehicle);
   const inspection = checkTechnicalInspectionStatus(vehicle);
   const vignette = checkVignetteStatus(vehicle);
   const oil = checkOilChangeStatus(vehicle);
   const summary = getVehicleHealthSummary(vehicle);
+
+  const expenses = vehicle.maintenanceExpenses || [];
+  const totalCost = expenses.reduce((sum, e) => sum + (e.costMAD || 0), 0);
 
   return (
     <div className="mt-3 bg-slate-950/90 border border-slate-800 rounded-xl p-3 space-y-2.5 text-xs">
@@ -122,6 +127,29 @@ export const VehicleCompliancePanel: React.FC<VehicleCompliancePanelProps> = ({
             </span>
           </div>
         </div>
+
+        {/* CARNET D'ENTRETIEN & FACTURES ACTION */}
+        {onOpenMaintenanceModal && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenMaintenanceModal();
+            }}
+            className="w-full mt-1 pt-2 border-t border-slate-900 flex items-center justify-between text-[11px] text-slate-300 hover:text-amber-300 transition-colors group/btn cursor-pointer py-0.5"
+          >
+            <span className="flex items-center gap-1.5">
+              <Receipt className="w-3.5 h-3.5 text-amber-400" />
+              <span className="font-semibold">Carnet Dépenses & Vidanges</span>
+              {expenses.length > 0 && (
+                <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-900 border border-slate-800 text-amber-400 font-mono font-bold">
+                  {totalCost.toLocaleString('fr-FR')} MAD ({expenses.length})
+                </span>
+              )}
+            </span>
+            <ChevronRight className="w-3.5 h-3.5 text-slate-500 group-hover/btn:text-amber-400 group-hover/btn:translate-x-0.5 transition-all" />
+          </button>
+        )}
       </div>
     </div>
   );

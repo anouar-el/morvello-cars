@@ -119,8 +119,8 @@ export const LoginView: React.FC = () => {
                 <ShieldCheck className="w-4 h-4 text-emerald-400" />
                 <span>Connexion d'Agence</span>
               </h2>
-              <span className="text-[10px] font-mono text-amber-400/90 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full font-semibold">
-                Firebase Auth Natif
+              <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full font-semibold">
+                Supabase & Cloud
               </span>
             </div>
             <p className="text-xs text-slate-400">
@@ -253,7 +253,7 @@ export const LoginView: React.FC = () => {
 
         {/* Footer info */}
         <p className="text-center text-[10px] text-slate-400">
-          Système certifié Morvello Cars • Chiffrement sécurisé & Cloud Firestore
+          Système certifié Morvello Cars • Chiffrement sécurisé & Cloud PostgreSQL (Supabase)
         </p>
       </div>
 

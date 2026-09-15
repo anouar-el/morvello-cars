@@ -256,6 +256,9 @@ export const ContractsProvider: React.FC<{
     });
 
     setContracts(updatedContracts);
+    if (pdfModalContract?.id === id && updatedContract) {
+      setPdfModalContract(updatedContract);
+    }
     saveRemoteAgencyData({ contracts: updatedContracts }).catch((err) =>
       console.warn('Auto-save updateContract to Firestore note:', err)
     );

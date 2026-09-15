@@ -19,6 +19,7 @@ import { VehicleEditModal } from './vehicles/VehicleEditModal';
 import { VehicleDeleteModal } from './vehicles/VehicleDeleteModal';
 import { VehicleImportModal } from './vehicles/VehicleImportModal';
 import { PendingApprovalsBanner } from './vehicles/PendingApprovalsBanner';
+import { VehicleMaintenanceModal } from './vehicles/VehicleMaintenanceModal';
 
 export const VehiclesList: React.FC = () => {
   const {
@@ -28,6 +29,8 @@ export const VehiclesList: React.FC = () => {
     approveVehicle,
     rejectVehicle,
     deleteVehicle,
+    addVehicleExpense,
+    deleteVehicleExpense,
     contracts,
     openPdfModal,
     currentUser,
@@ -40,6 +43,7 @@ export const VehiclesList: React.FC = () => {
   const [managerFilter, setManagerFilter] = useState<string>('all');
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
+  const [vehicleForMaintenance, setVehicleForMaintenance] = useState<Vehicle | null>(null);
   const [vehicleToDelete, setVehicleToDelete] = useState<Vehicle | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [successToast, setSuccessToast] = useState<string | null>(null);
@@ -151,29 +155,37 @@ export const VehiclesList: React.FC = () => {
       'Expiration_Controle_Tech',
       'Vignette_Payee_Annee',
       'Prochaine_Vidange_KM',
+      'Total_Depenses_Entretien_MAD',
+      'Nb_Interventions_Entretien',
       'Date_Achat',
       'Notes',
     ];
 
-    const rows = vehicles.map((v) => [
-      `"${v.brand}"`,
-      `"${v.model}"`,
-      `"${v.plate}"`,
-      `"${v.fuelType}"`,
-      `"${v.status}"`,
-      v.currentKm || 0,
-      v.dailyRate || 0,
-      v.year || '',
-      `"${v.color || ''}"`,
-      `"${v.assignedManagerName || ''}"`,
-      `"${v.insuranceCompany || ''}"`,
-      `"${v.insuranceExpiryDate || ''}"`,
-      `"${v.technicalInspectionExpiryDate || ''}"`,
-      v.vignettePaidYear || '',
-      v.nextOilChangeKm || '',
-      `"${v.purchaseDate || ''}"`,
-      `"${(v.notes || '').replace(/"/g, '""')}"`,
-    ]);
+    const rows = vehicles.map((v) => {
+      const exps = v.maintenanceExpenses || [];
+      const totalExpCost = exps.reduce((s, e) => s + (e.costMAD || 0), 0);
+      return [
+        `"${v.brand}"`,
+        `"${v.model}"`,
+        `"${v.plate}"`,
+        `"${v.fuelType}"`,
+        `"${v.status}"`,
+        v.currentKm || 0,
+        v.dailyRate || 0,
+        v.year || '',
+        `"${v.color || ''}"`,
+        `"${v.assignedManagerName || ''}"`,
+        `"${v.insuranceCompany || ''}"`,
+        `"${v.insuranceExpiryDate || ''}"`,
+        `"${v.technicalInspectionExpiryDate || ''}"`,
+        v.vignettePaidYear || '',
+        v.nextOilChangeKm || '',
+        totalExpCost,
+        exps.length,
+        `"${v.purchaseDate || ''}"`,
+        `"${(v.notes || '').replace(/"/g, '""')}"`,
+      ];
+    });
 
     const csvContent = '\uFEFF' + [headers.join(';'), ...rows.map((e) => e.join(';'))].join('\r\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -206,29 +218,37 @@ export const VehiclesList: React.FC = () => {
         'Expiration_Controle_Tech',
         'Vignette_Payee_Annee',
         'Prochaine_Vidange_KM',
+        'Total_Depenses_Entretien_MAD',
+        'Nb_Interventions_Entretien',
         'Date_Achat',
         'Notes',
       ];
 
-      const rows = vehicles.map((v) => [
-        v.brand,
-        v.model,
-        v.plate,
-        v.fuelType,
-        v.status,
-        v.currentKm || 0,
-        v.dailyRate || 0,
-        v.year || '',
-        v.color || '',
-        v.assignedManagerName || '',
-        v.insuranceCompany || '',
-        v.insuranceExpiryDate || '',
-        v.technicalInspectionExpiryDate || '',
-        v.vignettePaidYear || '',
-        v.nextOilChangeKm || '',
-        v.purchaseDate || '',
-        v.notes || '',
-      ]);
+      const rows = vehicles.map((v) => {
+        const exps = v.maintenanceExpenses || [];
+        const totalExpCost = exps.reduce((s, e) => s + (e.costMAD || 0), 0);
+        return [
+          v.brand,
+          v.model,
+          v.plate,
+          v.fuelType,
+          v.status,
+          v.currentKm || 0,
+          v.dailyRate || 0,
+          v.year || '',
+          v.color || '',
+          v.assignedManagerName || '',
+          v.insuranceCompany || '',
+          v.insuranceExpiryDate || '',
+          v.technicalInspectionExpiryDate || '',
+          v.vignettePaidYear || '',
+          v.nextOilChangeKm || '',
+          totalExpCost,
+          exps.length,
+          v.purchaseDate || '',
+          v.notes || '',
+        ];
+      });
 
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
@@ -247,6 +267,8 @@ export const VehiclesList: React.FC = () => {
         { wch: 20 },
         { wch: 22 },
         { wch: 16 },
+        { wch: 22 },
+        { wch: 24 },
         { wch: 22 },
         { wch: 14 },
         { wch: 40 },
@@ -472,6 +494,7 @@ export const VehiclesList: React.FC = () => {
                 setVehicleToDelete(v);
               }}
               onOpenPdfModal={openPdfModal}
+              onOpenMaintenanceModal={(v) => setVehicleForMaintenance(v)}
             />
           );
         })}
@@ -492,6 +515,33 @@ export const VehiclesList: React.FC = () => {
           setDeleteError(null);
           setVehicleToDelete(v);
         }}
+        onOpenMaintenanceModal={(v) => setVehicleForMaintenance(v)}
+      />
+
+      {/* MODAL CARNET D'ENTRETIEN & VIDANGES */}
+      <VehicleMaintenanceModal
+        vehicle={
+          vehicleForMaintenance
+            ? vehicles.find((v) => v.id === vehicleForMaintenance.id) || vehicleForMaintenance
+            : null
+        }
+        isOpen={!!vehicleForMaintenance}
+        onClose={() => setVehicleForMaintenance(null)}
+        onAddExpense={(vehicleId, expenseData) => {
+          addVehicleExpense(vehicleId, expenseData);
+          triggerToast(`Dépense d'entretien enregistrée (${expenseData.costMAD} MAD) !`);
+        }}
+        onDeleteExpense={(vehicleId, expenseId) => {
+          deleteVehicleExpense(vehicleId, expenseId);
+          triggerToast("Dépense d'entretien supprimée.");
+        }}
+        canManage={
+          isAdmin ||
+          isManager ||
+          hasPermission('canManageMaintenanceExpenses') ||
+          hasPermission('canEditVehicles')
+        }
+        currentUser={currentUser}
       />
 
       {/* MODAL AJOUTER UN VÉHICULE */}

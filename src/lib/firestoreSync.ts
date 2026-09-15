@@ -4,6 +4,16 @@ import { db, auth } from './firebase';
 import { handleFirestoreError, OperationType } from './firestoreErrors';
 import { isAbortException } from '../initErrorHandling';
 import {
+  isSupabaseConfigured,
+  supabase,
+} from './supabase';
+import {
+  fetchRemoteAgencyDataFromSupabase,
+  saveRemoteAgencyDataToSupabase,
+  subscribeToRemoteAgencyDataFromSupabase,
+  saveUserProfileToSupabase,
+} from './supabaseSync';
+import {
   Client,
   Driver,
   Vehicle,
@@ -61,6 +71,21 @@ export function sanitizeForFirestore<T>(val: T): T {
 }
 
 export async function fetchRemoteAgencyData(): Promise<MorvelloCloudData | null> {
+  // 1. Primary: Attempt fetch from Supabase PostgreSQL
+  if (isSupabaseConfigured) {
+    try {
+      const supabaseData = await fetchRemoteAgencyDataFromSupabase();
+      if (supabaseData) {
+        return supabaseData;
+      }
+    } catch (sbErr) {
+      if (!isAbortException(sbErr)) {
+        console.warn('[Data Sync] Supabase fetch fallback to Firestore:', sbErr);
+      }
+    }
+  }
+
+  // 2. Secondary / Fallback: Attempt fetch from Firestore
   const fullPath = `${APP_DOC_PATH.collection}/${APP_DOC_PATH.docId}`;
   try {
     if (typeof auth.authStateReady === 'function') {
@@ -87,57 +112,74 @@ export async function fetchRemoteAgencyData(): Promise<MorvelloCloudData | null>
 }
 
 export async function saveRemoteAgencyData(data: Partial<MorvelloCloudData>): Promise<boolean> {
+  let supabaseSuccess = false;
+  let firestoreSuccess = false;
+
+  // 1. Primary: Save to Supabase PostgreSQL
+  if (isSupabaseConfigured) {
+    try {
+      supabaseSuccess = await saveRemoteAgencyDataToSupabase(data, auth.currentUser?.uid);
+    } catch (sbErr) {
+      console.warn('[Data Sync] Supabase save error:', sbErr);
+    }
+  }
+
+  // 2. Secondary / Backup: Save to Firestore if user is authenticated
   const fullPath = `${APP_DOC_PATH.collection}/${APP_DOC_PATH.docId}`;
   try {
-    if (typeof auth.authStateReady === 'function') {
-      await auth.authStateReady();
+    if (auth.currentUser && !auth.currentUser.isAnonymous) {
+      const docRef = doc(db, APP_DOC_PATH.collection, APP_DOC_PATH.docId);
+      const rawPayload = {
+        ...data,
+        updatedAt: new Date().toISOString(),
+      };
+      const sanitizedPayload = sanitizeForFirestore(rawPayload);
+      await setDoc(docRef, sanitizedPayload, { merge: true });
+      firestoreSuccess = true;
     }
-    if (!auth.currentUser || auth.currentUser.isAnonymous) {
-      return false;
-    }
-    const docRef = doc(db, APP_DOC_PATH.collection, APP_DOC_PATH.docId);
-    const rawPayload = {
-      ...data,
-      updatedAt: new Date().toISOString(),
-    };
-    const sanitizedPayload = sanitizeForFirestore(rawPayload);
-    await setDoc(docRef, sanitizedPayload, { merge: true });
-    return true;
   } catch (error: any) {
-    if (isAbortException(error)) {
-      return false;
-    }
-    if (error?.code === 'permission-denied' && auth.currentUser && !auth.currentUser.isAnonymous) {
+    if (!isAbortException(error) && error?.code === 'permission-denied' && auth.currentUser) {
       handleFirestoreError(error, OperationType.WRITE, fullPath);
     }
-    return false;
   }
+
+  return supabaseSuccess || firestoreSuccess;
 }
 
 /**
  * Real-time listener for multi-workstation agency data synchronization
+ * Subscribes to Supabase Realtime channel and/or Firestore onSnapshot
  */
 export function subscribeToRemoteAgencyData(
   onData: (data: MorvelloCloudData) => void,
   onError?: (err: any) => void
 ): Unsubscribe {
+  let isDisposed = false;
+
+  // 1. Supabase Realtime Subscription
+  const unsubscribeSupabase = subscribeToRemoteAgencyDataFromSupabase(
+    (data) => {
+      if (!isDisposed) {
+        onData(data);
+      }
+    },
+    (err) => {
+      if (!isDisposed && onError) onError(err);
+    }
+  );
+
+  // 2. Firestore Snapshot Subscription (bridged)
   const fullPath = `${APP_DOC_PATH.collection}/${APP_DOC_PATH.docId}`;
   const docRef = doc(db, APP_DOC_PATH.collection, APP_DOC_PATH.docId);
-
   let snapshotUnsub: Unsubscribe | null = null;
-  let isDisposed = false;
 
   const authUnsub = onAuthStateChanged(auth, (user) => {
     if (isDisposed) return;
-
     if (snapshotUnsub) {
       snapshotUnsub();
       snapshotUnsub = null;
     }
-
-    if (!user || user.isAnonymous) {
-      return;
-    }
+    if (!user || user.isAnonymous) return;
 
     try {
       snapshotUnsub = onSnapshot(
@@ -149,26 +191,21 @@ export function subscribeToRemoteAgencyData(
           }
         },
         (error) => {
-          if (isDisposed || isAbortException(error)) {
-            return;
-          }
+          if (isDisposed || isAbortException(error)) return;
           if (error?.code === 'permission-denied' && auth.currentUser && !auth.currentUser.isAnonymous) {
             handleFirestoreError(error, OperationType.GET, fullPath);
           }
-          if (onError) {
-            onError(error);
-          }
+          if (onError) onError(error);
         }
       );
     } catch (err: any) {
-      if (!isDisposed && !isAbortException(err) && onError) {
-        onError(err);
-      }
+      if (!isDisposed && !isAbortException(err) && onError) onError(err);
     }
   });
 
   return () => {
     isDisposed = true;
+    unsubscribeSupabase();
     authUnsub();
     if (snapshotUnsub) {
       snapshotUnsub();
@@ -178,12 +215,20 @@ export function subscribeToRemoteAgencyData(
 }
 
 /**
- * Sync individual user profile and RBAC role in Firestore /users/{uid}
+ * Sync individual user profile and RBAC role in Supabase profiles & Firestore /users/{uid}
  */
 export async function saveUserProfile(
   uid: string,
-  profile: { role: string; email: string; name?: string }
+  profile: { role: string; email: string; name?: string; phone?: string; permissions?: any }
 ): Promise<boolean> {
+  // 1. Supabase Profiles
+  if (isSupabaseConfigured) {
+    saveUserProfileToSupabase(uid, profile).catch((e) =>
+      console.warn('[Supabase Profile] update notice:', e)
+    );
+  }
+
+  // 2. Firestore Users
   const fullPath = `users/${uid}`;
   try {
     const docRef = doc(db, 'users', uid);
@@ -207,3 +252,4 @@ export async function saveUserProfile(
     return false;
   }
 }
+

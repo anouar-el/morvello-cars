@@ -28,9 +28,15 @@ import {
   Bot,
   Sparkles,
   Layers,
+  Bell,
 } from 'lucide-react';
+import { computeOperationalAlerts } from '../utils/alertsUtils';
 
-export const Navbar: React.FC = () => {
+interface NavbarProps {
+  onOpenNotifications?: () => void;
+}
+
+export const Navbar: React.FC<NavbarProps> = ({ onOpenNotifications }) => {
   const {
     activeTab,
     setActiveTab,
@@ -52,6 +58,9 @@ export const Navbar: React.FC = () => {
   } = useApp();
 
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+
+  // Alertes opérationnelles
+  const { alerts, criticalCount } = computeOperationalAlerts(vehicles, contracts, deposits);
 
   // Scoped count based on role
   const scopedVehicles = currentUser.role === 'manager'
@@ -299,6 +308,36 @@ export const Navbar: React.FC = () => {
                 </>
               )}
             </div>
+
+            {/* PROACTIVE NOTIFICATIONS BELL BUTTON */}
+            {onOpenNotifications && (
+              <button
+                type="button"
+                onClick={onOpenNotifications}
+                className={`relative flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-xl border transition-all cursor-pointer ${
+                  criticalCount > 0
+                    ? 'bg-rose-500/15 text-rose-300 border-rose-500/40 hover:bg-rose-500/25'
+                    : alerts.length > 0
+                    ? 'bg-amber-500/15 text-amber-300 border-amber-500/40 hover:bg-amber-500/25'
+                    : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
+                }`}
+                title={`Centre d'alertes : ${alerts.length} alerte(s) opérationnelle(s)`}
+              >
+                <Bell className="w-3.5 h-3.5" />
+                {alerts.length > 0 && (
+                  <span
+                    className={`absolute -top-1 -right-1 text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center font-mono ${
+                      criticalCount > 0
+                        ? 'bg-rose-500 text-white animate-pulse'
+                        : 'bg-amber-500 text-slate-950'
+                    }`}
+                  >
+                    {alerts.length}
+                  </span>
+                )}
+                <span className="hidden xl:inline font-medium">Alertes</span>
+              </button>
+            )}
 
             {/* FIREBASE FIRESTORE SYNC STATUS */}
             <button

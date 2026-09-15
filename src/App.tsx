@@ -9,6 +9,7 @@ import { Navbar } from './components/Navbar';
 import { Dashboard } from './components/Dashboard';
 import { LoginView } from './components/LoginView';
 import { ForcePasswordChangeModal } from './components/ForcePasswordChangeModal';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { Contract } from './types';
 import { Bot, Sparkles, Loader2 } from 'lucide-react';
 
@@ -46,6 +47,12 @@ const PdfModal = lazy(() =>
 const ReturnCheckInModal = lazy(() =>
   import('./components/ReturnCheckInModal').then((m) => ({ default: m.ReturnCheckInModal }))
 );
+const InspectionManagerModal = lazy(() =>
+  import('./components/InspectionManagerModal').then((m) => ({ default: m.InspectionManagerModal }))
+);
+const NotificationsCenterModal = lazy(() =>
+  import('./components/NotificationsCenterModal').then((m) => ({ default: m.NotificationsCenterModal }))
+);
 const MemberAiAssistant = lazy(() =>
   import('./components/MemberAiAssistant').then((m) => ({ default: m.MemberAiAssistant }))
 );
@@ -65,6 +72,8 @@ const ViewLoadingFallback = () => (
 function MainAppContent() {
   const { activeTab, currentUser } = useApp();
   const [checkInContract, setCheckInContract] = useState<Contract | null>(null);
+  const [inspectionContract, setInspectionContract] = useState<Contract | null>(null);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
   const [isAssistantExpanded, setIsAssistantExpanded] = useState(false);
 
@@ -75,7 +84,12 @@ function MainAppContent() {
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
-        return <Dashboard onOpenCheckInModal={(contract) => setCheckInContract(contract)} />;
+        return (
+          <Dashboard
+            onOpenCheckInModal={(contract) => setCheckInContract(contract)}
+            onOpenAllAlerts={() => setIsNotificationsOpen(true)}
+          />
+        );
       case 'new_contract':
         return <ContractWizard />;
       case 'contracts':
@@ -106,13 +120,15 @@ function MainAppContent() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col antialiased selection:bg-amber-500 selection:text-slate-950 relative">
       {/* NAVBAR */}
-      <Navbar />
+      <Navbar onOpenNotifications={() => setIsNotificationsOpen(true)} />
 
       {/* MAIN CONTAINER */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
-        <Suspense fallback={<ViewLoadingFallback />}>
-          {renderContent()}
-        </Suspense>
+        <ErrorBoundary isolateView fallbackTitle="Erreur dans le module actif">
+          <Suspense fallback={<ViewLoadingFallback />}>
+            {renderContent()}
+          </Suspense>
+        </ErrorBoundary>
       </main>
 
       {/* FLOATING AI ASSISTANT TRIGGER BUTTON (BOTTOM-RIGHT) */}
@@ -186,6 +202,17 @@ function MainAppContent() {
         <ReturnCheckInModal
           contract={checkInContract}
           onClose={() => setCheckInContract(null)}
+          onOpenDetailedInspection={(contract) => setInspectionContract(contract)}
+        />
+        <InspectionManagerModal
+          contract={inspectionContract}
+          isOpen={!!inspectionContract}
+          onClose={() => setInspectionContract(null)}
+        />
+        <NotificationsCenterModal
+          isOpen={isNotificationsOpen}
+          onClose={() => setIsNotificationsOpen(false)}
+          onOpenCheckInModal={(contract) => setCheckInContract(contract)}
         />
       </Suspense>
     </div>

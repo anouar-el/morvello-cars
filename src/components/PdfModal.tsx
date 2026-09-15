@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { ContractPdfDocument } from './ContractPdfDocument';
+import { DigitalSignatureModal } from './DigitalSignatureModal';
 import { getContractTemplate } from '../data/contractTemplates';
 import {
   Printer,
@@ -16,6 +17,8 @@ import {
   Loader2,
   CheckCircle,
   Edit3,
+  PenTool,
+  ShieldCheck,
 } from 'lucide-react';
 
 export const PdfModal: React.FC = () => {
@@ -27,6 +30,7 @@ export const PdfModal: React.FC = () => {
     termsVersion,
     addAuditLog,
     startEditingContract,
+    updateContract,
   } = useApp();
 
   const [zoom, setZoom] = useState<number>(85);
@@ -34,6 +38,7 @@ export const PdfModal: React.FC = () => {
   const [isGeneratingPdf, setIsGeneratingPdf] = useState<boolean>(false);
   const [generationStep, setGenerationStep] = useState<string>('');
   const [downloadSuccess, setDownloadSuccess] = useState<boolean>(false);
+  const [isSignatureModalOpen, setIsSignatureModalOpen] = useState<boolean>(false);
 
   if (!isPdfModalOpen || !pdfModalContract) {
     return null;
@@ -232,13 +237,36 @@ export const PdfModal: React.FC = () => {
             </button>
           )}
 
+          {/* Action: Signature Numérique Interactive */}
+          <button
+            onClick={() => setIsSignatureModalOpen(true)}
+            className={`flex items-center gap-1.5 font-bold text-xs px-3.5 py-2 rounded-lg transition-all cursor-pointer shadow-md ${
+              pdfModalContract.clientSignature
+                ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/50 hover:bg-emerald-900/60'
+                : 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 shadow-amber-500/20 active:scale-95'
+            }`}
+            title="Recueillir la signature numérique sur écran tactile ou souris"
+          >
+            {pdfModalContract.clientSignature ? (
+              <>
+                <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                <span>Signé Numériquement ✓</span>
+              </>
+            ) : (
+              <>
+                <PenTool className="w-4 h-4" />
+                <span>Signer Numériquement</span>
+              </>
+            )}
+          </button>
+
           {/* Action: Print */}
           <button
             onClick={handlePrint}
-            className="flex items-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs px-4 py-2 rounded-lg shadow-lg shadow-amber-500/20 transition-all active:scale-95 cursor-pointer"
+            className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white font-semibold text-xs px-3.5 py-2 rounded-lg transition-all active:scale-95 cursor-pointer"
           >
-            <Printer className="w-4 h-4" />
-            Imprimer Contrat (A4)
+            <Printer className="w-4 h-4 text-amber-400" />
+            Imprimer (A4)
           </button>
 
           {/* Action: Download PDF */}
@@ -285,19 +313,29 @@ export const PdfModal: React.FC = () => {
       {/* NOTICE BANNER */}
       <div className="no-print bg-slate-900/90 border-b border-slate-800/80 px-6 py-2 flex items-center justify-between text-xs text-slate-300">
         <div className="flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 text-amber-400" />
+          {pdfModalContract.clientSignature ? (
+            <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+          ) : (
+            <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+          )}
           <span>
             {isGeneratingPdf ? (
               <strong className="text-amber-400">{generationStep}</strong>
+            ) : pdfModalContract.clientSignature ? (
+              <span className="text-emerald-300 font-medium">
+                <strong>Signature électronique certifiée présente :</strong> Paraphe et signature client validés le {new Date(pdfModalContract.clientSignedAt || '').toLocaleDateString('fr-FR')} (Réf. intégrité : <span className="font-mono text-emerald-200">{pdfModalContract.signatureCertId}</span>).
+              </span>
             ) : (
               <span>
-                <strong>Règle contractuelle Morvello Cars :</strong> Le document imprimé doit être signé manuellement sur papier par le locataire et l'agent.
+                <strong>Signature en attente :</strong> Cliquez sur <span className="text-amber-300 font-bold">« Signer Numériquement »</span> pour faire signer le locataire sur écran, ou imprimez le document pour signature papier.
               </span>
             )}
           </span>
         </div>
-        <div className="text-[11px] text-slate-400">
-          Format d'exportation : <strong>210 × 297 mm (A4 Portrait)</strong> • Conditions v{termsVersion.version}
+        <div className="text-[11px] text-slate-400 flex items-center gap-2">
+          <span>Format d'exportation : <strong>210 × 297 mm (A4 Portrait)</strong></span>
+          <span>•</span>
+          <span>CGV v{termsVersion.version}</span>
         </div>
       </div>
 
@@ -346,6 +384,22 @@ export const PdfModal: React.FC = () => {
           idPrefix="print"
         />
       </div>
+
+      {/* MODAL DE SIGNATURE NUMÉRIQUE INTERACTIVE */}
+      <DigitalSignatureModal
+        contract={pdfModalContract}
+        isOpen={isSignatureModalOpen}
+        onClose={() => setIsSignatureModalOpen(false)}
+        onSignatureSaved={(updated) => {
+          addAuditLog(
+            'Signature numérique contrat',
+            'contract',
+            updated.contractNumber,
+            `Signature numérique apposée sur le contrat ${updated.contractNumber} (Certificat: ${updated.signatureCertId})`
+          );
+        }}
+        updateContract={updateContract}
+      />
     </div>
   );
 };

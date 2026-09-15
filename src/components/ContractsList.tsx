@@ -25,9 +25,12 @@ import {
   Gauge,
   Trash2,
   AlertTriangle,
+  PenTool,
+  ShieldCheck,
 } from 'lucide-react';
 import { formatPlateFrench } from '../utils/plateUtils';
 import { InspectionManagerModal } from './InspectionManagerModal';
+import { DigitalSignatureModal } from './DigitalSignatureModal';
 
 interface ContractsListProps {
   onOpenCheckInModal: (contract: Contract) => void;
@@ -65,6 +68,9 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
     departureFuel: '8/8 (Plein)',
     departureKm: 0,
   });
+
+  // Digital Signature Modal
+  const [signingContract, setSigningContract] = useState<Contract | null>(null);
   const [fuelSuccessMsg, setFuelSuccessMsg] = useState<string>('');
 
   const openFuelEdit = (contract: Contract) => {
@@ -362,7 +368,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                       <div className="text-[9px] text-slate-600 font-mono">
                         Conditions V{cnt.termsVersion}
                       </div>
-                      <div className="mt-1">
+                      <div className="mt-1 flex flex-wrap items-center gap-1">
                         <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded border font-mono ${
                           cnt.templateId === 'prestige'
                             ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
@@ -372,6 +378,23 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                         }`}>
                           {cnt.templateId === 'prestige' ? '★ VIP Prestige' : cnt.templateId === 'corporate' ? '🏢 Corporate B2B' : '📄 Standard'}
                         </span>
+                        {cnt.clientSignature ? (
+                          <span
+                            className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-1.5 py-0.2 rounded"
+                            title={`Signé numériquement le ${new Date(cnt.clientSignedAt || '').toLocaleDateString('fr-FR')}`}
+                          >
+                            <ShieldCheck className="w-2.5 h-2.5 text-emerald-400" />
+                            Signé e-Sign
+                          </span>
+                        ) : (
+                          <span
+                            className="inline-flex items-center gap-1 text-[8.5px] font-medium text-slate-400 bg-slate-800/80 border border-slate-700/60 px-1.5 py-0.2 rounded"
+                            title="Signature numérique en attente"
+                          >
+                            <PenTool className="w-2 h-2 text-slate-500" />
+                            À signer
+                          </span>
+                        )}
                       </div>
                     </td>
 
@@ -467,6 +490,23 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                           title="Aperçu du contrat 2 pages A4"
                         >
                           <Eye className="w-4 h-4" />
+                        </button>
+
+                        {/* 1b. Signature Numérique Directe */}
+                        <button
+                          onClick={() => setSigningContract(cnt)}
+                          className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
+                            cnt.clientSignature
+                              ? 'bg-emerald-950/60 hover:bg-emerald-900 text-emerald-400 border-emerald-500/40'
+                              : 'bg-slate-800 hover:bg-amber-500/20 text-slate-300 hover:text-amber-400 border-slate-700 hover:border-amber-500/40'
+                          }`}
+                          title={
+                            cnt.clientSignature
+                              ? 'Signature électronique certifiée présente (cliquer pour gérer)'
+                              : 'Recueillir la signature numérique sur écran'
+                          }
+                        >
+                          <PenTool className="w-4 h-4" />
                         </button>
 
                         {/* 2. Modifier le contrat (Actif ou Brouillon) */}
@@ -764,6 +804,23 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
             </div>
           </div>
         </div>
+      )}
+
+      {/* MODAL DE SIGNATURE NUMÉRIQUE INTERACTIVE DIRECTE */}
+      {signingContract && (
+        <DigitalSignatureModal
+          contract={signingContract}
+          isOpen={!!signingContract}
+          onClose={() => setSigningContract(null)}
+          onSignatureSaved={(updated) => {
+            setSigningContract(null);
+            setSuccessToastMsg(
+              `Signature numérique certifiée enregistrée avec succès pour le contrat ${updated.contractNumber}`
+            );
+            setTimeout(() => setSuccessToastMsg(''), 4000);
+          }}
+          updateContract={updateContract}
+        />
       )}
     </div>
   );

@@ -30,6 +30,7 @@ export interface UserPermissions {
   canAssignVehicleManager: boolean;
   canEditVehicles: boolean;
   canDeleteVehicles: boolean;
+  canManageMaintenanceExpenses?: boolean;
   // Clients & Conducteurs
   canManageClients: boolean;
   canCreateClients: boolean;
@@ -163,6 +164,36 @@ export interface Vehicle {
   technicalInspectionExpiryDate?: string;
   vignettePaidYear?: number;
   nextOilChangeKm?: number;
+  // Dépenses & Carnet d'entretien
+  maintenanceExpenses?: VehicleExpense[];
+}
+
+export type ExpenseCategory =
+  | 'oil_change' // Vidange + filtres
+  | 'brakes' // Plaquettes / Disques
+  | 'tires' // Pneus
+  | 'mechanical' // Mécanique & Moteur
+  | 'bodywork' // Carrosserie & Peinture
+  | 'inspection' // Visite technique / Contrôle
+  | 'insurance' // Assurance
+  | 'vignette' // Vignette annuelle
+  | 'wash_cleaning' // Lavage & Nettoyage
+  | 'other'; // Autre
+
+export interface VehicleExpense {
+  id: string;
+  vehicleId: string;
+  category: ExpenseCategory;
+  title: string;
+  costMAD: number;
+  date: string; // YYYY-MM-DD
+  kmAtExpense: number;
+  provider?: string; // e.g. Garage Midas Nouaceur, Concessionnaire Renault, etc.
+  invoiceNumber?: string;
+  notes?: string;
+  createdAt: string;
+  recordedBy: string;
+  nextOilChangeTargetKm?: number; // Si vidange effectuée, nouveau seuil kilométrique défini
 }
 
 export interface ProlongationData {
@@ -349,6 +380,16 @@ export interface Contract {
   notes?: string;
   pdfUrl?: string;
   templateId?: ContractTemplateId;
+  // Signatures Numériques Électroniques (Certifiées A4)
+  clientSignature?: string; // Data URL PNG de la signature manuscrite du client
+  clientSignedAt?: string; // Date et heure ISO de signature
+  clientSignedName?: string; // Nom confirmé du signataire
+  secondDriverSignature?: string; // Signature manuscrite 2ème conducteur (si applicable)
+  secondDriverSignedAt?: string;
+  agencySignature?: string; // Signature manuscrite de l'agent / gérant
+  agencySignedAt?: string;
+  agencySignedBy?: string;
+  signatureCertId?: string; // Code d'intégrité / certificat unique (ex: MORV-SIG-2026-...)
 }
 
 export interface TermClause {
@@ -391,7 +432,7 @@ export interface AuditLog {
   userName: string;
   userRole: UserRole;
   action: string;
-  targetType: 'client' | 'contract' | 'vehicle' | 'driver' | 'terms' | 'settings' | 'user_permission' | 'contract_template';
+  targetType: 'client' | 'contract' | 'vehicle' | 'driver' | 'terms' | 'settings' | 'user_permission' | 'contract_template' | 'maintenance_expense';
   targetId: string;
   details: string;
 }
@@ -440,6 +481,7 @@ export const DEFAULT_PERMISSIONS_BY_ROLE: Record<UserRole, UserPermissions> = {
     canAssignVehicleManager: true,
     canEditVehicles: true,
     canDeleteVehicles: true,
+    canManageMaintenanceExpenses: true,
     canManageClients: true,
     canCreateClients: true,
     canEditClients: true,
@@ -468,6 +510,7 @@ export const DEFAULT_PERMISSIONS_BY_ROLE: Record<UserRole, UserPermissions> = {
     canAssignVehicleManager: false,
     canEditVehicles: true,
     canDeleteVehicles: true,
+    canManageMaintenanceExpenses: true,
     canManageClients: true,
     canCreateClients: true,
     canEditClients: true,
@@ -496,6 +539,7 @@ export const DEFAULT_PERMISSIONS_BY_ROLE: Record<UserRole, UserPermissions> = {
     canAssignVehicleManager: false,
     canEditVehicles: false,
     canDeleteVehicles: false,
+    canManageMaintenanceExpenses: false,
     canManageClients: true,
     canCreateClients: true,
     canEditClients: false,

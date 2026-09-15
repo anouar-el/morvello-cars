@@ -18,12 +18,14 @@ import {
 } from 'lucide-react';
 import { formatPlateFrench } from '../utils/plateUtils';
 import { getVehicleHealthSummary } from '../utils/vehicleExpiryUtils';
+import { DashboardAlertsBanner } from './DashboardAlertsBanner';
 
 interface DashboardProps {
   onOpenCheckInModal?: (contract: Contract) => void;
+  onOpenAllAlerts?: () => void;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ onOpenCheckInModal }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ onOpenCheckInModal, onOpenAllAlerts }) => {
   const {
     contracts,
     vehicles,
@@ -143,75 +145,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCheckInModal }) => {
         </div>
       </div>
 
-      {/* 2.5 VIGILANCE CONFORMITÉ VÉHICULES (Épuré & Précis) */}
-      {vehiclesWithAlerts.length > 0 && (
-        <div
-          className={`rounded-2xl p-4 border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-            criticalVehicles.length > 0
-              ? 'bg-rose-950/30 border-rose-500/40 text-rose-200'
-              : 'bg-amber-950/25 border-amber-500/40 text-amber-200'
-          }`}
-        >
-          <div className="flex items-center gap-3">
-            <div
-              className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${
-                criticalVehicles.length > 0
-                  ? 'bg-rose-500/20 border-rose-500/40 text-rose-400'
-                  : 'bg-amber-500/20 border-amber-500/40 text-amber-400'
-              }`}
-            >
-              {criticalVehicles.length > 0 ? (
-                <AlertOctagon className="w-5 h-5" />
-              ) : (
-                <ShieldAlert className="w-5 h-5" />
-              )}
-            </div>
-
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold tracking-tight text-white">
-                  Suivi Flotte :{' '}
-                  {criticalVehicles.length > 0
-                    ? `${criticalVehicles.length} échéance(s) expirée(s)`
-                    : `${warningVehicles.length} renouvellement(s) proche(s)`}
-                </span>
-                <span
-                  className={`text-[10px] px-2 py-0.2 rounded-full font-mono font-bold border ${
-                    criticalVehicles.length > 0
-                      ? 'bg-rose-500/30 border-rose-500/50 text-rose-200'
-                      : 'bg-amber-500/30 border-amber-500/50 text-amber-200'
-                  }`}
-                >
-                  {vehiclesWithAlerts.length} véhicule{vehiclesWithAlerts.length > 1 ? 's' : ''} concerné{vehiclesWithAlerts.length > 1 ? 's' : ''}
-                </span>
-              </div>
-
-              <p className="text-[11px] text-slate-300 mt-0.5 flex flex-wrap items-center gap-x-2">
-                <span>
-                  {criticalVehicles.length > 0
-                    ? `Action requise pour : ${criticalVehicles
-                        .map((c) => `${c.vehicle.brand} ${c.vehicle.model}`)
-                        .slice(0, 2)
-                        .join(', ')}${criticalVehicles.length > 2 ? '...' : ''}`
-                    : `Renouvellements à planifier (assurance / visite technique / vidange).`}
-                </span>
-              </p>
-            </div>
-          </div>
-
-          <button
-            onClick={() => setActiveTab('vehicles')}
-            className={`text-xs font-bold px-3.5 py-1.5 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer self-start sm:self-center shrink-0 ${
-              criticalVehicles.length > 0
-                ? 'bg-rose-500 hover:bg-rose-400 text-slate-950 font-bold'
-                : 'bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold'
-            }`}
-          >
-            <span>Voir dans le Parc</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )}
+      {/* 2.5 VIGILANCE OPÉRATIONNELLE & ALERTES PROACTIVES */}
+      <DashboardAlertsBanner
+        onOpenCheckInModal={onOpenCheckInModal}
+        onOpenAllAlerts={onOpenAllAlerts}
+      />
 
       {/* 3. CONTRATS EN COURS & RESTITUTIONS PRIORITAIRES */}
       <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-4">

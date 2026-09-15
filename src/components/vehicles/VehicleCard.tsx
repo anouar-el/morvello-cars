@@ -17,6 +17,7 @@ interface VehicleCardProps {
   onStatusToggle: (vehicle: Vehicle) => void;
   onDeleteRequest: (vehicle: Vehicle) => void;
   onOpenPdfModal: (contract: Contract) => void;
+  onOpenMaintenanceModal?: (vehicle: Vehicle) => void;
 }
 
 export const VehicleCard: React.FC<VehicleCardProps> = ({
@@ -27,6 +28,7 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
   onStatusToggle,
   onDeleteRequest,
   onOpenPdfModal,
+  onOpenMaintenanceModal,
 }) => {
   const getStatusBadge = (status: VehicleStatus) => {
     switch (status) {
@@ -137,7 +139,12 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
         )}
 
         {/* SUIVI TECHNIQUE ET ADMINISTRATIF */}
-        <VehicleCompliancePanel vehicle={vehicle} />
+        <VehicleCompliancePanel
+          vehicle={vehicle}
+          onOpenMaintenanceModal={
+            onOpenMaintenanceModal ? () => onOpenMaintenanceModal(vehicle) : undefined
+          }
+        />
 
         {/* ACTIVE RENTAL NOTICE IF RENTED */}
         {activeContract && (

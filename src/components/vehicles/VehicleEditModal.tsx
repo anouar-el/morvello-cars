@@ -8,6 +8,9 @@ import {
   Shield,
   Trash2,
   Save,
+  Wrench,
+  Receipt,
+  ExternalLink,
 } from 'lucide-react';
 
 interface VehicleEditModalProps {
@@ -18,6 +21,7 @@ interface VehicleEditModalProps {
   onClose: () => void;
   onSave: (id: string, updatedData: Partial<Vehicle>) => void;
   onDeleteRequest: (vehicle: Vehicle) => void;
+  onOpenMaintenanceModal?: (vehicle: Vehicle) => void;
 }
 
 export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
@@ -28,6 +32,7 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
   onClose,
   onSave,
   onDeleteRequest,
+  onOpenMaintenanceModal,
 }) => {
   const isAdmin = currentUser.role === 'admin';
   const managers = users.filter((u) => u.role === 'manager');
@@ -389,6 +394,41 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
                 />
               </div>
             </div>
+
+            {/* RACCOURCI CARNET D'ENTRETIEN */}
+            {onOpenMaintenanceModal && vehicle && (
+              <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between bg-slate-950/60 p-3 rounded-xl border border-slate-800">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center border border-amber-500/30">
+                    <Receipt className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-white block">
+                      Carnet de Dépenses & Interventions
+                    </span>
+                    <span className="text-[11px] text-slate-400">
+                      {vehicle.maintenanceExpenses && vehicle.maintenanceExpenses.length > 0
+                        ? `${vehicle.maintenanceExpenses.length} facture(s) enregistrée(s) • Total : ${vehicle.maintenanceExpenses
+                            .reduce((s, e) => s + (e.costMAD || 0), 0)
+                            .toLocaleString('fr-FR')} MAD`
+                        : 'Aucune dépense enregistrée'}
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onOpenMaintenanceModal(vehicle);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 transition-all cursor-pointer shadow-sm"
+                >
+                  <span>Ouvrir le carnet</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
           </div>
 
           <div>

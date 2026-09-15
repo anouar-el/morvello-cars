@@ -14,6 +14,7 @@ import {
   Cloud,
   CloudCheck,
   RefreshCw,
+  Database,
   Sun,
   Moon,
   Bot,
@@ -166,21 +167,21 @@ export const SettingsView: React.FC = () => {
       {/* SECTION 3: CLOUD & THEME */}
       {activeSection === 'cloud_theme' && (
         <div className="space-y-6">
-          {/* CLOUD FIRESTORE INTEGRATION CARD */}
+          {/* BASE DE DONNÉES CLOUD SUPABASE */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
-                <Cloud className="w-5 h-5" />
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+                <Database className="w-5 h-5" />
               </div>
               <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-sm font-bold text-white">Base de données Cloud Firebase Firestore</h2>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="text-sm font-bold text-white">Base de données Cloud Supabase (PostgreSQL)</h2>
                   <span className="text-[10px] bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-semibold">
-                    Spark 100% Gratuit
+                    Projet : uxswtmfrrxagkmewpwyd
                   </span>
                 </div>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Synchronisation des véhicules, contrats, cautions, clients et charte IA entre les collaborateurs.
+                  Synchronisation PostgreSQL en temps réel des véhicules, contrats, cautions, clients et collaborateurs.
                 </p>
                 <div className="text-[11px] text-slate-400 mt-1 flex items-center gap-2">
                   <span>
@@ -210,10 +211,10 @@ export const SettingsView: React.FC = () => {
                 type="button"
                 onClick={handleManualPush}
                 disabled={cloudSyncStatus === 'syncing'}
-                className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-xs px-3.5 py-2 rounded-xl transition-all cursor-pointer font-medium disabled:opacity-50"
+                className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 text-xs px-3.5 py-2 rounded-xl transition-all cursor-pointer font-medium disabled:opacity-50"
               >
                 <CloudCheck className="w-3.5 h-3.5" />
-                Sauvegarder Cloud
+                Sauvegarder Supabase
               </button>
             </div>
           </div>

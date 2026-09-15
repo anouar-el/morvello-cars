@@ -410,15 +410,33 @@ export const CorporateContractPdfLayout: React.FC<CorporateContractPdfLayoutProp
                   توقيع وخاتم الشركة المكترية
                 </span>
               </div>
-              <div className="text-center py-1 flex-1 flex flex-col justify-center items-center">
-                <span className="text-[7px] text-slate-400 italic">Mention obligatoire :</span>
-                <span className="text-[7.5px] font-bold text-slate-800">« Bon pour accord, mandat professionnel agréé »</span>
-                <span className="text-[7px] font-mono text-slate-600 mt-0.5 font-bold">
-                  {contract.clientSnapshot.lastName.toUpperCase()} {contract.clientSnapshot.firstName}
-                </span>
-              </div>
+              {contract.clientSignature ? (
+                <div className="flex flex-col items-center justify-center flex-1 py-1">
+                  <span className="text-[6.5px] text-slate-400 italic font-serif">
+                    « Bon pour accord, mandat professionnel agréé »
+                  </span>
+                  <div className="my-0.5 max-h-[44px] flex items-center justify-center">
+                    <img
+                      src={contract.clientSignature}
+                      alt="Signature Entreprise"
+                      className="max-h-[42px] max-w-[170px] object-contain"
+                    />
+                  </div>
+                  <span className="text-[6.5px] text-blue-700 font-mono font-bold">
+                    ✓ Signé numériquement le {new Date(contract.clientSignedAt || '').toLocaleDateString('fr-FR')}
+                  </span>
+                </div>
+              ) : (
+                <div className="text-center py-1 flex-1 flex flex-col justify-center items-center">
+                  <span className="text-[7px] text-slate-400 italic">Mention obligatoire :</span>
+                  <span className="text-[7.5px] font-bold text-slate-800">« Bon pour accord, mandat professionnel agréé »</span>
+                  <span className="text-[7px] font-mono text-slate-600 mt-0.5 font-bold">
+                    {contract.clientSnapshot.lastName.toUpperCase()} {contract.clientSnapshot.firstName}
+                  </span>
+                </div>
+              )}
               <div className="text-[6.5px] text-slate-400 text-center border-t border-dashed border-slate-200 pt-0.5">
-                Signature du représentant légal &amp; Cachet commercial
+                {contract.clientSignature ? 'Signature électronique d\'entreprise certifiée' : 'Signature du représentant légal & Cachet commercial'}
               </div>
             </div>
 
@@ -435,6 +453,13 @@ export const CorporateContractPdfLayout: React.FC<CorporateContractPdfLayoutProp
               </div>
               <div className="relative flex items-center justify-center py-1 z-0 flex-1">
                 <CompanyStamp size="xs" rotation={-1.5} />
+                {contract.agencySignature && (
+                  <img
+                    src={contract.agencySignature}
+                    alt="Signature Direction Flottes"
+                    className="absolute max-h-[44px] max-w-[130px] object-contain z-10"
+                  />
+                )}
               </div>
               <div className="text-[6.5px] text-slate-600 text-center z-10 font-bold border-t border-slate-200 pt-0.5">
                 Comptes Entreprises • Fait à Casablanca, le {formattedStartDate}
@@ -528,8 +553,21 @@ export const CorporateContractPdfLayout: React.FC<CorporateContractPdfLayoutProp
           <div className="grid grid-cols-2 gap-3">
             <div className="border border-blue-300 rounded p-1 bg-white text-center min-h-[60px] flex flex-col justify-between">
               <span className="text-[7.5px] font-bold text-blue-950 uppercase">Visa de l'Entreprise Locataire</span>
-              <span className="text-[6.5px] text-slate-500 font-mono">« Lu et approuvé, bon pour accord B2B »</span>
-              <span className="text-[6px] text-slate-400">Cachet &amp; Signature</span>
+              {contract.clientSignature ? (
+                <div className="flex flex-col items-center justify-center flex-1 py-0.5">
+                  <img
+                    src={contract.clientSignature}
+                    alt="Paraphe Entreprise"
+                    className="max-h-[30px] max-w-[120px] object-contain"
+                  />
+                  <span className="text-[5.5px] text-blue-700 font-mono">✓ Paraphe certifié B2B</span>
+                </div>
+              ) : (
+                <>
+                  <span className="text-[6.5px] text-slate-500 font-mono">« Lu et approuvé, bon pour accord B2B »</span>
+                  <span className="text-[6px] text-slate-400">Cachet &amp; Signature</span>
+                </>
+              )}
             </div>
             <div className="border border-blue-300 rounded p-1 bg-white text-center min-h-[60px] flex flex-col justify-between relative overflow-hidden">
               <span className="text-[7.5px] font-bold text-blue-950 uppercase z-10">Pour Sté MORVELLO CARS Flottes</span>

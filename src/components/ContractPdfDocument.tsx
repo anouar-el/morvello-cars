@@ -681,9 +681,20 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
                 </div>
                 <div className="relative flex items-center justify-center py-1 z-0 flex-1">
                   <CompanyStamp size="md" rotation={-1.5} />
+                  {contract.agencySignature && (
+                    <img
+                      src={contract.agencySignature}
+                      alt="Signature Agence"
+                      className="absolute max-h-[52px] max-w-[140px] object-contain z-10"
+                    />
+                  )}
                 </div>
                 <div className="text-[8px] text-slate-500 text-center z-10 font-medium">
-                  Visa &amp; Cachet légal agence
+                  {contract.agencySignedBy ? (
+                    <span className="font-semibold text-slate-700">Signé par {contract.agencySignedBy}</span>
+                  ) : (
+                    'Visa & Cachet légal agence'
+                  )}
                 </div>
               </div>
 
@@ -694,7 +705,33 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
                     ? 'Signatures : Locataire & 2ème Conducteur'
                     : 'Signature du Locataire (Conducteur) • توقيع المكتري'}
                 </div>
-                {contract.hasSecondDriver && contract.secondDriverSnapshot ? (
+
+                {contract.clientSignature ? (
+                  /* Affichage de la signature numérique réelle du locataire */
+                  <div className="flex flex-col items-center justify-center flex-1 py-1 px-2">
+                    <span className="text-[7.5px] text-slate-500 italic font-serif">
+                      « Lu et approuvé, bon pour accord »
+                    </span>
+                    <div className="relative my-0.5 max-h-[55px] flex items-center justify-center">
+                      <img
+                        src={contract.clientSignature}
+                        alt="Signature numérique locataire"
+                        className="max-h-[52px] max-w-[180px] object-contain"
+                      />
+                    </div>
+                    <div className="text-center">
+                      <span className="font-mono text-[7.5px] font-bold text-slate-800 block">
+                        {contract.clientSignedName || `${contract.clientSnapshot.lastName.toUpperCase()} ${contract.clientSnapshot.firstName}`}
+                      </span>
+                      {contract.clientSignedAt && (
+                        <span className="text-[6.5px] text-emerald-700 font-mono font-medium block">
+                          ✓ Signé numériquement le {new Date(contract.clientSignedAt).toLocaleDateString('fr-FR')} à {new Date(contract.clientSignedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                          {contract.signatureCertId ? ` • Ref: ${contract.signatureCertId}` : ''}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ) : contract.hasSecondDriver && contract.secondDriverSnapshot ? (
                   <div className="grid grid-cols-2 gap-2 text-center text-[8.5px] text-slate-500 italic py-1 flex-1 items-center">
                     <div className="border-r border-slate-200 pr-1 flex flex-col justify-center h-full">
                       <span className="font-bold text-slate-800 text-[8px] uppercase not-italic">Locataire Principal</span>
@@ -711,8 +748,13 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
                     <span className="font-semibold text-slate-700 mt-0.5">« Lu et approuvé, bon pour accord »</span>
                   </div>
                 )}
+
                 <div className="text-[8px] text-slate-500 text-center font-medium">
-                  Signature(s) manuscrite(s) &amp; Date
+                  {contract.clientSignature ? (
+                    <span className="text-emerald-700 font-semibold">Signature numérique certifiée</span>
+                  ) : (
+                    'Signature(s) manuscrite(s) & Date'
+                  )}
                 </div>
               </div>
             </div>
@@ -958,19 +1000,34 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
                   توقيع ومصادقة المكتري
                 </span>
               </div>
-              <div className="text-center py-0.5 flex-1 flex flex-col justify-center items-center">
-                <span className="text-[6.5px] text-slate-400 italic">
-                  Mention manuscrite obligatoire :
-                </span>
-                <span className="text-[7px] font-semibold text-slate-700">
-                  « Lu et approuvé, bon pour accord »
-                </span>
-                <span className="text-[6.5px] font-mono text-slate-500 mt-0.2">
-                  {contract.clientSnapshot.lastName.toUpperCase()} {contract.clientSnapshot.firstName}
-                </span>
-              </div>
+              {contract.clientSignature ? (
+                <div className="flex flex-col items-center justify-center flex-1 py-0.5">
+                  <div className="max-h-[36px] flex items-center justify-center">
+                    <img
+                      src={contract.clientSignature}
+                      alt="Paraphe électronique"
+                      className="max-h-[34px] max-w-[140px] object-contain"
+                    />
+                  </div>
+                  <span className="text-[6px] text-emerald-700 font-mono font-medium mt-0.5">
+                    ✓ Paraphe numérique certifié
+                  </span>
+                </div>
+              ) : (
+                <div className="text-center py-0.5 flex-1 flex flex-col justify-center items-center">
+                  <span className="text-[6.5px] text-slate-400 italic">
+                    Mention manuscrite obligatoire :
+                  </span>
+                  <span className="text-[7px] font-semibold text-slate-700">
+                    « Lu et approuvé, bon pour accord »
+                  </span>
+                  <span className="text-[6.5px] font-mono text-slate-500 mt-0.2">
+                    {contract.clientSnapshot.lastName.toUpperCase()} {contract.clientSnapshot.firstName}
+                  </span>
+                </div>
+              )}
               <div className="text-[6px] text-slate-400 text-center border-t border-dashed border-slate-200 pt-0.5">
-                Paraphe ou signature manuscrite
+                {contract.clientSignature ? 'Paraphe certifié et vérifié' : 'Paraphe ou signature manuscrite'}
               </div>
             </div>
 

@@ -25,8 +25,8 @@ const targetRole = process.argv[3] || 'admin';
 
 // Initialize Firebase Admin SDK
 let app;
+const configPath = path.resolve(__dirname, '../firebase-applet-config.json');
 try {
-  const configPath = path.resolve(__dirname, '../firebase-applet-config.json');
   let projectId = 'reference-unity-289300';
   if (fs.existsSync(configPath)) {
     const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
@@ -73,7 +73,14 @@ try {
 async function setClaims() {
   try {
     const auth = getAuth();
-    const firestore = getFirestore();
+    let databaseId = undefined;
+    if (fs.existsSync(configPath)) {
+      try {
+        const cfg = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+        if (cfg.firestoreDatabaseId) databaseId = cfg.firestoreDatabaseId;
+      } catch (_) {}
+    }
+    const firestore = databaseId ? getFirestore(databaseId) : getFirestore();
     let userRecord;
     if (targetIdentifier.includes('@')) {
       const emailLower = targetIdentifier.toLowerCase();
