@@ -45,7 +45,12 @@ function getAdminDb(): FirebaseAdminFirestore {
 }
 
 const app = express();
-const PORT = 3000;
+// PORT Configuration:
+// In the AI Studio / Cloud Run preview container, Nginx reverse proxy runs on port 8080 (the container's ingress port)
+// and routes all incoming HTTP traffic exclusively to localhost:3000.
+// Binding directly to process.env.PORT in this container would cause an immediate EADDRINUSE crash (port 8080 collision with Nginx).
+// For standalone external deployment (e.g. standalone Docker without internal Nginx), process.env.STANDALONE_PORT or process.env.PORT can be read if not in AI Studio.
+const PORT = process.env.AI_STUDIO === 'false' && process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 app.use(express.json({ limit: '10mb' }));
 
@@ -287,8 +292,63 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// In-memory sliding-window rate limiter for /api/agent-chat (prevents API abuse and quota exhaustion)
+interface RateLimitRecord {
+  count: number;
+  resetTime: number;
+}
+const chatRateLimitMap = new Map<string, RateLimitRecord>();
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, record] of chatRateLimitMap.entries()) {
+    if (now > record.resetTime) {
+      chatRateLimitMap.delete(key);
+    }
+  }
+}, 5 * 60 * 1000).unref();
+
+function chatRateLimiter(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const clientIp =
+    (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
+    req.socket.remoteAddress ||
+    'unknown-ip';
+  const memberId = req.body?.memberId || 'anonymous';
+  const rateLimitKey = `${clientIp}:${memberId}`;
+
+  const WINDOW_MS = 60 * 1000; // 1 minute window
+  const MAX_REQUESTS = 25; // 25 requests per minute
+
+  const now = Date.now();
+  let record = chatRateLimitMap.get(rateLimitKey);
+
+  if (!record || now > record.resetTime) {
+    record = { count: 1, resetTime: now + WINDOW_MS };
+    chatRateLimitMap.set(rateLimitKey, record);
+  } else {
+    record.count++;
+  }
+
+  const remaining = Math.max(0, MAX_REQUESTS - record.count);
+  const resetSeconds = Math.ceil((record.resetTime - now) / 1000);
+
+  res.setHeader('X-RateLimit-Limit', MAX_REQUESTS);
+  res.setHeader('X-RateLimit-Remaining', remaining);
+  res.setHeader('X-RateLimit-Reset', resetSeconds);
+
+  if (record.count > MAX_REQUESTS) {
+    res.setHeader('Retry-After', resetSeconds);
+    return res.status(429).json({
+      error: 'Trop de requêtes vers l\'assistant IA. Veuillez patienter avant de continuer.',
+      retryAfterSeconds: resetSeconds,
+    });
+  }
+
+  next();
+}
+
 // AI Agent Chat Endpoint - strictly isolated per member
-app.post('/api/agent-chat', async (req, res) => {
+app.post('/api/agent-chat', chatRateLimiter, async (req, res) => {
   try {
     const {
       memberId,
