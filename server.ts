@@ -49,8 +49,10 @@ const app = express();
 // In the AI Studio / Cloud Run preview container, Nginx reverse proxy runs on port 8080 (the container's ingress port)
 // and routes all incoming HTTP traffic exclusively to localhost:3000.
 // Binding directly to process.env.PORT in this container would cause an immediate EADDRINUSE crash (port 8080 collision with Nginx).
-// For standalone external deployment (e.g. standalone Docker without internal Nginx), process.env.STANDALONE_PORT or process.env.PORT can be read if not in AI Studio.
-const PORT = process.env.AI_STUDIO === 'false' && process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+// Hence, AI_STUDIO='true' forces the fixed port 3000.
+// On any standard external hosting platform (Hostinger, Render, Railway, etc.), the platform-assigned process.env.PORT
+// is respected by default, with a fallback to 3000 if absent.
+const PORT = process.env.AI_STUDIO === 'true' ? 3000 : parseInt(process.env.PORT || '3000', 10);
 
 app.use(express.json({ limit: '10mb' }));
 
