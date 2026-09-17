@@ -195,7 +195,6 @@ export const PermissionsManager: React.FC = () => {
   const {
     users,
     currentUser,
-    switchUser,
     updateUserPermissions,
     updateUserRole,
     resetUserPermissions,
@@ -429,18 +428,9 @@ export const PermissionsManager: React.FC = () => {
         <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
           <button
             onClick={() => setActiveTab('dashboard')}
-            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl"
+            className="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold rounded-xl shadow-lg shadow-amber-500/20 cursor-pointer transition-colors"
           >
             Retour au Tableau de Bord
-          </button>
-          <button
-            onClick={() => {
-              const admin = users.find((u) => u.role === 'admin') || users[0];
-              if (admin) switchUser(admin.id);
-            }}
-            className="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold rounded-xl shadow-lg shadow-amber-500/20"
-          >
-            Basculer en profil Gérant ({users.find((u) => u.role === 'admin')?.name || 'Anouar'})
           </button>
         </div>
       </div>
@@ -554,66 +544,8 @@ export const PermissionsManager: React.FC = () => {
         <CredentialsManager />
       ) : (
         <>
-          {/* BANNIÈRE DE TEST RAPIDE DE RÔLES */}
-          <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-slate-950 border border-amber-500/30 rounded-2xl p-4 shadow-lg flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shrink-0">
-            <Sparkles className="w-5 h-5" />
-          </div>
-          <div>
-            <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
-              Sélecteur de Test en Direct (Impersonation Immédiate)
-              <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-md font-mono">
-                Test en 1 clic
-              </span>
-            </h3>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Basculez instantanément de profil pour vérifier en temps réel l'impact des restrictions sur l'interface :
-            </p>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          {users.map((u) => {
-            const isCurrent = u.id === currentUser.id;
-            return (
-              <button
-                key={u.id}
-                onClick={() => switchUser(u.id)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-medium border flex items-center gap-2 transition-all cursor-pointer ${
-                  isCurrent
-                    ? 'bg-amber-500 text-slate-950 border-amber-400 font-bold shadow-md shadow-amber-500/20 scale-103'
-                    : 'bg-slate-950/80 text-slate-300 border-slate-700 hover:border-slate-500 hover:text-white'
-                }`}
-              >
-                <div
-                  className={`w-2 h-2 rounded-full ${
-                    u.role === 'admin'
-                      ? 'bg-purple-400'
-                      : u.role === 'manager'
-                      ? 'bg-blue-400'
-                      : 'bg-emerald-400'
-                  }`}
-                />
-                <span>{u.name}</span>
-                <span
-                  className={`text-[10px] px-1.5 py-0.2 rounded font-mono ${
-                    isCurrent
-                      ? 'bg-slate-950/30 text-slate-950'
-                      : 'bg-slate-800 text-slate-400'
-                  }`}
-                >
-                  {u.role.toUpperCase()}
-                </span>
-                {isCurrent && <Check className="w-3.5 h-3.5 ml-0.5 text-slate-950 stroke-[3]" />}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* CORPS PRINCIPAL : GAUCHE LISTE DES MEMBRES / DROITE MATRICE DES PERMISSIONS */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* CORPS PRINCIPAL : GAUCHE LISTE DES MEMBRES / DROITE MATRICE DES PERMISSIONS */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* COLONNE GAUCHE : SÉLECTION DU MEMBRE À CONFIGURER (4 cols) */}
         <div className="lg:col-span-4 space-y-3">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-md space-y-3">

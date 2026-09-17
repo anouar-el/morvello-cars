@@ -700,6 +700,11 @@ export const AuthProvider: React.FC<{
   };
 
   const switchUser = (userId: string) => {
+    // Only allow switchUser if current user is an admin or in initial state
+    if (currentUser && currentUser.role !== 'admin') {
+      console.warn('[Security] Unauthorized switchUser attempt blocked.');
+      return;
+    }
     const target = users.find((u) => u.id === userId);
     if (target) {
       setCurrentUser(target);

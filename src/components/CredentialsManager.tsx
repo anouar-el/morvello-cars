@@ -36,7 +36,6 @@ export const CredentialsManager: React.FC = () => {
     updateUserRole,
     addUser,
     deleteUser,
-    switchUser,
     pushToCloud,
     cloudSyncStatus,
     lastCloudSync,

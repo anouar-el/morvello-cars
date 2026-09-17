@@ -70,7 +70,7 @@ const ViewLoadingFallback = () => (
 );
 
 function MainAppContent() {
-  const { activeTab, currentUser } = useApp();
+  const { activeTab, setActiveTab, currentUser } = useApp();
   const [checkInContract, setCheckInContract] = useState<Contract | null>(null);
   const [inspectionContract, setInspectionContract] = useState<Contract | null>(null);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
@@ -105,8 +105,34 @@ function MainAppContent() {
       case 'terms':
         return <TermsManager />;
       case 'permissions':
+        if (currentUser.role !== 'admin') {
+          return (
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 max-w-2xl mx-auto text-center space-y-5 my-12 shadow-2xl">
+              <div className="w-16 h-16 rounded-2xl bg-rose-500/20 border border-rose-500/40 text-rose-400 flex items-center justify-center mx-auto text-2xl">
+                🛡️
+              </div>
+              <div className="space-y-2">
+                <h2 className="text-xl font-bold text-white">Accès Réservé au Gérant & Administrateur</h2>
+                <p className="text-xs text-slate-400 leading-relaxed max-w-md mx-auto">
+                  La rubrique de gestion de l'équipe, des permissions et des identifiants est strictement réservée au Gérant de l’agence Morvello Cars.
+                </p>
+              </div>
+              <div className="pt-2">
+                <button
+                  onClick={() => setActiveTab('dashboard')}
+                  className="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold rounded-xl shadow-lg shadow-amber-500/20 cursor-pointer transition-colors"
+                >
+                  Retour au Tableau de Bord
+                </button>
+              </div>
+            </div>
+          );
+        }
         return <PermissionsManager />;
       case 'contract_templates':
+        if (currentUser.role !== 'admin') {
+          return <Dashboard />;
+        }
         return <ContractTemplatesManager />;
       case 'settings':
         return <SettingsView />;

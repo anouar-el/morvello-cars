@@ -18,7 +18,6 @@ import {
   Banknote,
   Crown,
   ChevronDown,
-  SlidersHorizontal,
   KeyRound,
   LogOut,
   Cloud,
@@ -41,9 +40,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenNotifications }) => {
     activeTab,
     setActiveTab,
     currentUser,
-    switchUser,
     logout,
-    users,
     resetAllData,
     contracts,
     vehicles,
@@ -124,14 +121,14 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenNotifications }) => {
       badge: currentUser.role === 'admin' ? '360°' : 'Privé',
     },
     { id: 'terms', label: 'Conditions V1.0', icon: <ShieldCheck className="w-4 h-4" /> },
-    {
-      id: 'permissions',
-      label: 'Équipe & Accès',
-      icon: <KeyRound className="w-4 h-4" />,
-      badge: currentUser.role === 'admin' ? 'Sécurité' : undefined,
-    },
     ...(currentUser.role === 'admin'
       ? [
+          {
+            id: 'permissions' as ActiveTab,
+            label: 'Équipe & Accès',
+            icon: <KeyRound className="w-4 h-4" />,
+            badge: 'Sécurité',
+          },
           {
             id: 'contract_templates' as ActiveTab,
             label: 'Modèles de Contrat',
@@ -217,78 +214,30 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenNotifications }) => {
                     className="fixed inset-0 z-40"
                     onClick={() => setIsProfileMenuOpen(false)}
                   />
-                  <div className="absolute right-0 mt-2 w-72 sm:w-84 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-2 z-50 animate-in fade-in zoom-in-95 duration-150">
-                    <div className="px-3 py-2 border-b border-slate-800 mb-1.5">
-                      <p className="text-[11px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
-                        <SlidersHorizontal className="w-3.5 h-3.5" />
-                        Sélecteur de Profil / Responsable
-                      </p>
-                      <p className="text-[11px] text-slate-400 mt-0.5">
-                        Testez la vue Super Admin ou d'un Responsable spécifique pour vérifier le filtrage de la flotte, du wizard et des contrats.
-                      </p>
-                    </div>
-
-                    <div className="space-y-1">
-                      {users.map((u) => {
-                        const isSelected = u.id === currentUser.id;
-                        return (
-                          <button
-                            key={u.id}
-                            type="button"
-                            onClick={() => {
-                              switchUser(u.id);
-                              setIsProfileMenuOpen(false);
-                            }}
-                            className={`w-full text-left p-2.5 rounded-xl border text-xs transition-all flex items-start justify-between cursor-pointer ${
-                              isSelected
-                                ? 'bg-amber-500/15 border-amber-500/60 shadow-sm text-white'
-                                : 'bg-slate-950/60 border-slate-800/80 hover:bg-slate-800/80 hover:border-slate-700 text-slate-300'
-                            }`}
-                          >
-                            <div className="flex items-start gap-2.5">
-                              <div
-                                className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 ${
-                                  u.role === 'admin'
-                                    ? 'bg-amber-500 text-slate-950'
-                                    : u.role === 'manager'
-                                    ? 'bg-blue-600 text-white'
-                                    : 'bg-slate-700 text-slate-200'
-                                }`}
-                              >
-                                {u.role === 'admin' ? '👑' : u.name.charAt(0)}
-                              </div>
-                              <div>
-                                <div className="font-bold text-white flex items-center gap-1.5">
-                                  {u.name}
-                                  {u.role === 'admin' && (
-                                    <span className="text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1 py-0.2 rounded font-mono font-normal">
-                                      Gérant
-                                    </span>
-                                  )}
-                                  {u.role === 'manager' && (
-                                    <span className="text-[9px] bg-blue-500/20 text-blue-300 border border-blue-500/30 px-1 py-0.2 rounded font-mono font-normal">
-                                      Responsable
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="text-[11px] text-amber-400 font-medium mt-0.5">
-                                  {u.assignedFleetName || u.agency}
-                                </div>
-                                <div className="text-[10px] text-slate-400 mt-0.5">
-                                  {u.role === 'admin'
-                                    ? 'Vue globale, affectation & validation ajouts'
-                                    : u.role === 'manager'
-                                    ? 'Accès exclusif à sa sous-flotte assignée'
-                                    : 'Agent de comptoir'}
-                                </div>
-                              </div>
-                            </div>
-                            {isSelected && (
-                              <span className="text-emerald-400 font-bold text-xs shrink-0">✓ Actif</span>
-                            )}
-                          </button>
-                        );
-                      })}
+                  <div className="absolute right-0 mt-2 w-72 sm:w-80 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-3 z-50 animate-in fade-in zoom-in-95 duration-150">
+                    <div className="flex items-center gap-3 p-2.5 bg-slate-950/80 rounded-xl border border-slate-800 mb-2">
+                      <div
+                        className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold shrink-0 ${
+                          currentUser.role === 'admin'
+                            ? 'bg-amber-500 text-slate-950'
+                            : currentUser.role === 'manager'
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-slate-700 text-slate-200'
+                        }`}
+                      >
+                        {currentUser.role === 'admin' ? '👑' : currentUser.name.charAt(0)}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="font-bold text-white text-xs truncate">{currentUser.name}</div>
+                        <div className="text-[11px] text-slate-400 truncate">{currentUser.email}</div>
+                        <div className="text-[10px] text-amber-400 font-medium mt-0.5">
+                          {currentUser.role === 'admin'
+                            ? 'Super Admin (Accès Global)'
+                            : currentUser.role === 'manager'
+                            ? `Responsable • ${currentUser.assignedFleetName || currentUser.agency}`
+                            : `Agent • ${currentUser.assignedFleetName || currentUser.agency}`}
+                        </div>
+                      </div>
                     </div>
 
                     <div className="pt-2 border-t border-slate-800">
@@ -298,10 +247,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenNotifications }) => {
                           logout();
                           setIsProfileMenuOpen(false);
                         }}
-                        className="w-full text-left p-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 text-xs font-semibold flex items-center gap-2 cursor-pointer transition-colors"
+                        className="w-full text-left p-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer transition-colors"
                       >
                         <LogOut className="w-4 h-4" />
-                        <span>Se déconnecter</span>
+                        <span>Se déconnecter de la session</span>
                       </button>
                     </div>
                   </div>
@@ -459,37 +408,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenNotifications }) => {
                 ⚠️ {pendingApprovalsCount} à valider
               </button>
             )}
-            
-            {/* DIRECT ROLE SELECTOR CHIPS FOR INSTANT TESTING */}
-            <div className="hidden md:flex items-center gap-1 bg-slate-950/90 p-0.5 rounded-lg border border-slate-700/80">
-              <span className="text-[9px] uppercase font-mono text-slate-400 px-1.5 font-bold">
-                Test :
-              </span>
-              {users.slice(0, 4).map((u) => {
-                const isActive = u.id === currentUser.id;
-                return (
-                  <button
-                    key={u.id}
-                    onClick={() => switchUser(u.id)}
-                    className={`px-2 py-0.5 rounded text-[10px] font-mono transition-colors cursor-pointer flex items-center gap-1 ${
-                      isActive
-                        ? 'bg-amber-500 text-slate-950 font-bold shadow-xs'
-                        : 'text-slate-300 hover:text-white hover:bg-slate-800'
-                    }`}
-                    title={`Tester en tant que ${u.name} (${u.role.toUpperCase()})`}
-                  >
-                    <span>{u.role === 'admin' ? '👑 Gérant' : u.role === 'manager' ? `🏢 ${u.name.split(' ')[0]}` : `👤 ${u.name.split(' ')[0]}`}</span>
-                  </button>
-                );
-              })}
-            </div>
-
-            <button
-              onClick={() => setIsProfileMenuOpen(true)}
-              className="underline text-[10px] opacity-80 hover:opacity-100 cursor-pointer text-amber-300"
-            >
-              Tous les rôles...
-            </button>
           </div>
         </div>
       </div>
