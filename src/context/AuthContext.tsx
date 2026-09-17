@@ -66,6 +66,18 @@ const getStoredPasswords = (): Record<string, string> => {
   }
 };
 
+/**
+ * Generic timeout wrapper to prevent hanging promises (e.g. Supabase web-locks / fetch locks)
+ */
+function withTimeout<T>(promise: Promise<T> | PromiseLike<T>, timeoutMs: number, timeoutError: string): Promise<T> {
+  return Promise.race([
+    Promise.resolve(promise),
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(timeoutError)), timeoutMs)
+    ),
+  ]);
+}
+
 const setStoredPassword = (userIdentifier: string, pass: string) => {
   if (!userIdentifier || !pass) return;
   try {
@@ -214,11 +226,15 @@ export const AuthProvider: React.FC<{
       let fetchedRole: UserRole | undefined;
       let fetchedName: string | undefined;
       try {
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('role, name')
-          .eq('id', sbUser.id)
-          .maybeSingle();
+        const { data: profileData } = await withTimeout(
+          supabase
+            .from('profiles')
+            .select('role, name')
+            .eq('id', sbUser.id)
+            .maybeSingle(),
+          8000,
+          'Délai de récupération du profil Supabase dépassé'
+        );
 
         if (profileData?.role) {
           fetchedRole = profileData.role as UserRole;
@@ -245,19 +261,23 @@ export const AuthProvider: React.FC<{
       };
     };
 
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user) {
-        const userObj = await resolveSupabaseProfile(session.user);
-        if (userObj) {
-          setCurrentUser((prev) => {
-            if (!prev || prev.id !== userObj.id || prev.role !== userObj.role) {
-              return userObj;
-            }
-            return prev;
-          });
+    withTimeout(supabase.auth.getSession(), 8000, 'Délai getSession Supabase dépassé')
+      .then(async ({ data: { session } }: any) => {
+        if (session?.user) {
+          const userObj = await resolveSupabaseProfile(session.user);
+          if (userObj) {
+            setCurrentUser((prev) => {
+              if (!prev || prev.id !== userObj.id || prev.role !== userObj.role) {
+                return userObj;
+              }
+              return prev;
+            });
+          }
         }
-      }
-    });
+      })
+      .catch((err) => {
+        console.warn('[Supabase Auth] getSession notice/timeout:', err);
+      });
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
@@ -392,10 +412,14 @@ export const AuthProvider: React.FC<{
     // 0. Primary: Check Supabase Auth if configured
     if (isSupabaseConfigured) {
       try {
-        const { data: sbData, error: sbErr } = await supabase.auth.signInWithPassword({
-          email: canonicalEmail,
-          password: trimmedPass,
-        });
+        const { data: sbData, error: sbErr } = await withTimeout(
+          supabase.auth.signInWithPassword({
+            email: canonicalEmail,
+            password: trimmedPass,
+          }),
+          8000,
+          'Délai de connexion Supabase dépassé'
+        );
 
         if (!sbErr && sbData?.user) {
           const sbUser = sbData.user;
@@ -404,11 +428,15 @@ export const AuthProvider: React.FC<{
           let fetchedRole: UserRole | undefined;
           let fetchedName: string | undefined;
           try {
-            const { data: profileData } = await supabase
-              .from('profiles')
-              .select('role, name')
-              .eq('id', sbUser.id)
-              .maybeSingle();
+            const { data: profileData } = await withTimeout(
+              supabase
+                .from('profiles')
+                .select('role, name')
+                .eq('id', sbUser.id)
+                .maybeSingle(),
+              8000,
+              'Délai de récupération du profil Supabase dépassé'
+            );
 
             if (profileData?.role) {
               fetchedRole = profileData.role as UserRole;
