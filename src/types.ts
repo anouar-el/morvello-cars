@@ -122,6 +122,7 @@ export interface Client {
   rentedVehicleBrand?: string;
   rentedVehicleModel?: string;
   rentedVehiclePlate?: string;
+  createdBy?: string;
 }
 
 export interface Driver {
@@ -283,6 +284,9 @@ export interface DepositRecord {
   deductions: DepositDeduction[];
   refundedAmount?: number;
   notes?: string;
+  assignedManagerId?: string;
+  assignedManagerName?: string;
+  createdBy?: string;
 }
 
 export interface InspectionPhoto {

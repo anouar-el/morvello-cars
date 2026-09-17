@@ -362,7 +362,21 @@ export const ContractWizard: React.FC = () => {
     // 1. Resolve client
     let finalClient: Client;
     if (clientMode === 'new') {
-      finalClient = addClient(newClientForm);
+      const resolvedMgrId =
+        assignedManagerId ||
+        currentVehicle?.assignedManagerId ||
+        (currentUser?.role === 'manager' ? currentUser.id : undefined);
+      const resolvedMgrName =
+        users.find((u) => u.id === resolvedMgrId)?.name ||
+        currentVehicle?.assignedManagerName ||
+        (currentUser?.role === 'manager' ? currentUser.name : undefined);
+
+      finalClient = addClient({
+        ...newClientForm,
+        assignedManagerId: resolvedMgrId,
+        assignedManagerName: resolvedMgrName,
+        createdBy: currentUser?.name || currentUser?.id,
+      });
     } else {
       finalClient = currentClient!;
     }

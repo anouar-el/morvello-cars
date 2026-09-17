@@ -238,7 +238,12 @@ export const ClientsList: React.FC = () => {
       return;
     }
 
-    addClient(newClientForm);
+    addClient({
+      ...newClientForm,
+      assignedManagerId: currentUser.role === 'manager' ? currentUser.id : undefined,
+      assignedManagerName: currentUser.role === 'manager' ? currentUser.name : undefined,
+      createdBy: currentUser.name || currentUser.id,
+    });
     setIsAddModalOpen(false);
     setNewClientForm({
       firstName: '',

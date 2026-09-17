@@ -48,8 +48,8 @@ export function isContractOwnedByManager(
   // 2. Recherche du véhicule loué dans le parc
   const matchedVeh = vehicles.find(
     (v) =>
-      v.id === contract.vehicleId ||
-      (contract.vehicleSnapshot?.plate && v.plate.trim() === contract.vehicleSnapshot.plate.trim())
+      (contract.vehicleId && v.id === contract.vehicleId) ||
+      (contract.vehicleSnapshot?.plate && v.plate && v.plate.trim() === contract.vehicleSnapshot.plate.trim())
   );
   if (matchedVeh && isVehicleOwnedByManager(matchedVeh, managerId, managerName)) {
     return true;
@@ -93,7 +93,11 @@ export function isDepositOwnedByManager(
 
   // 1. Contrat correspondant
   const matchedContract = contracts.find(
-    (c) => c.id === deposit.contractId || c.contractNumber === deposit.contractNumber
+    (c) =>
+      (deposit.contractId && c.id === deposit.contractId) ||
+      (deposit.contractNumber &&
+        c.contractNumber &&
+        deposit.contractNumber.trim() === c.contractNumber.trim())
   );
   if (matchedContract) {
     return isContractOwnedByManager(matchedContract, managerId, vehicles, managerName);
@@ -101,7 +105,9 @@ export function isDepositOwnedByManager(
 
   // 2. Véhicule correspondant par plaque
   if (deposit.vehiclePlate) {
-    const matchedVeh = vehicles.find((v) => v.plate.trim() === deposit.vehiclePlate.trim());
+    const matchedVeh = vehicles.find(
+      (v) => v.plate && v.plate.trim() === deposit.vehiclePlate!.trim()
+    );
     if (matchedVeh && isVehicleOwnedByManager(matchedVeh, managerId, managerName)) {
       return true;
     }

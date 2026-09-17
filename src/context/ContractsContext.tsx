@@ -163,6 +163,12 @@ export const ContractsProvider: React.FC<{
 
     onUpdateCompanySettings({ nextContractNumber: companySettings.nextContractNumber + 1 });
 
+    const rentedVeh = vehicles.find(
+      (v) => v.id === newContract.vehicleId || v.plate === newContract.vehicleSnapshot?.plate
+    );
+    const resolvedManagerId = rentedVeh?.assignedManagerId || newContract.assignedManagerId;
+    const resolvedManagerName = rentedVeh?.assignedManagerName || newContract.assignedManagerName;
+
     if (newContract.depositAmount && newContract.depositAmount > 0) {
       const newDeposit: DepositRecord = {
         id: `dep-${Date.now()}`,
@@ -181,6 +187,9 @@ export const ContractsProvider: React.FC<{
         receivedBy: currentUser?.name || 'Direction',
         deductions: [],
         notes: `Caution enregistrée à l'ouverture du contrat ${newContract.contractNumber}.`,
+        assignedManagerId: resolvedManagerId,
+        assignedManagerName: resolvedManagerName,
+        createdBy: currentUser?.name || 'Direction',
       };
       onAddDeposit(newDeposit);
       newContract.depositRecord = newDeposit;
@@ -199,12 +208,6 @@ export const ContractsProvider: React.FC<{
         )
       );
     }
-
-    const rentedVeh = vehicles.find(
-      (v) => v.id === newContract.vehicleId || v.plate === newContract.vehicleSnapshot?.plate
-    );
-    const resolvedManagerId = rentedVeh?.assignedManagerId || newContract.assignedManagerId;
-    const resolvedManagerName = rentedVeh?.assignedManagerName || newContract.assignedManagerName;
 
     onUpdateClients((prev) =>
       prev.map((c) =>

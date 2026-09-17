@@ -267,7 +267,7 @@ export const LoginView: React.FC = () => {
               </div>
               <div>
                 <h3 className="text-sm font-bold text-white">Réinitialiser le Mot de Passe</h3>
-                <p className="text-[11px] text-slate-400">Via le service sécurisé Firebase Auth</p>
+                <p className="text-[11px] text-slate-400">Via le service sécurisé Supabase Auth</p>
               </div>
             </div>
 

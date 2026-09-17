@@ -6,31 +6,13 @@ import {
   DEFAULT_PERMISSIONS_BY_ROLE,
 } from '../types';
 import { initialUsers } from '../data/mockData';
-import { auth, googleProvider } from '../lib/firebase';
-import {
-  signInWithPopup,
-  signOut,
-  onAuthStateChanged,
-  signInWithEmailAndPassword,
-  updatePassword,
-  sendPasswordResetEmail,
-  User as FirebaseUser,
-} from 'firebase/auth';
-import { isAbortException } from '../initErrorHandling';
-import { saveUserProfile } from '../lib/firestoreSync';
 import { saveUserProfileToSupabase } from '../lib/supabaseSync';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import {
-  callSetUserRole,
-  callProvisionTeamMember,
-  forceRefreshTokenClaims,
-} from '../lib/teamAdminService';
 
 export interface AuthContextType {
   currentUser: User | null;
   users: User[];
   availableUsers: User[];
-  firebaseUser: FirebaseUser | null;
   authLoading: boolean;
   login: (email: string, pass: string) => Promise<{ success: boolean; error?: string }>;
   loginWithGoogle: () => Promise<{ success: boolean; error?: string }>;
@@ -45,39 +27,14 @@ export interface AuthContextType {
   resetUserPermissions: (userId: string) => void;
   hasPermission: (perm: keyof UserPermissions) => boolean;
   changeUserPassword: (userId: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
-  setAgencyFallbackPassword: (userId: string, password: string) => { success: boolean; error?: string };
   sendResetEmail: (email: string) => Promise<{ success: boolean; error?: string }>;
   setUsersList: (users: User[]) => void;
-  refreshClaims: () => Promise<{ admin: boolean; role?: UserRole; claims: Record<string, any> }>;
+  refreshClaims?: () => Promise<{ admin: boolean; role?: UserRole; claims: Record<string, any> }>;
 }
 
 const STORAGE_KEYS = {
   USER: 'morvello_current_user_v1',
   USERS: 'morvello_users_v1',
-  PASSWORDS: 'morvello_user_passwords_v1',
-};
-
-const DEFAULT_AGENCY_PASSWORDS: Record<string, string> = {
-  'usr-1': 'Morvello2026!',
-  'anouar@morvellocars.com': 'Morvello2026!',
-  'usr-2': 'NabD!kU4Hfu*MZC',
-  'said.khomri@morvellocars.com': 'NabD!kU4Hfu*MZC',
-  'usr-3': 'Morvello2026!',
-  'abdelkader.ouahib@morvellocars.com': 'Morvello2026!',
-  'usr-5': 'Morvello2026!',
-  'mohamed.ezzay@morvellocars.com': 'Morvello2026!',
-  'usr-6': 'Morvello2026!',
-  'larbi.khomri@morvellocars.com': 'Morvello2026!',
-};
-
-const getStoredPasswords = (): Record<string, string> => {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEYS.PASSWORDS);
-    const parsed = raw ? JSON.parse(raw) : {};
-    return { ...DEFAULT_AGENCY_PASSWORDS, ...parsed };
-  } catch {
-    return { ...DEFAULT_AGENCY_PASSWORDS };
-  }
 };
 
 /**
@@ -92,24 +49,12 @@ function withTimeout<T>(promise: Promise<T> | PromiseLike<T>, timeoutMs: number,
   ]);
 }
 
-const setStoredPassword = (userIdentifier: string, pass: string) => {
-  if (!userIdentifier || !pass) return;
-  try {
-    const map = getStoredPasswords();
-    map[userIdentifier.toLowerCase()] = pass;
-    localStorage.setItem(STORAGE_KEYS.PASSWORDS, JSON.stringify(map));
-  } catch (e) {
-    console.warn('Failed to store password', e);
-  }
-};
-
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{
   children: React.ReactNode;
   onAuditLog?: (action: string, targetType: any, targetId: string, details: string) => void;
 }> = ({ children, onAuditLog }) => {
-  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
 
   const [users, setUsers] = useState<User[]>(() => {
@@ -122,17 +67,11 @@ export const AuthProvider: React.FC<{
             .filter((u) => u.id !== 'usr-4' && u.name !== 'Kenza Tazi')
             .map((u) => {
               const initialMatch = initialUsers.find((iu) => iu.id === u.id);
-              const defaultPass =
-                u.password ||
-                initialMatch?.password ||
-                DEFAULT_AGENCY_PASSWORDS[u.id] ||
-                DEFAULT_AGENCY_PASSWORDS[u.email.toLowerCase()];
               return {
                 ...u,
                 name: initialMatch?.name || u.name,
                 email: initialMatch?.email || u.email,
                 phone: u.phone || initialMatch?.phone,
-                password: defaultPass,
                 permissions: u.permissions || { ...DEFAULT_PERMISSIONS_BY_ROLE[u.role] },
                 mustChangePassword: false,
               };
@@ -169,80 +108,12 @@ export const AuthProvider: React.FC<{
     return null;
   });
 
-  // Listen to Firebase Authentication state changes & resolve Custom Claims
+  // Listen to Supabase Auth state changes & sync profile
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
-      setFirebaseUser(fbUser);
+    if (!isSupabaseConfigured) {
       setAuthLoading(false);
-
-      if (fbUser && fbUser.email) {
-        const emailLower = fbUser.email.toLowerCase();
-
-        // 1. Read cryptographically verified Custom Claims from Firebase Auth token
-        let claimRole: UserRole | undefined;
-        let isClaimAdmin = false;
-        try {
-          const tokenResult = await fbUser.getIdTokenResult();
-          const claims = tokenResult.claims || {};
-          isClaimAdmin = claims.admin === true || claims.role === 'admin';
-          claimRole = (claims.role as UserRole) || (isClaimAdmin ? 'admin' : undefined);
-          console.log('[AuthContext] Session active with claims:', { isClaimAdmin, claimRole });
-        } catch (claimsErr) {
-          console.warn('[AuthContext] Claims read notice:', claimsErr);
-        }
-
-        // Check if Google/Firebase user matches an existing team member (strict exact match)
-        const matched = users.find(
-          (u) => (u.email || '').toLowerCase() === emailLower
-        );
-
-        if (matched) {
-          const effectiveRole = claimRole || matched.role;
-          setCurrentUser((prev) => {
-            if (!prev || prev.id !== matched.id || prev.role !== effectiveRole) {
-              return {
-                ...matched,
-                role: effectiveRole,
-                permissions: { ...DEFAULT_PERMISSIONS_BY_ROLE[effectiveRole] },
-                mustChangePassword: false,
-                firebaseUid: fbUser.uid,
-                authProvider: fbUser.providerData?.[0]?.providerId === 'google.com' ? 'google' : 'password',
-              };
-            }
-            return { ...prev, mustChangePassword: false, firebaseUid: fbUser.uid };
-          });
-        } else if (claimRole || isClaimAdmin) {
-          const resolvedRole: UserRole = claimRole || 'admin';
-          const newUser: User = {
-            id: `usr-${fbUser.uid.slice(0, 8)}`,
-            name: fbUser.displayName || emailLower.split('@')[0],
-            email: emailLower,
-            role: resolvedRole,
-            firebaseUid: fbUser.uid,
-            authProvider: fbUser.providerData?.[0]?.providerId === 'google.com' ? 'google' : 'password',
-            permissions: { ...DEFAULT_PERMISSIONS_BY_ROLE[resolvedRole] },
-            mustChangePassword: false,
-          };
-          setCurrentUser(newUser);
-        }
-      } else if (!fbUser) {
-        // Sign-out event from Firebase Auth: only clear if current user was authenticated via Firebase
-        setCurrentUser((prev) => {
-          if (prev && (prev.authProvider === 'google' || prev.authProvider === 'password')) {
-            localStorage.removeItem(STORAGE_KEYS.USER);
-            return null;
-          }
-          return prev;
-        });
-      }
-    });
-
-    return () => unsubscribe();
-  }, [users]);
-
-  // Listen to Supabase Auth state changes
-  useEffect(() => {
-    if (!isSupabaseConfigured) return;
+      return;
+    }
 
     const resolveSupabaseProfile = async (sbUser: any): Promise<User | null> => {
       if (!sbUser?.email) return null;
@@ -283,7 +154,6 @@ export const AuthProvider: React.FC<{
         permissions: { ...DEFAULT_PERMISSIONS_BY_ROLE[role] },
         mustChangePassword: false,
         firebaseUid: sbUser.id,
-        authProvider: 'password',
       };
     };
 
@@ -303,14 +173,20 @@ export const AuthProvider: React.FC<{
       })
       .catch((err) => {
         console.warn('[Supabase Auth] getSession notice/timeout:', err);
+      })
+      .finally(() => {
+        setAuthLoading(false);
       });
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
         const userObj = await resolveSupabaseProfile(session.user);
         if (userObj) {
           setCurrentUser(userObj);
         }
+      } else if (event === 'SIGNED_OUT') {
+        setCurrentUser(null);
+        localStorage.removeItem(STORAGE_KEYS.USER);
       }
     });
 
@@ -319,7 +195,7 @@ export const AuthProvider: React.FC<{
     };
   }, [users]);
 
-  // Persist users and currentUser (without sensitive credentials)
+  // Persist users and currentUser (sanitized, no sensitive fields)
   useEffect(() => {
     try {
       const sanitized = users.map((u) => {
@@ -351,75 +227,8 @@ export const AuthProvider: React.FC<{
   };
 
   /**
-   * Agency fallback authentication:
-   * Used when Firebase email/password provider is disabled in Firebase Console (auth/operation-not-allowed)
-   * or when validating team agency credentials.
-   */
-  const performAgencyLoginFallback = (
-    canonicalEmail: string,
-    trimmedPass: string
-  ): { success: boolean; error?: string } => {
-    // Check if canonicalEmail matches any known user (strict exact match)
-    const matchedUser = users.find(
-      (u) => (u.email || '').toLowerCase() === canonicalEmail
-    );
-
-    if (!matchedUser) {
-      return {
-        success: false,
-        error: 'Aucun compte collaborateur trouvé avec cet e-mail.',
-      };
-    }
-
-    const passwords = getStoredPasswords();
-    const storedPass =
-      passwords[matchedUser.id.toLowerCase()] ||
-      passwords[matchedUser.email.toLowerCase()] ||
-      matchedUser.password ||
-      (matchedUser as any).password ||
-      DEFAULT_AGENCY_PASSWORDS[matchedUser.id] ||
-      DEFAULT_AGENCY_PASSWORDS[matchedUser.email.toLowerCase()];
-
-    const isMatch =
-      (storedPass && (storedPass === trimmedPass || storedPass.trim() === trimmedPass)) ||
-      (canonicalEmail === 'said.khomri@morvellocars.com' && trimmedPass === 'NabD!kU4Hfu*MZC') ||
-      trimmedPass === 'Morvello2026!';
-
-    if (!isMatch) {
-      return {
-        success: false,
-        error: 'Mot de passe incorrect pour ce compte.',
-      };
-    }
-
-    const finalRole = matchedUser.role;
-    const finalUser: User = {
-      ...matchedUser,
-      role: finalRole,
-      password: storedPass || trimmedPass,
-      permissions: matchedUser.permissions || { ...DEFAULT_PERMISSIONS_BY_ROLE[finalRole] },
-      mustChangePassword: false,
-      authProvider: 'agency',
-    };
-
-    setCurrentUser(finalUser);
-    localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(finalUser));
-
-    logAction(
-      'Connexion Agence',
-      'user_permission',
-      finalUser.id,
-      `Connexion réussie de ${finalUser.name} (${finalRole.toUpperCase()}) en mode agence sécurisé`
-    );
-
-    return { success: true };
-  };
-
-  /**
    * Primary Login handler:
-   * 1. Attempts Native Firebase Auth sign-in.
-   * 2. If Firebase Email/Password provider is disabled in Firebase Console (auth/operation-not-allowed),
-   *    seamlessly falls back to Agency Team Authentication with full RBAC permissions.
+   * Exclusive Supabase Auth sign-in with clean error handling and RLS profile resolution.
    */
   const login = async (
     email: string,
@@ -438,258 +247,128 @@ export const AuthProvider: React.FC<{
       canonicalEmail = `${canonicalEmail}@morvellocars.com`;
     }
 
-    // 0. Primary: Check Supabase Auth if configured
-    if (isSupabaseConfigured) {
-      try {
-        const { data: sbData, error: sbErr } = await withTimeout(
-          supabase.auth.signInWithPassword({
-            email: canonicalEmail,
-            password: trimmedPass,
-          }),
-          8000,
-          'Délai de connexion Supabase dépassé'
-        );
-
-        if (!sbErr && sbData?.user) {
-          const sbUser = sbData.user;
-          
-          // Query user profile from Supabase profiles table (secured by RLS)
-          let fetchedRole: UserRole | undefined;
-          let fetchedName: string | undefined;
-          try {
-            const { data: profileData } = await withTimeout(
-              supabase
-                .from('profiles')
-                .select('role, name')
-                .eq('id', sbUser.id)
-                .maybeSingle(),
-              8000,
-              'Délai de récupération du profil Supabase dépassé'
-            );
-
-            if (profileData?.role) {
-              fetchedRole = profileData.role as UserRole;
-            }
-            if (profileData?.name) {
-              fetchedName = profileData.name;
-            }
-          } catch (profileErr) {
-            console.warn('[Supabase Auth] Profile fetch notice:', profileErr);
-          }
-
-          const matchedUser = users.find((u) => (u.email || '').toLowerCase() === canonicalEmail);
-          const finalRole: UserRole = fetchedRole || (matchedUser ? matchedUser.role : 'agent');
-          
-          const finalUser: User = {
-            id: matchedUser?.id || `usr-${sbUser.id.slice(0, 8)}`,
-            name: fetchedName || matchedUser?.name || sbUser.user_metadata?.name || canonicalEmail.split('@')[0],
-            email: canonicalEmail,
-            role: finalRole,
-            agency: matchedUser?.agency || 'Agence Morvello',
-            permissions: { ...DEFAULT_PERMISSIONS_BY_ROLE[finalRole] },
-            firebaseUid: sbUser.id,
-            authProvider: 'password',
-          };
-
-          // Sync profile to both Firestore and Supabase profiles table
-          saveUserProfile(sbUser.id, {
-            role: finalUser.role,
-            email: finalUser.email,
-            name: finalUser.name,
-          }).catch(() => {});
-
-          saveUserProfileToSupabase(sbUser.id, {
-            role: finalUser.role,
-            email: finalUser.email,
-            name: finalUser.name,
-            permissions: finalUser.permissions,
-          }).catch(() => {});
-
-          setCurrentUser(finalUser);
-          logAction(
-            'Connexion Supabase Auth',
-            'user_permission',
-            finalUser.id,
-            `Connexion réussie de ${finalUser.name} (${finalUser.role.toUpperCase()}) avec Supabase Auth`
-          );
-          return { success: true };
-        }
-      } catch (sbEx) {
-        console.warn('[Supabase Auth] Login attempt notice:', sbEx);
-      }
+    if (!isSupabaseConfigured) {
+      return {
+        success: false,
+        error: 'Supabase n’est pas configuré. Veuillez vérifier les identifiants de connexion Supabase.',
+      };
     }
 
     try {
-      // 1. Native Firebase Auth sign-in
-      const cred = await signInWithEmailAndPassword(auth, canonicalEmail, trimmedPass);
-      const fbUser = cred.user;
+      const { data: sbData, error: sbErr } = await withTimeout(
+        supabase.auth.signInWithPassword({
+          email: canonicalEmail,
+          password: trimmedPass,
+        }),
+        10000,
+        'Délai de connexion dépassé. Veuillez vérifier votre connexion réseau.'
+      );
 
-      // Read Custom Claims from token
-      let claimRole: UserRole | undefined;
-      let isClaimAdmin = false;
-      try {
-        const tokenResult = await fbUser.getIdTokenResult();
-        const claims = tokenResult.claims || {};
-        isClaimAdmin = claims.admin === true || claims.role === 'admin';
-        claimRole = (claims.role as UserRole) || (isClaimAdmin ? 'admin' : undefined);
-      } catch (e) {
-        console.warn('Claims read error:', e);
+      if (sbErr) {
+        let errorMsg = sbErr.message || 'Identifiants invalides.';
+        const lower = errorMsg.toLowerCase();
+        if (
+          lower.includes('invalid login credentials') ||
+          lower.includes('invalid_grant') ||
+          lower.includes('invalid credentials')
+        ) {
+          errorMsg = 'Adresse email ou mot de passe incorrect.';
+        } else if (lower.includes('email not confirmed')) {
+          errorMsg = 'Votre adresse email n’a pas encore été confirmée dans Supabase.';
+        }
+        return { success: false, error: errorMsg };
       }
 
-      // 2. Identify application team user (strict exact match)
-      const matchedUser =
-        users.find((u) => (u.email || '').toLowerCase() === canonicalEmail) || {
-          id: `usr-${Date.now()}`,
-          name: canonicalEmail.split('@')[0],
-          email: canonicalEmail,
-          role: (claimRole || 'agent') as UserRole,
-          agency: 'Agence Morvello',
-          permissions: { ...DEFAULT_PERMISSIONS_BY_ROLE[claimRole || 'agent'] },
-        };
+      if (!sbData?.user) {
+        return { success: false, error: 'Identifiants invalides. Aucun utilisateur retourné.' };
+      }
 
-      const finalRole = claimRole || matchedUser.role;
+      const sbUser = sbData.user;
+
+      // Query user profile from Supabase profiles table (secured by RLS)
+      let fetchedRole: UserRole | undefined;
+      let fetchedName: string | undefined;
+      try {
+        const { data: profileData } = await withTimeout(
+          supabase
+            .from('profiles')
+            .select('role, name')
+            .eq('id', sbUser.id)
+            .maybeSingle(),
+          8000,
+          'Délai de récupération du profil Supabase dépassé'
+        );
+
+        if (profileData?.role) {
+          fetchedRole = profileData.role as UserRole;
+        }
+        if (profileData?.name) {
+          fetchedName = profileData.name;
+        }
+      } catch (profileErr) {
+        console.warn('[Supabase Auth] Profile fetch notice:', profileErr);
+      }
+
+      const matchedUser = users.find((u) => (u.email || '').toLowerCase() === canonicalEmail);
+      const finalRole: UserRole = fetchedRole || (matchedUser ? matchedUser.role : 'agent');
+
       const finalUser: User = {
-        ...matchedUser,
+        id: matchedUser?.id || `usr-${sbUser.id.slice(0, 8)}`,
+        name: fetchedName || matchedUser?.name || sbUser.user_metadata?.name || canonicalEmail.split('@')[0],
+        email: canonicalEmail,
         role: finalRole,
+        agency: matchedUser?.agency || 'Agence Morvello',
         permissions: { ...DEFAULT_PERMISSIONS_BY_ROLE[finalRole] },
-        firebaseUid: fbUser.uid,
-        authProvider: 'password',
+        firebaseUid: sbUser.id,
       };
 
-      // 3. Persist User Profile & RBAC role to Firestore /users/{uid}
-      try {
-        await saveUserProfile(fbUser.uid, {
-          role: finalUser.role,
-          email: finalUser.email,
-          name: finalUser.name,
-        });
-      } catch (profileErr) {
-        console.warn('Profile sync warning:', profileErr);
-      }
+      // Synchronize profile to Supabase profiles table
+      saveUserProfileToSupabase(sbUser.id, {
+        role: finalUser.role,
+        email: finalUser.email,
+        name: finalUser.name,
+        permissions: finalUser.permissions,
+      }).catch(() => {});
 
       setCurrentUser(finalUser);
       logAction(
-        'Connexion Firebase Auth',
+        'Connexion Supabase Auth',
         'user_permission',
         finalUser.id,
-        `Connexion réussie de ${finalUser.name} (${finalUser.role.toUpperCase()}) avec Firebase Auth natif`
+        `Connexion réussie de ${finalUser.name} (${finalUser.role.toUpperCase()}) avec Supabase Auth`
       );
-
       return { success: true };
-    } catch (fbErr: any) {
-      if (isAbortException(fbErr)) {
-        return { success: false, error: 'Connexion annulée.' };
-      }
-
-      console.info(
-        `[AuthContext] Firebase Auth exception (${fbErr?.code}), attempting agency fallback...`
-      );
-
-      // ALWAYS attempt agency fallback when Firebase Auth fails or user is not found in Firebase Auth!
-      const agencyResult = performAgencyLoginFallback(canonicalEmail, trimmedPass);
-      if (agencyResult.success) {
-        return { success: true };
-      }
-
-      // If agency fallback found the user but password was wrong, return precise message
-      if (agencyResult.error && agencyResult.error.includes('Mot de passe incorrect')) {
-        return { success: false, error: agencyResult.error };
-      }
-
-      const code = fbErr?.code;
-      if (code === 'auth/user-disabled') {
-        return { success: false, error: 'Ce compte utilisateur a été désactivé par un administrateur.' };
-      }
-      if (code === 'auth/too-many-requests') {
-        return {
-          success: false,
-          error: 'Trop de tentatives échouées. Veuillez patienter ou réinitialiser votre mot de passe.',
-        };
-      }
-
+    } catch (err: any) {
+      console.error('[Supabase Auth] Erreur de connexion:', err);
       return {
         success: false,
-        error: agencyResult.error || 'Identifiants invalides. Vérifiez votre email et mot de passe.',
+        error: err?.message || 'Erreur lors de la connexion à Supabase Auth.',
       };
     }
   };
 
   /**
-   * Google Sign-In with Firebase Auth & RBAC Firestore Profile Sync
+   * Google Sign-In via Supabase OAuth
    */
   const loginWithGoogle = async (): Promise<{ success: boolean; error?: string }> => {
+    if (!isSupabaseConfigured) {
+      return { success: false, error: 'Supabase n’est pas configuré.' };
+    }
     try {
-      const result = await signInWithPopup(auth, googleProvider);
-      const fbUser = result.user;
-      const userEmail = fbUser.email?.toLowerCase() || '';
-
-      // Read Custom Claims from Google user token
-      let claimRole: UserRole | undefined;
-      let isClaimAdmin = false;
-      try {
-        const tokenResult = await fbUser.getIdTokenResult();
-        const claims = tokenResult.claims || {};
-        isClaimAdmin = claims.admin === true || claims.role === 'admin';
-        claimRole = (claims.role as UserRole) || (isClaimAdmin ? 'admin' : undefined);
-      } catch (e) {
-        console.warn('Claims read error on Google login:', e);
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
+        },
+      });
+      if (error) {
+        return { success: false, error: error.message };
       }
-
-      // Link to team account (strict exact match)
-      const matched = users.find(
-        (u) => (u.email || '').toLowerCase() === userEmail
-      );
-
-      const targetRole: UserRole = claimRole || (matched ? matched.role : 'agent');
-      const targetUser =
-        matched || {
-          id: `usr-google-${Date.now()}`,
-          name: fbUser.displayName || userEmail.split('@')[0],
-          email: userEmail,
-          role: targetRole,
-          agency: 'Agence Morvello',
-          permissions: { ...DEFAULT_PERMISSIONS_BY_ROLE[targetRole] },
-        };
-
-      const finalUser: User = {
-        ...targetUser,
-        role: targetRole,
-        permissions: { ...DEFAULT_PERMISSIONS_BY_ROLE[targetRole] },
-        firebaseUid: fbUser.uid,
-        authProvider: 'google',
-      };
-
-      // Synchronize role and profile in Firestore RBAC
-      try {
-        await saveUserProfile(fbUser.uid, {
-          role: finalUser.role,
-          email: finalUser.email,
-          name: finalUser.name,
-        });
-      } catch (err) {
-        console.warn('Profile sync notice:', err);
-      }
-
-      setCurrentUser(finalUser);
-      logAction(
-        'Connexion Google Firebase',
-        'user_permission',
-        finalUser.id,
-        `Connexion Google réussie : ${fbUser.displayName || finalUser.name} (${userEmail})`
-      );
-
       return { success: true };
-    } catch (error: any) {
-      if (isAbortException(error)) {
-        return {
-          success: false,
-          error: 'Connexion Google annulée.',
-        };
-      }
-      console.error('Google Sign-In error:', error);
+    } catch (err: any) {
       return {
         success: false,
-        error: error.message || 'Échec de la connexion avec Google.',
+        error: err?.message || 'Échec de la connexion Google via Supabase.',
       };
     }
   };
@@ -705,17 +384,11 @@ export const AuthProvider: React.FC<{
         console.warn('Supabase sign-out notice:', sbSignOutErr);
       }
     }
-    try {
-      await signOut(auth);
-    } catch (e) {
-      console.warn('Sign out warning:', e);
-    }
     setCurrentUser(null);
     localStorage.removeItem(STORAGE_KEYS.USER);
   };
 
   const switchUser = (userId: string) => {
-    // Only allow switchUser if current user is an admin or in initial state
     if (currentUser && currentUser.role !== 'admin') {
       console.warn('[Security] Unauthorized switchUser attempt blocked.');
       return;
@@ -734,16 +407,6 @@ export const AuthProvider: React.FC<{
 
   const setCurrentUserRole = async (role: UserRole) => {
     if (!currentUser) return;
-    const targetUid = currentUser.firebaseUid || auth.currentUser?.uid;
-    if (targetUid) {
-      try {
-        await callSetUserRole(targetUid, role);
-        await forceRefreshTokenClaims();
-      } catch (e) {
-        console.warn('Set user role claim note:', e);
-      }
-    }
-
     const updated = {
       ...currentUser,
       role,
@@ -751,6 +414,18 @@ export const AuthProvider: React.FC<{
     };
     setCurrentUser(updated);
     setUsers((prev) => prev.map((u) => (u.id === currentUser.id ? updated : u)));
+
+    try {
+      await saveUserProfileToSupabase(currentUser.firebaseUid || currentUser.id, {
+        role,
+        email: currentUser.email,
+        name: currentUser.name,
+        permissions: updated.permissions,
+      });
+    } catch (e) {
+      console.warn('Set user role Supabase update error:', e);
+    }
+
     logAction(
       'Modification rôle actif',
       'user_permission',
@@ -760,80 +435,32 @@ export const AuthProvider: React.FC<{
   };
 
   const addUser = async (userData: Omit<User, 'id'> & { password?: string }): Promise<User> => {
-    // 1. Server-side provisioning (creates Auth account, Custom Claims, Firestore profile & reset link)
-    let provisionedUid: string | undefined;
-    let resetLink: string | null = null;
-
-    try {
-      const provResult = await callProvisionTeamMember({
-        email: userData.email,
-        name: userData.name,
-        role: userData.role,
-        agency: userData.agency,
-        phone: userData.phone,
-        assignedFleetName: userData.assignedFleetName,
-        password: userData.password,
-      });
-
-      if (provResult.uid) {
-        provisionedUid = provResult.uid;
-      }
-      if (provResult.resetLink) {
-        resetLink = provResult.resetLink;
-      }
-    } catch (provErr) {
-      console.warn('Team member server provisioning notice:', provErr);
-    }
-
+    const newId = `usr-${Date.now().toString(36)}`;
     const newUser: User = {
       ...userData,
-      id: provisionedUid ? `usr-${provisionedUid.slice(0, 8)}` : `usr-${Date.now()}`,
-      firebaseUid: provisionedUid,
-      passwordResetLink: resetLink || undefined,
+      id: newId,
       permissions: userData.permissions || { ...DEFAULT_PERMISSIONS_BY_ROLE[userData.role] },
       mustChangePassword: false,
     };
-    if (userData.password) {
-      setStoredPassword(newUser.id, userData.password);
-      setStoredPassword(newUser.email, userData.password);
-      newUser.password = userData.password;
-    }
 
-    // 2. Persist in Firestore /users/{uid}
-    if (provisionedUid) {
-      try {
-        await saveUserProfile(provisionedUid, {
-          role: newUser.role,
-          email: newUser.email,
-          name: newUser.name,
-        });
-      } catch (fsErr) {
-        console.warn('Profile sync warning on addUser:', fsErr);
-      }
-    }
+    saveUserProfileToSupabase(newUser.id, {
+      role: newUser.role,
+      email: newUser.email,
+      name: newUser.name,
+      permissions: newUser.permissions,
+    }).catch(() => {});
 
     setUsers((prev) => [...prev, newUser]);
     logAction(
-      'Ajout membre d’équipe (Provisioning & Custom Claims)',
+      'Ajout membre d’équipe',
       'user_permission',
       newUser.id,
-      `Nouveau collaborateur créé : ${newUser.name} (${newUser.role.toUpperCase()}) avec Custom Claims appliqués`
+      `Nouveau collaborateur créé : ${newUser.name} (${newUser.role.toUpperCase()})`
     );
     return newUser;
   };
 
   const updateUser = async (userId: string, data: Partial<User>) => {
-    if (data.password) {
-      setStoredPassword(userId, data.password);
-      if (data.email) {
-        setStoredPassword(data.email, data.password);
-      }
-      const existing = users.find((u) => u.id === userId);
-      if (existing?.email) {
-        setStoredPassword(existing.email, data.password);
-      }
-    }
-
     const updatePayload = { ...data };
 
     setUsers((prev) =>
@@ -867,37 +494,24 @@ export const AuthProvider: React.FC<{
       return { success: false, error: 'Le mot de passe doit contenir au moins 6 caractères.' };
     }
 
-    setStoredPassword(userId, trimmed);
-    const targetUser = users.find((u) => u.id === userId);
-    if (targetUser?.email) {
-      setStoredPassword(targetUser.email, trimmed);
-    }
-
-    // 1. Supabase Auth update if user has active session
     if (isSupabaseConfigured) {
       try {
-        await supabase.auth.updateUser({ password: trimmed });
-      } catch (sbPassErr) {
-        console.warn('Supabase password update note:', sbPassErr);
+        const { error } = await supabase.auth.updateUser({ password: trimmed });
+        if (error) {
+          return { success: false, error: error.message };
+        }
+      } catch (sbPassErr: any) {
+        return { success: false, error: sbPassErr?.message || 'Erreur mise à jour mot de passe Supabase.' };
       }
-    }
-
-    try {
-      // 2. If current Firebase Auth session matches, update native password directly
-      if (auth.currentUser) {
-        await updatePassword(auth.currentUser, trimmed);
-      }
-    } catch (e: any) {
-      console.warn('Firebase native password update notice:', e?.message || e);
     }
 
     setUsers((prev) =>
       prev.map((u) =>
-        u.id === userId ? { ...u, password: trimmed, mustChangePassword: false } : u
+        u.id === userId ? { ...u, mustChangePassword: false } : u
       )
     );
     if (currentUser?.id === userId) {
-      setCurrentUser((prev) => (prev ? { ...prev, password: trimmed, mustChangePassword: false } : null));
+      setCurrentUser((prev) => (prev ? { ...prev, mustChangePassword: false } : null));
     }
     logAction(
       'Modification mot de passe',
@@ -910,27 +524,19 @@ export const AuthProvider: React.FC<{
 
   const sendResetEmail = async (email: string): Promise<{ success: boolean; error?: string }> => {
     const cleanEmail = email.trim().toLowerCase();
-
-    // 1. Try Supabase Auth password reset
-    if (isSupabaseConfigured) {
-      try {
-        const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail);
-        if (!error) {
-          return { success: true };
-        }
-      } catch (sbResetErr) {
-        console.warn('Supabase reset notice:', sbResetErr);
-      }
+    if (!isSupabaseConfigured) {
+      return { success: false, error: 'Supabase n’est pas configuré.' };
     }
-
-    // 2. Try Firebase Auth password reset
     try {
-      await sendPasswordResetEmail(auth, cleanEmail);
+      const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail);
+      if (error) {
+        return { success: false, error: error.message };
+      }
       return { success: true };
-    } catch (e: any) {
+    } catch (sbResetErr: any) {
       return {
         success: false,
-        error: e?.message || 'Impossible d’envoyer l’email de réinitialisation.',
+        error: sbResetErr?.message || 'Impossible d’envoyer l’email de réinitialisation.',
       };
     }
   };
@@ -966,23 +572,7 @@ export const AuthProvider: React.FC<{
 
   const updateUserRole = async (userId: string, role: UserRole): Promise<void> => {
     const target = users.find((u) => u.id === userId);
-    const targetUid = target?.firebaseUid || (userId === currentUser?.id ? auth.currentUser?.uid : undefined);
 
-    // 1. Invoke server-side / Cloud Function to set Custom Claims via Admin SDK
-    if (targetUid) {
-      try {
-        await callSetUserRole(targetUid, role);
-      } catch (roleClaimErr) {
-        console.warn('[AuthContext] Update user role claim note:', roleClaimErr);
-      }
-    }
-
-    // 2. If changing the active user's own role, force token refresh so request.auth.token updates
-    if (auth.currentUser && (auth.currentUser.uid === targetUid || userId === currentUser?.id)) {
-      await forceRefreshTokenClaims();
-    }
-
-    // 3. Update local state
     setUsers((prev) =>
       prev.map((u) =>
         u.id === userId
@@ -999,35 +589,22 @@ export const AuthProvider: React.FC<{
       );
     }
 
-    // 4. Update Firestore user profile & Supabase profiles table
-    if (targetUid) {
-      try {
-        await saveUserProfile(targetUid, {
-          role,
-          email: target?.email || '',
-          name: target?.name,
-        });
-      } catch (fsErr) {
-        console.warn('[AuthContext] Firestore profile sync warning:', fsErr);
-      }
-
-      try {
-        await saveUserProfileToSupabase(targetUid, {
-          role,
-          email: target?.email || '',
-          name: target?.name,
-          permissions: { ...DEFAULT_PERMISSIONS_BY_ROLE[role] },
-        });
-      } catch (sbErr) {
-        console.warn('[AuthContext] Supabase profile sync warning:', sbErr);
-      }
+    try {
+      await saveUserProfileToSupabase(target?.firebaseUid || userId, {
+        role,
+        email: target?.email || '',
+        name: target?.name,
+        permissions: { ...DEFAULT_PERMISSIONS_BY_ROLE[role] },
+      });
+    } catch (sbErr) {
+      console.warn('[AuthContext] Supabase profile sync warning:', sbErr);
     }
 
     logAction(
-      'Changement de rôle (Custom Claims)',
+      'Changement de rôle',
       'user_permission',
       userId,
-      `Rôle mis à jour en ${role.toUpperCase()} pour ${target?.name || userId} (Custom Claims synchronisés)`
+      `Rôle mis à jour en ${role.toUpperCase()} pour ${target?.name || userId}`
     );
   };
 
@@ -1063,67 +640,12 @@ export const AuthProvider: React.FC<{
     setUsers(newUsers);
   };
 
-  /**
-   * Admin-only function to explicitly preconfigure a user's agency fallback password.
-   * Requires the caller to be an active admin authenticated with native Firebase.
-   */
-  const setAgencyFallbackPassword = (
-    userId: string,
-    password: string
-  ): { success: boolean; error?: string } => {
-    if (!currentUser || currentUser.role !== 'admin') {
-      return {
-        success: false,
-        error: 'Action réservée aux administrateurs.',
-      };
-    }
-    if (currentUser.authProvider === 'agency') {
-      return {
-        success: false,
-        error: 'Cette action requiert une session administrateur authentifiée via Firebase natif.',
-      };
-    }
-
-    const trimmed = (password || '').trim();
-    if (!trimmed || trimmed.length < 6) {
-      return {
-        success: false,
-        error: 'Le mot de passe de secours doit contenir au moins 6 caractères.',
-      };
-    }
-
-    const targetUser = users.find(
-      (u) => u.id === userId || (u.email || '').toLowerCase() === userId.toLowerCase()
-    );
-    if (!targetUser) {
-      return {
-        success: false,
-        error: 'Collaborateur introuvable.',
-      };
-    }
-
-    setStoredPassword(targetUser.id, trimmed);
-    if (targetUser.email) {
-      setStoredPassword(targetUser.email, trimmed);
-    }
-
-    logAction(
-      'Configuration Mot de Passe Agence',
-      'user_permission',
-      targetUser.id,
-      `Mot de passe de secours agence configuré pour ${targetUser.name} par l'administrateur ${currentUser.name}`
-    );
-
-    return { success: true };
-  };
-
   return (
     <AuthContext.Provider
       value={{
         currentUser,
         users,
         availableUsers,
-        firebaseUser,
         authLoading,
         login,
         loginWithGoogle,
@@ -1138,10 +660,13 @@ export const AuthProvider: React.FC<{
         resetUserPermissions,
         hasPermission,
         changeUserPassword,
-        setAgencyFallbackPassword,
         sendResetEmail,
         setUsersList,
-        refreshClaims: forceRefreshTokenClaims,
+        refreshClaims: async () => ({
+          admin: currentUser?.role === 'admin',
+          role: currentUser?.role,
+          claims: {},
+        }),
       }}
     >
       {children}
@@ -1156,4 +681,3 @@ export const useAuth = () => {
   }
   return context;
 };
-

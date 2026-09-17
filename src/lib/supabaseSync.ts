@@ -98,7 +98,7 @@ export async function saveRemoteAgencyDataToSupabase(
     }
 
     // Synchronisation granulaire dans les tables individuelles Supabase (en tâche de fond sécurisée)
-    syncIndividualTables(payload).catch((err) => {
+    syncIndividualTables(cleanPayload).catch((err) => {
       console.warn('[Supabase Sync] Granular tables sync note:', err);
     });
 
@@ -209,6 +209,12 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
     // 1. Véhicules
     if (payload.vehicles && Array.isArray(payload.vehicles) && payload.vehicles.length > 0) {
       for (const v of payload.vehicles) {
+        const assignedMgrId =
+          v.assignedManagerId ||
+          (v.assignedManagerName && payload.users?.find((u) => u.name.toLowerCase() === v.assignedManagerName?.toLowerCase())?.id) ||
+          null;
+        const createdBy = (v as any).createdBy || (v as any).proposedBy || (payload.updatedBy ? String(payload.updatedBy) : null);
+
         await supabase.from('vehicles').upsert(
           {
             id: v.id,
@@ -219,9 +225,14 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
             status: v.status,
             current_km: v.currentKm,
             daily_rate: v.dailyRate,
-            assigned_manager_id: v.assignedManagerId,
+            assigned_manager_id: assignedMgrId,
+            created_by: createdBy,
             approval_status: v.approvalStatus || 'approved',
-            data: v,
+            data: {
+              ...v,
+              assignedManagerId: assignedMgrId || v.assignedManagerId,
+              createdBy: createdBy || (v as any).createdBy,
+            },
             updated_at: new Date().toISOString(),
           },
           { onConflict: 'id' }
@@ -232,6 +243,15 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
     // 2. Clients
     if (payload.clients && Array.isArray(payload.clients) && payload.clients.length > 0) {
       for (const c of payload.clients) {
+        const assignedMgrId =
+          c.assignedManagerId ||
+          payload.contracts?.find(
+            (cnt) => cnt.clientId === c.id || (cnt.clientSnapshot && cnt.clientSnapshot.id === c.id)
+          )?.assignedManagerId ||
+          (c.assignedManagerName && payload.users?.find((u) => u.name.toLowerCase() === c.assignedManagerName?.toLowerCase())?.id) ||
+          null;
+        const createdBy = (c as any).createdBy || (payload.updatedBy ? String(payload.updatedBy) : null);
+
         await supabase.from('clients').upsert(
           {
             id: c.id,
@@ -242,7 +262,13 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
             phone: c.phone,
             email: c.email,
             contract_count: c.contractCount || 0,
-            data: c,
+            assigned_manager_id: assignedMgrId,
+            created_by: createdBy,
+            data: {
+              ...c,
+              assignedManagerId: assignedMgrId || c.assignedManagerId,
+              createdBy: createdBy || (c as any).createdBy,
+            },
             updated_at: new Date().toISOString(),
           },
           { onConflict: 'id' }
@@ -253,6 +279,17 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
     // 3. Contrats
     if (payload.contracts && Array.isArray(payload.contracts) && payload.contracts.length > 0) {
       for (const cnt of payload.contracts) {
+        const assignedMgrId =
+          cnt.assignedManagerId ||
+          payload.vehicles?.find(
+            (v) =>
+              v.id === cnt.vehicleId ||
+              (cnt.vehicleSnapshot?.plate && v.plate.trim() === cnt.vehicleSnapshot.plate.trim())
+          )?.assignedManagerId ||
+          (cnt.assignedManagerName && payload.users?.find((u) => u.name.toLowerCase() === cnt.assignedManagerName?.toLowerCase())?.id) ||
+          null;
+        const createdBy = cnt.createdBy || (payload.updatedBy ? String(payload.updatedBy) : null);
+
         await supabase.from('contracts').upsert(
           {
             id: cnt.id,
@@ -264,8 +301,13 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
             end_date: cnt.endDate,
             total_amount: cnt.totalAmount,
             deposit_amount: cnt.depositAmount,
-            created_by: cnt.createdBy,
-            data: cnt,
+            assigned_manager_id: assignedMgrId,
+            created_by: createdBy,
+            data: {
+              ...cnt,
+              assignedManagerId: assignedMgrId || cnt.assignedManagerId,
+              createdBy: createdBy || cnt.createdBy,
+            },
             updated_at: new Date().toISOString(),
           },
           { onConflict: 'id' }
@@ -276,6 +318,23 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
     // 4. Cautions
     if (payload.deposits && Array.isArray(payload.deposits) && payload.deposits.length > 0) {
       for (const dep of payload.deposits) {
+        const matchedContract = payload.contracts?.find(
+          (cnt) => cnt.id === dep.contractId || cnt.contractNumber === dep.contractNumber
+        );
+        const matchedVehicle = payload.vehicles?.find(
+          (v) => dep.vehiclePlate && v.plate.trim() === dep.vehiclePlate.trim()
+        );
+        const assignedMgrId =
+          dep.assignedManagerId ||
+          matchedContract?.assignedManagerId ||
+          matchedVehicle?.assignedManagerId ||
+          (dep.assignedManagerName && payload.users?.find((u) => u.name.toLowerCase() === dep.assignedManagerName?.toLowerCase())?.id) ||
+          null;
+        const createdBy =
+          dep.createdBy ||
+          dep.receivedBy ||
+          (payload.updatedBy ? String(payload.updatedBy) : null);
+
         await supabase.from('deposits').upsert(
           {
             id: dep.id,
@@ -284,7 +343,13 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
             amount: dep.amount,
             status: dep.status === 'held' ? 'pending' : dep.status,
             method: dep.method,
-            data: dep,
+            assigned_manager_id: assignedMgrId,
+            created_by: createdBy,
+            data: {
+              ...dep,
+              assignedManagerId: assignedMgrId || dep.assignedManagerId,
+              createdBy: createdBy || dep.createdBy,
+            },
             updated_at: new Date().toISOString(),
           },
           { onConflict: 'id' }
