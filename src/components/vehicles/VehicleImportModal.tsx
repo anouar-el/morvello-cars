@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { User, Vehicle, FuelType } from '../../types';
 import { formatPlateFrench } from '../../utils/plateUtils';
+import { useApp } from '../../context/AppContext';
 import * as XLSX from 'xlsx';
 import {
   FileSpreadsheet,
@@ -9,6 +10,8 @@ import {
   AlertTriangle,
   CheckCircle2,
   X,
+  ShieldAlert,
+  Lock,
 } from 'lucide-react';
 
 interface VehicleImportModalProps {
@@ -17,6 +20,7 @@ interface VehicleImportModalProps {
   onAddVehicle: (vehicle: Omit<Vehicle, 'id'>) => void;
   users: User[];
   onToast: (msg: string) => void;
+  currentUser?: User | null;
 }
 
 export const VehicleImportModal: React.FC<VehicleImportModalProps> = ({
@@ -25,11 +29,93 @@ export const VehicleImportModal: React.FC<VehicleImportModalProps> = ({
   onAddVehicle,
   users,
   onToast,
+  currentUser,
 }) => {
+  const appCtx = useApp();
+  const activeUser = currentUser ?? appCtx?.currentUser;
+
+  /**
+   * SÉCURITÉ / VULNÉRABILITÉS XLSX (SheetJS) :
+   * Références CVE / Security Advisories :
+   * - GHSA-4r6h-8v6p-xvw6 : Prototype Pollution in SheetJS
+   * - GHSA-5pgg-2g8v-p4x9 : Regular Expression Denial of Service (ReDoS) in SheetJS
+   *
+   * MOTIF DE CETTE RESTRICTION :
+   * La librairie 'xlsx' (SheetJS) comporte une vulnérabilité critique de sévérité HAUTE sans
+   * correctif officiel amont disponible à ce jour. Le traitement de fichiers .xlsx non fiables
+   * injectés par des utilisateurs externes ou des agents pourrait corrompre les prototypes
+   * JavaScript globaux ou bloquer l'événement loop (ReDoS).
+   *
+   * Pour mitiger ce risque et réduire la surface d'exposition, l'importation et le parsing
+   * de fichiers Excel sont strictement réservés aux utilisateurs avec le rôle 'admin'
+   * (ou permission explicite 'canImportVehiclesExcel').
+   * NE PAS SUPPRIMER CETTE VÉRIFICATION SÉCURISÉE.
+   */
+  const isAuthorized =
+    activeUser?.role === 'admin' ||
+    Boolean(activeUser?.permissions?.canImportVehiclesExcel) ||
+    Boolean(appCtx?.hasPermission?.('canImportVehiclesExcel'));
+
   const [importText, setImportText] = useState<string>('');
   const [importError, setImportError] = useState<string | null>(null);
 
   if (!isOpen) return null;
+
+  // Vérification défensive au montage : si un utilisateur non autorisé accède à la modale
+  if (!isAuthorized) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+        <div className="bg-slate-900 border border-rose-500/50 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-500/20 text-rose-400 flex items-center justify-center border border-rose-500/30 shrink-0">
+                <ShieldAlert className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">Accès restreint — Importation désactivée</h3>
+                <p className="text-xs text-rose-300">Privilèges administrateur requis</p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                onClose();
+                setImportError(null);
+              }}
+              className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="bg-rose-950/40 border border-rose-500/30 rounded-xl p-4 space-y-2 text-xs text-rose-200">
+            <div className="flex items-center gap-2 font-semibold text-rose-100">
+              <Lock className="w-4 h-4 text-rose-400" />
+              <span>Permission insuffisante pour l'import de données</span>
+            </div>
+            <p className="text-slate-300 text-[11px] leading-relaxed">
+              L'importation et l'analyse de fichiers de véhicules (.xlsx / CSV) sont strictement réservées aux administrateurs du système Morvello Cars.
+            </p>
+            <p className="text-slate-400 text-[10px] leading-relaxed border-t border-rose-900/40 pt-2 font-mono">
+              Sécurité : Restriction défensive liée aux vulnérabilités connues de parsing xlsx (GHSA-4r6h-8v6p-xvw6, GHSA-5pgg-2g8v-p4x9).
+            </p>
+          </div>
+
+          <div className="flex justify-end pt-2">
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                setImportError(null);
+              }}
+              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold rounded-xl transition-colors cursor-pointer"
+            >
+              Fermer
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const downloadExcelTemplate = () => {
     try {
@@ -213,6 +299,15 @@ HYUNDAI;Tucson 1.6 CRDi DCT;19384 | D | 6;Diesel;available;58400;650;2024;Noir F
 
   const handleFileUpload = async (file: File) => {
     setImportError(null);
+
+    // Contrôle de sécurité défensif : bloquer le parsing si non autorisé
+    if (!isAuthorized) {
+      setImportError(
+        "Opération non autorisée : L'analyse de fichiers est strictement réservée aux administrateurs (sécurité xlsx GHSA-4r6h-8v6p-xvw6)."
+      );
+      return;
+    }
+
     const fileName = file.name.toLowerCase();
 
     if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
@@ -255,6 +350,13 @@ HYUNDAI;Tucson 1.6 CRDi DCT;19384 | D | 6;Diesel;available;58400;650;2024;Noir F
   };
 
   const handleProcessImportCSV = () => {
+    if (!isAuthorized) {
+      setImportError(
+        "Opération non autorisée : Droits administrateurs requis pour importer des véhicules."
+      );
+      return;
+    }
+
     if (!importText.trim()) {
       setImportError('Veuillez sélectionner un fichier Excel / CSV ou coller des lignes de données.');
       return;

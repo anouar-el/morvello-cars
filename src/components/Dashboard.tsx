@@ -15,10 +15,12 @@ import {
   ShieldAlert,
   AlertOctagon,
   Wrench,
+  Shield,
 } from 'lucide-react';
 import { formatPlateFrench } from '../utils/plateUtils';
 import { getVehicleHealthSummary } from '../utils/vehicleExpiryUtils';
 import { DashboardAlertsBanner } from './DashboardAlertsBanner';
+import { getScopedDataForUser } from '../utils/managerScopeUtils';
 
 interface DashboardProps {
   onOpenCheckInModal?: (contract: Contract) => void;
@@ -29,17 +31,32 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCheckInModal, onOpen
   const {
     contracts,
     vehicles,
+    deposits,
+    clients,
+    users,
     currentUser,
     setActiveTab,
     openPdfModal,
   } = useApp();
 
-  const activeContracts = contracts.filter((c) => c.status === 'active');
-  const rentedVehiclesCount = vehicles.filter((v) => v.status === 'rented').length;
-  const availableVehiclesCount = vehicles.filter((v) => v.status === 'available').length;
+  const isManager = currentUser?.role === 'manager';
 
-  // Vehicles compliance status (Assurance, Visite technique, Vignette, Vidange)
-  const vehiclesWithAlerts = vehicles
+  // Isolation stricte selon le rôle
+  const { scopedVehicles, scopedContracts, scopedDeposits } = getScopedDataForUser(
+    currentUser,
+    vehicles,
+    contracts,
+    deposits,
+    clients,
+    users
+  );
+
+  const activeContracts = scopedContracts.filter((c) => c.status === 'active');
+  const rentedVehiclesCount = scopedVehicles.filter((v) => v.status === 'rented').length;
+  const availableVehiclesCount = scopedVehicles.filter((v) => v.status === 'available').length;
+
+  // Vehicles compliance status (Assurance, Visite technique, Vignette, Vidange) pour la flotte concernée
+  const vehiclesWithAlerts = scopedVehicles
     .map((v) => ({ vehicle: v, health: getVehicleHealthSummary(v) }))
     .filter((item) => item.health.hasAlert);
 
@@ -53,22 +70,29 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCheckInModal, onOpen
     return end <= todayStr;
   });
 
+  const agencyDisplayName =
+    currentUser?.agency ||
+    currentUser?.assignedFleetName ||
+    (currentUser?.role === 'admin' ? 'Siège & Flotte Morvello' : 'Agence Morvello');
+
   return (
     <div className="max-w-5xl mx-auto space-y-6 pb-8">
-      {/* 1. EN-TÊTE ÉPURÉ */}
+      {/* 1. EN-TÊTE AVEC AGENCE DYNAMIQUE */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2">
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="w-2 h-2 rounded-full bg-amber-400"></span>
             <span className="text-xs uppercase tracking-wider text-amber-400 font-bold">
-              Morvello Cars • Agence Nouaceur
+              Morvello Cars • {agencyDisplayName}
             </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
             Bonjour, {currentUser?.name}
           </h1>
           <p className="text-xs text-slate-400 mt-0.5">
-            Aperçu essentiel de l'activité du jour et suivi des locations en cours.
+            {isManager
+              ? `Aperçu de votre agence (${scopedVehicles.length} véhicules attribués). Cloisonnement strict actif.`
+              : "Aperçu global de l'activité du jour et supervision de l'ensemble du parc automobile."}
           </p>
         </div>
 
@@ -87,12 +111,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCheckInModal, onOpen
         <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4.5 flex items-center justify-between">
           <div>
             <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-              Véhicules en Location
+              {isManager ? 'Ma Flotte en Location' : 'Véhicules en Location'}
             </p>
             <div className="text-2xl font-black text-white font-mono mt-1">
               {rentedVehiclesCount}{' '}
               <span className="text-sm font-normal text-slate-400 font-sans">
-                / {vehicles.length}
+                / {scopedVehicles.length}
               </span>
             </div>
             <p className="text-[11px] text-emerald-400 font-medium mt-0.5">
@@ -108,13 +132,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCheckInModal, onOpen
         <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4.5 flex items-center justify-between">
           <div>
             <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-              Contrats Actifs
+              {isManager ? 'Mes Contrats Actifs' : 'Contrats Actifs'}
             </p>
             <div className="text-2xl font-black text-white font-mono mt-1">
               {activeContracts.length}
             </div>
             <p className="text-[11px] text-slate-400 mt-0.5">
-              Sur {contracts.length} contrats au total
+              Sur {scopedContracts.length} contrat{scopedContracts.length > 1 ? 's' : ''} au total
             </p>
           </div>
           <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
@@ -159,7 +183,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCheckInModal, onOpen
               Locations en Cours ({activeContracts.length})
             </h2>
             <p className="text-xs text-slate-400 mt-0.5">
-              Véhicules actuellement chez les clients
+              {isManager
+                ? 'Véhicules de votre agence actuellement loués par vos clients'
+                : 'Véhicules actuellement chez les clients'}
             </p>
           </div>
 
@@ -172,8 +198,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCheckInModal, onOpen
         </div>
 
         {activeContracts.length === 0 ? (
-          <div className="py-8 text-center text-slate-500 text-xs">
-            Aucun contrat actif pour le moment.
+          <div className="py-8 text-center text-slate-400 text-xs space-y-2">
+            <p className="font-medium text-slate-300">Aucune location en cours pour le moment.</p>
+            <p className="text-[11px] text-slate-500">
+              {isManager
+                ? `Vos ${scopedVehicles.length} véhicules sont actuellement disponibles au parc.`
+                : 'Tous les véhicules autorisés sont disponibles.'}
+            </p>
           </div>
         ) : (
           <div className="space-y-2.5">
@@ -254,9 +285,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCheckInModal, onOpen
           className="p-4 bg-slate-900/60 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-xl text-left transition-all flex items-center justify-between cursor-pointer group"
         >
           <div>
-            <p className="font-bold text-white text-xs">Parc Automobile ({vehicles.length})</p>
+            <p className="font-bold text-white text-xs">
+              {isManager ? `Ma Flotte Attribuée (${scopedVehicles.length})` : `Parc Automobile (${vehicles.length})`}
+            </p>
             <p className="text-[11px] text-slate-400 mt-0.5">
-              Consulter les disponibilités et fiches véhicules
+              {isManager ? 'Consulter les disponibilités de mes véhicules' : 'Consulter les disponibilités et fiches véhicules'}
             </p>
           </div>
           <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-amber-400 transition-colors" />
@@ -267,9 +300,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCheckInModal, onOpen
           className="p-4 bg-slate-900/60 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-xl text-left transition-all flex items-center justify-between cursor-pointer group"
         >
           <div>
-            <p className="font-bold text-white text-xs">Dépôts de Garantie & Cautions</p>
+            <p className="font-bold text-white text-xs">
+              {isManager ? `Mes Cautions & Dépôts (${scopedDeposits.length})` : `Dépôts de Garantie & Cautions (${deposits.length})`}
+            </p>
             <p className="text-[11px] text-slate-400 mt-0.5">
-              Suivi des empreintes bancaires et chèques
+              Suivi des empreintes bancaires et chèques de garantie
             </p>
           </div>
           <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-amber-400 transition-colors" />

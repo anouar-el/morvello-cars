@@ -135,6 +135,12 @@ const PERMISSION_DEFINITIONS: PermissionMeta[] = [
     description: 'Permet de retirer et supprimer définitivement un véhicule de la flotte.',
     category: 'fleet',
   },
+  {
+    key: 'canImportVehiclesExcel',
+    label: 'Importer des véhicules par fichier Excel (.xlsx)',
+    description: 'Permet d’importer des véhicules en masse via Excel. Restreint par défaut au Gérant pour des motifs de sécurité (vulnérabilités de la librairie xlsx).',
+    category: 'fleet',
+  },
 
   // CLIENTS
   {
@@ -305,6 +311,7 @@ export const PermissionsManager: React.FC = () => {
       canAssignVehicleManager: true,
       canEditVehicles: true,
       canDeleteVehicles: true,
+      canImportVehiclesExcel: user.role === 'admin',
       canManageClients: true,
       canCreateClients: true,
       canEditClients: true,
@@ -338,6 +345,7 @@ export const PermissionsManager: React.FC = () => {
       canAssignVehicleManager: false,
       canEditVehicles: false,
       canDeleteVehicles: false,
+      canImportVehiclesExcel: false,
       canManageClients: false,
       canCreateClients: false,
       canEditClients: false,

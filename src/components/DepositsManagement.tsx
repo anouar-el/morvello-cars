@@ -8,6 +8,7 @@ import {
   Contract,
 } from '../types';
 import {
+  Shield,
   ShieldAlert,
   ShieldCheck,
   CreditCard,
@@ -31,6 +32,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { formatPlateFrench } from '../utils/plateUtils';
+import { isDepositOwnedByManager } from '../utils/managerScopeUtils';
 
 export const DepositsManagement: React.FC = () => {
   const {
@@ -38,10 +40,21 @@ export const DepositsManagement: React.FC = () => {
     releaseDeposit,
     deductDeposit,
     contracts,
+    vehicles,
     openPdfModal,
     addAuditLog,
     currentUser,
   } = useApp();
+
+  const isManager = currentUser?.role === 'manager';
+
+  // Cloisonnement strict des cautions selon le rôle & le responsable
+  const visibleDeposits = deposits.filter((d) => {
+    if (isManager && currentUser) {
+      return isDepositOwnedByManager(d, currentUser.id, contracts, vehicles, currentUser.name);
+    }
+    return true;
+  });
 
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -62,24 +75,24 @@ export const DepositsManagement: React.FC = () => {
   const [receiptDeposit, setReceiptDeposit] = useState<DepositRecord | null>(null);
 
   // Stats calculation
-  const totalHeldAmount = deposits
+  const totalHeldAmount = visibleDeposits
     .filter((d) => d.status === 'held')
     .reduce((sum, d) => sum + d.amount, 0);
 
-  const totalDeductionsAmount = deposits.reduce((sum, d) => {
+  const totalDeductionsAmount = visibleDeposits.reduce((sum, d) => {
     return sum + d.deductions.reduce((dSum, item) => dSum + item.amount, 0);
   }, 0);
 
-  const totalReleasedAmount = deposits
+  const totalReleasedAmount = visibleDeposits
     .filter((d) => d.status === 'released')
     .reduce((sum, d) => sum + (d.refundedAmount || d.amount), 0);
 
-  const cardPreauthCount = deposits.filter((d) => d.method === 'preauth_card' && d.status === 'held').length;
-  const chequeCount = deposits.filter((d) => d.method === 'cheque' && d.status === 'held').length;
-  const cashCount = deposits.filter((d) => d.method === 'cash' && d.status === 'held').length;
+  const cardPreauthCount = visibleDeposits.filter((d) => d.method === 'preauth_card' && d.status === 'held').length;
+  const chequeCount = visibleDeposits.filter((d) => d.method === 'cheque' && d.status === 'held').length;
+  const cashCount = visibleDeposits.filter((d) => d.method === 'cash' && d.status === 'held').length;
 
   // Filtered deposits
-  const filteredDeposits = deposits.filter((d) => {
+  const filteredDeposits = visibleDeposits.filter((d) => {
     if (statusFilter !== 'all' && d.status !== statusFilter) return false;
     if (methodFilter !== 'all' && d.method !== methodFilter) return false;
 
@@ -269,17 +282,28 @@ export const DepositsManagement: React.FC = () => {
         {/* TOTAL DOSSIERS */}
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm">
           <div className="flex items-center justify-between text-xs text-slate-400">
-            <span>Dossiers de Cautions</span>
+            <span>{isManager ? 'Mes Dossiers Cautions' : 'Dossiers de Cautions'}</span>
             <FileText className="w-4 h-4 text-blue-400" />
           </div>
           <p className="font-mono text-xl sm:text-2xl font-bold text-white mt-2">
-            {deposits.length}
+            {visibleDeposits.length}
           </p>
           <p className="text-[11px] text-slate-400 mt-1">
-            {deposits.filter((d) => d.status === 'held').length} actives sous contrat
+            {visibleDeposits.filter((d) => d.status === 'held').length} actives sous contrat
           </p>
         </div>
       </div>
+
+      {/* BANNIÈRE DE CLOISONNEMENT POUR RESPONSABLE */}
+      {isManager && (
+        <div className="bg-blue-950/40 border border-blue-800/50 rounded-xl px-4 py-2.5 text-xs text-blue-300 flex items-center gap-2.5 shadow-sm">
+          <Shield className="w-4 h-4 text-blue-400 shrink-0" />
+          <span>
+            <strong>Cloisonnement actif :</strong> Seules les cautions des véhicules et contrats affectés à votre agence (
+            <strong className="text-white">{currentUser?.agency || 'votre agence'}</strong>) vous sont visibles ({visibleDeposits.length} caution{visibleDeposits.length > 1 ? 's' : ''}). Les cautions des autres responsables d'agence vous sont strictement confidentielles et inaccessibles.
+          </span>
+        </div>
+      )}
 
       {/* FILTER & SEARCH BAR */}
       <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-3 flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">

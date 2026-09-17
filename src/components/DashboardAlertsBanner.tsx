@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { computeOperationalAlerts, OperationalAlert } from '../utils/alertsUtils';
+import { getScopedDataForUser } from '../utils/managerScopeUtils';
 import { Contract } from '../types';
 import {
   Bell,
@@ -24,12 +25,21 @@ export const DashboardAlertsBanner: React.FC<DashboardAlertsBannerProps> = ({
   onOpenCheckInModal,
   onOpenAllAlerts,
 }) => {
-  const { vehicles, contracts, deposits, setActiveTab } = useApp();
+  const { vehicles, contracts, deposits, clients, users, currentUser, setActiveTab } = useApp();
 
-  const { alerts, criticalCount, warningCount } = computeOperationalAlerts(
+  const { scopedVehicles, scopedContracts, scopedDeposits } = getScopedDataForUser(
+    currentUser,
     vehicles,
     contracts,
-    deposits
+    deposits,
+    clients,
+    users
+  );
+
+  const { alerts, criticalCount, warningCount } = computeOperationalAlerts(
+    scopedVehicles,
+    scopedContracts,
+    scopedDeposits
   );
 
   if (alerts.length === 0) {

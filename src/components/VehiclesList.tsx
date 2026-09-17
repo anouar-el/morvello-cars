@@ -95,6 +95,13 @@ export const VehiclesList: React.FC = () => {
 
   const canUserDeleteVehicles = isAdmin || isManager || hasPermission('canDeleteVehicles');
 
+  // SÉCURITÉ / VULNÉRABILITÉS XLSX (SheetJS) :
+  // Référence CVE / Advisories : GHSA-4r6h-8v6p-xvw6 (Prototype Pollution) & GHSA-5pgg-2g8v-p4x9 (ReDoS).
+  // La librairie xlsx ne disposant pas de correctif officiel pour ces failles de parsing de fichiers non fiables,
+  // l'importation de fichiers Excel (.xlsx) est strictement restreinte aux administrateurs (rôle 'admin')
+  // afin de limiter la surface d'exposition.
+  const canImportVehicles = isAdmin || hasPermission('canImportVehiclesExcel');
+
   // Filter vehicles: managers strictly see their assigned or proposed vehicles, agents see fleet + their proposals
   const filteredVehicles = vehicles.filter((v) => {
     if (isManager) {
@@ -355,14 +362,21 @@ export const VehiclesList: React.FC = () => {
             <span>Export CSV</span>
           </button>
 
-          <button
-            onClick={() => setIsImportModalOpen(true)}
-            className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 px-3 py-2 rounded-xl text-xs font-semibold shadow-sm transition-colors cursor-pointer"
-            title="Importer la flotte réelle depuis un fichier Excel (.xlsx) ou CSV"
-          >
-            <Upload className="w-3.5 h-3.5 text-blue-400" />
-            <span>Importer Parc Réel</span>
-          </button>
+          {/*
+            SÉCURITÉ / VULNÉRABILITÉ XLSX :
+            Bouton d'importation masqué pour les non-administrateurs afin d'éviter l'exposition
+            aux vulnérabilités de parsing de la librairie xlsx (SheetJS).
+          */}
+          {canImportVehicles && (
+            <button
+              onClick={() => setIsImportModalOpen(true)}
+              className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 px-3 py-2 rounded-xl text-xs font-semibold shadow-sm transition-colors cursor-pointer"
+              title="Importer la flotte réelle depuis un fichier Excel (.xlsx) ou CSV (Réservé Administrateur)"
+            >
+              <Upload className="w-3.5 h-3.5 text-blue-400" />
+              <span>Importer Parc Réel</span>
+            </button>
+          )}
 
           <button
             onClick={() => setIsAddModalOpen(true)}
@@ -571,6 +585,7 @@ export const VehiclesList: React.FC = () => {
         onClose={() => setIsImportModalOpen(false)}
         onAddVehicle={addVehicle}
         users={users}
+        currentUser={currentUser}
         onToast={triggerToast}
       />
     </div>

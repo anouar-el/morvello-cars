@@ -31,6 +31,7 @@ export interface UserPermissions {
   canEditVehicles: boolean;
   canDeleteVehicles: boolean;
   canManageMaintenanceExpenses?: boolean;
+  canImportVehiclesExcel?: boolean; // Sécurité xlsx: import en masse restreint aux administrateurs
   // Clients & Conducteurs
   canManageClients: boolean;
   canCreateClients: boolean;
@@ -482,6 +483,7 @@ export const DEFAULT_PERMISSIONS_BY_ROLE: Record<UserRole, UserPermissions> = {
     canEditVehicles: true,
     canDeleteVehicles: true,
     canManageMaintenanceExpenses: true,
+    canImportVehiclesExcel: true,
     canManageClients: true,
     canCreateClients: true,
     canEditClients: true,
@@ -511,6 +513,7 @@ export const DEFAULT_PERMISSIONS_BY_ROLE: Record<UserRole, UserPermissions> = {
     canEditVehicles: true,
     canDeleteVehicles: true,
     canManageMaintenanceExpenses: true,
+    canImportVehiclesExcel: false,
     canManageClients: true,
     canCreateClients: true,
     canEditClients: true,
@@ -540,6 +543,7 @@ export const DEFAULT_PERMISSIONS_BY_ROLE: Record<UserRole, UserPermissions> = {
     canEditVehicles: false,
     canDeleteVehicles: false,
     canManageMaintenanceExpenses: false,
+    canImportVehiclesExcel: false,
     canManageClients: true,
     canCreateClients: true,
     canEditClients: false,

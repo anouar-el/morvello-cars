@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { AgentChatMessage } from '../types';
 import { isAbortException } from '../initErrorHandling';
+import { getScopedDataForUser } from '../utils/managerScopeUtils';
 import Markdown from 'react-markdown';
 import {
   Send,
@@ -31,7 +32,7 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
   isExpanded = false,
   onToggleExpand,
 }) => {
-  const { currentUser, vehicles, contracts, clients, deposits, aiSettings, setActiveTab } = useApp();
+  const { currentUser, vehicles, contracts, clients, deposits, users, aiSettings, setActiveTab } = useApp();
 
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -136,6 +137,14 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
         content: m.content,
       }));
 
+      // Cloisonnement strict des données transmises à l'IA selon le rôle
+      const {
+        scopedVehicles,
+        scopedContracts,
+        scopedDeposits,
+        scopedClients,
+      } = getScopedDataForUser(currentUser, vehicles, contracts, deposits, clients, users);
+
       const res = await fetch('/api/agent-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -147,10 +156,10 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
           message: finalPrompt,
           history: historyPayload,
           memberData: {
-            vehicles,
-            contracts,
-            clients,
-            deposits,
+            vehicles: scopedVehicles,
+            contracts: scopedContracts,
+            clients: scopedClients,
+            deposits: scopedDeposits,
           },
           aiSettings,
         }),

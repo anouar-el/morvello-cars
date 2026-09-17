@@ -31,6 +31,7 @@ import {
 import { formatPlateFrench } from '../utils/plateUtils';
 import { InspectionManagerModal } from './InspectionManagerModal';
 import { DigitalSignatureModal } from './DigitalSignatureModal';
+import { isContractOwnedByManager } from '../utils/managerScopeUtils';
 
 interface ContractsListProps {
   onOpenCheckInModal: (contract: Contract) => void;
@@ -100,11 +101,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
   // Role isolation & manager filtering
   const visibleContracts = contracts.filter((c) => {
     if (isManager) {
-      // Find associated vehicle
-      const matchedVeh = vehicles.find((v) => v.id === c.vehicleId || v.plate === c.vehicleSnapshot.plate);
-      const isAssignedToMe = matchedVeh?.assignedManagerId === currentUser.id;
-      const wasCreatedByMe = c.createdBy === currentUser.name;
-      return isAssignedToMe || wasCreatedByMe;
+      return isContractOwnedByManager(c, currentUser.id, vehicles, currentUser.name);
     }
 
     if (managerFilter !== 'all') {

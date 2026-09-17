@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { computeOperationalAlerts, OperationalAlert } from '../utils/alertsUtils';
+import { getScopedDataForUser } from '../utils/managerScopeUtils';
 import { Contract } from '../types';
 import {
   Bell,
@@ -30,14 +31,23 @@ export const NotificationsCenterModal: React.FC<NotificationsCenterModalProps> =
   onClose,
   onOpenCheckInModal,
 }) => {
-  const { vehicles, contracts, deposits, setActiveTab } = useApp();
+  const { vehicles, contracts, deposits, clients, users, currentUser, setActiveTab } = useApp();
   const [filterSeverity, setFilterSeverity] = useState<'all' | 'critical' | 'warning' | 'info'>('all');
   const [filterCategory, setFilterCategory] = useState<'all' | 'returns' | 'compliance' | 'deposits'>('all');
 
   if (!isOpen) return null;
 
+  const { scopedVehicles, scopedContracts, scopedDeposits } = getScopedDataForUser(
+    currentUser,
+    vehicles,
+    contracts,
+    deposits,
+    clients,
+    users
+  );
+
   const { alerts, criticalCount, warningCount, infoCount, returnsCount, complianceCount } =
-    computeOperationalAlerts(vehicles, contracts, deposits);
+    computeOperationalAlerts(scopedVehicles, scopedContracts, scopedDeposits);
 
   const filteredAlerts = alerts.filter((alert) => {
     if (filterSeverity !== 'all' && alert.severity !== filterSeverity) return false;

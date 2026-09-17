@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { Client, DocumentType } from '../types';
 import { ClientDocumentUpload } from './ClientDocumentUpload';
+import { isContractOwnedByManager, isClientOwnedByManager } from '../utils/managerScopeUtils';
 import {
   Users,
   Search,
@@ -109,6 +110,13 @@ export const ClientsList: React.FC = () => {
   });
 
   const handleOpenEdit = (client: Client) => {
+    if (currentUser.role === 'manager') {
+      const isOwned = isClientOwnedByManager(client, currentUser.id, contracts, vehicles, users);
+      if (!isOwned) {
+        alert("Accès refusé : Ce client est rattaché à une autre agence ou un autre responsable.");
+        return;
+      }
+    }
     setEditingClient(client);
     setEditClientForm({
       firstName: client.firstName || '',
@@ -255,9 +263,15 @@ export const ClientsList: React.FC = () => {
     });
   };
 
-  // Contracts associated with selected client
+  // Contracts associated with selected client (respecting manager isolation)
   const clientContracts = selectedClientDetail
-    ? contracts.filter((c) => c.clientId === selectedClientDetail.id)
+    ? contracts.filter((c) => {
+        if (c.clientId !== selectedClientDetail.id) return false;
+        if (currentUser.role === 'manager') {
+          return isContractOwnedByManager(c, currentUser.id, vehicles, currentUser.name);
+        }
+        return true;
+      })
     : [];
 
   return (

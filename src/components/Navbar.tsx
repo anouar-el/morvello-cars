@@ -30,6 +30,7 @@ import {
   Bell,
 } from 'lucide-react';
 import { computeOperationalAlerts } from '../utils/alertsUtils';
+import { getScopedDataForUser } from '../utils/managerScopeUtils';
 
 interface NavbarProps {
   onOpenNotifications?: () => void;
@@ -46,6 +47,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenNotifications }) => {
     vehicles,
     clients,
     deposits,
+    users,
     getClientAssignedManager,
     cloudSyncStatus,
     lastCloudSync,
@@ -56,35 +58,30 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenNotifications }) => {
 
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
 
-  // Alertes opérationnelles
-  const { alerts, criticalCount } = computeOperationalAlerts(vehicles, contracts, deposits);
+  // Données isolées selon le rôle
+  const {
+    scopedVehicles: managerScopedVehicles,
+    scopedContracts: managerScopedContracts,
+    scopedDeposits: managerScopedDeposits,
+    scopedClients: managerScopedClients,
+  } = getScopedDataForUser(currentUser, vehicles, contracts, deposits, clients, users);
 
-  // Scoped count based on role
-  const scopedVehicles = currentUser.role === 'manager'
-    ? vehicles.filter((v) => v.assignedManagerId === currentUser.id && v.approvalStatus === 'approved')
-    : vehicles.filter((v) => v.approvalStatus === 'approved');
+  // Alertes opérationnelles sur le périmètre autorisé
+  const { alerts, criticalCount } = computeOperationalAlerts(
+    managerScopedVehicles,
+    managerScopedContracts,
+    managerScopedDeposits
+  );
 
-  const activeContractsCount = contracts.filter((c) => {
-    if (c.status !== 'active') return false;
-    if (currentUser.role === 'manager') {
-      const v = vehicles.find((veh) => veh.id === c.vehicleId);
-      return v ? v.assignedManagerId === currentUser.id : true;
-    }
-    return true;
-  }).length;
-
+  const scopedVehicles = managerScopedVehicles.filter((v) => v.approvalStatus === 'approved');
+  const activeContractsCount = managerScopedContracts.filter((c) => c.status === 'active').length;
   const availableVehiclesCount = scopedVehicles.filter((v) => v.status === 'available').length;
   const pendingApprovalsCount = vehicles.filter((v) => v.approvalStatus === 'pending_approval').length;
   const myPendingCount = vehicles.filter(
     (v) => v.approvalStatus === 'pending_approval' && (v.proposedBy === currentUser.name || v.assignedManagerId === currentUser.id)
   ).length;
-  const heldDepositsCount = deposits.filter((d) => d.status === 'held').length;
-  const scopedClientsCount = currentUser.role === 'manager'
-    ? clients.filter((c) => {
-        const mgr = getClientAssignedManager(c);
-        return mgr.managerId === currentUser.id;
-      }).length
-    : clients.length;
+  const heldDepositsCount = managerScopedDeposits.filter((d) => d.status === 'held').length;
+  const scopedClientsCount = managerScopedClients.length;
 
   const navItems: { id: ActiveTab; label: string; icon: React.ReactNode; badge?: number | string }[] = [
     { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-4 h-4" /> },

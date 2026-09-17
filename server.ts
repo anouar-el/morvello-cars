@@ -190,6 +190,10 @@ app.post('/api/admin/provision-team-member', async (req, res) => {
     try {
       userRecord = await auth.getUserByEmail(trimmedEmail);
       console.log(`[Server] User ${trimmedEmail} exists with UID: ${userRecord.uid}`);
+      if (password && typeof password === 'string' && password.length >= 6) {
+        await auth.updateUser(userRecord.uid, { password });
+        console.log(`[Server] Updated password for existing user ${trimmedEmail}`);
+      }
     } catch (err: any) {
       if (err.code === 'auth/user-not-found') {
         const createPayload: CreateRequest = {
