@@ -46,16 +46,6 @@ export const WizardStep2Vehicle: React.FC<WizardStep2VehicleProps> = ({
         )}
       </div>
 
-      {/* MANAGER FLEET NOTICE */}
-      {isManager && (
-        <div className="bg-blue-950/30 border border-blue-500/30 rounded-xl p-3 text-xs text-blue-200 flex items-center gap-2">
-          <UserCheck className="w-4 h-4 text-blue-400 shrink-0" />
-          <span>
-            <strong>Véhicules assignés à votre gestion :</strong> Vous ne pouvez contracter que sur les véhicules rattachés à votre sous-flotte ({availableVehiclesForContract.length} véhicule(s) éligible(s)).
-          </span>
-        </div>
-      )}
-
       {availableVehiclesForContract.length === 0 ? (
         <div className="text-center py-8 bg-slate-950/60 border border-slate-800 rounded-xl p-6">
           <Car className="w-10 h-10 text-slate-500 mx-auto mb-2 opacity-50" />

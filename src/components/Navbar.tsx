@@ -388,7 +388,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenNotifications }) => {
                 <span>Supervision globale du parc entier • Droit exclusif d'affectation des véhicules & validation des ajouts</span>
               ) : currentUser.role === 'manager' ? (
                 <span>
-                  <strong>Flotte assignée :</strong> {currentUser.assignedFleetName} ({scopedVehicles.length} véhicules) • Cloisonnement actif
+                  <strong>Flotte assignée :</strong> {currentUser.assignedFleetName} ({scopedVehicles.length} véhicules)
                 </span>
               ) : (
                 <span>Agent comptoir</span>

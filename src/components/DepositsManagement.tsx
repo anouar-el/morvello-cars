@@ -294,17 +294,6 @@ export const DepositsManagement: React.FC = () => {
         </div>
       </div>
 
-      {/* BANNIÈRE DE CLOISONNEMENT POUR RESPONSABLE */}
-      {isManager && (
-        <div className="bg-blue-950/40 border border-blue-800/50 rounded-xl px-4 py-2.5 text-xs text-blue-300 flex items-center gap-2.5 shadow-sm">
-          <Shield className="w-4 h-4 text-blue-400 shrink-0" />
-          <span>
-            <strong>Cloisonnement actif :</strong> Seules les cautions des véhicules et contrats affectés à votre agence (
-            <strong className="text-white">{currentUser?.agency || 'votre agence'}</strong>) vous sont visibles ({visibleDeposits.length} caution{visibleDeposits.length > 1 ? 's' : ''}). Les cautions des autres responsables d'agence vous sont strictement confidentielles et inaccessibles.
-          </span>
-        </div>
-      )}
-
       {/* FILTER & SEARCH BAR */}
       <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-3 flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
         <div className="relative flex-1">

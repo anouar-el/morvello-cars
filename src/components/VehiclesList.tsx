@@ -9,7 +9,6 @@ import {
   Upload,
   Download,
   FileSpreadsheet,
-  UserCheck,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { getVehicleHealthSummary } from '../utils/vehicleExpiryUtils';
@@ -403,23 +402,6 @@ export const VehiclesList: React.FC = () => {
         onReject={rejectVehicle}
         onToast={triggerToast}
       />
-
-      {/* MANAGER SCOPE NOTIFICATION */}
-      {isManager && (
-        <div className="bg-blue-950/40 border border-blue-500/40 rounded-xl p-3.5 flex items-center justify-between text-xs text-blue-200 shadow-sm">
-          <div className="flex items-center gap-2.5">
-            <UserCheck className="w-4 h-4 text-blue-400 shrink-0" />
-            <span>
-              <strong>Flotte affectée à votre agence ({currentUser.name}) :</strong> Vous gérez{' '}
-              {filteredVehicles.length} véhicule(s). Seuls ces véhicules sont utilisables pour
-              l'établissement de vos contrats.
-            </span>
-          </div>
-          <span className="text-[10px] bg-blue-500/20 border border-blue-500/30 px-2 py-0.5 rounded font-mono text-blue-300 shrink-0">
-            Cloisonnement Actif
-          </span>
-        </div>
-      )}
 
       {/* SEARCH & FILTERS */}
       <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl shadow-md flex flex-col md:flex-row md:items-center justify-between gap-3">

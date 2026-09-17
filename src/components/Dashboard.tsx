@@ -91,7 +91,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCheckInModal, onOpen
           </h1>
           <p className="text-xs text-slate-400 mt-0.5">
             {isManager
-              ? `Aperçu de votre agence (${scopedVehicles.length} véhicules attribués). Cloisonnement strict actif.`
+              ? `Aperçu de votre agence (${scopedVehicles.length} véhicules attribués).`
               : "Aperçu global de l'activité du jour et supervision de l'ensemble du parc automobile."}
           </p>
         </div>

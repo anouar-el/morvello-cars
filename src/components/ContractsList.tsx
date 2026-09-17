@@ -236,21 +236,6 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
         </button>
       </div>
 
-      {/* MANAGER CLOISONNEMENT NOTICE */}
-      {isManager && (
-        <div className="bg-blue-950/40 border border-blue-500/30 rounded-xl p-3.5 text-xs text-blue-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <UserCheck className="w-4 h-4 text-blue-400 shrink-0" />
-            <span>
-              <strong>Cloisonnement Responsable :</strong> Affichage limité aux contrats de votre sous-flotte ({currentUser.assignedFleetName || currentUser.name}).
-            </span>
-          </div>
-          <span className="font-mono font-bold bg-blue-500/20 text-blue-300 px-2.5 py-0.5 rounded text-[11px] self-start sm:self-auto">
-            {visibleContracts.length} contrat(s) accessible(s)
-          </span>
-        </div>
-      )}
-
       {/* FILTER & SEARCH BAR */}
       <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl shadow-md flex flex-col md:flex-row md:items-center justify-between gap-3">
         {/* Search */}

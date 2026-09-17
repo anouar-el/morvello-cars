@@ -410,13 +410,6 @@ export const ClientsList: React.FC = () => {
                 Sans location / Prospects ({clients.filter((c) => !getClientAssignedManager(c).managerId).length})
               </button>
             </div>
-
-            <div className="bg-blue-950/40 border border-blue-800/50 rounded-lg px-3 py-1.5 text-[11px] text-blue-300 flex items-center gap-2">
-              <Shield className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-              <span>
-                <strong>Cloisonnement actif :</strong> Les clients affectés aux véhicules d'autres responsables (ex: Renault Kardian affecté à Abdelkader Ouahib) vous sont strictement invisibles.
-              </span>
-            </div>
           </div>
         )}
       </div>
