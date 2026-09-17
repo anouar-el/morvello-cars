@@ -28,7 +28,7 @@ export const initialUsers: User[] = [
     assignedFleetName: 'Direction Générale (Supervision globale)',
     permissions: { ...DEFAULT_PERMISSIONS_BY_ROLE.admin },
     assignedContractTemplate: 'standard',
-    mustChangePassword: true,
+    mustChangePassword: false,
   },
   {
     id: 'usr-2',
@@ -40,7 +40,7 @@ export const initialUsers: User[] = [
     assignedFleetName: 'Flotte A (Citadines & Berlines)',
     permissions: { ...DEFAULT_PERMISSIONS_BY_ROLE.manager },
     assignedContractTemplate: 'standard',
-    mustChangePassword: true,
+    mustChangePassword: false,
   },
   {
     id: 'usr-3',
@@ -52,7 +52,7 @@ export const initialUsers: User[] = [
     assignedFleetName: 'Flotte B (SUV, Compactes & Prestige)',
     permissions: { ...DEFAULT_PERMISSIONS_BY_ROLE.manager },
     assignedContractTemplate: 'prestige',
-    mustChangePassword: true,
+    mustChangePassword: false,
   },
   {
     id: 'usr-5',
@@ -64,7 +64,7 @@ export const initialUsers: User[] = [
     assignedFleetName: 'Flotte C (Berlines & SUV Premium)',
     permissions: { ...DEFAULT_PERMISSIONS_BY_ROLE.manager },
     assignedContractTemplate: 'prestige',
-    mustChangePassword: true,
+    mustChangePassword: false,
   },
   {
     id: 'usr-6',
@@ -76,7 +76,7 @@ export const initialUsers: User[] = [
     assignedFleetName: 'Flotte D (Citadines & Hybrides)',
     permissions: { ...DEFAULT_PERMISSIONS_BY_ROLE.manager },
     assignedContractTemplate: 'corporate',
-    mustChangePassword: true,
+    mustChangePassword: false,
   },
 ];
 

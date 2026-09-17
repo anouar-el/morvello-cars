@@ -114,13 +114,13 @@ export const AuthProvider: React.FC<{
                 email: initialMatch?.email || u.email,
                 phone: u.phone || initialMatch?.phone,
                 permissions: u.permissions || { ...DEFAULT_PERMISSIONS_BY_ROLE[u.role] },
-                mustChangePassword: u.mustChangePassword ?? initialMatch?.mustChangePassword ?? false,
+                mustChangePassword: false,
               };
             });
 
           for (const iu of initialUsers) {
             if (!mapped.some((u) => u.id === iu.id)) {
-              mapped.push(iu);
+              mapped.push({ ...iu, mustChangePassword: false });
             }
           }
           return mapped;
@@ -129,7 +129,7 @@ export const AuthProvider: React.FC<{
         console.error('Failed to parse saved users', e);
       }
     }
-    return initialUsers;
+    return initialUsers.map((u) => ({ ...u, mustChangePassword: false }));
   });
 
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
@@ -138,7 +138,10 @@ export const AuthProvider: React.FC<{
       try {
         const parsed: User = JSON.parse(saved);
         const match = users.find((u) => u.id === parsed.id);
-        return match || null;
+        if (match) {
+          return { ...match, mustChangePassword: false };
+        }
+        return { ...parsed, mustChangePassword: false };
       } catch (e) {
         console.error('Failed to parse current user', e);
       }
@@ -181,11 +184,12 @@ export const AuthProvider: React.FC<{
                 ...matched,
                 role: effectiveRole,
                 permissions: { ...DEFAULT_PERMISSIONS_BY_ROLE[effectiveRole] },
+                mustChangePassword: false,
                 firebaseUid: fbUser.uid,
                 authProvider: fbUser.providerData?.[0]?.providerId === 'google.com' ? 'google' : 'password',
               };
             }
-            return { ...prev, firebaseUid: fbUser.uid };
+            return { ...prev, mustChangePassword: false, firebaseUid: fbUser.uid };
           });
         } else if (claimRole || isClaimAdmin) {
           const resolvedRole: UserRole = claimRole || 'admin';
@@ -197,6 +201,7 @@ export const AuthProvider: React.FC<{
             firebaseUid: fbUser.uid,
             authProvider: fbUser.providerData?.[0]?.providerId === 'google.com' ? 'google' : 'password',
             permissions: { ...DEFAULT_PERMISSIONS_BY_ROLE[resolvedRole] },
+            mustChangePassword: false,
           };
           setCurrentUser(newUser);
         }
@@ -256,6 +261,7 @@ export const AuthProvider: React.FC<{
         role,
         agency: matched?.agency || 'Agence Morvello',
         permissions: { ...DEFAULT_PERMISSIONS_BY_ROLE[role] },
+        mustChangePassword: false,
         firebaseUid: sbUser.id,
         authProvider: 'password',
       };
@@ -370,6 +376,7 @@ export const AuthProvider: React.FC<{
       ...matchedUser,
       role: finalRole,
       permissions: matchedUser.permissions || { ...DEFAULT_PERMISSIONS_BY_ROLE[finalRole] },
+      mustChangePassword: false,
       authProvider: 'agency',
     };
 
@@ -776,7 +783,7 @@ export const AuthProvider: React.FC<{
       firebaseUid: provisionedUid,
       passwordResetLink: resetLink || undefined,
       permissions: userData.permissions || { ...DEFAULT_PERMISSIONS_BY_ROLE[userData.role] },
-      mustChangePassword: true,
+      mustChangePassword: false,
     };
     if (userData.password) {
       setStoredPassword(newUser.id, userData.password);
