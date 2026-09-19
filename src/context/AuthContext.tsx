@@ -115,72 +115,68 @@ export const AuthProvider: React.FC<{
       return;
     }
 
-    const resolveSupabaseProfile = async (sbUser: any): Promise<User | null> => {
+    const buildUserFromSession = (sbUser: any, profileData?: any): User | null => {
       if (!sbUser?.email) return null;
       const emailLower = sbUser.email.toLowerCase();
-
-      let fetchedRole: UserRole | undefined;
-      let fetchedName: string | undefined;
-      try {
-        const { data: profileData } = await withTimeout(
-          supabase
-            .from('profiles')
-            .select('role, name')
-            .eq('id', sbUser.id)
-            .maybeSingle(),
-          8000,
-          'Délai de récupération du profil Supabase dépassé'
-        );
-
-        if (profileData?.role) {
-          fetchedRole = profileData.role as UserRole;
-        }
-        if (profileData?.name) {
-          fetchedName = profileData.name;
-        }
-      } catch (e) {
-        console.warn('[Supabase Auth] Session profile fetch notice:', e);
-      }
-
       const matched = users.find((u) => (u.email || '').toLowerCase() === emailLower);
-      const role: UserRole = fetchedRole || (matched ? matched.role : 'agent');
+      const role: UserRole = (profileData?.role as UserRole) || (matched ? matched.role : 'agent');
+      const name = profileData?.name || matched?.name || sbUser.user_metadata?.name || emailLower.split('@')[0];
 
       return {
         id: matched?.id || `usr-${sbUser.id.slice(0, 8)}`,
-        name: fetchedName || matched?.name || sbUser.user_metadata?.name || emailLower.split('@')[0],
+        name,
         email: emailLower,
         role,
         agency: matched?.agency || 'Agence Morvello',
-        permissions: { ...DEFAULT_PERMISSIONS_BY_ROLE[role] },
+        permissions: matched?.permissions || { ...DEFAULT_PERMISSIONS_BY_ROLE[role] },
         mustChangePassword: false,
         firebaseUid: sbUser.id,
       };
     };
 
-    withTimeout(supabase.auth.getSession(), 8000, 'Délai getSession Supabase dépassé')
-      .then(async ({ data: { session } }: any) => {
+    // Fast session recovery on launch
+    withTimeout(supabase.auth.getSession(), 3500, 'Délai getSession Supabase')
+      .then(({ data: { session } }: any) => {
         if (session?.user) {
-          const userObj = await resolveSupabaseProfile(session.user);
-          if (userObj) {
+          const fastUser = buildUserFromSession(session.user);
+          if (fastUser) {
             setCurrentUser((prev) => {
-              if (!prev || prev.id !== userObj.id || prev.role !== userObj.role) {
-                return userObj;
+              if (!prev || prev.id !== fastUser.id || prev.role !== fastUser.role) {
+                return fastUser;
               }
               return prev;
             });
+            // Asynchronously check for any custom profile overrides without blocking UI
+            Promise.resolve(
+              supabase
+                .from('profiles')
+                .select('role, name')
+                .eq('id', session.user.id)
+                .maybeSingle()
+            )
+              .then(({ data: profileData }) => {
+                if (profileData?.role || profileData?.name) {
+                  setCurrentUser((curr) => curr ? {
+                    ...curr,
+                    role: (profileData.role as UserRole) || curr.role,
+                    name: profileData.name || curr.name,
+                  } : curr);
+                }
+              })
+              .catch(() => {});
           }
         }
       })
       .catch((err) => {
-        console.warn('[Supabase Auth] getSession notice/timeout:', err);
+        console.warn('[Supabase Auth] getSession notice:', err);
       })
       .finally(() => {
         setAuthLoading(false);
       });
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user) {
-        const userObj = await resolveSupabaseProfile(session.user);
+        const userObj = buildUserFromSession(session.user);
         if (userObj) {
           setCurrentUser(userObj);
         }
@@ -284,45 +280,47 @@ export const AuthProvider: React.FC<{
       }
 
       const sbUser = sbData.user;
-
-      // Query user profile from Supabase profiles table (secured by RLS)
-      let fetchedRole: UserRole | undefined;
-      let fetchedName: string | undefined;
-      try {
-        const { data: profileData } = await withTimeout(
-          supabase
-            .from('profiles')
-            .select('role, name')
-            .eq('id', sbUser.id)
-            .maybeSingle(),
-          8000,
-          'Délai de récupération du profil Supabase dépassé'
-        );
-
-        if (profileData?.role) {
-          fetchedRole = profileData.role as UserRole;
-        }
-        if (profileData?.name) {
-          fetchedName = profileData.name;
-        }
-      } catch (profileErr) {
-        console.warn('[Supabase Auth] Profile fetch notice:', profileErr);
-      }
-
       const matchedUser = users.find((u) => (u.email || '').toLowerCase() === canonicalEmail);
-      const finalRole: UserRole = fetchedRole || (matchedUser ? matchedUser.role : 'agent');
+      const finalRole: UserRole = matchedUser ? matchedUser.role : 'agent';
 
       const finalUser: User = {
         id: matchedUser?.id || `usr-${sbUser.id.slice(0, 8)}`,
-        name: fetchedName || matchedUser?.name || sbUser.user_metadata?.name || canonicalEmail.split('@')[0],
+        name: matchedUser?.name || sbUser.user_metadata?.name || canonicalEmail.split('@')[0],
         email: canonicalEmail,
         role: finalRole,
         agency: matchedUser?.agency || 'Agence Morvello',
-        permissions: { ...DEFAULT_PERMISSIONS_BY_ROLE[finalRole] },
+        permissions: matchedUser?.permissions || { ...DEFAULT_PERMISSIONS_BY_ROLE[finalRole] },
         firebaseUid: sbUser.id,
       };
 
-      // Synchronize profile to Supabase profiles table
+      // IMMEDIATELY admit user into application without blocking for secondary round-trips
+      setCurrentUser(finalUser);
+
+      // Asynchronously check for any custom profile overrides without delaying login
+      Promise.resolve(
+        supabase
+          .from('profiles')
+          .select('role, name')
+          .eq('id', sbUser.id)
+          .maybeSingle()
+      )
+        .then(({ data: profileData }) => {
+          if (profileData?.role || profileData?.name) {
+            setCurrentUser((prev) => {
+              if (!prev) return prev;
+              const newRole = (profileData.role as UserRole) || prev.role;
+              return {
+                ...prev,
+                role: newRole,
+                name: profileData.name || prev.name,
+                permissions: { ...DEFAULT_PERMISSIONS_BY_ROLE[newRole] },
+              };
+            });
+          }
+        })
+        .catch(() => {});
+
+      // Asynchronously synchronize profile to Supabase profiles table
       saveUserProfileToSupabase(sbUser.id, {
         role: finalUser.role,
         email: finalUser.email,
@@ -330,7 +328,6 @@ export const AuthProvider: React.FC<{
         permissions: finalUser.permissions,
       }).catch(() => {});
 
-      setCurrentUser(finalUser);
       logAction(
         'Connexion Supabase Auth',
         'user_permission',
