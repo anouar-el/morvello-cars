@@ -82,6 +82,10 @@ export class ErrorBoundary extends Component<Props, State> {
   public render() {
     if (this.state.hasError) {
       const isIsolated = this.props.isolateView;
+      const isDynamicImportError =
+        this.state.error?.message?.includes('Failed to fetch dynamically imported module') ||
+        this.state.error?.message?.includes('dynamically imported module') ||
+        this.state.error?.name === 'ChunkLoadError';
 
       return (
         <div
@@ -94,19 +98,35 @@ export class ErrorBoundary extends Component<Props, State> {
         >
           <div className="max-w-xl w-full bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl space-y-6">
             <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-xl bg-red-500/10 border border-red-500/30 flex items-center justify-center shrink-0 text-red-400">
-                <ShieldAlert className="w-6 h-6" />
+              <div
+                className={`w-12 h-12 rounded-xl border flex items-center justify-center shrink-0 ${
+                  isDynamicImportError
+                    ? 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+                    : 'bg-red-500/10 border-red-500/30 text-red-400'
+                }`}
+              >
+                {isDynamicImportError ? <RotateCcw className="w-6 h-6" /> : <ShieldAlert className="w-6 h-6" />}
               </div>
               <div className="space-y-1 flex-1">
-                <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-red-950/60 border border-red-800/40 text-[11px] font-mono uppercase tracking-wider text-red-400">
+                <div
+                  className={`inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full text-[11px] font-mono uppercase tracking-wider ${
+                    isDynamicImportError
+                      ? 'bg-amber-950/60 border border-amber-800/40 text-amber-400'
+                      : 'bg-red-950/60 border border-red-800/40 text-red-400'
+                  }`}
+                >
                   <AlertTriangle className="w-3 h-3" />
-                  Interruption inattendue
+                  {isDynamicImportError ? 'Mise à jour détectée' : 'Interruption inattendue'}
                 </div>
                 <h2 className="text-xl font-bold text-white tracking-tight">
-                  {this.props.fallbackTitle || 'Une erreur est survenue dans l\'application'}
+                  {isDynamicImportError
+                    ? 'Nouvelle version de l’application disponible'
+                    : this.props.fallbackTitle || 'Une erreur est survenue dans l\'application'}
                 </h2>
                 <p className="text-sm text-slate-400 leading-relaxed">
-                  L'application Morvello Cars a rencontré un problème imprévu. Vos données locales et sauvegardes restent protégées.
+                  {isDynamicImportError
+                    ? 'Une mise à jour récente a été déployée sur le serveur. Vos fichiers locaux en cache doivent être synchronisés pour charger ce module.'
+                    : 'L\'application Morvello Cars a rencontré un problème imprévu. Vos données locales et sauvegardes restent protégées.'}
                 </p>
               </div>
             </div>
@@ -128,18 +148,20 @@ export class ErrorBoundary extends Component<Props, State> {
                 className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-sm transition-all shadow-lg shadow-amber-500/20 active:scale-95"
               >
                 <RotateCcw className="w-4 h-4" />
-                Rafraîchir la page
+                {isDynamicImportError ? 'Mettre à jour et recharger' : 'Rafraîchir la page'}
               </button>
 
-              <button
-                type="button"
-                id="error-boundary-reset-btn"
-                onClick={this.handleReset}
-                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium text-sm transition-colors active:scale-95 border border-slate-700"
-              >
-                <Home className="w-4 h-4" />
-                Réessayer la vue
-              </button>
+              {!isDynamicImportError && (
+                <button
+                  type="button"
+                  id="error-boundary-reset-btn"
+                  onClick={this.handleReset}
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium text-sm transition-colors active:scale-95 border border-slate-700"
+                >
+                  <Home className="w-4 h-4" />
+                  Réessayer la vue
+                </button>
+              )}
 
               <button
                 type="button"

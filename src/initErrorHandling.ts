@@ -67,4 +67,16 @@ if (typeof window !== 'undefined') {
     },
     true
   );
+
+  // Auto-recover from stale dynamic chunks after a new deployment
+  window.addEventListener('vite:preloadError', (event) => {
+    console.warn('[Vite] Dynamic import chunk failed to load (new version deployed). Reloading page...', event);
+    const reloadKey = 'morvello_preload_reload';
+    const lastReload = sessionStorage.getItem(reloadKey);
+    const now = Date.now();
+    if (!lastReload || now - Number(lastReload) > 15000) {
+      sessionStorage.setItem(reloadKey, String(now));
+      window.location.reload();
+    }
+  });
 }

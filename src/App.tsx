@@ -12,50 +12,79 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { Contract } from './types';
 import { Bot, Sparkles, Loader2 } from 'lucide-react';
 
-// Code splitting / Lazy imports to minimize initial bundle size
-const ContractWizard = lazy(() =>
+// Helper to automatically recover from stale dynamic chunks after a deployment
+function lazyWithRetry<T extends React.ComponentType<any>>(
+  factory: () => Promise<{ default: T }>
+) {
+  return lazy(async () => {
+    try {
+      return await factory();
+    } catch (error: any) {
+      const isDynamicImportError =
+        error?.message?.includes('Failed to fetch dynamically imported module') ||
+        error?.message?.includes('dynamically imported module') ||
+        error?.name === 'ChunkLoadError';
+
+      if (isDynamicImportError && typeof window !== 'undefined') {
+        const reloadKey = 'morvello_chunk_reload';
+        const lastReload = sessionStorage.getItem(reloadKey);
+        const now = Date.now();
+        // Automatically reload once if an outdated chunk is requested after a deployment
+        if (!lastReload || now - Number(lastReload) > 15000) {
+          sessionStorage.setItem(reloadKey, String(now));
+          window.location.reload();
+          return new Promise<{ default: T }>(() => {});
+        }
+      }
+      throw error;
+    }
+  });
+}
+
+// Code splitting / Lazy imports with auto-reload protection
+const ContractWizard = lazyWithRetry(() =>
   import('./components/ContractWizard').then((m) => ({ default: m.ContractWizard }))
 );
-const ContractsList = lazy(() =>
+const ContractsList = lazyWithRetry(() =>
   import('./components/ContractsList').then((m) => ({ default: m.ContractsList }))
 );
-const ClientsList = lazy(() =>
+const ClientsList = lazyWithRetry(() =>
   import('./components/ClientsList').then((m) => ({ default: m.ClientsList }))
 );
-const VehiclesList = lazy(() =>
+const VehiclesList = lazyWithRetry(() =>
   import('./components/VehiclesList').then((m) => ({ default: m.VehiclesList }))
 );
-const TermsManager = lazy(() =>
+const TermsManager = lazyWithRetry(() =>
   import('./components/TermsManager').then((m) => ({ default: m.TermsManager }))
 );
-const SettingsView = lazy(() =>
+const SettingsView = lazyWithRetry(() =>
   import('./components/SettingsView').then((m) => ({ default: m.SettingsView }))
 );
-const AuditView = lazy(() =>
+const AuditView = lazyWithRetry(() =>
   import('./components/AuditView').then((m) => ({ default: m.AuditView }))
 );
-const DepositsManagement = lazy(() =>
+const DepositsManagement = lazyWithRetry(() =>
   import('./components/DepositsManagement').then((m) => ({ default: m.DepositsManagement }))
 );
-const PermissionsManager = lazy(() =>
+const PermissionsManager = lazyWithRetry(() =>
   import('./components/PermissionsManager').then((m) => ({ default: m.PermissionsManager }))
 );
-const PdfModal = lazy(() =>
+const PdfModal = lazyWithRetry(() =>
   import('./components/PdfModal').then((m) => ({ default: m.PdfModal }))
 );
-const ReturnCheckInModal = lazy(() =>
+const ReturnCheckInModal = lazyWithRetry(() =>
   import('./components/ReturnCheckInModal').then((m) => ({ default: m.ReturnCheckInModal }))
 );
-const InspectionManagerModal = lazy(() =>
+const InspectionManagerModal = lazyWithRetry(() =>
   import('./components/InspectionManagerModal').then((m) => ({ default: m.InspectionManagerModal }))
 );
-const NotificationsCenterModal = lazy(() =>
+const NotificationsCenterModal = lazyWithRetry(() =>
   import('./components/NotificationsCenterModal').then((m) => ({ default: m.NotificationsCenterModal }))
 );
-const MemberAiAssistant = lazy(() =>
+const MemberAiAssistant = lazyWithRetry(() =>
   import('./components/MemberAiAssistant').then((m) => ({ default: m.MemberAiAssistant }))
 );
-const ContractTemplatesManager = lazy(() =>
+const ContractTemplatesManager = lazyWithRetry(() =>
   import('./components/ContractTemplatesManager').then((m) => ({
     default: m.ContractTemplatesManager,
   }))
