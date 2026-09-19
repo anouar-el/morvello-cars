@@ -349,7 +349,7 @@ const AppContextInner: React.FC<{ children: React.ReactNode }> = ({ children }) 
     return contractsCtx.updateContract(id, data, vehiclesCtx.setVehiclesListByUpdater);
   };
 
-  const resetAllData = () => {
+  const resetAllData = async () => {
     localStorage.removeItem('morvello_clients_v1');
     localStorage.removeItem('morvello_drivers_v1');
     localStorage.removeItem('morvello_vehicles_v1');
@@ -370,7 +370,33 @@ const AppContextInner: React.FC<{ children: React.ReactNode }> = ({ children }) 
     company.setTermsVersionList(initialTermsVersion);
     company.setAuditLogsList(initialAuditLogs);
     auth.switchUser(initialUsers[0].id);
-    company.addAuditLog('Réinitialisation démo', 'settings', 'system', 'Restauration complète des données initiales');
+    company.addAuditLog(
+      'Nettoyage base',
+      'settings',
+      'system',
+      'Nettoyage de la base de données : 1 seul client et contrat conservé (Renault Kardian - Saleh Ali S Abulabal)'
+    );
+
+    try {
+      await saveRemoteAgencyData({
+        vehicles: initialVehicles,
+        clients: initialClients,
+        drivers: initialDrivers,
+        contracts: initialContracts,
+        deposits: initialDeposits,
+        companySettings: initialCompanySettings,
+        termsVersion: initialTermsVersion,
+        aiSettings: company.aiSettings,
+        auditLogs: initialAuditLogs,
+        users: auth.users,
+      });
+      const syncTime = new Date().toISOString();
+      company.setLastCloudSync(syncTime);
+      localStorage.setItem('morvello_last_cloud_sync', syncTime);
+      company.setCloudSyncStatus('synced');
+    } catch (err) {
+      console.warn('Sync after clean note:', err);
+    }
   };
 
   const getClientAssignedManager = (client: Client): ClientManagerAssignment => {

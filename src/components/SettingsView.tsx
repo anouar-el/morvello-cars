@@ -18,6 +18,7 @@ import {
   Sun,
   Moon,
   Bot,
+  Trash2,
 } from 'lucide-react';
 import { CompanyStamp } from './CompanyStamp';
 import { CompanyLogo } from './CompanyLogo';
@@ -32,15 +33,36 @@ export const SettingsView: React.FC = () => {
     lastCloudSync,
     syncWithCloud,
     pushToCloud,
+    resetAllData,
     theme,
     setTheme,
   } = useApp();
   const [formData, setFormData] = useState(companySettings);
   const [savedSuccess, setSavedSuccess] = useState<boolean>(false);
   const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
+  const [cleaningStatus, setCleaningStatus] = useState<boolean>(false);
   const [activeSection, setActiveSection] = useState<'company' | 'ai' | 'cloud_theme'>('company');
 
   const isAgent = currentUser.role === 'agent';
+
+  const handleCleanDatabase = async () => {
+    const confirmClean = window.confirm(
+      'Nettoyer la base de données ?\n\nCette action supprimera tous les anciens clients et contrats de test pour ne conserver que l’unique client et son contrat actif (Renault Kardian — Saleh Ali S Abulabal).'
+    );
+    if (!confirmClean) return;
+
+    setCleaningStatus(true);
+    setSyncFeedback('Nettoyage en cours de la base de données...');
+    try {
+      await resetAllData();
+      setSyncFeedback('Base nettoyée avec succès ! Un seul client et son contrat Kardian sont conservés.');
+    } catch (e) {
+      setSyncFeedback('Erreur lors du nettoyage de la base.');
+    } finally {
+      setCleaningStatus(false);
+      setTimeout(() => setSyncFeedback(null), 5000);
+    }
+  };
 
   const handleManualSync = async () => {
     setSyncFeedback('Synchronisation en cours avec Firebase...');
@@ -217,6 +239,36 @@ export const SettingsView: React.FC = () => {
                 Sauvegarder Supabase
               </button>
             </div>
+          </div>
+
+          {/* NETTOYAGE DE LA BASE DE DONNÉES (CLIENT KARDIAN UNIQUE) */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="text-sm font-bold text-white">Maintenance & Nettoyage de la Base</h2>
+                  <span className="text-[10px] bg-amber-500/15 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full font-semibold">
+                    1 Client • 1 Contrat (Renault Kardian)
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Supprime les anciens clients et contrats de test pour ne conserver strictement que le client titulaire du Kardian (Saleh Ali S Abulabal) et son contrat actif (MC-2026-0050).
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleCleanDatabase}
+              disabled={cleaningStatus || isAgent}
+              className="w-full sm:w-auto flex items-center justify-center gap-2 bg-red-500/15 hover:bg-red-500/25 text-red-300 border border-red-500/40 text-xs px-4 py-2.5 rounded-xl transition-all cursor-pointer font-bold disabled:opacity-50 shrink-0"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>{cleaningStatus ? 'Nettoyage...' : 'Nettoyer la base (1 Client & Contrat)'}</span>
+            </button>
           </div>
 
           {/* APPARENCE & THÈME (DARK MODE / LIGHT MODE) */}

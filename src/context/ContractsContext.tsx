@@ -85,7 +85,20 @@ export const ContractsProvider: React.FC<{
 }> = ({ children, onAuditLog }) => {
   const [contracts, setContracts] = useState<Contract[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
-    return saved ? JSON.parse(saved) : initialContracts;
+    if (saved) {
+      try {
+        const parsed: Contract[] = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          const filtered = parsed.filter(
+            (c) => !['cnt-1', 'cnt-2', 'cnt-3', 'cnt-4', 'cnt-48', 'cnt-49'].includes(c.id)
+          );
+          if (filtered.length > 0) return filtered;
+        }
+      } catch (e) {
+        console.warn('Error reading saved contracts:', e);
+      }
+    }
+    return initialContracts;
   });
 
   const [selectedContract, setSelectedContract] = useState<Contract | null>(null);
@@ -492,7 +505,10 @@ export const ContractsProvider: React.FC<{
   };
 
   const setContractsList = (newContracts: Contract[]) => {
-    setContracts(newContracts);
+    const filtered = newContracts.filter(
+      (c) => !['cnt-1', 'cnt-2', 'cnt-3', 'cnt-4', 'cnt-48', 'cnt-49'].includes(c.id)
+    );
+    setContracts(filtered.length > 0 ? filtered : initialContracts);
   };
 
   return (

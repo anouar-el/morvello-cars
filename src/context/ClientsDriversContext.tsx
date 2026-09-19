@@ -33,6 +33,9 @@ const STORAGE_KEYS = {
   DRIVERS: 'morvello_drivers_v1',
 };
 
+const OBSOLETE_DEMO_CLIENTS = ['cli-1', 'cli-2', 'cli-3', 'cli-4'];
+const OBSOLETE_DEMO_DRIVERS = ['drv-1', 'drv-2'];
+
 const ClientsDriversContext = createContext<ClientsDriversContextType | undefined>(undefined);
 
 export const ClientsDriversProvider: React.FC<{
@@ -41,12 +44,33 @@ export const ClientsDriversProvider: React.FC<{
 }> = ({ children, onAuditLog }) => {
   const [clients, setClients] = useState<Client[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.CLIENTS);
-    return saved ? JSON.parse(saved) : initialClients;
+    if (saved) {
+      try {
+        const parsed: Client[] = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          const filtered = parsed.filter((c) => !OBSOLETE_DEMO_CLIENTS.includes(c.id));
+          if (filtered.length > 0) return filtered;
+        }
+      } catch (err) {
+        console.warn('Error reading saved clients:', err);
+      }
+    }
+    return initialClients;
   });
 
   const [drivers, setDrivers] = useState<Driver[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.DRIVERS);
-    return saved ? JSON.parse(saved) : initialDrivers;
+    if (saved) {
+      try {
+        const parsed: Driver[] = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed.filter((d) => !OBSOLETE_DEMO_DRIVERS.includes(d.id));
+        }
+      } catch (err) {
+        console.warn('Error reading saved drivers:', err);
+      }
+    }
+    return initialDrivers;
   });
 
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -165,8 +189,13 @@ export const ClientsDriversProvider: React.FC<{
     return resolveClientManagerAndVehicle(client, contracts, vehicles, users);
   };
 
-  const setClientsList = (newClients: Client[]) => setClients(newClients);
-  const setDriversList = (newDrivers: Driver[]) => setDrivers(newDrivers);
+  const setClientsList = (newClients: Client[]) => {
+    const cleaned = newClients.filter((c) => !OBSOLETE_DEMO_CLIENTS.includes(c.id));
+    setClients(cleaned.length > 0 ? cleaned : initialClients);
+  };
+  const setDriversList = (newDrivers: Driver[]) => {
+    setDrivers(newDrivers.filter((d) => !OBSOLETE_DEMO_DRIVERS.includes(d.id)));
+  };
 
   return (
     <ClientsDriversContext.Provider
