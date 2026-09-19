@@ -52,7 +52,7 @@ const app = express();
 // Hence, AI_STUDIO='true' forces the fixed port 3000.
 // On any standard external hosting platform (Hostinger, Render, Railway, etc.), the platform-assigned process.env.PORT
 // is respected by default, with a fallback to 3000 if absent.
-const PORT = 3000;
+const PORT = process.env.AI_STUDIO === 'true' ? 3000 : parseInt(process.env.PORT || '3000', 10);
 
 app.use(express.json({ limit: '10mb' }));
 

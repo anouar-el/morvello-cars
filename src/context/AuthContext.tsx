@@ -8,6 +8,7 @@ import {
 import { initialUsers } from '../data/mockData';
 import { saveUserProfileToSupabase } from '../lib/supabaseSync';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { verifyPassword } from '../utils/cryptoAuth';
 
 export interface AuthContextType {
   currentUser: User | null;
@@ -72,6 +73,7 @@ export const AuthProvider: React.FC<{
                 name: initialMatch?.name || u.name,
                 email: initialMatch?.email || u.email,
                 phone: u.phone || initialMatch?.phone,
+                password: u.password || initialMatch?.password,
                 permissions: u.permissions || { ...DEFAULT_PERMISSIONS_BY_ROLE[u.role] },
                 mustChangePassword: false,
               };
@@ -228,7 +230,7 @@ export const AuthProvider: React.FC<{
 
   /**
    * Primary Login handler:
-   * Exclusive Supabase Auth sign-in with clean error handling and RLS profile resolution.
+   * Unified authentication supporting Supabase Auth and Morvello Agency credentials
    */
   const login = async (
     email: string,
@@ -247,104 +249,122 @@ export const AuthProvider: React.FC<{
       canonicalEmail = `${canonicalEmail}@morvellocars.com`;
     }
 
-    if (!isSupabaseConfigured) {
-      return {
-        success: false,
-        error: 'Supabase n’est pas configuré. Veuillez vérifier les identifiants de connexion Supabase.',
-      };
-    }
+    const matchedUser =
+      users.find((u) => (u.email || '').toLowerCase() === canonicalEmail) ||
+      initialUsers.find((iu) => (iu.email || '').toLowerCase() === canonicalEmail);
 
-    try {
-      const { data: sbData, error: sbErr } = await withTimeout(
-        supabase.auth.signInWithPassword({
-          email: canonicalEmail,
-          password: trimmedPass,
-        }),
-        10000,
-        'Délai de connexion dépassé. Veuillez vérifier votre connexion réseau.'
-      );
-
-      if (sbErr) {
-        let errorMsg = sbErr.message || 'Identifiants invalides.';
-        const lower = errorMsg.toLowerCase();
-        if (
-          lower.includes('invalid login credentials') ||
-          lower.includes('invalid_grant') ||
-          lower.includes('invalid credentials')
-        ) {
-          errorMsg = 'Adresse email ou mot de passe incorrect.';
-        } else if (lower.includes('email not confirmed')) {
-          errorMsg = 'Votre adresse email n’a pas encore été confirmée dans Supabase.';
-        }
-        return { success: false, error: errorMsg };
-      }
-
-      if (!sbData?.user) {
-        return { success: false, error: 'Identifiants invalides. Aucun utilisateur retourné.' };
-      }
-
-      const sbUser = sbData.user;
-
-      // Query user profile from Supabase profiles table (secured by RLS)
-      let fetchedRole: UserRole | undefined;
-      let fetchedName: string | undefined;
+    // 1. Attempt Supabase Auth when configured
+    if (isSupabaseConfigured) {
       try {
-        const { data: profileData } = await withTimeout(
-          supabase
-            .from('profiles')
-            .select('role, name')
-            .eq('id', sbUser.id)
-            .maybeSingle(),
+        const { data: sbData, error: sbErr } = await withTimeout(
+          supabase.auth.signInWithPassword({
+            email: canonicalEmail,
+            password: trimmedPass,
+          }),
           8000,
-          'Délai de récupération du profil Supabase dépassé'
+          'Délai de connexion dépassé. Veuillez vérifier votre connexion réseau.'
         );
 
-        if (profileData?.role) {
-          fetchedRole = profileData.role as UserRole;
+        if (!sbErr && sbData?.user) {
+          const sbUser = sbData.user;
+
+          // Query user profile from Supabase profiles table (secured by RLS)
+          let fetchedRole: UserRole | undefined;
+          let fetchedName: string | undefined;
+          try {
+            const { data: profileData } = await withTimeout(
+              supabase
+                .from('profiles')
+                .select('role, name')
+                .eq('id', sbUser.id)
+                .maybeSingle(),
+              5000,
+              'Délai de récupération du profil Supabase dépassé'
+            );
+
+            if (profileData?.role) {
+              fetchedRole = profileData.role as UserRole;
+            }
+            if (profileData?.name) {
+              fetchedName = profileData.name;
+            }
+          } catch (profileErr) {
+            console.warn('[Supabase Auth] Profile fetch notice:', profileErr);
+          }
+
+          const finalRole: UserRole = fetchedRole || (matchedUser ? matchedUser.role : 'agent');
+
+          const finalUser: User = {
+            id: matchedUser?.id || `usr-${sbUser.id.slice(0, 8)}`,
+            name: fetchedName || matchedUser?.name || sbUser.user_metadata?.name || canonicalEmail.split('@')[0],
+            email: canonicalEmail,
+            role: finalRole,
+            agency: matchedUser?.agency || 'Agence Morvello',
+            permissions: { ...DEFAULT_PERMISSIONS_BY_ROLE[finalRole] },
+            firebaseUid: sbUser.id,
+          };
+
+          saveUserProfileToSupabase(sbUser.id, {
+            role: finalUser.role,
+            email: finalUser.email,
+            name: finalUser.name,
+            permissions: finalUser.permissions,
+          }).catch(() => {});
+
+          setCurrentUser(finalUser);
+          logAction(
+            'Connexion Supabase Auth',
+            'user_permission',
+            finalUser.id,
+            `Connexion réussie de ${finalUser.name} (${finalUser.role.toUpperCase()}) avec Supabase Auth`
+          );
+          return { success: true };
         }
-        if (profileData?.name) {
-          fetchedName = profileData.name;
-        }
-      } catch (profileErr) {
-        console.warn('[Supabase Auth] Profile fetch notice:', profileErr);
+      } catch (err) {
+        console.warn('[Supabase Auth] Attempt notice:', err);
+      }
+    }
+
+    // 2. Fallback: Authenticate via Morvello Agency credentials
+    if (matchedUser) {
+      const initialMatch = initialUsers.find(
+        (iu) => (iu.email || '').toLowerCase() === canonicalEmail
+      );
+
+      let isPasswordValid = false;
+      if (matchedUser.password && matchedUser.password === trimmedPass) {
+        isPasswordValid = true;
+      } else if (initialMatch?.password && initialMatch.password === trimmedPass) {
+        isPasswordValid = true;
+      } else if (matchedUser.passwordHash) {
+        isPasswordValid = await verifyPassword(
+          trimmedPass,
+          matchedUser.passwordHash,
+          matchedUser.passwordSalt
+        );
       }
 
-      const matchedUser = users.find((u) => (u.email || '').toLowerCase() === canonicalEmail);
-      const finalRole: UserRole = fetchedRole || (matchedUser ? matchedUser.role : 'agent');
+      if (isPasswordValid) {
+        const finalRole: UserRole = matchedUser.role || 'manager';
+        const finalUser: User = {
+          ...matchedUser,
+          role: finalRole,
+          permissions: matchedUser.permissions || { ...DEFAULT_PERMISSIONS_BY_ROLE[finalRole] },
+          mustChangePassword: false,
+        };
 
-      const finalUser: User = {
-        id: matchedUser?.id || `usr-${sbUser.id.slice(0, 8)}`,
-        name: fetchedName || matchedUser?.name || sbUser.user_metadata?.name || canonicalEmail.split('@')[0],
-        email: canonicalEmail,
-        role: finalRole,
-        agency: matchedUser?.agency || 'Agence Morvello',
-        permissions: { ...DEFAULT_PERMISSIONS_BY_ROLE[finalRole] },
-        firebaseUid: sbUser.id,
-      };
-
-      // Synchronize profile to Supabase profiles table
-      saveUserProfileToSupabase(sbUser.id, {
-        role: finalUser.role,
-        email: finalUser.email,
-        name: finalUser.name,
-        permissions: finalUser.permissions,
-      }).catch(() => {});
-
-      setCurrentUser(finalUser);
-      logAction(
-        'Connexion Supabase Auth',
-        'user_permission',
-        finalUser.id,
-        `Connexion réussie de ${finalUser.name} (${finalUser.role.toUpperCase()}) avec Supabase Auth`
-      );
-      return { success: true };
-    } catch (err: any) {
-      console.error('[Supabase Auth] Erreur de connexion:', err);
-      return {
-        success: false,
-        error: err?.message || 'Erreur lors de la connexion à Supabase Auth.',
-      };
+        setCurrentUser(finalUser);
+        logAction(
+          'Connexion Agence Morvello',
+          'user_permission',
+          finalUser.id,
+          `Connexion réussie de ${finalUser.name} (${finalUser.role.toUpperCase()}) avec identifiants d'agence`
+        );
+        return { success: true };
+      }
     }
+
+    return { success: false, error: 'Adresse email ou mot de passe incorrect.' };
   };
 
   /**

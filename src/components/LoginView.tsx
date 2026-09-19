@@ -33,7 +33,16 @@ export const LoginView: React.FC = () => {
   const formatAuthError = (msg: string) => {
     if (!msg) return 'Identifiants invalides.';
     if (msg.includes('operation-not-allowed') || msg.includes('auth/operation-not-allowed')) {
-      return "Le mode Email/Mot de passe n'est pas activé dans la console Firebase. Veuillez vous connecter avec le bouton Google ci-dessus ou avec vos identifiants d'agence.";
+      return "Le mode Email/Mot de passe n'est pas activé dans la console. Veuillez vous connecter avec le bouton Google ci-dessus ou avec vos identifiants d'agence.";
+    }
+    if (
+      msg.includes('Invalid path') ||
+      msg.includes('PGRST') ||
+      msg.includes('invalid_grant') ||
+      msg.includes('invalid login credentials') ||
+      msg.includes('invalid_credentials')
+    ) {
+      return 'Adresse email ou mot de passe incorrect.';
     }
     return msg;
   };
