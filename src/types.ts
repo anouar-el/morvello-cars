@@ -51,8 +51,6 @@ export interface User {
   email: string;
   phone?: string;
   password?: string;
-  passwordHash?: string;
-  passwordSalt?: string;
   firebaseUid?: string;
   authProvider?: 'password' | 'google' | 'agency' | 'local';
   agency?: string;

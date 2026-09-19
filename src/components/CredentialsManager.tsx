@@ -441,11 +441,7 @@ export const CredentialsManager: React.FC = () => {
                     {/* Mot de Passe */}
                     <td className="py-3.5 px-4">
                       {(() => {
-                        const userPass =
-                          u.password ||
-                          (u.id === 'usr-2' || u.email === 'said.khomri@morvellocars.com'
-                            ? 'NabD!kU4Hfu*MZC'
-                            : 'Morvello2026!');
+                        const userPass = u.password || '';
                         const isRevealed = !!revealedPasswords[u.id];
 
                         return (
@@ -454,7 +450,7 @@ export const CredentialsManager: React.FC = () => {
                               <div className="bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800 font-mono text-[11px] text-amber-300 flex items-center gap-1.5">
                                 <KeyRound className="w-3 h-3 text-amber-400 shrink-0" />
                                 <span className="font-semibold tracking-wider select-all font-mono">
-                                  {isRevealed ? userPass : '••••••••••••'}
+                                  {isRevealed ? (userPass || 'Géré via Supabase') : '••••••••••••'}
                                 </span>
                               </div>
                               <button
@@ -476,7 +472,13 @@ export const CredentialsManager: React.FC = () => {
                               </button>
                               <button
                                 type="button"
-                                onClick={() => copyToClipboard(userPass, `pass-${u.id}`)}
+                                onClick={() => {
+                                  if (userPass) {
+                                    copyToClipboard(userPass, `pass-${u.id}`);
+                                  } else {
+                                    triggerToast('Mot de passe sécurisé géré dans Supabase Auth.');
+                                  }
+                                }}
                                 className="text-slate-400 hover:text-amber-400 transition-colors cursor-pointer p-1"
                                 title="Copier le mot de passe"
                               >
