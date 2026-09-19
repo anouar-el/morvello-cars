@@ -42,7 +42,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenNotifications }) => {
     setActiveTab,
     currentUser,
     logout,
-    resetAllData,
     contracts,
     vehicles,
     clients,
@@ -337,20 +336,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenNotifications }) => {
                   <span className="hidden sm:inline font-medium text-slate-800">Sombre</span>
                 </>
               )}
-            </button>
-
-            {/* RESET DEMO DATA */}
-            <button
-              onClick={() => {
-                if (window.confirm('Voulez-vous réinitialiser toutes les données de test ?')) {
-                  resetAllData();
-                }
-              }}
-              className="hidden lg:flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 text-xs px-2.5 py-1.5 rounded-lg border border-slate-700 transition-colors cursor-pointer"
-              title="Restaurer les données de démonstration"
-            >
-              <RefreshCw className="w-3 h-3" />
-              <span>Reset</span>
             </button>
 
             {/* NEW CONTRACT PROMINENT BUTTON */}

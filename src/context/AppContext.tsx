@@ -132,7 +132,6 @@ export interface AppContextType {
   setSelectedContract: (contract: Contract | null) => void;
   setSelectedClient: (client: Client | null) => void;
   setSelectedVehicle: (vehicle: Vehicle | null) => void;
-  resetAllData: () => void;
 
   // Deposit management actions
   updateDeposit: (id: string, data: Partial<DepositRecord>) => void;
@@ -349,56 +348,6 @@ const AppContextInner: React.FC<{ children: React.ReactNode }> = ({ children }) 
     return contractsCtx.updateContract(id, data, vehiclesCtx.setVehiclesListByUpdater);
   };
 
-  const resetAllData = async () => {
-    localStorage.removeItem('morvello_clients_v1');
-    localStorage.removeItem('morvello_drivers_v1');
-    localStorage.removeItem('morvello_vehicles_v1');
-    localStorage.removeItem('morvello_contracts_v1');
-    localStorage.removeItem('morvello_deposits_v1');
-    localStorage.removeItem('morvello_settings_v1');
-    localStorage.removeItem('morvello_terms_v1');
-    localStorage.removeItem('morvello_audit_v1');
-    localStorage.removeItem('morvello_current_user_v1');
-    localStorage.removeItem('morvello_users_v1');
-
-    clientsDrivers.setClientsList(initialClients);
-    clientsDrivers.setDriversList(initialDrivers);
-    vehiclesCtx.setVehiclesList(initialVehicles);
-    contractsCtx.setContractsList(initialContracts);
-    depositsCtx.setDepositsList(initialDeposits);
-    company.setCompanySettingsList(initialCompanySettings);
-    company.setTermsVersionList(initialTermsVersion);
-    company.setAuditLogsList(initialAuditLogs);
-    auth.switchUser(initialUsers[0].id);
-    company.addAuditLog(
-      'Nettoyage base',
-      'settings',
-      'system',
-      'Nettoyage de la base de données : 1 seul client et contrat conservé (Renault Kardian - Saleh Ali S Abulabal)'
-    );
-
-    try {
-      await saveRemoteAgencyData({
-        vehicles: initialVehicles,
-        clients: initialClients,
-        drivers: initialDrivers,
-        contracts: initialContracts,
-        deposits: initialDeposits,
-        companySettings: initialCompanySettings,
-        termsVersion: initialTermsVersion,
-        aiSettings: company.aiSettings,
-        auditLogs: initialAuditLogs,
-        users: auth.users,
-      });
-      const syncTime = new Date().toISOString();
-      company.setLastCloudSync(syncTime);
-      localStorage.setItem('morvello_last_cloud_sync', syncTime);
-      company.setCloudSyncStatus('synced');
-    } catch (err) {
-      console.warn('Sync after clean note:', err);
-    }
-  };
-
   const getClientAssignedManager = (client: Client): ClientManagerAssignment => {
     return resolveClientManagerAndVehicle(client, contractsCtx.contracts, vehiclesCtx.vehicles, auth.users);
   };
@@ -493,7 +442,6 @@ const AppContextInner: React.FC<{ children: React.ReactNode }> = ({ children }) 
         setSelectedContract: contractsCtx.setSelectedContract,
         setSelectedClient: clientsDrivers.setSelectedClient,
         setSelectedVehicle: vehiclesCtx.setSelectedVehicle,
-        resetAllData,
         updateDeposit: depositsCtx.updateDeposit,
         releaseDeposit: (depositId, amount, notes) =>
           depositsCtx.releaseDeposit(depositId, amount, notes, auth.currentUser?.name),
