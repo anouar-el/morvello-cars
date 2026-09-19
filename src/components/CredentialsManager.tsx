@@ -8,8 +8,6 @@ import {
   Crown,
   Building2,
   User as UserIcon,
-  Eye,
-  EyeOff,
   Copy,
   Check,
   Edit3,
@@ -26,6 +24,7 @@ import {
   Server,
   Database,
   ExternalLink,
+  Send,
 } from 'lucide-react';
 
 export const CredentialsManager: React.FC = () => {
@@ -36,6 +35,7 @@ export const CredentialsManager: React.FC = () => {
     updateUserRole,
     addUser,
     deleteUser,
+    sendResetEmail,
     pushToCloud,
     cloudSyncStatus,
     lastCloudSync,
@@ -43,14 +43,13 @@ export const CredentialsManager: React.FC = () => {
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [revealedPasswords, setRevealedPasswords] = useState<Record<string, boolean>>({});
   const [isSyncing, setIsSyncing] = useState(false);
+  const [resetLoadingEmail, setResetLoadingEmail] = useState<string | null>(null);
 
   // Edit User Modal
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [editName, setEditName] = useState('');
   const [editEmail, setEditEmail] = useState('');
-  const [editPassword, setEditPassword] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editRole, setEditRole] = useState<UserRole>('agent');
   const [editFleet, setEditFleet] = useState('');
@@ -79,18 +78,27 @@ export const CredentialsManager: React.FC = () => {
     triggerToast(`Copié dans le presse-papier : ${text}`);
   };
 
-  const togglePasswordVisibility = (userId: string) => {
-    setRevealedPasswords((prev) => ({
-      ...prev,
-      [userId]: !prev[userId],
-    }));
+  const handleSendResetEmail = async (email: string, userName: string) => {
+    if (!email) return;
+    setResetLoadingEmail(email);
+    try {
+      const res = await sendResetEmail(email);
+      if (res.success) {
+        triggerToast(`Email de réinitialisation envoyé avec succès à ${userName} (${email}) !`);
+      } else {
+        triggerToast(res.error || `Erreur lors de l'envoi de l'email de réinitialisation.`);
+      }
+    } catch (err: any) {
+      triggerToast(err?.message || `Erreur lors de l'envoi de l'email.`);
+    } finally {
+      setResetLoadingEmail(null);
+    }
   };
 
   const handleOpenEdit = (user: User) => {
     setEditingUser(user);
     setEditName(user.name);
     setEditEmail(user.email);
-    setEditPassword('');
     setEditPhone(user.phone || '');
     setEditRole(user.role);
     setEditFleet(user.assignedFleetName || '');
@@ -111,10 +119,6 @@ export const CredentialsManager: React.FC = () => {
       role: editRole,
       assignedFleetName: editFleet.trim() || undefined,
     };
-
-    if (editPassword.trim()) {
-      payload.password = editPassword.trim();
-    }
 
     await updateUser(editingUser.id, payload);
 
@@ -324,23 +328,23 @@ export const CredentialsManager: React.FC = () => {
                 className="px-4 py-2.5 bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/40 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer"
               >
                 <Edit3 className="w-4 h-4" />
-                <span>Modifier le Mot de Passe</span>
+                <span>Modifier le Compte Gérant</span>
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* TABLEAU COMPLET DES COMPTES & MOTS DE PASSE */}
+      {/* TABLEAU COMPLET DES COMPTES COLLABORATEURS */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-xl overflow-hidden">
         <div className="p-4 border-b border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h3 className="text-sm font-extrabold text-white flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 text-amber-400" />
-              <span>Répertoire des Logins & Mots de Passe Collaborateurs</span>
+              <span>Répertoire des Comptes Collaborateurs</span>
             </h3>
             <p className="text-xs text-slate-400 mt-0.5">
-              Gérez les identifiants de connexion, numéros GSM directs et mots de passe de chaque membre.
+              Gérez les accès, rôles, numéros GSM directs et la réinitialisation sécurisée des accès par email.
             </p>
           </div>
 
@@ -356,7 +360,6 @@ export const CredentialsManager: React.FC = () => {
                 <th className="py-3 px-4">Collaborateur</th>
                 <th className="py-3 px-4">Rôle & Flotte</th>
                 <th className="py-3 px-4">Login / Email de Connexion</th>
-                <th className="py-3 px-4">Mot de Passe</th>
                 <th className="py-3 px-4">GSM Direct (Contrats)</th>
                 <th className="py-3 px-4 text-right">Actions</th>
               </tr>
@@ -438,70 +441,6 @@ export const CredentialsManager: React.FC = () => {
                       </div>
                     </td>
 
-                    {/* Mot de Passe */}
-                    <td className="py-3.5 px-4">
-                      {(() => {
-                        const userPass = u.password || '';
-                        const isRevealed = !!revealedPasswords[u.id];
-
-                        return (
-                          <div className="flex flex-col gap-1">
-                            <div className="flex items-center gap-1.5">
-                              <div className="bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800 font-mono text-[11px] text-amber-300 flex items-center gap-1.5">
-                                <KeyRound className="w-3 h-3 text-amber-400 shrink-0" />
-                                <span className="font-semibold tracking-wider select-all font-mono">
-                                  {isRevealed ? (userPass || 'Géré via Supabase') : '••••••••••••'}
-                                </span>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setRevealedPasswords((prev) => ({
-                                    ...prev,
-                                    [u.id]: !prev[u.id],
-                                  }))
-                                }
-                                className="text-slate-400 hover:text-white transition-colors cursor-pointer p-1"
-                                title={isRevealed ? 'Masquer' : 'Afficher le mot de passe'}
-                              >
-                                {isRevealed ? (
-                                  <EyeOff className="w-3.5 h-3.5" />
-                                ) : (
-                                  <Eye className="w-3.5 h-3.5" />
-                                )}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (userPass) {
-                                    copyToClipboard(userPass, `pass-${u.id}`);
-                                  } else {
-                                    triggerToast('Mot de passe sécurisé géré dans Supabase Auth.');
-                                  }
-                                }}
-                                className="text-slate-400 hover:text-amber-400 transition-colors cursor-pointer p-1"
-                                title="Copier le mot de passe"
-                              >
-                                {copiedId === `pass-${u.id}` ? (
-                                  <Check className="w-3.5 h-3.5 text-emerald-400" />
-                                ) : (
-                                  <Copy className="w-3.5 h-3.5" />
-                                )}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleOpenEdit(u)}
-                                className="text-slate-400 hover:text-amber-400 transition-colors cursor-pointer p-1"
-                                title="Modifier le compte ou mot de passe"
-                              >
-                                <Edit3 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })()}
-                    </td>
-
                     {/* GSM Direct */}
                     <td className="py-3.5 px-4">
                       {u.phone ? (
@@ -519,9 +458,20 @@ export const CredentialsManager: React.FC = () => {
                       <div className="flex items-center justify-end gap-2">
                         <button
                           type="button"
+                          onClick={() => handleSendResetEmail(u.email, u.name)}
+                          disabled={resetLoadingEmail === u.email}
+                          className="px-2.5 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer disabled:opacity-50"
+                          title="Envoyer un email de réinitialisation de mot de passe"
+                        >
+                          <Send className={`w-3.5 h-3.5 ${resetLoadingEmail === u.email ? 'animate-pulse' : ''}`} />
+                          <span className="hidden sm:inline">Réinitialiser</span>
+                        </button>
+
+                        <button
+                          type="button"
                           onClick={() => handleOpenEdit(u)}
                           className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-                          title="Modifier l'email ou le mot de passe"
+                          title="Modifier le compte"
                         >
                           <Edit3 className="w-3.5 h-3.5 text-amber-400" />
                           <span>Modifier</span>
@@ -547,7 +497,7 @@ export const CredentialsManager: React.FC = () => {
         </div>
       </div>
 
-      {/* MODAL : MODIFIER IDENTIFIANTS & MOT DE PASSE */}
+      {/* MODAL : MODIFIER INFORMATIONS & DROITS DU COLLABORATEUR */}
       {editingUser && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden p-6 space-y-5 animate-in fade-in duration-200">
@@ -557,7 +507,7 @@ export const CredentialsManager: React.FC = () => {
                   <KeyRound className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-white">Modifier les Identifiants d'Accès</h3>
+                  <h3 className="text-sm font-bold text-white">Modifier le Compte Collaborateur</h3>
                   <p className="text-xs text-slate-400">Collaborateur : {editingUser.name}</p>
                 </div>
               </div>
@@ -584,42 +534,39 @@ export const CredentialsManager: React.FC = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Email / Login de Connexion *
-                  </label>
-                  <input
-                    type="email"
-                    value={editEmail}
-                    onChange={(e) => setEditEmail(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 font-mono"
-                    required
-                  />
-                </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Email / Login de Connexion *
+                </label>
+                <input
+                  type="email"
+                  value={editEmail}
+                  onChange={(e) => setEditEmail(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 font-mono"
+                  required
+                />
+              </div>
 
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-semibold text-slate-300">
-                      Nouveau Mot de Passe
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => setEditPassword(generateStrongPassword())}
-                      className="text-[10px] text-amber-400 hover:text-amber-300 flex items-center gap-1 font-mono cursor-pointer"
-                    >
-                      <Sparkles className="w-3 h-3" />
-                      Générer sécurisé
-                    </button>
+              {/* Section Réinitialisation Sécurisée du Mot de Passe */}
+              <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="space-y-0.5">
+                  <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                    <Lock className="w-3.5 h-3.5 text-blue-400" />
+                    <span>Mot de Passe du Compte</span>
                   </div>
-                  <input
-                    type="text"
-                    value={editPassword}
-                    onChange={(e) => setEditPassword(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-amber-400 font-mono font-bold focus:outline-none focus:border-amber-500"
-                    placeholder="Laisser vide pour conserver le mot de passe actuel"
-                  />
+                  <p className="text-[11px] text-slate-400">
+                    Envoyez un lien sécurisé de réinitialisation par email pour que le collaborateur définisse son mot de passe.
+                  </p>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => handleSendResetEmail(editingUser.email, editingUser.name)}
+                  disabled={resetLoadingEmail === editingUser.email}
+                  className="px-3 py-2 bg-blue-500/15 hover:bg-blue-500/25 text-blue-400 border border-blue-500/30 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer shrink-0 disabled:opacity-50"
+                >
+                  <Send className={`w-3.5 h-3.5 ${resetLoadingEmail === editingUser.email ? 'animate-pulse' : ''}`} />
+                  <span>{resetLoadingEmail === editingUser.email ? 'Envoi...' : 'Envoyer un email de réinitialisation'}</span>
+                </button>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -667,7 +614,7 @@ export const CredentialsManager: React.FC = () => {
 
               <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-[11px] text-slate-400 flex items-center gap-2">
                 <Cloud className="w-4 h-4 text-blue-400 shrink-0" />
-                <span>Ce mot de passe sera immédiatement synchronisé avec le Cloud Firestore pour tous les appareils.</span>
+                <span>Les modifications apportées au compte seront synchronisées avec la base centrale.</span>
               </div>
 
               <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
@@ -683,7 +630,7 @@ export const CredentialsManager: React.FC = () => {
                   className="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold rounded-xl shadow-lg shadow-amber-500/20 flex items-center gap-1.5 cursor-pointer"
                 >
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>Enregistrer les Identifiants</span>
+                  <span>Enregistrer les Modifications</span>
                 </button>
               </div>
             </form>
