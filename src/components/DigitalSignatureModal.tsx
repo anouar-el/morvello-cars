@@ -91,22 +91,22 @@ export const DigitalSignatureModal: React.FC<DigitalSignatureModalProps> = ({
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh]">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-900/90">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
-              <FileCheck className="w-5 h-5" />
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-800 bg-slate-900/90">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
+              <FileCheck className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-base font-bold text-white tracking-wide">
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                <h3 className="text-sm sm:text-base font-bold text-white tracking-wide">
                   Signature Électronique Certifiée
                 </h3>
-                <span className="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-semibold px-2 py-0.5 rounded-full flex items-center gap-1">
+                <span className="text-[9px] sm:text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-semibold px-2 py-0.5 rounded-full flex items-center gap-1">
                   <Lock className="w-2.5 h-2.5" />
                   Conforme A4
                 </span>
               </div>
-              <p className="text-xs text-slate-400">
+              <p className="text-[11px] sm:text-xs text-slate-400 truncate max-w-[240px] sm:max-w-none">
                 Contrat N° <span className="font-mono text-amber-300 font-bold">{contract.contractNumber}</span> • {contract.vehicleSnapshot.brand} {contract.vehicleSnapshot.model}
               </p>
             </div>
@@ -120,13 +120,13 @@ export const DigitalSignatureModal: React.FC<DigitalSignatureModalProps> = ({
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-4 overflow-y-auto">
+        <div className="p-4 sm:p-6 space-y-4 overflow-y-auto">
           {/* Signer Selector Tabs */}
-          <div className="grid grid-cols-3 gap-2 p-1 bg-slate-950 rounded-xl border border-slate-800 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 sm:gap-2 p-1 bg-slate-950 rounded-xl border border-slate-800 text-xs">
             <button
               type="button"
               onClick={() => handleSignerChange('client')}
-              className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg font-semibold transition-all cursor-pointer ${
+              className={`flex items-center justify-center gap-1.5 py-1.5 sm:py-2 px-2.5 sm:px-3 rounded-lg font-semibold transition-all cursor-pointer ${
                 activeSigner === 'client'
                   ? 'bg-amber-500 text-slate-950 shadow-md font-bold'
                   : 'text-slate-400 hover:text-white'
@@ -141,7 +141,7 @@ export const DigitalSignatureModal: React.FC<DigitalSignatureModalProps> = ({
               <button
                 type="button"
                 onClick={() => handleSignerChange('second_driver')}
-                className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg font-semibold transition-all cursor-pointer ${
+                className={`flex items-center justify-center gap-1.5 py-1.5 sm:py-2 px-2.5 sm:px-3 rounded-lg font-semibold transition-all cursor-pointer ${
                   activeSigner === 'second_driver'
                     ? 'bg-amber-500 text-slate-950 shadow-md font-bold'
                     : 'text-slate-400 hover:text-white'
@@ -152,7 +152,7 @@ export const DigitalSignatureModal: React.FC<DigitalSignatureModalProps> = ({
                 {contract.secondDriverSignature && <CheckCircle2 className="w-3 h-3 text-emerald-950" />}
               </button>
             ) : (
-              <div className="flex items-center justify-center gap-1 py-2 px-3 text-slate-600 text-[11px] cursor-not-allowed">
+              <div className="hidden sm:flex items-center justify-center gap-1 py-2 px-3 text-slate-600 text-[11px] cursor-not-allowed">
                 <span>Sans 2e conducteur</span>
               </div>
             )}
@@ -160,7 +160,7 @@ export const DigitalSignatureModal: React.FC<DigitalSignatureModalProps> = ({
             <button
               type="button"
               onClick={() => handleSignerChange('agency')}
-              className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg font-semibold transition-all cursor-pointer ${
+              className={`flex items-center justify-center gap-1.5 py-1.5 sm:py-2 px-2.5 sm:px-3 rounded-lg font-semibold transition-all cursor-pointer ${
                 activeSigner === 'agency'
                   ? 'bg-amber-500 text-slate-950 shadow-md font-bold'
                   : 'text-slate-400 hover:text-white'
@@ -173,7 +173,7 @@ export const DigitalSignatureModal: React.FC<DigitalSignatureModalProps> = ({
           </div>
 
           {/* Quick Recap Pill */}
-          <div className="grid grid-cols-3 gap-3 p-3 bg-slate-950/70 border border-slate-800 rounded-xl text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 p-3 bg-slate-950/70 border border-slate-800 rounded-xl text-xs">
             <div>
               <span className="text-[10px] text-slate-500 block uppercase font-bold">Signataire Actif</span>
               <span className="font-semibold text-slate-200 truncate block mt-0.5">
@@ -182,7 +182,7 @@ export const DigitalSignatureModal: React.FC<DigitalSignatureModalProps> = ({
             </div>
             <div>
               <span className="text-[10px] text-slate-500 block uppercase font-bold">Véhicule & Immat</span>
-              <span className="font-semibold text-amber-300 font-mono block mt-0.5">
+              <span className="font-semibold text-amber-300 font-mono block mt-0.5 truncate">
                 {contract.vehicleSnapshot.brand} • {contract.vehicleSnapshot.plate}
               </span>
             </div>

@@ -623,10 +623,10 @@ export const ContractWizard: React.FC = () => {
   }
 
   const steps = [
-    { id: 1, label: 'Locataire / Client', icon: <User className="w-4 h-4" /> },
-    { id: 2, label: 'Véhicule', icon: <Car className="w-4 h-4" /> },
-    { id: 3, label: 'Durée & Tarification', icon: <Calendar className="w-4 h-4" /> },
-    { id: 4, label: 'Validation & Contrat A4', icon: <CheckCircle2 className="w-4 h-4" /> },
+    { id: 1, label: 'Locataire', shortLabel: 'Client', icon: <User className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> },
+    { id: 2, label: 'Véhicule', shortLabel: 'Véhicule', icon: <Car className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> },
+    { id: 3, label: 'Tarification', shortLabel: 'Tarif', icon: <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> },
+    { id: 4, label: 'Validation A4', shortLabel: 'Contrat', icon: <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> },
   ];
 
   return (
@@ -674,14 +674,14 @@ export const ContractWizard: React.FC = () => {
         )}
 
         {/* STEPPER */}
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
           {steps.map((s) => {
             const isCompleted = s.id < currentStep;
             const isCurrent = s.id === currentStep;
             return (
               <div
                 key={s.id}
-                className={`flex flex-col items-center text-center p-2 rounded-xl border transition-all ${
+                className={`flex flex-col items-center text-center p-1.5 sm:p-2 rounded-xl border transition-all ${
                   isCurrent
                     ? 'bg-amber-500/15 border-amber-500/40 text-amber-400'
                     : isCompleted
@@ -690,7 +690,7 @@ export const ContractWizard: React.FC = () => {
                 }`}
               >
                 <div
-                  className={`w-7 h-7 rounded-full flex items-center justify-center mb-1 text-xs font-bold ${
+                  className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center mb-0.5 sm:mb-1 text-[11px] sm:text-xs font-bold ${
                     isCurrent
                       ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
                       : isCompleted
@@ -700,6 +700,7 @@ export const ContractWizard: React.FC = () => {
                 >
                   {isCompleted ? '✓' : s.id}
                 </div>
+                <span className="text-[10px] sm:text-[11px] font-semibold sm:hidden truncate max-w-full">{s.shortLabel}</span>
                 <span className="text-[11px] font-semibold hidden sm:inline">{s.label}</span>
               </div>
             );
@@ -708,7 +709,7 @@ export const ContractWizard: React.FC = () => {
       </div>
 
       {/* STEP CONTENT CONTAINER */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl min-h-[420px] flex flex-col justify-between">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-6 shadow-xl min-h-[420px] flex flex-col justify-between">
         {currentStep === 1 && (
           <WizardStep1Client
             clientMode={clientMode}
@@ -818,16 +819,17 @@ export const ContractWizard: React.FC = () => {
         )}
 
         {/* BOTTOM NAVIGATION CONTROLS */}
-        <div className="border-t border-slate-800 pt-4 mt-6 flex items-center justify-between">
+        <div className="border-t border-slate-800 pt-4 mt-6 flex items-center justify-between gap-2">
           <div>
             {currentStep > 1 ? (
               <button
                 type="button"
                 onClick={() => setCurrentStep((prev) => prev - 1)}
-                className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors cursor-pointer"
+                className="flex items-center gap-1 sm:gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold px-3 sm:px-4 py-2 rounded-lg transition-colors cursor-pointer"
               >
-                <ChevronLeft className="w-4 h-4" />
-                Précédent
+                <ChevronLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">Précédent</span>
+                <span className="sm:hidden">Retour</span>
               </button>
             ) : (
               <button
@@ -838,7 +840,7 @@ export const ContractWizard: React.FC = () => {
                 }}
                 className="text-xs text-slate-500 hover:text-slate-300 font-medium px-2 py-1 cursor-pointer"
               >
-                {isEditMode ? 'Annuler la modification' : 'Annuler'}
+                {isEditMode ? 'Annuler modif.' : 'Annuler'}
               </button>
             )}
           </div>
@@ -853,19 +855,20 @@ export const ContractWizard: React.FC = () => {
                   (currentStep === 2 && !isStep2Valid()) ||
                   (currentStep === 3 && !isStep3Valid())
                 }
-                className="flex items-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 disabled:opacity-40 disabled:pointer-events-none text-slate-950 font-bold text-xs px-5 py-2.5 rounded-lg shadow-md shadow-amber-500/20 transition-all cursor-pointer"
+                className="flex items-center gap-1.5 sm:gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 disabled:opacity-40 disabled:pointer-events-none text-slate-950 font-bold text-xs px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-lg shadow-md shadow-amber-500/20 transition-all cursor-pointer"
               >
-                Étape Suivante
-                <ChevronRight className="w-4 h-4" />
+                <span>Suivant</span>
+                <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </button>
             ) : (
               <button
                 type="button"
                 onClick={handleFinalSubmit}
-                className="flex items-center gap-2 bg-gradient-to-r from-emerald-500 via-emerald-400 to-emerald-500 hover:from-emerald-400 hover:to-emerald-300 text-slate-950 font-extrabold text-sm px-6 py-2.5 rounded-xl shadow-lg shadow-emerald-500/25 transition-transform active:scale-95 cursor-pointer"
+                className="flex items-center gap-1.5 sm:gap-2 bg-gradient-to-r from-emerald-500 via-emerald-400 to-emerald-500 hover:from-emerald-400 hover:to-emerald-300 text-slate-950 font-extrabold text-xs sm:text-sm px-4 sm:px-6 py-2 sm:py-2.5 rounded-xl shadow-lg shadow-emerald-500/25 transition-transform active:scale-95 cursor-pointer"
               >
-                <CheckCircle2 className="w-4 h-4" />
-                {isEditMode ? 'Enregistrer les modifications' : 'Générer le contrat 2 pages A4'}
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span className="hidden sm:inline">{isEditMode ? 'Enregistrer les modifications' : 'Générer le contrat 2 pages A4'}</span>
+                <span className="sm:hidden">{isEditMode ? 'Enregistrer' : 'Générer Contrat A4'}</span>
               </button>
             )}
           </div>

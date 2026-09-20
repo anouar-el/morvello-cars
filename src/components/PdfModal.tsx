@@ -17,7 +17,6 @@ import {
   Maximize2,
   Columns,
   Square,
-  AlertCircle,
   Loader2,
   CheckCircle,
   Edit3,
@@ -38,7 +37,14 @@ export const PdfModal: React.FC = () => {
     updateContract,
   } = useApp();
 
-  const [zoom, setZoom] = useState<number>(85);
+  // Adaptive initial zoom for mobile and small screens
+  const [zoom, setZoom] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      if (window.innerWidth < 640) return 45;
+      if (window.innerWidth < 1024) return 65;
+    }
+    return 85;
+  });
   const [viewLayout, setViewLayout] = useState<'stacked' | 'side-by-side'>('stacked');
   const [isGeneratingPdf, setIsGeneratingPdf] = useState<boolean>(false);
   const [generationStep, setGenerationStep] = useState<string>('');
@@ -130,66 +136,79 @@ export const PdfModal: React.FC = () => {
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-slate-950/90 backdrop-blur-md overflow-hidden animate-in fade-in duration-200">
       {/* TOP TOOLBAR (NO-PRINT) */}
-      <header className="no-print bg-slate-900 border-b border-slate-800 px-6 py-3 flex items-center justify-between shadow-xl flex-shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
-            <FileCheck className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-sm font-bold text-white tracking-wide">
-                Générateur de Contrat A4 — {pdfModalContract.contractNumber}
-              </h2>
-              <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                2 Pages A4 Calibrées
-              </span>
-              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
-                pdfModalContract.templateId === 'prestige'
-                  ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
-                  : pdfModalContract.templateId === 'corporate'
-                  ? 'bg-blue-500/15 text-blue-300 border-blue-500/30'
-                  : 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
-              }`}>
-                Modèle : {getContractTemplate(pdfModalContract.templateId || companySettings.defaultContractTemplate).name}
-              </span>
+      <header className="no-print bg-slate-900 border-b border-slate-800 px-3 sm:px-6 py-2.5 sm:py-3 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-xl flex-shrink-0">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
+              <FileCheck className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
-            <p className="text-xs text-slate-400">
-              Client : {pdfModalContract.clientSnapshot.lastName} {pdfModalContract.clientSnapshot.firstName} • {pdfModalContract.vehicleSnapshot.brand} {pdfModalContract.vehicleSnapshot.model} • Caution : {(pdfModalContract.depositAmount ?? 5000).toLocaleString('fr-FR')} MAD
-            </p>
+            <div>
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                <h2 className="text-xs sm:text-sm font-bold text-white tracking-wide">
+                  Contrat N° {pdfModalContract.contractNumber}
+                </h2>
+                <span className={`text-[9px] sm:text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+                  pdfModalContract.templateId === 'prestige'
+                    ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                    : pdfModalContract.templateId === 'corporate'
+                    ? 'bg-blue-500/15 text-blue-300 border-blue-500/30'
+                    : 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                }`}>
+                  {getContractTemplate(pdfModalContract.templateId || companySettings.defaultContractTemplate).name}
+                </span>
+              </div>
+              <p className="text-[11px] sm:text-xs text-slate-400 truncate max-w-[240px] sm:max-w-none">
+                {pdfModalContract.clientSnapshot.lastName} {pdfModalContract.clientSnapshot.firstName} • {pdfModalContract.vehicleSnapshot.brand} {pdfModalContract.vehicleSnapshot.model}
+              </p>
+            </div>
           </div>
+
+          {/* Close button visible on top row on mobile */}
+          <button
+            onClick={closePdfModal}
+            className="md:hidden p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+            title="Fermer la prévisualisation"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
         {/* CONTROLS */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-1.5 sm:gap-2.5 overflow-x-auto pb-1 md:pb-0 no-scrollbar">
           {/* Zoom Controls */}
-          <div className="flex items-center bg-slate-800 border border-slate-700 rounded-lg p-1 text-slate-300 text-xs">
+          <div className="flex items-center bg-slate-800 border border-slate-700 rounded-lg p-1 text-slate-300 text-xs shrink-0">
             <button
-              onClick={() => setZoom((prev) => Math.max(50, prev - 10))}
-              className="p-1.5 hover:bg-slate-700 rounded transition-colors"
+              onClick={() => setZoom((prev) => Math.max(30, prev - 10))}
+              className="p-1 hover:bg-slate-700 rounded transition-colors"
               title="Dézoomer"
             >
-              <ZoomOut className="w-4 h-4" />
+              <ZoomOut className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </button>
-            <span className="px-2 font-mono text-slate-200 font-semibold">{zoom}%</span>
+            <span className="px-1.5 sm:px-2 font-mono text-slate-200 font-semibold text-[11px] sm:text-xs">{zoom}%</span>
             <button
               onClick={() => setZoom((prev) => Math.min(130, prev + 10))}
-              className="p-1.5 hover:bg-slate-700 rounded transition-colors"
+              className="p-1 hover:bg-slate-700 rounded transition-colors"
               title="Zoomer"
             >
-              <ZoomIn className="w-4 h-4" />
+              <ZoomIn className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </button>
             <button
-              onClick={() => setZoom(85)}
-              className="p-1.5 hover:bg-slate-700 rounded transition-colors ml-1 border-l border-slate-700"
+              onClick={() => {
+                if (typeof window !== 'undefined' && window.innerWidth < 640) {
+                  setZoom(45);
+                } else {
+                  setZoom(85);
+                }
+              }}
+              className="p-1 hover:bg-slate-700 rounded transition-colors ml-0.5 sm:ml-1 border-l border-slate-700"
               title="Ajuster à l'écran"
             >
-              <Maximize2 className="w-3.5 h-3.5" />
+              <Maximize2 className="w-3 sm:w-3.5 h-3 sm:h-3.5" />
             </button>
           </div>
 
-          {/* Layout Toggle */}
-          <div className="flex items-center bg-slate-800 border border-slate-700 rounded-lg p-1 text-slate-300 text-xs">
+          {/* Layout Toggle - Desktop only */}
+          <div className="hidden lg:flex items-center bg-slate-800 border border-slate-700 rounded-lg p-1 text-slate-300 text-xs shrink-0">
             <button
               onClick={() => setViewLayout('stacked')}
               className={`px-2.5 py-1 rounded flex items-center gap-1.5 transition-colors ${
@@ -221,18 +240,18 @@ export const PdfModal: React.FC = () => {
                 closePdfModal();
                 startEditingContract(pdfModalContract);
               }}
-              className="flex items-center gap-1.5 bg-blue-600/30 hover:bg-blue-600/50 text-blue-300 hover:text-white border border-blue-500/40 font-medium text-xs px-3 py-2 rounded-lg transition-colors cursor-pointer"
+              className="flex items-center gap-1 bg-blue-600/30 hover:bg-blue-600/50 text-blue-300 hover:text-white border border-blue-500/40 font-medium text-xs px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg transition-colors cursor-pointer shrink-0"
               title="Modifier ce contrat"
             >
               <Edit3 className="w-3.5 h-3.5" />
-              <span>Modifier</span>
+              <span className="hidden sm:inline">Modifier</span>
             </button>
           )}
 
           {/* Action: Signature Numérique Interactive */}
           <button
             onClick={() => setIsSignatureModalOpen(true)}
-            className={`flex items-center gap-1.5 font-bold text-xs px-3 py-2 rounded-lg transition-all cursor-pointer shadow-md ${
+            className={`flex items-center gap-1.5 font-bold text-xs px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg transition-all cursor-pointer shadow-md shrink-0 ${
               pdfModalContract.clientSignature
                 ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/50 hover:bg-emerald-900/60'
                 : 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 shadow-amber-500/20 active:scale-95'
@@ -256,28 +275,28 @@ export const PdfModal: React.FC = () => {
           <button
             onClick={handleOpenPdfInNewTab}
             disabled={isGeneratingPdf}
-            className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 font-medium text-xs px-3 py-2 rounded-lg transition-all active:scale-95 cursor-pointer disabled:opacity-50"
+            className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 font-medium text-xs px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg transition-all active:scale-95 cursor-pointer disabled:opacity-50 shrink-0"
             title="Ouvrir le PDF compilé dans un lecteur natif"
           >
             <ExternalLink className="w-4 h-4 text-sky-400" />
-            <span>Ouvrir PDF</span>
+            <span className="hidden sm:inline">Ouvrir PDF</span>
           </button>
 
           {/* Action: Print */}
           <button
             onClick={handlePrint}
-            className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white font-semibold text-xs px-3 py-2 rounded-lg transition-all active:scale-95 cursor-pointer"
+            className="flex items-center gap-1.5 sm:gap-2 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white font-semibold text-xs px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg transition-all active:scale-95 cursor-pointer shrink-0"
             title="Imprimer directement sur imprimante papier ou Enregistrer au format PDF"
           >
             <Printer className="w-4 h-4 text-amber-400" />
-            Imprimer (A4)
+            <span className="hidden sm:inline">Imprimer (A4)</span>
           </button>
 
           {/* Action: Download PDF */}
           <button
             onClick={handleDownloadPdf}
             disabled={isGeneratingPdf}
-            className={`flex items-center gap-2 font-bold text-xs px-4 py-2 rounded-lg transition-all cursor-pointer shadow-md ${
+            className={`flex items-center gap-1.5 sm:gap-2 font-bold text-xs px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg transition-all cursor-pointer shadow-md shrink-0 ${
               downloadSuccess
                 ? 'bg-emerald-600 text-white border border-emerald-500 shadow-emerald-600/30'
                 : isGeneratingPdf
@@ -288,7 +307,7 @@ export const PdfModal: React.FC = () => {
             {isGeneratingPdf ? (
               <>
                 <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />
-                <span>Compilation {generationPercent}%...</span>
+                <span className="hidden sm:inline">Compilation {generationPercent}%...</span>
               </>
             ) : downloadSuccess ? (
               <>
@@ -298,15 +317,16 @@ export const PdfModal: React.FC = () => {
             ) : (
               <>
                 <Download className="w-4 h-4 text-slate-950" />
-                <span>Télécharger PDF A4</span>
+                <span className="hidden sm:inline">Télécharger PDF A4</span>
+                <span className="sm:hidden">PDF</span>
               </>
             )}
           </button>
 
-          {/* Close */}
+          {/* Close - Desktop */}
           <button
             onClick={closePdfModal}
-            className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer ml-1"
+            className="hidden md:block p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer ml-1"
             title="Fermer la prévisualisation"
           >
             <X className="w-5 h-5" />
@@ -314,67 +334,8 @@ export const PdfModal: React.FC = () => {
         </div>
       </header>
 
-      {/* NOTICE & PROGRESS BANNER */}
-      <div className="no-print bg-slate-900/90 border-b border-slate-800/80 px-6 py-2 flex items-center justify-between text-xs text-slate-300">
-        <div className="flex items-center gap-2 flex-1 mr-4">
-          {isGeneratingPdf ? (
-            <div className="flex items-center gap-3 w-full max-w-xl">
-              <Loader2 className="w-4 h-4 text-amber-400 animate-spin shrink-0" />
-              <div className="flex-1">
-                <div className="flex justify-between items-center text-[11px] mb-1">
-                  <strong className="text-amber-400 font-medium">{generationStep}</strong>
-                  <span className="font-mono text-amber-300">{generationPercent}%</span>
-                </div>
-                <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-amber-500 to-amber-300 transition-all duration-300 rounded-full"
-                    style={{ width: `${generationPercent}%` }}
-                  />
-                </div>
-              </div>
-            </div>
-          ) : downloadSuccess ? (
-            <div className="flex items-center gap-2 text-emerald-400">
-              <CheckCircle className="w-4 h-4 shrink-0" />
-              <span>
-                <strong>Document PDF A4 généré avec succès !</strong> Le téléchargement a démarré automatiquement.
-                {lastGeneratedBlobUrl && (
-                  <button
-                    onClick={() => window.open(lastGeneratedBlobUrl, '_blank')}
-                    className="ml-2 underline hover:text-emerald-200 text-xs font-semibold cursor-pointer"
-                  >
-                    Ouvrir le fichier généré ↗
-                  </button>
-                )}
-              </span>
-            </div>
-          ) : pdfModalContract.clientSignature ? (
-            <>
-              <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span className="text-emerald-300 font-medium">
-                <strong>Signature électronique certifiée présente :</strong> Paraphe et signature client validés le {new Date(pdfModalContract.clientSignedAt || '').toLocaleDateString('fr-FR')} (Réf. intégrité : <span className="font-mono text-emerald-200">{pdfModalContract.signatureCertId}</span>).
-              </span>
-            </>
-          ) : (
-            <>
-              <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
-              <span>
-                <strong>Signature en attente :</strong> Cliquez sur <span className="text-amber-300 font-bold">« Signer »</span> pour faire signer le locataire sur écran, ou imprimez le document pour signature papier.
-              </span>
-            </>
-          )}
-        </div>
-        <div className="text-[11px] text-slate-400 flex items-center gap-2 shrink-0">
-          <span>Format : <strong>210 × 297 mm (A4 Recto-Verso)</strong></span>
-          <span>•</span>
-          <span>Tarif / j : <strong>{pdfModalContract.pricePerDay || 0} MAD</strong></span>
-          <span>•</span>
-          <span>Caution : <strong>{pdfModalContract.depositAmount || 5000} MAD</strong></span>
-        </div>
-      </div>
-
       {/* DOCUMENT PREVIEW CONTAINER */}
-      <div className="flex-1 overflow-auto p-8 bg-slate-950 flex justify-center items-start">
+      <div className="flex-1 overflow-auto p-3 sm:p-8 bg-slate-950 flex justify-center items-start">
         <div
           style={{
             transform: `scale(${zoom / 100})`,
