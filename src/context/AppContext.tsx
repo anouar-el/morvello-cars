@@ -33,6 +33,11 @@ import { initialTermsVersion } from '../data/termsData';
 import { fetchRemoteAgencyData, saveRemoteAgencyData, subscribeToRemoteAgencyData } from '../lib/firestoreSync';
 import { isAbortException } from '../initErrorHandling';
 import { resolveClientManagerAndVehicle, ClientManagerAssignment } from '../utils/clientManagerUtils';
+import {
+  reconcileCompanySettingsWithContracts,
+  findDuplicateContractNumbers,
+  DuplicateContractReport,
+} from '../utils/contractNumberUtils';
 
 import { AuthProvider, useAuth } from './AuthContext';
 import { VehiclesProvider, useVehicles } from './VehiclesContext';
@@ -141,6 +146,10 @@ export interface AppContextType {
   // Inspection photos action
   updateContractInspection: (contractId: string, inspection: ContractInspection) => void;
 
+  // Duplicate contract management
+  duplicateContractReports: DuplicateContractReport[];
+  repairDuplicateContracts: () => { renumberedCount: number };
+
   // Affectation Manager via véhicule loué
   getClientAssignedManager: (client: Client) => ClientManagerAssignment;
 }
@@ -181,7 +190,13 @@ const AppContextInner: React.FC<{ children: React.ReactNode }> = ({ children }) 
         depositsCtx.setDepositsList(remote.deposits);
       }
       if (remote.companySettings) {
-        company.setCompanySettingsList(remote.companySettings);
+        const contractsForReconcile =
+          remote.contracts && remote.contracts.length > 0 ? remote.contracts : contractsCtx.contracts;
+        const reconciled = reconcileCompanySettingsWithContracts(
+          remote.companySettings,
+          contractsForReconcile
+        );
+        company.setCompanySettingsList(reconciled);
       }
       if (remote.termsVersion) {
         company.setTermsVersionList(remote.termsVersion);
@@ -295,7 +310,15 @@ const AppContextInner: React.FC<{ children: React.ReactNode }> = ({ children }) 
           ctx.depositsCtx.setDepositsList(remote.deposits);
         }
         if (remote.companySettings) {
-          ctx.company.setCompanySettingsList(remote.companySettings);
+          const contractsForReconcile =
+            remote.contracts && remote.contracts.length > 0
+              ? remote.contracts
+              : ctx.contractsCtx.contracts;
+          const reconciled = reconcileCompanySettingsWithContracts(
+            remote.companySettings,
+            contractsForReconcile
+          );
+          ctx.company.setCompanySettingsList(reconciled);
         }
         if (remote.termsVersion) {
           ctx.company.setTermsVersionList(remote.termsVersion);
@@ -352,6 +375,20 @@ const AppContextInner: React.FC<{ children: React.ReactNode }> = ({ children }) 
     return resolveClientManagerAndVehicle(client, contractsCtx.contracts, vehiclesCtx.vehicles, auth.users);
   };
 
+  const duplicateContractReports = React.useMemo(
+    () => findDuplicateContractNumbers(contractsCtx.contracts),
+    [contractsCtx.contracts]
+  );
+
+  const repairDuplicateContracts = useCallback(() => {
+    return contractsCtx.repairDuplicateContracts(
+      depositsCtx.deposits,
+      company.companySettings,
+      depositsCtx.setDepositsList,
+      company.updateCompanySettings
+    );
+  }, [contractsCtx, depositsCtx, company]);
+
   return (
     <AppContext.Provider
       value={{
@@ -374,6 +411,8 @@ const AppContextInner: React.FC<{ children: React.ReactNode }> = ({ children }) 
         isPdfModalOpen: contractsCtx.isPdfModalOpen,
         duplicateContractData: contractsCtx.duplicateContractData,
         editingContractData: contractsCtx.editingContractData,
+        duplicateContractReports,
+        repairDuplicateContracts,
         theme: company.theme,
         toggleTheme: company.toggleTheme,
         setTheme: company.setTheme,

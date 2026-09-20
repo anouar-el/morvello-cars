@@ -11,6 +11,7 @@ import {
 } from '../types';
 import { initialCompanySettings, initialAuditLogs } from '../data/mockData';
 import { initialTermsVersion } from '../data/termsData';
+import { saveRemoteAgencyData } from '../lib/firestoreSync';
 
 export type CloudSyncStatus = 'idle' | 'syncing' | 'synced' | 'error';
 
@@ -159,7 +160,13 @@ export const CompanyProvider: React.FC<{
   );
 
   const updateCompanySettings = (settings: Partial<CompanySettings>) => {
-    setCompanySettings((prev) => ({ ...prev, ...settings }));
+    setCompanySettings((prev) => {
+      const updated = { ...prev, ...settings };
+      saveRemoteAgencyData({ companySettings: updated }).catch((err) =>
+        console.warn('Auto-save companySettings to cloud note:', err)
+      );
+      return updated;
+    });
     addAuditLog('Mise à jour paramètres', 'settings', 'company', 'Modification des paramètres de la société');
   };
 

@@ -19,6 +19,7 @@ import {
 import { WizardStep2Vehicle } from './wizard/WizardStep2Vehicle';
 import { WizardStep3Terms } from './wizard/WizardStep3Terms';
 import { WizardStep4Review } from './wizard/WizardStep4Review';
+import { getNextAvailableContractNumber } from '../utils/contractNumberUtils';
 
 export const ContractWizard: React.FC = () => {
   const {
@@ -28,6 +29,7 @@ export const ContractWizard: React.FC = () => {
     vehicles,
     addClient,
     users,
+    contracts,
     createContract,
     updateContract,
     duplicateContractData,
@@ -59,6 +61,10 @@ export const ContractWizard: React.FC = () => {
 
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [createdContractResult, setCreatedContractResult] = useState<Contract | null>(null);
+
+  const upcomingContractNumber = React.useMemo(() => {
+    return getNextAvailableContractNumber(contracts, companySettings).formattedContractNumber;
+  }, [contracts, companySettings]);
 
   // Form states
   // Step 1: Client Principal (Locataire)
@@ -659,10 +665,9 @@ export const ContractWizard: React.FC = () => {
               <h1 className="text-xl font-bold text-white tracking-tight">Nouveau Contrat de Location</h1>
             </div>
             <div className="text-xs text-slate-400 flex items-center gap-2 font-mono">
-              <span>N° automatique généré :</span>
+              <span>N° automatique garanti unique :</span>
               <span className="bg-slate-800 text-amber-400 px-2 py-0.5 rounded font-bold border border-slate-700">
-                {companySettings.contractPrefix}-{companySettings.contractYear}-
-                {String(companySettings.nextContractNumber).padStart(4, '0')}
+                {upcomingContractNumber}
               </span>
             </div>
           </div>

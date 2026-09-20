@@ -51,6 +51,8 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
     setActiveTab,
     currentUser,
     hasPermission,
+    duplicateContractReports,
+    repairDuplicateContracts,
   } = useApp();
 
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -62,6 +64,10 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
   const [contractToDelete, setContractToDelete] = useState<Contract | null>(null);
   const [deleteContractError, setDeleteContractError] = useState<string | null>(null);
   const [successToastMsg, setSuccessToastMsg] = useState<string>('');
+
+  const duplicateNumberSet = React.useMemo(() => {
+    return new Set(duplicateContractReports.map((r) => r.contractNumber));
+  }, [duplicateContractReports]);
 
   // Quick departure fuel modal
   const [fuelEditModalContract, setFuelEditModalContract] = useState<Contract | null>(null);
@@ -236,6 +242,45 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
         </button>
       </div>
 
+      {/* DUPLICATE CONTRACTS ALERT BANNER */}
+      {duplicateContractReports.length > 0 && (
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-lg animate-in fade-in">
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-amber-500/20 text-amber-400 rounded-xl shrink-0 mt-0.5">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold text-amber-300">
+                  Numéros de contrats en doublon détectés ({duplicateContractReports.length})
+                </span>
+                <span className="text-[11px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full font-mono font-bold">
+                  {duplicateContractReports.reduce((acc, r) => acc + r.contracts.length, 0)} contrats concernés
+                </span>
+              </div>
+              <p className="text-xs text-slate-300 mt-1">
+                Certains contrats partagent le même numéro ({duplicateContractReports.map((r) => r.contractNumber).slice(0, 3).join(', ')}{duplicateContractReports.length > 3 ? '...' : ''}).
+                La résolution automatique réattribue des numéros uniques et consécutifs tout en mettant à jour les cautions liées.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              const res = repairDuplicateContracts();
+              if (res.renumberedCount > 0) {
+                setSuccessToastMsg(
+                  `${res.renumberedCount} contrat(s) en doublon ont été renumérotés avec succès avec de nouveaux numéros uniques.`
+                );
+              }
+            }}
+            className="flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-4 py-2 rounded-xl text-xs shrink-0 shadow-md transition-all cursor-pointer"
+          >
+            <ShieldCheck className="w-4 h-4" />
+            Corriger automatiquement les numéros
+          </button>
+        </div>
+      )}
+
       {/* FILTER & SEARCH BAR */}
       <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl shadow-md flex flex-col md:flex-row md:items-center justify-between gap-3">
         {/* Search */}
@@ -341,8 +386,19 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                   <tr key={cnt.id} className="hover:bg-slate-850/60 transition-colors">
                     {/* NUMÉRO & DATE */}
                     <td className="px-4 py-3.5">
-                      <div className="font-mono font-bold text-amber-400 text-sm">
-                        {cnt.contractNumber}
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-mono font-bold text-amber-400 text-sm">
+                          {cnt.contractNumber}
+                        </span>
+                        {duplicateNumberSet.has(cnt.contractNumber) && (
+                          <span
+                            className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-300 bg-amber-500/20 border border-amber-500/40 px-1.5 py-0.5 rounded"
+                            title="Numéro en doublon partagé par plusieurs contrats"
+                          >
+                            <AlertTriangle className="w-2.5 h-2.5 text-amber-400" />
+                            Doublon
+                          </span>
+                        )}
                       </div>
                       <div className="text-[10px] text-slate-500 mt-0.5">
                         {new Date(cnt.createdAt).toLocaleDateString('fr-FR')} • {cnt.createdBy}

@@ -13,7 +13,7 @@ export const initialCompanySettings: CompanySettings = {
   email: 'contact@morvellocars.com',
   contractPrefix: 'MC',
   contractYear: 2026,
-  nextContractNumber: 50,
+  nextContractNumber: 51,
   defaultContractTemplate: 'standard',
 };
 

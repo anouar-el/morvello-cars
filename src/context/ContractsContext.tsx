@@ -12,6 +12,12 @@ import {
 import { initialContracts } from '../data/mockData';
 import { saveRemoteAgencyData } from '../lib/firestoreSync';
 import { formatPlateFrench } from '../utils/plateUtils';
+import {
+  getNextAvailableContractNumber,
+  findDuplicateContractNumbers,
+  repairAndDeduplicateContracts,
+  DuplicateContractReport,
+} from '../utils/contractNumberUtils';
 
 export interface ContractsContextType {
   contracts: Contract[];
@@ -45,6 +51,13 @@ export interface ContractsContextType {
       onUpdateClients: (updater: (prev: Client[]) => Client[]) => void;
     }
   ) => Contract;
+
+  repairDuplicateContracts: (
+    deposits: DepositRecord[],
+    companySettings: CompanySettings,
+    onUpdateDeposits: (deps: DepositRecord[]) => void,
+    onUpdateCompanySettings: (settings: CompanySettings) => void
+  ) => { renumberedCount: number };
 
   updateContract: (
     id: string,
@@ -141,8 +154,11 @@ export const ContractsProvider: React.FC<{
       onUpdateClients: (updater: (prev: Client[]) => Client[]) => void;
     }
   ): Contract => {
-    const num = String(companySettings.nextContractNumber).padStart(4, '0');
-    const contractNumber = `${companySettings.contractPrefix}-${companySettings.contractYear}-${num}`;
+    const { formattedContractNumber, nextSequence } = getNextAvailableContractNumber(
+      contracts,
+      companySettings
+    );
+    const contractNumber = formattedContractNumber;
 
     let assignedManagerId = contractData.assignedManagerId;
     let assignedManagerName = contractData.assignedManagerName;
@@ -174,7 +190,11 @@ export const ContractsProvider: React.FC<{
       termsVersion: termsVersion.version,
     };
 
-    onUpdateCompanySettings({ nextContractNumber: companySettings.nextContractNumber + 1 });
+    const updatedCompanySettings: CompanySettings = {
+      ...companySettings,
+      nextContractNumber: nextSequence + 1,
+    };
+    onUpdateCompanySettings(updatedCompanySettings);
 
     const rentedVeh = vehicles.find(
       (v) => v.id === newContract.vehicleId || v.plate === newContract.vehicleSnapshot?.plate
@@ -210,7 +230,10 @@ export const ContractsProvider: React.FC<{
 
     const updatedContracts = [newContract, ...contracts];
     setContracts(updatedContracts);
-    saveRemoteAgencyData({ contracts: updatedContracts }).catch((err) =>
+    saveRemoteAgencyData({
+      contracts: updatedContracts,
+      companySettings: updatedCompanySettings,
+    }).catch((err) =>
       console.warn('Auto-save createContract to Firestore note:', err)
     );
 
@@ -504,6 +527,32 @@ export const ContractsProvider: React.FC<{
     );
   };
 
+  const repairDuplicateContracts = (
+    deposits: DepositRecord[],
+    companySettings: CompanySettings,
+    onUpdateDeposits: (deps: DepositRecord[]) => void,
+    onUpdateCompanySettings: (settings: CompanySettings) => void
+  ): { renumberedCount: number } => {
+    const result = repairAndDeduplicateContracts(contracts, deposits, companySettings);
+    if (result.renumberedCount > 0) {
+      setContracts(result.repairedContracts);
+      onUpdateDeposits(result.repairedDeposits);
+      onUpdateCompanySettings(result.updatedCompanySettings);
+      saveRemoteAgencyData({
+        contracts: result.repairedContracts,
+        deposits: result.repairedDeposits,
+        companySettings: result.updatedCompanySettings,
+      }).catch((err) => console.warn('Auto-save repaired contracts note:', err));
+      logAction(
+        'Réparation numérotation contrats',
+        'contract',
+        'system',
+        `${result.renumberedCount} contrat(s) en doublon ont été réattribués avec des numéros uniques et consécutifs.`
+      );
+    }
+    return { renumberedCount: result.renumberedCount };
+  };
+
   const setContractsList = (newContracts: Contract[]) => {
     const filtered = newContracts.filter(
       (c) => !['cnt-1', 'cnt-2', 'cnt-3', 'cnt-4', 'cnt-48', 'cnt-49'].includes(c.id)
@@ -530,6 +579,7 @@ export const ContractsProvider: React.FC<{
         closePdfModal,
         updateContractInspection,
         createContract,
+        repairDuplicateContracts,
         updateContract,
         completeContract,
         cancelContract,

@@ -22,11 +22,13 @@ import {
 import { CompanyStamp } from './CompanyStamp';
 import { CompanyLogo } from './CompanyLogo';
 import { AiCharterSettings } from './AiCharterSettings';
+import { getNextAvailableContractNumber } from '../utils/contractNumberUtils';
 
 export const SettingsView: React.FC = () => {
   const {
     companySettings,
     updateCompanySettings,
+    contracts,
     currentUser,
     cloudSyncStatus,
     lastCloudSync,
@@ -39,6 +41,10 @@ export const SettingsView: React.FC = () => {
   const [savedSuccess, setSavedSuccess] = useState<boolean>(false);
   const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<'company' | 'ai' | 'cloud_theme'>('company');
+
+  const effectiveNextContract = React.useMemo(() => {
+    return getNextAvailableContractNumber(contracts, formData);
+  }, [contracts, formData]);
 
   const isAgent = currentUser.role === 'agent';
 
@@ -574,10 +580,15 @@ export const SettingsView: React.FC = () => {
             </div>
           </div>
 
-          <div className="bg-slate-950/70 p-3 rounded-xl border border-slate-800 text-xs flex items-center justify-between">
-            <span className="text-slate-400">Exemple du prochain numéro généré :</span>
-            <span className="font-mono font-bold text-amber-400 text-sm bg-slate-900 px-3 py-1 rounded border border-slate-700">
-              {formData.contractPrefix}-{formData.contractYear}-{String(formData.nextContractNumber).padStart(4, '0')}
+          <div className="bg-slate-950/70 p-3.5 rounded-xl border border-slate-800 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <span className="text-slate-300 font-medium block">Prochain numéro garanti unique :</span>
+              <span className="text-[11px] text-slate-500">
+                L'algorithme vérifie tous les contrats existants pour interdire les doublons en cas de conflit.
+              </span>
+            </div>
+            <span className="font-mono font-bold text-amber-400 text-sm bg-slate-900 px-3 py-1 rounded border border-slate-700 shrink-0">
+              {effectiveNextContract.formattedContractNumber}
             </span>
           </div>
         </div>
