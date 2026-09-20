@@ -8,6 +8,7 @@ import {
   CompanySettings,
   TermsVersion,
   DepositRecord,
+  PaymentRecord,
 } from '../types';
 import { initialContracts } from '../data/mockData';
 import { saveRemoteAgencyData } from '../lib/firestoreSync';
@@ -63,6 +64,36 @@ export interface ContractsContextType {
     id: string,
     data: Partial<Contract>,
     onUpdateVehicles?: (updater: (prev: Vehicle[]) => Vehicle[]) => void
+  ) => Contract | undefined;
+
+  addPaymentToContract: (
+    contractId: string,
+    payment: Omit<PaymentRecord, 'id' | 'date'> & { date?: string; id?: string },
+    actorName?: string
+  ) => Contract | undefined;
+
+  updateContractPayment: (
+    contractId: string,
+    paymentId: string,
+    paymentData: Partial<PaymentRecord>,
+    actorName?: string
+  ) => Contract | undefined;
+
+  deleteContractPayment: (
+    contractId: string,
+    paymentId: string,
+    actorName?: string
+  ) => Contract | undefined;
+
+  updateContractFinancials: (
+    contractId: string,
+    financials: {
+      pricePerDay?: number;
+      totalAmount?: number;
+      totalDays?: number;
+      depositAmount?: number;
+    },
+    actorName?: string
   ) => Contract | undefined;
 
   completeContract: (
@@ -178,6 +209,15 @@ export const ContractsProvider: React.FC<{
       }
     }
 
+    const totalContractAmount = contractData.totalAmount ?? ((contractData.pricePerDay || 0) * (contractData.totalDays || 1));
+    const initialPayments = contractData.payments || [];
+    const initialPaid = contractData.paidAmount !== undefined
+      ? contractData.paidAmount
+      : initialPayments.reduce((acc, p) => acc + (p.amount || 0), 0);
+    const initialRemaining = contractData.remainingAmount !== undefined
+      ? contractData.remainingAmount
+      : Math.max(0, totalContractAmount - initialPaid);
+
     const newContract: Contract = {
       ...contractData,
       assignedManagerId,
@@ -188,6 +228,10 @@ export const ContractsProvider: React.FC<{
       createdAt: new Date().toISOString(),
       createdBy: currentUser?.name || 'Système',
       termsVersion: termsVersion.version,
+      payments: initialPayments,
+      paidAmount: initialPaid,
+      remainingAmount: initialRemaining,
+      paymentStatus: initialRemaining <= 0 && totalContractAmount > 0 ? 'paid' : initialPaid > 0 ? 'partial' : 'unpaid',
     };
 
     const updatedCompanySettings: CompanySettings = {
@@ -330,6 +374,176 @@ export const ContractsProvider: React.FC<{
     );
 
     return updatedContract;
+  };
+
+  const addPaymentToContract = (
+    contractId: string,
+    payment: Omit<PaymentRecord, 'id' | 'date'> & { date?: string; id?: string },
+    actorName: string = 'Direction'
+  ): Contract | undefined => {
+    const existing = contracts.find((c) => c.id === contractId);
+    if (!existing) return undefined;
+
+    const now = new Date();
+    const formattedDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(
+      now.getDate()
+    ).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+    const newPaymentRecord: PaymentRecord = {
+      id: payment.id || `pay-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      amount: Math.max(0, Number(payment.amount) || 0),
+      method: payment.method,
+      date: payment.date || formattedDate,
+      notes: payment.notes || '',
+      recordedBy: payment.recordedBy || actorName,
+      receiptNumber:
+        payment.receiptNumber ||
+        `REC-${existing.contractNumber}-${(existing.payments?.length || 0) + 1}`,
+    };
+
+    const currentPayments = existing.payments || [];
+    const newPayments = [...currentPayments, newPaymentRecord];
+    const totalPaid = newPayments.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
+    const contractTotal = existing.totalAmount ?? ((existing.pricePerDay || 0) * (existing.totalDays || 1));
+    const newRemaining = Math.max(0, contractTotal - totalPaid);
+    const newPaymentStatus: 'paid' | 'partial' | 'unpaid' =
+      newRemaining <= 0 ? 'paid' : totalPaid > 0 ? 'partial' : 'unpaid';
+
+    const updated = updateContract(contractId, {
+      payments: newPayments,
+      paidAmount: totalPaid,
+      remainingAmount: newRemaining,
+      paymentStatus: newPaymentStatus,
+    });
+
+    logAction(
+      'Paiement reçu',
+      'contract',
+      existing.contractNumber,
+      `Paiement de ${newPaymentRecord.amount} MAD enregistré (${newPaymentRecord.method}) par ${actorName}. Reste à payer : ${newRemaining} MAD.`
+    );
+
+    return updated;
+  };
+
+  const updateContractPayment = (
+    contractId: string,
+    paymentId: string,
+    paymentData: Partial<PaymentRecord>,
+    actorName: string = 'Direction'
+  ): Contract | undefined => {
+    const existing = contracts.find((c) => c.id === contractId);
+    if (!existing) return undefined;
+
+    const currentPayments = existing.payments || [];
+    const updatedPayments = currentPayments.map((p) =>
+      p.id === paymentId
+        ? {
+            ...p,
+            ...paymentData,
+            amount: paymentData.amount !== undefined ? Math.max(0, Number(paymentData.amount) || 0) : p.amount,
+          }
+        : p
+    );
+
+    const totalPaid = updatedPayments.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
+    const contractTotal = existing.totalAmount ?? ((existing.pricePerDay || 0) * (existing.totalDays || 1));
+    const newRemaining = Math.max(0, contractTotal - totalPaid);
+    const newPaymentStatus: 'paid' | 'partial' | 'unpaid' =
+      newRemaining <= 0 ? 'paid' : totalPaid > 0 ? 'partial' : 'unpaid';
+
+    const updated = updateContract(contractId, {
+      payments: updatedPayments,
+      paidAmount: totalPaid,
+      remainingAmount: newRemaining,
+      paymentStatus: newPaymentStatus,
+    });
+
+    logAction(
+      'Modification paiement',
+      'contract',
+      existing.contractNumber,
+      `Paiement #${paymentId} modifié par ${actorName}. Total payé : ${totalPaid} MAD, Reste : ${newRemaining} MAD.`
+    );
+
+    return updated;
+  };
+
+  const deleteContractPayment = (
+    contractId: string,
+    paymentId: string,
+    actorName: string = 'Direction'
+  ): Contract | undefined => {
+    const existing = contracts.find((c) => c.id === contractId);
+    if (!existing) return undefined;
+
+    const currentPayments = existing.payments || [];
+    const targetPayment = currentPayments.find((p) => p.id === paymentId);
+    const updatedPayments = currentPayments.filter((p) => p.id !== paymentId);
+
+    const totalPaid = updatedPayments.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
+    const contractTotal = existing.totalAmount ?? ((existing.pricePerDay || 0) * (existing.totalDays || 1));
+    const newRemaining = Math.max(0, contractTotal - totalPaid);
+    const newPaymentStatus: 'paid' | 'partial' | 'unpaid' =
+      newRemaining <= 0 ? 'paid' : totalPaid > 0 ? 'partial' : 'unpaid';
+
+    const updated = updateContract(contractId, {
+      payments: updatedPayments,
+      paidAmount: totalPaid,
+      remainingAmount: newRemaining,
+      paymentStatus: newPaymentStatus,
+    });
+
+    logAction(
+      'Suppression paiement',
+      'contract',
+      existing.contractNumber,
+      `Paiement de ${targetPayment?.amount || 0} MAD supprimé par ${actorName}. Reste recalculé : ${newRemaining} MAD.`
+    );
+
+    return updated;
+  };
+
+  const updateContractFinancials = (
+    contractId: string,
+    financials: {
+      pricePerDay?: number;
+      totalAmount?: number;
+      totalDays?: number;
+      depositAmount?: number;
+    },
+    actorName: string = 'Direction'
+  ): Contract | undefined => {
+    const existing = contracts.find((c) => c.id === contractId);
+    if (!existing) return undefined;
+
+    const currentPayments = existing.payments || [];
+    const totalPaid = currentPayments.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
+    const newTotalAmount =
+      financials.totalAmount !== undefined
+        ? Math.max(0, Number(financials.totalAmount) || 0)
+        : existing.totalAmount ?? ((existing.pricePerDay || 0) * (existing.totalDays || 1));
+
+    const newRemaining = Math.max(0, newTotalAmount - totalPaid);
+    const newPaymentStatus: 'paid' | 'partial' | 'unpaid' =
+      newRemaining <= 0 ? 'paid' : totalPaid > 0 ? 'partial' : 'unpaid';
+
+    const updated = updateContract(contractId, {
+      ...financials,
+      totalAmount: newTotalAmount,
+      paidAmount: totalPaid,
+      remainingAmount: newRemaining,
+      paymentStatus: newPaymentStatus,
+    });
+
+    logAction(
+      'Modification tarification contrat',
+      'contract',
+      existing.contractNumber,
+      `Tarification mise à jour par ${actorName}. Total : ${newTotalAmount} MAD, Reste à payer : ${newRemaining} MAD.`
+    );
+
+    return updated;
   };
 
   const startEditingContract = (contract: Contract, onNavigate?: () => void) => {
@@ -581,6 +795,10 @@ export const ContractsProvider: React.FC<{
         createContract,
         repairDuplicateContracts,
         updateContract,
+        addPaymentToContract,
+        updateContractPayment,
+        deleteContractPayment,
+        updateContractFinancials,
         completeContract,
         cancelContract,
         deleteContract,

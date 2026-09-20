@@ -253,6 +253,18 @@ export interface VehicleSnapshot {
 export type DepositMethod = 'preauth_card' | 'cheque' | 'cash' | 'virement';
 export type DepositStatus = 'held' | 'released' | 'partially_deducted' | 'fully_retained';
 
+export type PaymentMethod = 'cash' | 'tpe_card' | 'virement' | 'cheque' | 'autre';
+
+export interface PaymentRecord {
+  id: string;
+  amount: number;
+  method: PaymentMethod;
+  date: string;
+  notes?: string;
+  recordedBy?: string;
+  receiptNumber?: string;
+}
+
 export interface DepositDeduction {
   id: string;
   reason: 'fuel' | 'late_return' | 'traffic_fine' | 'damage' | 'cleaning' | 'other';
@@ -372,6 +384,10 @@ export interface Contract {
   totalDays: number;
   pricePerDay?: number;
   totalAmount?: number;
+  paidAmount?: number;
+  remainingAmount?: number;
+  paymentStatus?: 'paid' | 'partial' | 'unpaid';
+  payments?: PaymentRecord[];
   depositAmount?: number;
   depositRecord?: DepositRecord;
   inspection?: ContractInspection;

@@ -397,6 +397,15 @@ export const PrestigeContractPdfLayout: React.FC<PrestigeContractPdfLayoutProps>
                 <span className="font-mono text-sm font-black text-amber-950">
                   {contract.totalAmount ? `${contract.totalAmount.toLocaleString()} MAD` : 'Inclus Pack'}
                 </span>
+                <div className="mt-0.5 flex items-center justify-center gap-2 text-[7px]">
+                  <span className="text-emerald-700 font-bold">
+                    Payé : {((contract.paidAmount !== undefined ? contract.paidAmount : (contract.payments?.reduce((s, p) => s + (p.amount || 0), 0) ?? 0))).toLocaleString('fr-FR')} MAD
+                  </span>
+                  <span className="text-slate-300">•</span>
+                  <span className={`font-bold ${((contract.remainingAmount !== undefined ? contract.remainingAmount : Math.max(0, (contract.totalAmount ?? ((contract.pricePerDay || 0) * contract.totalDays)) - (contract.paidAmount ?? 0)))) > 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
+                    Reste : {((contract.remainingAmount !== undefined ? contract.remainingAmount : Math.max(0, (contract.totalAmount ?? ((contract.pricePerDay || 0) * contract.totalDays)) - (contract.paidAmount ?? 0)))).toLocaleString('fr-FR')} MAD
+                  </span>
+                </div>
               </div>
               <div className="col-span-4 pl-2 text-right">
                 <span className="text-[8px] uppercase font-bold text-slate-500 block">Dépôt de Garantie VIP</span>

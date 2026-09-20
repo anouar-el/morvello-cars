@@ -18,6 +18,7 @@ import {
   ContractInspection,
   ThemeMode,
   AiAssistantSettings,
+  PaymentRecord,
 } from '../types';
 import {
   initialClients,
@@ -120,6 +121,32 @@ export interface AppContextType {
   deleteVehicleExpense: (vehicleId: string, expenseId: string) => void;
   createContract: (contractData: Omit<Contract, 'id' | 'contractNumber' | 'createdAt' | 'createdBy'>) => Contract;
   updateContract: (id: string, data: Partial<Contract>) => Contract | undefined;
+  addPaymentToContract: (
+    contractId: string,
+    payment: Omit<PaymentRecord, 'id' | 'date'> & { date?: string; id?: string },
+    actorName?: string
+  ) => Contract | undefined;
+  updateContractPayment: (
+    contractId: string,
+    paymentId: string,
+    paymentData: Partial<PaymentRecord>,
+    actorName?: string
+  ) => Contract | undefined;
+  deleteContractPayment: (
+    contractId: string,
+    paymentId: string,
+    actorName?: string
+  ) => Contract | undefined;
+  updateContractFinancials: (
+    contractId: string,
+    financials: {
+      pricePerDay?: number;
+      totalAmount?: number;
+      totalDays?: number;
+      depositAmount?: number;
+    },
+    actorName?: string
+  ) => Contract | undefined;
   startEditingContract: (contract: Contract) => void;
   clearEditingData: () => void;
   completeContract: (id: string, returnKm: number, returnDate: string, returnTime: string, notes?: string) => void;
@@ -455,6 +482,14 @@ const AppContextInner: React.FC<{ children: React.ReactNode }> = ({ children }) 
           vehiclesCtx.deleteVehicleExpense(vehicleId, expenseId, auth.currentUser),
         createContract,
         updateContract,
+        addPaymentToContract: (contractId, payment, actorName) =>
+          contractsCtx.addPaymentToContract(contractId, payment, actorName || auth.currentUser?.name),
+        updateContractPayment: (contractId, paymentId, paymentData, actorName) =>
+          contractsCtx.updateContractPayment(contractId, paymentId, paymentData, actorName || auth.currentUser?.name),
+        deleteContractPayment: (contractId, paymentId, actorName) =>
+          contractsCtx.deleteContractPayment(contractId, paymentId, actorName || auth.currentUser?.name),
+        updateContractFinancials: (contractId, financials, actorName) =>
+          contractsCtx.updateContractFinancials(contractId, financials, actorName || auth.currentUser?.name),
         startEditingContract: (contract) =>
           contractsCtx.startEditingContract(contract, () => company.setActiveTab('new_contract')),
         clearEditingData: contractsCtx.clearEditingData,

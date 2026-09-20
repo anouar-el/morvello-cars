@@ -351,6 +351,15 @@ export const CorporateContractPdfLayout: React.FC<CorporateContractPdfLayoutProp
                 <span className="font-mono text-sm font-black text-blue-950">
                   {totalTTC.toLocaleString()} MAD TTC
                 </span>
+                <div className="mt-0.5 flex items-center justify-center gap-1 text-[6.5px]">
+                  <span className="text-emerald-700 font-bold">
+                    Payé: {((contract.paidAmount !== undefined ? contract.paidAmount : (contract.payments?.reduce((s, p) => s + (p.amount || 0), 0) ?? 0))).toLocaleString('fr-FR')} MAD
+                  </span>
+                  <span className="text-slate-300">•</span>
+                  <span className={`font-bold ${((contract.remainingAmount !== undefined ? contract.remainingAmount : Math.max(0, (contract.totalAmount ?? ((contract.pricePerDay || 0) * contract.totalDays)) - (contract.paidAmount ?? 0)))) > 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
+                    Reste: {((contract.remainingAmount !== undefined ? contract.remainingAmount : Math.max(0, (contract.totalAmount ?? ((contract.pricePerDay || 0) * contract.totalDays)) - (contract.paidAmount ?? 0)))).toLocaleString('fr-FR')} MAD
+                  </span>
+                </div>
               </div>
               <div className="col-span-3 pl-2 text-right">
                 <span className="text-[8px] uppercase font-bold text-slate-500 block">Dépôt de Garantie Flotte</span>

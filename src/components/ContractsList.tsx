@@ -27,10 +27,13 @@ import {
   AlertTriangle,
   PenTool,
   ShieldCheck,
+  Banknote,
+  DollarSign,
 } from 'lucide-react';
 import { formatPlateFrench } from '../utils/plateUtils';
 import { InspectionManagerModal } from './InspectionManagerModal';
 import { DigitalSignatureModal } from './DigitalSignatureModal';
+import { ContractPaymentsModal } from './ContractPaymentsModal';
 import { isContractOwnedByManager } from '../utils/managerScopeUtils';
 
 interface ContractsListProps {
@@ -46,6 +49,10 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
     duplicateContract,
     startEditingContract,
     updateContract,
+    addPaymentToContract,
+    updateContractPayment,
+    deleteContractPayment,
+    updateContractFinancials,
     cancelContract,
     deleteContract,
     setActiveTab,
@@ -57,8 +64,10 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
 
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [paymentFilter, setPaymentFilter] = useState<string>('all');
   const [managerFilter, setManagerFilter] = useState<string>('all');
   const [inspectionContract, setInspectionContract] = useState<Contract | null>(null);
+  const [paymentsModalContract, setPaymentsModalContract] = useState<Contract | null>(null);
 
   // Contract Deletion Modal (Gérant only)
   const [contractToDelete, setContractToDelete] = useState<Contract | null>(null);
@@ -125,6 +134,17 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
     // Status filter
     if (statusFilter !== 'all' && c.status !== statusFilter) {
       return false;
+    }
+
+    // Payment status filter
+    if (paymentFilter !== 'all') {
+      const cTotal = c.totalAmount ?? ((c.pricePerDay || 0) * (c.totalDays || 1));
+      const cPaid = c.paidAmount !== undefined ? c.paidAmount : (c.payments?.reduce((s, p) => s + (p.amount || 0), 0) ?? 0);
+      const cRemaining = c.remainingAmount !== undefined ? c.remainingAmount : Math.max(0, cTotal - cPaid);
+
+      if (paymentFilter === 'paid' && cRemaining > 0) return false;
+      if (paymentFilter === 'partial' && (cPaid === 0 || cRemaining === 0)) return false;
+      if (paymentFilter === 'unpaid' && cPaid > 0) return false;
     }
 
     // Search query: contract number, client name, phone, CIN/Passport, plate
@@ -321,33 +341,83 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
         )}
 
         {/* Filter Pills (Section 32) */}
-        <div className="flex items-center gap-1.5 overflow-x-auto text-xs">
-          {[
-            { id: 'all', label: 'Tous', count: visibleContracts.length },
-            { id: 'active', label: 'Actifs', count: visibleContracts.filter((c) => c.status === 'active').length },
-            { id: 'completed', label: 'Terminés', count: visibleContracts.filter((c) => c.status === 'completed').length },
-            { id: 'draft', label: 'Brouillons', count: visibleContracts.filter((c) => c.status === 'draft').length },
-            { id: 'cancelled', label: 'Annulés', count: visibleContracts.filter((c) => c.status === 'cancelled').length },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setStatusFilter(tab.id)}
-              className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-colors cursor-pointer flex items-center gap-1.5 ${
-                statusFilter === tab.id
-                  ? 'bg-amber-500 text-slate-950 font-bold shadow-sm'
-                  : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'
-              }`}
-            >
-              <span>{tab.label}</span>
-              <span
-                className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
-                  statusFilter === tab.id ? 'bg-slate-950 text-amber-400' : 'bg-slate-800 text-slate-400'
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <div className="flex items-center gap-1.5 overflow-x-auto">
+            {[
+              { id: 'all', label: 'Tous', count: visibleContracts.length },
+              { id: 'active', label: 'Actifs', count: visibleContracts.filter((c) => c.status === 'active').length },
+              { id: 'completed', label: 'Terminés', count: visibleContracts.filter((c) => c.status === 'completed').length },
+              { id: 'draft', label: 'Brouillons', count: visibleContracts.filter((c) => c.status === 'draft').length },
+              { id: 'cancelled', label: 'Annulés', count: visibleContracts.filter((c) => c.status === 'cancelled').length },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setStatusFilter(tab.id)}
+                className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-colors cursor-pointer flex items-center gap-1.5 ${
+                  statusFilter === tab.id
+                    ? 'bg-amber-500 text-slate-950 font-bold shadow-sm'
+                    : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'
                 }`}
               >
-                {tab.count}
-              </span>
+                <span>{tab.label}</span>
+                <span
+                  className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                    statusFilter === tab.id ? 'bg-slate-950 text-amber-400' : 'bg-slate-800 text-slate-400'
+                  }`}
+                >
+                  {tab.count}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          {/* Payment Status Quick Filter */}
+          <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800 text-[11px]">
+            <span className="text-slate-500 px-1.5 font-medium flex items-center gap-1">
+              <Banknote className="w-3 h-3 text-amber-400" />
+              Règlement :
+            </span>
+            <button
+              onClick={() => setPaymentFilter('all')}
+              className={`px-2 py-0.5 rounded cursor-pointer transition-colors ${
+                paymentFilter === 'all'
+                  ? 'bg-slate-800 text-white font-bold'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Tous
             </button>
-          ))}
+            <button
+              onClick={() => setPaymentFilter('paid')}
+              className={`px-2 py-0.5 rounded cursor-pointer transition-colors ${
+                paymentFilter === 'paid'
+                  ? 'bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/40'
+                  : 'text-slate-400 hover:text-emerald-400'
+              }`}
+            >
+              Soldés
+            </button>
+            <button
+              onClick={() => setPaymentFilter('partial')}
+              className={`px-2 py-0.5 rounded cursor-pointer transition-colors ${
+                paymentFilter === 'partial'
+                  ? 'bg-amber-500/20 text-amber-400 font-bold border border-amber-500/40'
+                  : 'text-slate-400 hover:text-amber-400'
+              }`}
+            >
+              Acomptes
+            </button>
+            <button
+              onClick={() => setPaymentFilter('unpaid')}
+              className={`px-2 py-0.5 rounded cursor-pointer transition-colors ${
+                paymentFilter === 'unpaid'
+                  ? 'bg-rose-500/20 text-rose-400 font-bold border border-rose-500/40'
+                  : 'text-slate-400 hover:text-rose-400'
+              }`}
+            >
+              Non payés
+            </button>
+          </div>
         </div>
       </div>
 
@@ -370,6 +440,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                 <th className="px-4 py-3.5">Véhicule & Immat</th>
                 <th className="px-4 py-3.5">Période Location</th>
                 <th className="px-4 py-3.5">KM & Carburant</th>
+                <th className="px-4 py-3.5">Règlement & Solde</th>
                 <th className="px-4 py-3.5">Statut</th>
                 <th className="px-4 py-3.5 text-right">Actions</th>
               </tr>
@@ -377,7 +448,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
             <tbody className="divide-y divide-slate-800">
               {filteredContracts.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-12 text-slate-500 text-xs">
+                  <td colSpan={8} className="text-center py-12 text-slate-500 text-xs">
                     Aucun contrat ne correspond à vos critères de recherche.
                   </td>
                 </tr>
@@ -515,6 +586,62 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                       )}
                     </td>
 
+                    {/* RÈGLEMENT & SOLDE */}
+                    <td className="px-4 py-3.5">
+                      {(() => {
+                        const total = cnt.totalAmount ?? ((cnt.pricePerDay || 0) * (cnt.totalDays || 1));
+                        const paid = cnt.paidAmount !== undefined ? cnt.paidAmount : (cnt.payments?.reduce((s, p) => s + (p.amount || 0), 0) ?? 0);
+                        const remaining = cnt.remainingAmount !== undefined ? cnt.remainingAmount : Math.max(0, total - paid);
+                        const isFullyPaid = remaining <= 0 && total > 0;
+                        const isPartiallyPaid = paid > 0 && remaining > 0;
+
+                        return (
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between gap-1 text-[11px]">
+                              <span className="font-mono text-slate-300 font-bold">
+                                {total.toLocaleString('fr-FR')} MAD
+                              </span>
+                              {isFullyPaid ? (
+                                <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-1.5 py-0.2 rounded font-mono">
+                                  ✓ Soldé
+                                </span>
+                              ) : isPartiallyPaid ? (
+                                <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-amber-400 bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.2 rounded font-mono">
+                                  ⚡ Acompte
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-rose-400 bg-rose-500/15 border border-rose-500/30 px-1.5 py-0.2 rounded font-mono">
+                                  ✕ Non payé
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="text-[10px] font-mono flex items-center justify-between">
+                              <span className="text-emerald-400">
+                                Payé: {paid.toLocaleString('fr-FR')}
+                              </span>
+                              <span className={remaining > 0 ? 'text-rose-400 font-bold' : 'text-slate-500'}>
+                                Reste: {remaining.toLocaleString('fr-FR')}
+                              </span>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => setPaymentsModalContract(cnt)}
+                              className="w-full text-left flex items-center justify-between text-[9.5px] text-amber-400/90 hover:text-amber-300 hover:bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 transition-colors cursor-pointer"
+                              title="Gérer les paiements et acomptes de ce contrat"
+                            >
+                              <span className="flex items-center gap-1 font-semibold">
+                                <Banknote className="w-2.5 h-2.5" />
+                                {cnt.payments?.length || 0} versement(s)
+                              </span>
+                              <span className="text-amber-400 font-bold">Gérer &gt;</span>
+                            </button>
+                          </div>
+                        );
+                      })()}
+                    </td>
+
                     {/* STATUT */}
                     <td className="px-4 py-3.5">{getStatusBadge(cnt.status)}</td>
 
@@ -545,6 +672,15 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                           }
                         >
                           <PenTool className="w-4 h-4" />
+                        </button>
+
+                        {/* 1c. Règlements & Paiements Clients */}
+                        <button
+                          onClick={() => setPaymentsModalContract(cnt)}
+                          className="p-1.5 bg-slate-800 hover:bg-emerald-500/20 text-slate-300 hover:text-emerald-400 border border-slate-700 hover:border-emerald-500/40 rounded-lg transition-colors cursor-pointer"
+                          title="Gérer les règlements clients, acomptes et solde"
+                        >
+                          <Banknote className="w-4 h-4" />
                         </button>
 
                         {/* 2. Modifier le contrat (Actif ou Brouillon) */}
@@ -858,6 +994,45 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
             setTimeout(() => setSuccessToastMsg(''), 4000);
           }}
           updateContract={updateContract}
+        />
+      )}
+
+      {/* MODAL DE SUIVI DES PAIEMENTS CLIENTS */}
+      {paymentsModalContract && (
+        <ContractPaymentsModal
+          contract={
+            contracts.find((c) => c.id === paymentsModalContract.id) || paymentsModalContract
+          }
+          onClose={() => setPaymentsModalContract(null)}
+          onAddPayment={(cId, p) => {
+            const updated = addPaymentToContract(cId, p, currentUser?.name);
+            if (updated) {
+              setSuccessToastMsg(`Règlement de ${p.amount} MAD enregistré sur le contrat ${updated.contractNumber}`);
+              setTimeout(() => setSuccessToastMsg(''), 4000);
+            }
+          }}
+          onUpdatePayment={(cId, pId, pData) => {
+            const updated = updateContractPayment(cId, pId, pData, currentUser?.name);
+            if (updated) {
+              setSuccessToastMsg(`Paiement mis à jour avec succès sur le contrat ${updated.contractNumber}`);
+              setTimeout(() => setSuccessToastMsg(''), 4000);
+            }
+          }}
+          onDeletePayment={(cId, pId) => {
+            const updated = deleteContractPayment(cId, pId, currentUser?.name);
+            if (updated) {
+              setSuccessToastMsg(`Paiement supprimé du contrat ${updated.contractNumber}`);
+              setTimeout(() => setSuccessToastMsg(''), 4000);
+            }
+          }}
+          onUpdateFinancials={(cId, fin) => {
+            const updated = updateContractFinancials(cId, fin, currentUser?.name);
+            if (updated) {
+              setSuccessToastMsg(`Tarification du contrat ${updated.contractNumber} mise à jour (${fin.totalAmount} MAD)`);
+              setTimeout(() => setSuccessToastMsg(''), 4000);
+            }
+          }}
+          currentUserName={currentUser?.name || 'Direction'}
         />
       )}
     </div>

@@ -695,7 +695,14 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
                     ? `${(contract.pricePerDay * contract.totalDays).toLocaleString('fr-FR')} MAD`
                     : 'Sur devis'}
                 </p>
-                <span className="text-[7px] text-emerald-700 font-bold mt-0.5">TVA 20% incluse</span>
+                <div className="mt-0.5 pt-0.5 border-t border-amber-100 flex items-center justify-between text-[7px]">
+                  <span className="text-emerald-700 font-bold">
+                    Payé : {((contract.paidAmount !== undefined ? contract.paidAmount : (contract.payments?.reduce((s, p) => s + (p.amount || 0), 0) ?? 0))).toLocaleString('fr-FR')} MAD
+                  </span>
+                  <span className={`font-bold ${((contract.remainingAmount !== undefined ? contract.remainingAmount : Math.max(0, (contract.totalAmount ?? ((contract.pricePerDay || 0) * contract.totalDays)) - (contract.paidAmount ?? 0)))) > 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
+                    Reste : {((contract.remainingAmount !== undefined ? contract.remainingAmount : Math.max(0, (contract.totalAmount ?? ((contract.pricePerDay || 0) * contract.totalDays)) - (contract.paidAmount ?? 0)))).toLocaleString('fr-FR')} MAD
+                  </span>
+                </div>
               </div>
 
               {/* Caution / Dépôt de garantie */}
