@@ -114,8 +114,12 @@ export const WizardStep3Terms: React.FC<WizardStep3TermsProps> = ({
                 <Gauge className="w-4 h-4 absolute left-3 top-2.5 text-slate-500" />
                 <input
                   type="number"
-                  value={departureKm}
-                  onChange={(e) => setDepartureKm(Number(e.target.value))}
+                  value={departureKm === 0 ? '' : departureKm}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    setDepartureKm(raw === '' ? 0 : Math.max(0, Number(raw)));
+                  }}
+                  placeholder="0"
                   className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-9 pr-3 py-2 text-white font-mono font-bold focus:border-amber-500 focus:outline-none"
                 />
               </div>
@@ -176,8 +180,12 @@ export const WizardStep3Terms: React.FC<WizardStep3TermsProps> = ({
               <label className="block text-slate-400 mb-1 font-medium">Prix par jour (MAD)</label>
               <input
                 type="number"
-                value={pricePerDay}
-                onChange={(e) => setPricePerDay(Number(e.target.value))}
+                value={pricePerDay === 0 ? '' : pricePerDay}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  setPricePerDay(raw === '' ? 0 : Math.max(0, Number(raw)));
+                }}
+                placeholder="0"
                 className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono focus:border-amber-500 focus:outline-none"
               />
             </div>
@@ -185,8 +193,12 @@ export const WizardStep3Terms: React.FC<WizardStep3TermsProps> = ({
               <label className="block text-slate-400 mb-1 font-medium">Caution (MAD)</label>
               <input
                 type="number"
-                value={depositAmount}
-                onChange={(e) => setDepositAmount(Number(e.target.value))}
+                value={depositAmount === 0 ? '' : depositAmount}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  setDepositAmount(raw === '' ? 0 : Math.max(0, Number(raw)));
+                }}
+                placeholder="0"
                 className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono focus:border-amber-500 focus:outline-none"
               />
             </div>

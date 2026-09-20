@@ -135,15 +135,26 @@ export const ContractWizard: React.FC = () => {
     editingContractData?.templateId || userAssignedTemplate
   );
 
-  // Handle edit mode pre-population
+  // Refs to track initialization and prevent background cloud sync from overwriting user typing
+  const initializedEditContractIdRef = React.useRef<string | null>(null);
+  const initializedDuplicateIdRef = React.useRef<string | null>(null);
+  const lastInitializedVehicleIdRef = React.useRef<string>('');
+
+  // Handle edit mode pre-population - only run ONCE per contract id
   useEffect(() => {
     if (editingContractData) {
+      if (initializedEditContractIdRef.current === editingContractData.id) {
+        return;
+      }
+      initializedEditContractIdRef.current = editingContractData.id;
+
       if (editingContractData.templateId) {
         setSelectedTemplateId(editingContractData.templateId);
       }
       setSelectedClientId(editingContractData.clientId);
       setClientMode('existing');
       setSelectedVehicleId(editingContractData.vehicleId);
+      lastInitializedVehicleIdRef.current = editingContractData.vehicleId;
       setStartDate(editingContractData.startDate);
       setStartTime(editingContractData.startTime || '10:00');
       setEndDate(editingContractData.endDate);
@@ -155,7 +166,7 @@ export const ContractWizard: React.FC = () => {
           '8/8 (Plein)'
       );
       setPricePerDay(editingContractData.pricePerDay || 400);
-      setDepositAmount(editingContractData.depositAmount || 5000);
+      setDepositAmount(editingContractData.depositAmount ?? 5000);
 
       // Manager & Phone
       if (editingContractData.assignedManagerId) {
@@ -193,14 +204,22 @@ export const ContractWizard: React.FC = () => {
       } else {
         setHasProlongation(false);
       }
+    } else {
+      initializedEditContractIdRef.current = null;
     }
   }, [editingContractData, users]);
 
-  // Handle duplicate data
+  // Handle duplicate data - only run once per duplicate
   useEffect(() => {
     if (duplicateContractData && !editingContractData) {
+      if (initializedDuplicateIdRef.current === duplicateContractData.id) {
+        return;
+      }
+      initializedDuplicateIdRef.current = duplicateContractData.id;
+
       setSelectedClientId(duplicateContractData.clientId);
       setSelectedVehicleId(duplicateContractData.vehicleId);
+      lastInitializedVehicleIdRef.current = duplicateContractData.vehicleId;
       const veh = vehicles.find((v) => v.id === duplicateContractData.vehicleId);
       if (veh) {
         setDepartureKm(veh.currentKm);
@@ -232,9 +251,15 @@ export const ContractWizard: React.FC = () => {
     }
   }, [selectedVehicle, editingContractData, duplicateContractData, setSelectedVehicle]);
 
-  // Sync departure KM and vehicle manager when vehicle is picked (only for non-edit mode)
+  // Sync departure KM, daily rate, and manager ONLY WHEN the selected vehicle ID actually changes
   useEffect(() => {
     if (selectedVehicleId && !editingContractData) {
+      if (lastInitializedVehicleIdRef.current === selectedVehicleId) {
+        // Vehicle already initialized for this session: DO NOT overwrite user typing!
+        return;
+      }
+      lastInitializedVehicleIdRef.current = selectedVehicleId;
+
       const veh = vehicles.find((v) => v.id === selectedVehicleId);
       if (veh) {
         setDepartureKm(veh.currentKm);
