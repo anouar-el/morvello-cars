@@ -4,6 +4,10 @@ import { ContractPdfDocument } from './ContractPdfDocument';
 import { DigitalSignatureModal } from './DigitalSignatureModal';
 import { getContractTemplate } from '../data/contractTemplates';
 import {
+  downloadContractPdf,
+  openContractPdfInNewTab,
+} from '../utils/contractPdfGenerator';
+import {
   Printer,
   Download,
   X,
@@ -19,6 +23,7 @@ import {
   Edit3,
   PenTool,
   ShieldCheck,
+  ExternalLink,
 } from 'lucide-react';
 
 export const PdfModal: React.FC = () => {
@@ -37,7 +42,9 @@ export const PdfModal: React.FC = () => {
   const [viewLayout, setViewLayout] = useState<'stacked' | 'side-by-side'>('stacked');
   const [isGeneratingPdf, setIsGeneratingPdf] = useState<boolean>(false);
   const [generationStep, setGenerationStep] = useState<string>('');
+  const [generationPercent, setGenerationPercent] = useState<number>(0);
   const [downloadSuccess, setDownloadSuccess] = useState<boolean>(false);
+  const [lastGeneratedBlobUrl, setLastGeneratedBlobUrl] = useState<string | null>(null);
   const [isSignatureModalOpen, setIsSignatureModalOpen] = useState<boolean>(false);
 
   if (!isPdfModalOpen || !pdfModalContract) {
@@ -59,79 +66,64 @@ export const PdfModal: React.FC = () => {
 
     try {
       setIsGeneratingPdf(true);
-      setGenerationStep('Initialisation du document A4...');
+      setGenerationStep('Démarrage de la génération PDF A4...');
+      setGenerationPercent(10);
 
       addAuditLog(
         'Téléchargement PDF',
         'contract',
         pdfModalContract.contractNumber,
-        `Génération et téléchargement du fichier ${pdfModalContract.contractNumber}.pdf`
+        `Génération et téléchargement du fichier Contrat_${pdfModalContract.contractNumber}.pdf`
       );
 
-      // Brief pause to ensure DOM paint
-      await new Promise((r) => setTimeout(r, 150));
-
-      const page1Element =
-        document.getElementById('export-contract-pdf-page-1') ||
-        document.getElementById('preview-contract-pdf-page-1');
-      const page2Element =
-        document.getElementById('export-contract-pdf-page-2') ||
-        document.getElementById('preview-contract-pdf-page-2');
-
-      if (!page1Element || !page2Element) {
-        throw new Error('Les pages du document sont introuvables.');
-      }
-
-      setGenerationStep('Chargement du moteur PDF haute précision...');
-      const [{ default: jsPDF }, { toJpeg }] = await Promise.all([
-        import('jspdf'),
-        import('html-to-image'),
-      ]);
-
-      setGenerationStep('Capture haute résolution Page 1 (Recto)...');
-      const img1 = await toJpeg(page1Element, {
-        quality: 0.95,
-        pixelRatio: 2,
-        backgroundColor: '#ffffff',
-        cacheBust: true,
+      const result = await downloadContractPdf(pdfModalContract, {
+        idPrefix: 'export',
+        onProgress: (step, percent) => {
+          setGenerationStep(step);
+          if (percent !== undefined) setGenerationPercent(percent);
+        },
       });
 
-      setGenerationStep('Capture haute résolution Page 2 (Verso)...');
-      const img2 = await toJpeg(page2Element, {
-        quality: 0.95,
-        pixelRatio: 2,
-        backgroundColor: '#ffffff',
-        cacheBust: true,
-      });
-
-      setGenerationStep('Création du fichier PDF...');
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-        compress: true,
-      });
-
-      // Add Page 1
-      pdf.addImage(img1, 'JPEG', 0, 0, 210, 297, undefined, 'FAST');
-
-      // Add Page 2
-      pdf.addPage('a4', 'portrait');
-      pdf.addImage(img2, 'JPEG', 0, 0, 210, 297, undefined, 'FAST');
-
-      setGenerationStep('Téléchargement...');
-      const cleanFilename = `Contrat_${pdfModalContract.contractNumber.replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
-      pdf.save(cleanFilename);
-
+      setLastGeneratedBlobUrl(result.blobUrl);
       setDownloadSuccess(true);
-      setTimeout(() => setDownloadSuccess(false), 3500);
+      setTimeout(() => setDownloadSuccess(false), 6000);
     } catch (error) {
       console.error('Erreur de téléchargement PDF:', error);
-      // Fallback to browser print dialog
-      window.print();
+      // Option de repli vers l'impression papier
+      if (confirm('La génération directe du PDF a rencontré un obstacle dans votre navigateur. Souhaitez-vous lancer l\'impression A4 intégrée ?')) {
+        window.print();
+      }
     } finally {
       setIsGeneratingPdf(false);
       setGenerationStep('');
+      setGenerationPercent(0);
+    }
+  };
+
+  const handleOpenPdfInNewTab = async () => {
+    if (!pdfModalContract || isGeneratingPdf) return;
+
+    try {
+      setIsGeneratingPdf(true);
+      setGenerationStep('Génération de l\'aperçu PDF...');
+      setGenerationPercent(15);
+
+      const result = await openContractPdfInNewTab(pdfModalContract, {
+        idPrefix: 'export',
+        onProgress: (step, percent) => {
+          setGenerationStep(step);
+          if (percent !== undefined) setGenerationPercent(percent);
+        },
+      });
+
+      setLastGeneratedBlobUrl(result.blobUrl);
+    } catch (error) {
+      console.error('Erreur ouverture PDF:', error);
+      alert('Impossible d\'ouvrir le PDF. Veuillez autoriser les fenêtres pop-up pour cette application.');
+    } finally {
+      setIsGeneratingPdf(false);
+      setGenerationStep('');
+      setGenerationPercent(0);
     }
   };
 
@@ -150,7 +142,7 @@ export const PdfModal: React.FC = () => {
               </h2>
               <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                2 Pages A4 Exactes
+                2 Pages A4 Calibrées
               </span>
               <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
                 pdfModalContract.templateId === 'prestige'
@@ -163,13 +155,13 @@ export const PdfModal: React.FC = () => {
               </span>
             </div>
             <p className="text-xs text-slate-400">
-              Client : {pdfModalContract.clientSnapshot.lastName} {pdfModalContract.clientSnapshot.firstName} • {pdfModalContract.vehicleSnapshot.brand} {pdfModalContract.vehicleSnapshot.model}
+              Client : {pdfModalContract.clientSnapshot.lastName} {pdfModalContract.clientSnapshot.firstName} • {pdfModalContract.vehicleSnapshot.brand} {pdfModalContract.vehicleSnapshot.model} • Caution : {(pdfModalContract.depositAmount ?? 5000).toLocaleString('fr-FR')} MAD
             </p>
           </div>
         </div>
 
         {/* CONTROLS */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           {/* Zoom Controls */}
           <div className="flex items-center bg-slate-800 border border-slate-700 rounded-lg p-1 text-slate-300 text-xs">
             <button
@@ -240,7 +232,7 @@ export const PdfModal: React.FC = () => {
           {/* Action: Signature Numérique Interactive */}
           <button
             onClick={() => setIsSignatureModalOpen(true)}
-            className={`flex items-center gap-1.5 font-bold text-xs px-3.5 py-2 rounded-lg transition-all cursor-pointer shadow-md ${
+            className={`flex items-center gap-1.5 font-bold text-xs px-3 py-2 rounded-lg transition-all cursor-pointer shadow-md ${
               pdfModalContract.clientSignature
                 ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/50 hover:bg-emerald-900/60'
                 : 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 shadow-amber-500/20 active:scale-95'
@@ -250,20 +242,32 @@ export const PdfModal: React.FC = () => {
             {pdfModalContract.clientSignature ? (
               <>
                 <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                <span>Signé Numériquement ✓</span>
+                <span>Signé ✓</span>
               </>
             ) : (
               <>
                 <PenTool className="w-4 h-4" />
-                <span>Signer Numériquement</span>
+                <span>Signer</span>
               </>
             )}
+          </button>
+
+          {/* Action: Ouvrir dans un nouvel onglet */}
+          <button
+            onClick={handleOpenPdfInNewTab}
+            disabled={isGeneratingPdf}
+            className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 font-medium text-xs px-3 py-2 rounded-lg transition-all active:scale-95 cursor-pointer disabled:opacity-50"
+            title="Ouvrir le PDF compilé dans un lecteur natif"
+          >
+            <ExternalLink className="w-4 h-4 text-sky-400" />
+            <span>Ouvrir PDF</span>
           </button>
 
           {/* Action: Print */}
           <button
             onClick={handlePrint}
-            className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white font-semibold text-xs px-3.5 py-2 rounded-lg transition-all active:scale-95 cursor-pointer"
+            className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white font-semibold text-xs px-3 py-2 rounded-lg transition-all active:scale-95 cursor-pointer"
+            title="Imprimer directement sur imprimante papier ou Enregistrer au format PDF"
           >
             <Printer className="w-4 h-4 text-amber-400" />
             Imprimer (A4)
@@ -273,28 +277,28 @@ export const PdfModal: React.FC = () => {
           <button
             onClick={handleDownloadPdf}
             disabled={isGeneratingPdf}
-            className={`flex items-center gap-2 font-medium text-xs px-3.5 py-2 rounded-lg transition-all cursor-pointer ${
+            className={`flex items-center gap-2 font-bold text-xs px-4 py-2 rounded-lg transition-all cursor-pointer shadow-md ${
               downloadSuccess
-                ? 'bg-emerald-600 text-white border border-emerald-500'
+                ? 'bg-emerald-600 text-white border border-emerald-500 shadow-emerald-600/30'
                 : isGeneratingPdf
                 ? 'bg-slate-800 text-slate-400 border border-slate-700 cursor-not-allowed'
-                : 'bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white'
+                : 'bg-amber-500 hover:bg-amber-400 text-slate-950 border border-amber-400 shadow-amber-500/20 active:scale-95'
             }`}
           >
             {isGeneratingPdf ? (
               <>
                 <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />
-                <span>Génération PDF...</span>
+                <span>Compilation {generationPercent}%...</span>
               </>
             ) : downloadSuccess ? (
               <>
-                <CheckCircle className="w-4 h-4 text-emerald-300" />
-                <span>PDF Téléchargé !</span>
+                <CheckCircle className="w-4 h-4 text-white" />
+                <span>Téléchargé ✓</span>
               </>
             ) : (
               <>
-                <Download className="w-4 h-4 text-amber-400" />
-                <span>Télécharger PDF</span>
+                <Download className="w-4 h-4 text-slate-950" />
+                <span>Télécharger PDF A4</span>
               </>
             )}
           </button>
@@ -302,7 +306,7 @@ export const PdfModal: React.FC = () => {
           {/* Close */}
           <button
             onClick={closePdfModal}
-            className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+            className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer ml-1"
             title="Fermer la prévisualisation"
           >
             <X className="w-5 h-5" />
@@ -310,32 +314,62 @@ export const PdfModal: React.FC = () => {
         </div>
       </header>
 
-      {/* NOTICE BANNER */}
+      {/* NOTICE & PROGRESS BANNER */}
       <div className="no-print bg-slate-900/90 border-b border-slate-800/80 px-6 py-2 flex items-center justify-between text-xs text-slate-300">
-        <div className="flex items-center gap-2">
-          {pdfModalContract.clientSignature ? (
-            <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-          ) : (
-            <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
-          )}
-          <span>
-            {isGeneratingPdf ? (
-              <strong className="text-amber-400">{generationStep}</strong>
-            ) : pdfModalContract.clientSignature ? (
+        <div className="flex items-center gap-2 flex-1 mr-4">
+          {isGeneratingPdf ? (
+            <div className="flex items-center gap-3 w-full max-w-xl">
+              <Loader2 className="w-4 h-4 text-amber-400 animate-spin shrink-0" />
+              <div className="flex-1">
+                <div className="flex justify-between items-center text-[11px] mb-1">
+                  <strong className="text-amber-400 font-medium">{generationStep}</strong>
+                  <span className="font-mono text-amber-300">{generationPercent}%</span>
+                </div>
+                <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-amber-500 to-amber-300 transition-all duration-300 rounded-full"
+                    style={{ width: `${generationPercent}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          ) : downloadSuccess ? (
+            <div className="flex items-center gap-2 text-emerald-400">
+              <CheckCircle className="w-4 h-4 shrink-0" />
+              <span>
+                <strong>Document PDF A4 généré avec succès !</strong> Le téléchargement a démarré automatiquement.
+                {lastGeneratedBlobUrl && (
+                  <button
+                    onClick={() => window.open(lastGeneratedBlobUrl, '_blank')}
+                    className="ml-2 underline hover:text-emerald-200 text-xs font-semibold cursor-pointer"
+                  >
+                    Ouvrir le fichier généré ↗
+                  </button>
+                )}
+              </span>
+            </div>
+          ) : pdfModalContract.clientSignature ? (
+            <>
+              <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
               <span className="text-emerald-300 font-medium">
                 <strong>Signature électronique certifiée présente :</strong> Paraphe et signature client validés le {new Date(pdfModalContract.clientSignedAt || '').toLocaleDateString('fr-FR')} (Réf. intégrité : <span className="font-mono text-emerald-200">{pdfModalContract.signatureCertId}</span>).
               </span>
-            ) : (
+            </>
+          ) : (
+            <>
+              <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
               <span>
-                <strong>Signature en attente :</strong> Cliquez sur <span className="text-amber-300 font-bold">« Signer Numériquement »</span> pour faire signer le locataire sur écran, ou imprimez le document pour signature papier.
+                <strong>Signature en attente :</strong> Cliquez sur <span className="text-amber-300 font-bold">« Signer »</span> pour faire signer le locataire sur écran, ou imprimez le document pour signature papier.
               </span>
-            )}
-          </span>
+            </>
+          )}
         </div>
-        <div className="text-[11px] text-slate-400 flex items-center gap-2">
-          <span>Format d'exportation : <strong>210 × 297 mm (A4 Portrait)</strong></span>
+        <div className="text-[11px] text-slate-400 flex items-center gap-2 shrink-0">
+          <span>Format : <strong>210 × 297 mm (A4 Recto-Verso)</strong></span>
           <span>•</span>
-          <span>CGV v{termsVersion.version}</span>
+          <span>Tarif / j : <strong>{pdfModalContract.pricePerDay || 0} MAD</strong></span>
+          <span>•</span>
+          <span>Caution : <strong>{pdfModalContract.depositAmount || 5000} MAD</strong></span>
         </div>
       </div>
 
@@ -358,10 +392,10 @@ export const PdfModal: React.FC = () => {
         </div>
       </div>
 
-      {/* HIDDEN 1:1 EXPORT SOURCE FOR CRISP RENDERING */}
+      {/* HIDDEN 1:1 EXPORT SOURCE FOR HIGH RESOLUTION CAPTURE */}
       <div
         id="export-pdf-source"
-        className="fixed top-0 left-[-9999px] pointer-events-none opacity-100 z-[-100]"
+        className="fixed top-0 left-0 pointer-events-none opacity-0 z-[-50]"
         style={{ width: '210mm' }}
       >
         <ContractPdfDocument

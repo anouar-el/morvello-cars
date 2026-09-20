@@ -1,6 +1,6 @@
 import React from 'react';
 import { Contract, CompanySettings, TermsVersion, ContractTemplateId } from '../types';
-import { CheckCircle2, Calendar, Clock, Gauge, Car, Shield, Phone, MapPin, User, Mail } from 'lucide-react';
+import { CheckCircle2, Calendar, Clock, Gauge, Car, Shield, Phone, MapPin, User, Mail, CreditCard, Coins } from 'lucide-react';
 import { CompanyStamp } from './CompanyStamp';
 import { CompanyLogo } from './CompanyLogo';
 import { formatPlateFrench } from '../utils/plateUtils';
@@ -655,7 +655,81 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
           </div>
 
           {/* ========================================================================= */}
-          {/* SECTION 4: SIGNATURES MANUSCRITES - THÈME ARDOISE NOIRE & OR IMPÉRIAL      */}
+          {/* SECTION 4: CONDITIONS TARIFAIRES & DÉPÔT DE GARANTIE                      */}
+          {/* ========================================================================= */}
+          <div className="border border-slate-300 rounded-xl bg-gradient-to-b from-slate-50 via-white to-amber-50/20 p-2 mb-2 shadow-xs">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-1 mb-1.5 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-950 text-white px-2.5 py-1 rounded-lg shadow-2xs">
+              <h2 className="text-[10px] font-black uppercase tracking-wide flex items-center gap-2 text-white">
+                <span className="w-5 h-5 bg-amber-500/30 border border-amber-300/40 rounded flex items-center justify-center shrink-0">
+                  <CreditCard className="w-3 h-3 text-amber-300" />
+                </span>
+                <span>4. Conditions Tarifaires &amp; Dépôt de Garantie (Caution)</span>
+              </h2>
+              <span className="text-[9px] text-amber-200 font-bold font-arabic">
+                الشروط المالية ومبلغ الضمان
+              </span>
+            </div>
+
+            <div className="grid grid-cols-12 gap-2 text-[9.5px]">
+              {/* Tarif Journalier */}
+              <div className="col-span-3 bg-white p-1.5 rounded-lg border border-slate-200 border-l-4 border-l-blue-600 shadow-2xs flex flex-col justify-between">
+                <span className="text-blue-900 text-[7.5px] uppercase font-black tracking-wider">
+                  Tarif Journalier / اليوم
+                </span>
+                <p className="font-mono font-black text-slate-950 text-xs mt-0.5">
+                  {contract.pricePerDay ? `${contract.pricePerDay.toLocaleString('fr-FR')} MAD` : 'Tarif convenu'}
+                  <span className="text-[7.5px] font-normal text-slate-500 ml-1">/ jour</span>
+                </p>
+                <span className="text-[7px] text-slate-500 mt-0.5">TTC • Kilométrage illimité</span>
+              </div>
+
+              {/* Total Location */}
+              <div className="col-span-3 bg-white p-1.5 rounded-lg border border-slate-200 border-l-4 border-l-amber-600 shadow-2xs flex flex-col justify-between">
+                <span className="text-amber-950 text-[7.5px] uppercase font-black tracking-wider">
+                  Total Facturé ({contract.totalDays}j)
+                </span>
+                <p className="font-mono font-black text-amber-950 text-[13px] mt-0.5">
+                  {contract.totalAmount
+                    ? `${contract.totalAmount.toLocaleString('fr-FR')} MAD`
+                    : contract.pricePerDay
+                    ? `${(contract.pricePerDay * contract.totalDays).toLocaleString('fr-FR')} MAD`
+                    : 'Sur devis'}
+                </p>
+                <span className="text-[7px] text-emerald-700 font-bold mt-0.5">TVA 20% incluse</span>
+              </div>
+
+              {/* Caution / Dépôt de garantie */}
+              <div className="col-span-3 bg-white p-1.5 rounded-lg border border-slate-200 border-l-4 border-l-purple-600 shadow-2xs flex flex-col justify-between">
+                <span className="text-purple-950 text-[7.5px] uppercase font-black tracking-wider">
+                  Caution / الضمانة
+                </span>
+                <p className="font-mono font-black text-slate-950 text-xs mt-0.5">
+                  {(contract.depositAmount ?? 5000).toLocaleString('fr-FR')} MAD
+                </p>
+                <span className="text-[7px] text-purple-900 font-semibold mt-0.5">
+                  {contract.depositRecord?.method === 'cheque'
+                    ? 'Chèque de caution'
+                    : contract.depositRecord?.method === 'cash'
+                    ? 'Espèces consignées'
+                    : 'Empreinte CB bancaire'}
+                </span>
+              </div>
+
+              {/* Modalités & Couverture */}
+              <div className="col-span-3 bg-gradient-to-br from-slate-900 to-slate-950 text-white p-1.5 rounded-lg border border-slate-800 shadow-2xs flex flex-col justify-between text-right">
+                <span className="text-amber-400 text-[7.5px] uppercase font-black tracking-wider">
+                  Couverture Assurance
+                </span>
+                <p className="text-[9px] font-bold text-white mt-0.5">
+                  Tous Risques Sérénité
+                </p>
+                <span className="text-[7px] text-slate-300 mt-0.5">Assistance 24/7 incluse</span>
+              </div>
+            </div>
+          </div>
+
+          {/* ========================================================================= */}
+          {/* SECTION 5: SIGNATURES MANUSCRITES - THÈME ARDOISE NOIRE & OR IMPÉRIAL      */}
           {/* ========================================================================= */}
           <div className="border-2 border-slate-900 rounded-xl bg-gradient-to-b from-slate-100/90 via-white to-slate-50 p-2.5 shadow-xs">
             {/* Rubrique Header Coloré */}
@@ -665,7 +739,7 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
                   <Shield className="w-3 h-3 text-amber-300" />
                 </span>
                 <span className="text-[9.5px] font-black uppercase tracking-wider text-amber-300">
-                  4. Signatures Manuscrites Obligatoires — « Lu et approuvé »
+                  5. Signatures Manuscrites Obligatoires — « Lu et approuvé »
                 </span>
               </div>
               <span className="text-[8.5px] text-amber-200/90 font-bold font-arabic">
