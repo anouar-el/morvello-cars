@@ -71,7 +71,26 @@ export function sanitizeForFirestore<T>(val: T): T {
 }
 
 export async function fetchRemoteAgencyData(): Promise<MorvelloCloudData | null> {
-  // 1. Primary: Attempt fetch from Supabase PostgreSQL
+  const fullPath = `${APP_DOC_PATH.collection}/${APP_DOC_PATH.docId}`;
+
+  // 1. Primary: Fetch from Firebase Cloud Firestore
+  try {
+    const docRef = doc(db, APP_DOC_PATH.collection, APP_DOC_PATH.docId);
+    const snap = await getDoc(docRef);
+    if (snap.exists()) {
+      const data = snap.data() as MorvelloCloudData;
+      // If Firestore contains agency data, return it directly
+      if (data && (data.contracts?.length || data.clients?.length || data.vehicles?.length || data.companySettings)) {
+        return data;
+      }
+    }
+  } catch (error: any) {
+    if (!isAbortException(error)) {
+      console.warn('[Firestore] Fetch warning:', error?.message || error);
+    }
+  }
+
+  // 2. Secondary / Backup: Attempt fetch from Supabase PostgreSQL if available
   if (isSupabaseConfigured) {
     try {
       const supabaseData = await fetchRemoteAgencyDataFromSupabase();
@@ -80,42 +99,39 @@ export async function fetchRemoteAgencyData(): Promise<MorvelloCloudData | null>
       }
     } catch (sbErr) {
       if (!isAbortException(sbErr)) {
-        console.warn('[Data Sync] Supabase fetch fallback to Firestore:', sbErr);
+        console.warn('[Data Sync] Supabase fetch error:', sbErr);
       }
     }
   }
 
-  // 2. Secondary / Fallback: Attempt fetch from Firestore
-  const fullPath = `${APP_DOC_PATH.collection}/${APP_DOC_PATH.docId}`;
-  try {
-    if (typeof auth.authStateReady === 'function') {
-      await auth.authStateReady();
-    }
-    if (!auth.currentUser || auth.currentUser.isAnonymous) {
-      return null;
-    }
-    const docRef = doc(db, APP_DOC_PATH.collection, APP_DOC_PATH.docId);
-    const snap = await getDoc(docRef);
-    if (snap.exists()) {
-      return snap.data() as MorvelloCloudData;
-    }
-    return null;
-  } catch (error: any) {
-    if (isAbortException(error)) {
-      return null;
-    }
-    if (error?.code === 'permission-denied' && auth.currentUser && !auth.currentUser.isAnonymous) {
-      handleFirestoreError(error, OperationType.GET, fullPath);
-    }
-    return null;
-  }
+  return null;
 }
 
 export async function saveRemoteAgencyData(data: Partial<MorvelloCloudData>): Promise<boolean> {
-  let supabaseSuccess = false;
   let firestoreSuccess = false;
+  let supabaseSuccess = false;
+  const fullPath = `${APP_DOC_PATH.collection}/${APP_DOC_PATH.docId}`;
 
-  // 1. Primary: Save to Supabase PostgreSQL
+  // 1. Primary: Save to Firebase Cloud Firestore
+  try {
+    const docRef = doc(db, APP_DOC_PATH.collection, APP_DOC_PATH.docId);
+    const rawPayload = {
+      ...data,
+      updatedAt: new Date().toISOString(),
+    };
+    const sanitizedPayload = sanitizeForFirestore(rawPayload);
+    await setDoc(docRef, sanitizedPayload, { merge: true });
+    firestoreSuccess = true;
+  } catch (error: any) {
+    if (!isAbortException(error)) {
+      console.error('[Firestore] Save error:', error);
+      if (error?.code === 'permission-denied' && auth.currentUser) {
+        handleFirestoreError(error, OperationType.WRITE, fullPath);
+      }
+    }
+  }
+
+  // 2. Secondary / Mirror: Save to Supabase PostgreSQL if configured
   if (isSupabaseConfigured) {
     try {
       supabaseSuccess = await saveRemoteAgencyDataToSupabase(data, auth.currentUser?.uid);
@@ -124,39 +140,46 @@ export async function saveRemoteAgencyData(data: Partial<MorvelloCloudData>): Pr
     }
   }
 
-  // 2. Secondary / Backup: Save to Firestore if user is authenticated
-  const fullPath = `${APP_DOC_PATH.collection}/${APP_DOC_PATH.docId}`;
-  try {
-    if (auth.currentUser && !auth.currentUser.isAnonymous) {
-      const docRef = doc(db, APP_DOC_PATH.collection, APP_DOC_PATH.docId);
-      const rawPayload = {
-        ...data,
-        updatedAt: new Date().toISOString(),
-      };
-      const sanitizedPayload = sanitizeForFirestore(rawPayload);
-      await setDoc(docRef, sanitizedPayload, { merge: true });
-      firestoreSuccess = true;
-    }
-  } catch (error: any) {
-    if (!isAbortException(error) && error?.code === 'permission-denied' && auth.currentUser) {
-      handleFirestoreError(error, OperationType.WRITE, fullPath);
-    }
-  }
-
-  return supabaseSuccess || firestoreSuccess;
+  return firestoreSuccess || supabaseSuccess;
 }
 
 /**
  * Real-time listener for multi-workstation agency data synchronization
- * Subscribes to Supabase Realtime channel and/or Firestore onSnapshot
+ * Subscribes directly to Firestore onSnapshot and Supabase Realtime channel
  */
 export function subscribeToRemoteAgencyData(
   onData: (data: MorvelloCloudData) => void,
   onError?: (err: any) => void
 ): Unsubscribe {
   let isDisposed = false;
+  const fullPath = `${APP_DOC_PATH.collection}/${APP_DOC_PATH.docId}`;
+  const docRef = doc(db, APP_DOC_PATH.collection, APP_DOC_PATH.docId);
 
-  // 1. Supabase Realtime Subscription
+  // 1. Direct Firestore Snapshot Subscription
+  let snapshotUnsub: Unsubscribe | null = null;
+  try {
+    snapshotUnsub = onSnapshot(
+      docRef,
+      (snap) => {
+        if (isDisposed) return;
+        if (snap.exists()) {
+          const cloudData = snap.data() as MorvelloCloudData;
+          if (cloudData && (cloudData.contracts || cloudData.clients || cloudData.vehicles)) {
+            onData(cloudData);
+          }
+        }
+      },
+      (error) => {
+        if (isDisposed || isAbortException(error)) return;
+        console.warn('[Firestore Realtime] notice:', error?.message || error);
+        if (onError) onError(error);
+      }
+    );
+  } catch (err: any) {
+    if (!isDisposed && !isAbortException(err) && onError) onError(err);
+  }
+
+  // 2. Supabase Realtime Subscription (parallel sync)
   const unsubscribeSupabase = subscribeToRemoteAgencyDataFromSupabase(
     (data) => {
       if (!isDisposed) {
@@ -168,49 +191,13 @@ export function subscribeToRemoteAgencyData(
     }
   );
 
-  // 2. Firestore Snapshot Subscription (bridged)
-  const fullPath = `${APP_DOC_PATH.collection}/${APP_DOC_PATH.docId}`;
-  const docRef = doc(db, APP_DOC_PATH.collection, APP_DOC_PATH.docId);
-  let snapshotUnsub: Unsubscribe | null = null;
-
-  const authUnsub = onAuthStateChanged(auth, (user) => {
-    if (isDisposed) return;
-    if (snapshotUnsub) {
-      snapshotUnsub();
-      snapshotUnsub = null;
-    }
-    if (!user || user.isAnonymous) return;
-
-    try {
-      snapshotUnsub = onSnapshot(
-        docRef,
-        (snap) => {
-          if (isDisposed) return;
-          if (snap.exists()) {
-            onData(snap.data() as MorvelloCloudData);
-          }
-        },
-        (error) => {
-          if (isDisposed || isAbortException(error)) return;
-          if (error?.code === 'permission-denied' && auth.currentUser && !auth.currentUser.isAnonymous) {
-            handleFirestoreError(error, OperationType.GET, fullPath);
-          }
-          if (onError) onError(error);
-        }
-      );
-    } catch (err: any) {
-      if (!isDisposed && !isAbortException(err) && onError) onError(err);
-    }
-  });
-
   return () => {
     isDisposed = true;
-    unsubscribeSupabase();
-    authUnsub();
     if (snapshotUnsub) {
       snapshotUnsub();
       snapshotUnsub = null;
     }
+    unsubscribeSupabase();
   };
 }
 

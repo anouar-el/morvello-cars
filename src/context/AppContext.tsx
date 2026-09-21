@@ -196,46 +196,108 @@ const AppContextInner: React.FC<{ children: React.ReactNode }> = ({ children }) 
     company.setCloudSyncStatus('syncing');
     try {
       const remote = await fetchRemoteAgencyData();
-      if (!remote) {
-        company.setCloudSyncStatus('synced');
-        return true;
+
+      // Intelligent Bidirectional Reconciliation:
+      // Preserves existing local items (e.g. contracts or clients created in this browser)
+      // while pulling remote cloud records so no data is ever lost across browsers.
+      let shouldPushBack = false;
+
+      // 1. Contracts Merge
+      const localContracts = contractsCtx.contracts;
+      const remoteContracts = remote?.contracts || [];
+      const mergedContracts = [...remoteContracts];
+      for (const lc of localContracts) {
+        if (!mergedContracts.some((rc) => rc.id === lc.id || (rc.contractNumber && rc.contractNumber === lc.contractNumber))) {
+          mergedContracts.push(lc);
+          shouldPushBack = true;
+        }
+      }
+      if (mergedContracts.length > 0) {
+        contractsCtx.setContractsList(mergedContracts);
       }
 
-      if (remote.vehicles && remote.vehicles.length > 0) {
-        vehiclesCtx.setVehiclesList(remote.vehicles);
+      // 2. Clients Merge
+      const localClients = clientsDrivers.clients;
+      const remoteClients = remote?.clients || [];
+      const mergedClients = [...remoteClients];
+      for (const lcli of localClients) {
+        if (!mergedClients.some((rcli) => rcli.id === lcli.id || (rcli.docNumber && lcli.docNumber && rcli.docNumber.trim().toUpperCase() === lcli.docNumber.trim().toUpperCase()))) {
+          mergedClients.push(lcli);
+          shouldPushBack = true;
+        }
       }
-      if (remote.clients && remote.clients.length > 0) {
-        clientsDrivers.setClientsList(remote.clients);
+      if (mergedClients.length > 0) {
+        clientsDrivers.setClientsList(mergedClients);
       }
-      if (remote.drivers && remote.drivers.length > 0) {
+
+      // 3. Vehicles Merge
+      const localVehicles = vehiclesCtx.vehicles;
+      const remoteVehicles = remote?.vehicles || [];
+      const mergedVehicles = [...remoteVehicles];
+      for (const lv of localVehicles) {
+        if (!mergedVehicles.some((rv) => rv.id === lv.id || (rv.plate && lv.plate && rv.plate.trim().toUpperCase() === lv.plate.trim().toUpperCase()))) {
+          mergedVehicles.push(lv);
+          shouldPushBack = true;
+        }
+      }
+      if (mergedVehicles.length > 0) {
+        vehiclesCtx.setVehiclesList(mergedVehicles);
+      }
+
+      // 4. Deposits Merge
+      const localDeposits = depositsCtx.deposits;
+      const remoteDeposits = remote?.deposits || [];
+      const mergedDeposits = [...remoteDeposits];
+      for (const ld of localDeposits) {
+        if (!mergedDeposits.some((rd) => rd.id === ld.id)) {
+          mergedDeposits.push(ld);
+          shouldPushBack = true;
+        }
+      }
+      if (mergedDeposits.length > 0) {
+        depositsCtx.setDepositsList(mergedDeposits);
+      }
+
+      // 5. Drivers
+      if (remote?.drivers && remote.drivers.length > 0) {
         clientsDrivers.setDriversList(remote.drivers);
       }
-      if (remote.contracts && remote.contracts.length > 0) {
-        contractsCtx.setContractsList(remote.contracts);
-      }
-      if (remote.deposits && remote.deposits.length > 0) {
-        depositsCtx.setDepositsList(remote.deposits);
-      }
-      if (remote.companySettings) {
-        const contractsForReconcile =
-          remote.contracts && remote.contracts.length > 0 ? remote.contracts : contractsCtx.contracts;
-        const reconciled = reconcileCompanySettingsWithContracts(
-          remote.companySettings,
-          contractsForReconcile
-        );
-        company.setCompanySettingsList(reconciled);
-      }
-      if (remote.termsVersion) {
+
+      // 6. Company Settings
+      const activeSettings = remote?.companySettings || company.companySettings;
+      const reconciledSettings = reconcileCompanySettingsWithContracts(
+        activeSettings,
+        mergedContracts
+      );
+      company.setCompanySettingsList(reconciledSettings);
+
+      if (remote?.termsVersion) {
         company.setTermsVersionList(remote.termsVersion);
       }
-      if (remote.aiSettings) {
+      if (remote?.aiSettings) {
         company.setAiSettingsList(remote.aiSettings);
       }
-      if (remote.auditLogs && remote.auditLogs.length > 0) {
+      if (remote?.auditLogs && remote.auditLogs.length > 0) {
         company.setAuditLogsList(remote.auditLogs);
       }
-      if (remote.users && remote.users.length > 0) {
+      if (remote?.users && remote.users.length > 0) {
         auth.setUsersList(remote.users);
+      }
+
+      // If local browser held records that cloud lacked, or if cloud was not populated:
+      if (shouldPushBack || !remote || remoteContracts.length < mergedContracts.length) {
+        saveRemoteAgencyData({
+          vehicles: mergedVehicles,
+          clients: mergedClients,
+          drivers: clientsDrivers.drivers,
+          contracts: mergedContracts,
+          deposits: mergedDeposits,
+          companySettings: reconciledSettings,
+          termsVersion: remote?.termsVersion || company.termsVersion,
+          aiSettings: remote?.aiSettings || company.aiSettings,
+          auditLogs: remote?.auditLogs || company.auditLogs,
+          users: remote?.users || auth.users,
+        }).catch((err) => console.warn('Automatic cloud synchronization push notice:', err));
       }
 
       const syncTime = new Date().toISOString();
@@ -321,21 +383,55 @@ const AppContextInner: React.FC<{ children: React.ReactNode }> = ({ children }) 
       (remote) => {
         if (!active || !remote) return;
         const ctx = contextsRef.current;
-        if (remote.vehicles && remote.vehicles.length > 0) {
-          ctx.vehiclesCtx.setVehiclesList(remote.vehicles);
+
+        if (remote.contracts && remote.contracts.length > 0) {
+          const current = ctx.contractsCtx.contracts;
+          const merged = [...remote.contracts];
+          for (const c of current) {
+            if (!merged.some((m) => m.id === c.id || (m.contractNumber && m.contractNumber === c.contractNumber))) {
+              merged.push(c);
+            }
+          }
+          ctx.contractsCtx.setContractsList(merged);
         }
+
         if (remote.clients && remote.clients.length > 0) {
-          ctx.clientsDrivers.setClientsList(remote.clients);
+          const current = ctx.clientsDrivers.clients;
+          const merged = [...remote.clients];
+          for (const c of current) {
+            if (!merged.some((m) => m.id === c.id || (m.docNumber && c.docNumber && m.docNumber.trim().toUpperCase() === c.docNumber.trim().toUpperCase()))) {
+              merged.push(c);
+            }
+          }
+          ctx.clientsDrivers.setClientsList(merged);
         }
+
+        if (remote.vehicles && remote.vehicles.length > 0) {
+          const current = ctx.vehiclesCtx.vehicles;
+          const merged = [...remote.vehicles];
+          for (const v of current) {
+            if (!merged.some((m) => m.id === v.id || (m.plate && v.plate && m.plate.trim().toUpperCase() === v.plate.trim().toUpperCase()))) {
+              merged.push(v);
+            }
+          }
+          ctx.vehiclesCtx.setVehiclesList(merged);
+        }
+
+        if (remote.deposits && remote.deposits.length > 0) {
+          const current = ctx.depositsCtx.deposits;
+          const merged = [...remote.deposits];
+          for (const d of current) {
+            if (!merged.some((m) => m.id === d.id)) {
+              merged.push(d);
+            }
+          }
+          ctx.depositsCtx.setDepositsList(merged);
+        }
+
         if (remote.drivers && remote.drivers.length > 0) {
           ctx.clientsDrivers.setDriversList(remote.drivers);
         }
-        if (remote.contracts && remote.contracts.length > 0) {
-          ctx.contractsCtx.setContractsList(remote.contracts);
-        }
-        if (remote.deposits && remote.deposits.length > 0) {
-          ctx.depositsCtx.setDepositsList(remote.deposits);
-        }
+
         if (remote.companySettings) {
           const contractsForReconcile =
             remote.contracts && remote.contracts.length > 0
