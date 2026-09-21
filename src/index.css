@@ -111,90 +111,157 @@ html.light footer {
   color: #475569 !important;
 }
 
-/* 1. TEXTE SLATE & NEUTRES HAUTE DÉFINITION */
-html.light .text-slate-500 {
-  color: #475569 !important;
-}
-html.light .text-slate-400 {
-  color: #334155 !important;
-}
-html.light .text-slate-300 {
-  color: #1e293b !important;
-}
-html.light .text-slate-200 {
-  color: #0f172a !important;
-}
-html.light .text-slate-100,
-html.light .text-slate-50 {
+/* 1. TEXTE SLATE & NEUTRES HAUTE DÉFINITION (WCAG AAA) */
+html.light .text-slate-950,
+html.light [class*="text-slate-950"] {
   color: #020617 !important;
 }
 
-/* 2. COULEURS D'ACCENT LISIBLES EN MODE CLAIR (Finis les jaunes/verts pastels invisibles sur fond blanc !) */
-html.light .text-amber-200,
-html.light .text-amber-300,
-html.light .text-amber-400 {
-  color: #92400e !important; /* ambre-800 riche et chaud (> 7.5:1 sur blanc) */
+html.light .text-slate-900,
+html.light [class*="text-slate-900"] {
+  color: #0f172a !important;
 }
 
+html.light .text-slate-800,
+html.light [class*="text-slate-800"] {
+  color: #1e293b !important;
+}
+
+html.light .text-slate-700,
+html.light [class*="text-slate-700"] {
+  color: #334155 !important;
+}
+
+html.light .text-slate-600,
+html.light [class*="text-slate-600"] {
+  color: #475569 !important;
+}
+
+html.light .text-slate-500,
+html.light [class*="text-slate-500"] {
+  color: #475569 !important;
+}
+
+html.light .text-slate-400,
+html.light [class*="text-slate-400"] {
+  color: #334155 !important;
+}
+
+html.light .text-slate-300,
+html.light [class*="text-slate-300"] {
+  color: #1e293b !important;
+}
+
+html.light .text-slate-200,
+html.light [class*="text-slate-200"] {
+  color: #0f172a !important;
+}
+
+html.light .text-slate-100,
+html.light [class*="text-slate-100"],
+html.light .text-slate-50,
+html.light [class*="text-slate-50"] {
+  color: #020617 !important;
+}
+
+/* 2. COULEURS D'ACCENT LISIBLES EN MODE CLAIR (Teintes 800 profondes > 7.5:1 sur blanc) */
+/* Amber & Yellow (Doré Morvello) */
+html.light [class*="text-amber-1"],
+html.light [class*="text-amber-2"],
+html.light [class*="text-amber-3"],
+html.light [class*="text-amber-4"],
+html.light [class*="text-yellow-1"],
+html.light [class*="text-yellow-2"],
+html.light [class*="text-yellow-3"],
+html.light [class*="text-yellow-4"],
+html.light .text-amber-200,
+html.light .text-amber-300,
+html.light .text-amber-400,
 html.light .text-yellow-200,
 html.light .text-yellow-300,
 html.light .text-yellow-400 {
-  color: #854d0e !important; /* jaune/ambre-800 (> 7.5:1 sur blanc) */
+  color: #92400e !important; /* ambre-800 riche (> 7.5:1 sur blanc) */
 }
 
+/* Emerald & Green (Disponibilité & Validé) */
+html.light [class*="text-emerald-1"],
+html.light [class*="text-emerald-2"],
+html.light [class*="text-emerald-3"],
+html.light [class*="text-emerald-4"],
+html.light [class*="text-green-1"],
+html.light [class*="text-green-2"],
+html.light [class*="text-green-3"],
+html.light [class*="text-green-4"],
 html.light .text-emerald-200,
 html.light .text-emerald-300,
-html.light .text-emerald-400 {
-  color: #065f46 !important; /* vert forêt émeraude-800 (> 7.5:1 sur blanc) */
-}
-
+html.light .text-emerald-400,
 html.light .text-green-200,
 html.light .text-green-300,
 html.light .text-green-400 {
-  color: #166534 !important; /* vert-800 (> 7.5:1 sur blanc) */
+  color: #065f46 !important; /* émeraude-800 profond (> 7.5:1 sur blanc) */
 }
 
+/* Blue & Sky (Location active & Responsables) */
+html.light [class*="text-blue-1"],
+html.light [class*="text-blue-2"],
+html.light [class*="text-blue-3"],
+html.light [class*="text-blue-4"],
+html.light [class*="text-sky-1"],
+html.light [class*="text-sky-2"],
+html.light [class*="text-sky-3"],
+html.light [class*="text-sky-4"],
 html.light .text-blue-200,
 html.light .text-blue-300,
-html.light .text-blue-400 {
-  color: #1e40af !important; /* bleu saphir-800 (> 8.0:1 sur blanc) */
-}
-
+html.light .text-blue-400,
 html.light .text-sky-200,
 html.light .text-sky-300,
 html.light .text-sky-400 {
-  color: #075985 !important; /* bleu ciel-800 (> 7.5:1 sur blanc) */
+  color: #1e40af !important; /* bleu-800 saphir (> 8.0:1 sur blanc) */
 }
 
-html.light .text-indigo-200,
-html.light .text-indigo-300,
-html.light .text-indigo-400 {
-  color: #3730a3 !important; /* indigo-800 (> 8.5:1 sur blanc) */
-}
-
-html.light .text-purple-200,
-html.light .text-purple-300,
-html.light .text-purple-400 {
-  color: #6b21a8 !important; /* pourpre-800 (> 8.0:1 sur blanc) */
-}
-
+/* Rose & Red (Retards, Annulations, Dettes) */
+html.light [class*="text-rose-1"],
+html.light [class*="text-rose-2"],
+html.light [class*="text-rose-3"],
+html.light [class*="text-rose-4"],
+html.light [class*="text-red-1"],
+html.light [class*="text-red-2"],
+html.light [class*="text-red-3"],
+html.light [class*="text-red-4"],
 html.light .text-rose-200,
 html.light .text-rose-300,
-html.light .text-rose-400 {
-  color: #9f1239 !important; /* rose rubis-800 (> 8.0:1 sur blanc) */
-}
-
+html.light .text-rose-400,
 html.light .text-red-200,
 html.light .text-red-300,
 html.light .text-red-400 {
-  color: #991b1b !important; /* rouge carmin-800 (> 8.0:1 sur blanc) */
+  color: #9f1239 !important; /* rose-800 / rouge carmin (> 8.0:1 sur blanc) */
+}
+
+/* Purple & Indigo (Prolongations & Modèles VIP) */
+html.light [class*="text-purple-1"],
+html.light [class*="text-purple-2"],
+html.light [class*="text-purple-3"],
+html.light [class*="text-purple-4"],
+html.light [class*="text-indigo-1"],
+html.light [class*="text-indigo-2"],
+html.light [class*="text-indigo-3"],
+html.light [class*="text-indigo-4"],
+html.light .text-purple-200,
+html.light .text-purple-300,
+html.light .text-purple-400,
+html.light .text-indigo-200,
+html.light .text-indigo-300,
+html.light .text-indigo-400 {
+  color: #6b21a8 !important; /* pourpre-800 (> 8.0:1 sur blanc) */
 }
 
 /* 3. BORDURES NETTES SUR CARTES, TABLEAUX ET SÉPARATEURS */
 html.light .border-slate-800,
 html.light .border-slate-700,
+html.light .border-slate-750,
 html.light [class*="border-slate-800"],
-html.light [class*="border-slate-700"] {
+html.light [class*="border-slate-700"],
+html.light [class*="border-slate-750"] {
   border-color: #e2e8f0 !important;
 }
 
@@ -217,11 +284,26 @@ html.light .bg-slate-950 {
   background-color: #f8fafc;
 }
 
+html.light .bg-slate-850,
+html.light [class*="bg-slate-850"] {
+  background-color: #f1f5f9 !important;
+}
+
+html.light .bg-slate-750,
+html.light [class*="bg-slate-750"] {
+  background-color: #e2e8f0 !important;
+}
+
+html.light [class*="hover:bg-slate-850"]:hover {
+  background-color: #e2e8f0 !important;
+}
+
 /* En-têtes de tableau et surfaces secondaires */
 html.light .bg-slate-950\/70,
 html.light .bg-slate-950\/80,
 html.light .bg-slate-950\/90,
-html.light thead.bg-slate-950\/70 {
+html.light thead.bg-slate-950\/70,
+html.light thead.bg-slate-950\/80 {
   background-color: #f1f5f9 !important;
 }
 
@@ -237,48 +319,57 @@ html.light .text-white {
   color: #0f172a;
 }
 
-/* MAIS les boutons et conteneurs avec fond coloré solide CONSERVENT leur texte blanc pur */
-html.light button[class*="bg-blue-"],
-html.light button[class*="bg-emerald-"],
-html.light button[class*="bg-rose-"],
-html.light button[class*="bg-red-"],
-html.light button[class*="bg-indigo-"],
-html.light button[class*="bg-purple-"],
-html.light button[class*="bg-gradient-"],
-html.light [class*="bg-blue-6"],
-html.light [class*="bg-blue-5"],
-html.light [class*="bg-emerald-6"],
-html.light [class*="bg-emerald-5"],
-html.light [class*="bg-rose-6"],
-html.light [class*="bg-rose-5"],
-html.light [class*="bg-red-6"],
-html.light [class*="bg-indigo-6"],
-html.light [class*="bg-purple-6"],
-html.light .keep-white,
-/* Tous les enfants et icônes dans ces boutons restent blancs */
-html.light button[class*="bg-blue-"] *,
-html.light button[class*="bg-emerald-"] *,
-html.light button[class*="bg-rose-"] *,
-html.light button[class*="bg-red-"] *,
-html.light button[class*="bg-indigo-"] *,
-html.light button[class*="bg-purple-"] *,
-html.light button[class*="bg-gradient-"] *,
-html.light [class*="bg-blue-6"] *,
-html.light [class*="bg-blue-5"] *,
-html.light [class*="bg-emerald-6"] *,
-html.light [class*="bg-emerald-5"] *,
-html.light [class*="bg-rose-6"] *,
-html.light [class*="bg-rose-5"] *,
-html.light [class*="bg-red-6"] *,
-html.light [class*="bg-indigo-6"] *,
-html.light [class*="bg-purple-6"] *,
+/* Boutons avec fond solide sombre : texte blanc conservé */
+html.light button.bg-blue-600,
+html.light button.bg-blue-700,
+html.light button.bg-emerald-600,
+html.light button.bg-emerald-700,
+html.light button.bg-rose-600,
+html.light button.bg-rose-700,
+html.light button.bg-red-600,
+html.light button.bg-indigo-600,
+html.light button.bg-purple-600,
+html.light .bg-blue-600,
+html.light .bg-emerald-600,
+html.light .bg-rose-600,
+html.light .bg-red-600,
+html.light .bg-indigo-600,
+html.light .bg-purple-600,
+html.light .keep-white {
+  color: #ffffff !important;
+}
+
+html.light button.bg-blue-600 *,
+html.light button.bg-blue-700 *,
+html.light button.bg-emerald-600 *,
+html.light button.bg-emerald-700 *,
+html.light button.bg-rose-600 *,
+html.light button.bg-rose-700 *,
+html.light button.bg-red-600 *,
+html.light button.bg-indigo-600 *,
+html.light button.bg-purple-600 *,
+html.light .bg-blue-600 *,
+html.light .bg-emerald-600 *,
+html.light .bg-rose-600 *,
+html.light .bg-red-600 *,
+html.light .bg-indigo-600 *,
+html.light .bg-purple-600 *,
 html.light .keep-white * {
   color: #ffffff !important;
 }
 
-/* Les boutons dorés ambrés avec text-slate-950 restent noirs contrastés */
-html.light .text-slate-950,
-html.light .text-slate-950 * {
+/* Boutons dorés ambrés avec text-slate-950 restent noirs contrastés */
+html.light .bg-amber-500,
+html.light [class*="from-amber-500"],
+html.light button[class*="from-amber-500"],
+html.light button.bg-amber-500 {
+  color: #020617 !important;
+}
+
+html.light .bg-amber-500 *,
+html.light [class*="from-amber-500"] *,
+html.light button[class*="from-amber-500"] *,
+html.light button.bg-amber-500 * {
   color: #020617 !important;
 }
 
@@ -334,35 +425,172 @@ html.light textarea::placeholder {
   color: #94a3b8 !important;
 }
 
-/* 8. BADGES D'ÉTAT & PASTILLES DE STATUT EN MODE CLAIR */
-html.light [class*="bg-amber-500/"] {
-  background-color: rgba(245, 158, 11, 0.12) !important;
+/* 8. BADGES D'ÉTAT & PASTILLES DE STATUT EN MODE CLAIR (Texte sombre et contrasté) */
+html.light [class*="bg-amber-500/"],
+html.light [class*="bg-amber-500/1"],
+html.light [class*="bg-amber-500/2"],
+html.light [class*="bg-amber-500/3"] {
+  background-color: rgba(245, 158, 11, 0.14) !important;
   border-color: rgba(217, 119, 6, 0.35) !important;
+  color: #92400e !important;
+}
+html.light [class*="bg-amber-500/"] *,
+html.light [class*="bg-amber-500/1"] *,
+html.light [class*="bg-amber-500/2"] *,
+html.light [class*="bg-amber-500/3"] * {
+  color: #92400e !important;
 }
 
-html.light [class*="bg-emerald-500/"] {
-  background-color: rgba(16, 185, 129, 0.12) !important;
+html.light [class*="bg-emerald-500/"],
+html.light [class*="bg-emerald-500/1"],
+html.light [class*="bg-emerald-500/2"],
+html.light [class*="bg-emerald-500/3"] {
+  background-color: rgba(16, 185, 129, 0.14) !important;
   border-color: rgba(5, 150, 105, 0.35) !important;
+  color: #065f46 !important;
+}
+html.light [class*="bg-emerald-500/"] *,
+html.light [class*="bg-emerald-500/1"] *,
+html.light [class*="bg-emerald-500/2"] *,
+html.light [class*="bg-emerald-500/3"] * {
+  color: #065f46 !important;
 }
 
-html.light [class*="bg-blue-500/"] {
-  background-color: rgba(59, 130, 246, 0.12) !important;
+html.light [class*="bg-blue-500/"],
+html.light [class*="bg-blue-500/1"],
+html.light [class*="bg-blue-500/2"],
+html.light [class*="bg-blue-500/3"] {
+  background-color: rgba(59, 130, 246, 0.14) !important;
   border-color: rgba(37, 99, 235, 0.35) !important;
+  color: #1e40af !important;
+}
+html.light [class*="bg-blue-500/"] *,
+html.light [class*="bg-blue-500/1"] *,
+html.light [class*="bg-blue-500/2"] *,
+html.light [class*="bg-blue-500/3"] * {
+  color: #1e40af !important;
 }
 
 html.light [class*="bg-rose-500/"],
-html.light [class*="bg-red-500/"] {
-  background-color: rgba(244, 63, 94, 0.12) !important;
+html.light [class*="bg-rose-500/1"],
+html.light [class*="bg-rose-500/2"],
+html.light [class*="bg-rose-500/3"],
+html.light [class*="bg-red-500/"],
+html.light [class*="bg-red-500/1"],
+html.light [class*="bg-red-500/2"] {
+  background-color: rgba(244, 63, 94, 0.14) !important;
   border-color: rgba(225, 29, 72, 0.35) !important;
+  color: #9f1239 !important;
+}
+html.light [class*="bg-rose-500/"] *,
+html.light [class*="bg-rose-500/1"] *,
+html.light [class*="bg-rose-500/2"] *,
+html.light [class*="bg-rose-500/3"] *,
+html.light [class*="bg-red-500/"] *,
+html.light [class*="bg-red-500/1"] *,
+html.light [class*="bg-red-500/2"] * {
+  color: #9f1239 !important;
 }
 
-html.light [class*="bg-purple-500/"] {
-  background-color: rgba(168, 85, 247, 0.12) !important;
+html.light [class*="bg-purple-500/"],
+html.light [class*="bg-purple-500/1"],
+html.light [class*="bg-purple-500/2"],
+html.light [class*="bg-purple-500/3"] {
+  background-color: rgba(168, 85, 247, 0.14) !important;
   border-color: rgba(147, 51, 234, 0.35) !important;
+  color: #6b21a8 !important;
+}
+html.light [class*="bg-purple-500/"] *,
+html.light [class*="bg-purple-500/1"] *,
+html.light [class*="bg-purple-500/2"] *,
+html.light [class*="bg-purple-500/3"] * {
+  color: #6b21a8 !important;
 }
 
-html.light .text-slate-600 {
+/* 9. GESTION DES SURVOLS (HOVER) SANS TEXTE FANTÔME */
+html.light [class*="hover:text-white"]:hover {
+  color: #020617 !important;
+}
+
+html.light [class*="hover:text-slate-100"]:hover,
+html.light [class*="hover:text-slate-200"]:hover {
+  color: #020617 !important;
+}
+
+html.light [class*="hover:text-slate-300"]:hover {
+  color: #0f172a !important;
+}
+
+html.light [class*="hover:text-amber-300"]:hover,
+html.light [class*="hover:text-amber-400"]:hover {
+  color: #78350f !important;
+}
+
+html.light [class*="hover:text-emerald-300"]:hover,
+html.light [class*="hover:text-emerald-400"]:hover {
+  color: #064e3b !important;
+}
+
+html.light [class*="hover:text-blue-300"]:hover,
+html.light [class*="hover:text-blue-400"]:hover {
+  color: #1e3a8a !important;
+}
+
+html.light [class*="hover:text-rose-300"]:hover,
+html.light [class*="hover:text-rose-400"]:hover {
+  color: #881337 !important;
+}
+
+html.light [class*="hover:bg-slate-800"]:hover,
+html.light [class*="hover:bg-slate-700"]:hover,
+html.light [class*="hover:bg-slate-750"]:hover {
+  background-color: #e2e8f0 !important;
+  color: #020617 !important;
+}
+
+/* 10. FIDÉLITÉ DES CONTRATS ET RÉCÉPISSÉS IMPRIMABLES (A4 / Reçus) */
+html.light .contract-a4-page,
+html.light .a4-page,
+html.light #caution-receipt-print {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+html.light .contract-a4-page .text-slate-900,
+html.light .contract-a4-page .text-slate-800,
+html.light .contract-a4-page .text-slate-700,
+html.light #caution-receipt-print .text-slate-700,
+html.light #caution-receipt-print .text-slate-600 {
+  color: #0f172a !important;
+}
+
+html.light .contract-a4-page .text-slate-600,
+html.light .contract-a4-page .text-slate-500,
+html.light #caution-receipt-print .text-slate-500 {
   color: #475569 !important;
+}
+
+html.light .contract-a4-page .text-slate-400 {
+  color: #64748b !important;
+}
+
+/* En-têtes et bandeaux contrastés dans les contrats (prestige / corporate) */
+html.light .contract-a4-page [class*="bg-gradient-"],
+html.light .contract-a4-page [class*="bg-gradient-"] span,
+html.light .contract-a4-page [class*="bg-gradient-"] strong,
+html.light .contract-a4-page [class*="bg-gradient-"] h2,
+html.light .contract-a4-page [class*="bg-gradient-"] div {
+  color: #ffffff;
+}
+
+html.light .contract-a4-page [class*="bg-gradient-"] .text-amber-300,
+html.light .contract-a4-page [class*="bg-gradient-"] .text-amber-400 {
+  color: #fde047 !important;
+}
+
+html.light .contract-a4-page [class*="bg-gradient-"] .text-blue-200,
+html.light .contract-a4-page [class*="bg-gradient-"] .text-blue-300 {
+  color: #93c5fd !important;
 }
 
 /* Scrollbars personnalisées */
@@ -491,20 +719,4 @@ html.light ::-webkit-scrollbar-thumb:hover {
     size: A4 portrait;
     margin: 0mm;
   }
-}
-
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: #0f172a;
-}
-::-webkit-scrollbar-thumb {
-  background: #334155;
-  border-radius: 9999px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #475569;
 }
