@@ -579,11 +579,18 @@ export const ContractTemplatesManager: React.FC = () => {
                     onChange={(e) => setPreviewContractId(e.target.value)}
                     className="bg-slate-950 border border-slate-800 text-xs text-white rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-amber-500 font-mono"
                   >
-                    {contracts.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.contractNumber} ({c.clientSnapshot.lastName})
-                      </option>
-                    ))}
+                    {[...contracts]
+                      .sort((a, b) =>
+                        (b.contractNumber || '').localeCompare(a.contractNumber || '', 'fr', {
+                          numeric: true,
+                          sensitivity: 'base',
+                        })
+                      )
+                      .map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.contractNumber} ({c.clientSnapshot.lastName})
+                        </option>
+                      ))}
                   </select>
                 </div>
               )}

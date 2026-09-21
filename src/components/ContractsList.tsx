@@ -30,6 +30,7 @@ import {
   Banknote,
   DollarSign,
   RefreshCw,
+  ArrowUpDown,
 } from 'lucide-react';
 import { formatPlateFrench } from '../utils/plateUtils';
 import { InspectionManagerModal } from './InspectionManagerModal';
@@ -73,6 +74,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
   const [inspectionContract, setInspectionContract] = useState<Contract | null>(null);
   const [paymentsModalContract, setPaymentsModalContract] = useState<Contract | null>(null);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
 
   // Contract Deletion Modal (Gérant only)
   const [contractToDelete, setContractToDelete] = useState<Contract | null>(null);
@@ -176,6 +178,15 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
       c.vehicleSnapshot.model.toLowerCase().includes(q) ||
       c.vehicleSnapshot.plate.toLowerCase().includes(q)
     );
+  })
+  .sort((a, b) => {
+    const numA = (a.contractNumber || '').trim();
+    const numB = (b.contractNumber || '').trim();
+    const comp = numA.localeCompare(numB, 'fr', { numeric: true, sensitivity: 'base' });
+    if (comp !== 0) {
+      return sortOrder === 'desc' ? -comp : comp;
+    }
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
 
   const getStatusBadge = (status: ContractStatus) => {
@@ -457,6 +468,38 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
               Non payés
             </button>
           </div>
+
+          {/* Contract Number Order Selector */}
+          <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800 text-[11px]">
+            <span className="text-slate-500 px-1.5 font-medium flex items-center gap-1">
+              <ArrowUpDown className="w-3 h-3 text-amber-400" />
+              Ordre N° :
+            </span>
+            <button
+              type="button"
+              onClick={() => setSortOrder('desc')}
+              className={`px-2 py-0.5 rounded cursor-pointer transition-colors ${
+                sortOrder === 'desc'
+                  ? 'bg-amber-500/20 text-amber-400 font-bold border border-amber-500/40'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+              title="Classer selon les numéros de contrat décroissants (plus récent en premier)"
+            >
+              Décroissant (50 → 1)
+            </button>
+            <button
+              type="button"
+              onClick={() => setSortOrder('asc')}
+              className={`px-2 py-0.5 rounded cursor-pointer transition-colors ${
+                sortOrder === 'asc'
+                  ? 'bg-amber-500/20 text-amber-400 font-bold border border-amber-500/40'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+              title="Classer selon les numéros de contrat croissants (plus ancien en premier)"
+            >
+              Croissant (1 → 50)
+            </button>
+          </div>
         </div>
       </div>
 
@@ -474,7 +517,24 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
           <table className="w-full text-left text-xs text-slate-300">
             <thead className="bg-slate-950/70 text-slate-400 uppercase text-[10px] font-semibold border-b border-slate-800">
               <tr>
-                <th className="px-4 py-3.5">Numéro & Créateur</th>
+                <th className="px-4 py-3.5">
+                  <button
+                    type="button"
+                    onClick={() => setSortOrder((prev) => (prev === 'desc' ? 'asc' : 'desc'))}
+                    className="flex items-center gap-1.5 text-slate-300 hover:text-amber-400 uppercase text-[10px] font-bold tracking-wider transition-colors cursor-pointer group text-left"
+                    title={`Cliquer pour modifier l'ordre : actuellement ${
+                      sortOrder === 'desc' ? 'Décroissant (50 → 1)' : 'Croissant (1 → 50)'
+                    }`}
+                  >
+                    <span>Numéro & Créateur</span>
+                    <span className="flex items-center gap-0.5 p-0.5 rounded bg-slate-800 group-hover:bg-amber-500/20 text-amber-400 transition-colors">
+                      <ArrowUpDown className="w-3 h-3" />
+                      <span className="text-[9px] font-mono font-bold">
+                        {sortOrder === 'desc' ? '50→1' : '1→50'}
+                      </span>
+                    </span>
+                  </button>
+                </th>
                 <th className="px-4 py-3.5">Locataire Principal</th>
                 <th className="px-4 py-3.5">Véhicule & Immat</th>
                 <th className="px-4 py-3.5">Période Location</th>

@@ -13,6 +13,7 @@ import {
   Phone,
   Calendar,
   Sparkles,
+  ArrowUpDown,
 } from 'lucide-react';
 import { Contract } from '../../types';
 import { formatPlateFrench } from '../../utils/plateUtils';
@@ -34,30 +35,41 @@ export const DashboardContractsTable: React.FC<DashboardContractsTableProps> = (
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'completed' | 'prolonged'>('all');
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
 
-  const filteredContracts = contracts.filter((c) => {
-    // Status filter
-    if (statusFilter === 'active' && c.status !== 'active') return false;
-    if (statusFilter === 'completed' && c.status !== 'completed') return false;
-    if (statusFilter === 'prolonged' && !c.prolongation?.isActive) return false;
+  const filteredContracts = contracts
+    .filter((c) => {
+      // Status filter
+      if (statusFilter === 'active' && c.status !== 'active') return false;
+      if (statusFilter === 'completed' && c.status !== 'completed') return false;
+      if (statusFilter === 'prolonged' && !c.prolongation?.isActive) return false;
 
-    // Search query
-    if (!searchTerm.trim()) return true;
-    const q = searchTerm.toLowerCase();
-    const contractNum = c.contractNumber.toLowerCase();
-    const clientName = `${c.clientSnapshot.firstName} ${c.clientSnapshot.lastName}`.toLowerCase();
-    const docNum = (c.clientSnapshot.docNumber || '').toLowerCase();
-    const car = `${c.vehicleSnapshot.brand} ${c.vehicleSnapshot.model} ${c.vehicleSnapshot.plate}`.toLowerCase();
-    const manager = (c.assignedManagerName || '').toLowerCase();
+      // Search query
+      if (!searchTerm.trim()) return true;
+      const q = searchTerm.toLowerCase();
+      const contractNum = c.contractNumber.toLowerCase();
+      const clientName = `${c.clientSnapshot.firstName} ${c.clientSnapshot.lastName}`.toLowerCase();
+      const docNum = (c.clientSnapshot.docNumber || '').toLowerCase();
+      const car = `${c.vehicleSnapshot.brand} ${c.vehicleSnapshot.model} ${c.vehicleSnapshot.plate}`.toLowerCase();
+      const manager = (c.assignedManagerName || '').toLowerCase();
 
-    return (
-      contractNum.includes(q) ||
-      clientName.includes(q) ||
-      docNum.includes(q) ||
-      car.includes(q) ||
-      manager.includes(q)
-    );
-  });
+      return (
+        contractNum.includes(q) ||
+        clientName.includes(q) ||
+        docNum.includes(q) ||
+        car.includes(q) ||
+        manager.includes(q)
+      );
+    })
+    .sort((a, b) => {
+      const numA = (a.contractNumber || '').trim();
+      const numB = (b.contractNumber || '').trim();
+      const comp = numA.localeCompare(numB, 'fr', { numeric: true, sensitivity: 'base' });
+      if (comp !== 0) {
+        return sortOrder === 'desc' ? -comp : comp;
+      }
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
 
   const getStatusBadge = (cnt: Contract) => {
     if (cnt.prolongation?.isActive && cnt.status === 'active') {
@@ -194,7 +206,24 @@ export const DashboardContractsTable: React.FC<DashboardContractsTableProps> = (
         <table className="w-full text-left text-xs text-slate-300">
           <thead className="bg-slate-950/80 text-slate-400 uppercase text-[10px] font-semibold border-b border-slate-800">
             <tr>
-              <th className="px-4 py-3">N° Contrat &amp; Responsable</th>
+              <th className="px-4 py-3">
+                <button
+                  type="button"
+                  onClick={() => setSortOrder((prev) => (prev === 'desc' ? 'asc' : 'desc'))}
+                  className="flex items-center gap-1.5 text-slate-300 hover:text-amber-400 uppercase text-[10px] font-bold tracking-wider transition-colors cursor-pointer group text-left"
+                  title={`Cliquer pour inverser le tri : actuellement ${
+                    sortOrder === 'desc' ? 'Décroissant (50 → 1)' : 'Croissant (1 → 50)'
+                  }`}
+                >
+                  <span>N° Contrat &amp; Responsable</span>
+                  <span className="flex items-center gap-0.5 p-0.5 rounded bg-slate-800 group-hover:bg-amber-500/20 text-amber-400 transition-colors">
+                    <ArrowUpDown className="w-3 h-3" />
+                    <span className="text-[9px] font-mono font-bold">
+                      {sortOrder === 'desc' ? '50→1' : '1→50'}
+                    </span>
+                  </span>
+                </button>
+              </th>
               <th className="px-4 py-3">Locataire Principal</th>
               <th className="px-4 py-3">Véhicule Attribué</th>
               <th className="px-4 py-3">Période &amp; Montants</th>
