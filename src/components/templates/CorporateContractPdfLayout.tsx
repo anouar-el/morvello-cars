@@ -352,13 +352,22 @@ export const CorporateContractPdfLayout: React.FC<CorporateContractPdfLayoutProp
                   {totalTTC.toLocaleString()} MAD TTC
                 </span>
                 <div className="mt-0.5 flex items-center justify-center gap-1 text-[6.5px]">
-                  <span className="text-emerald-700 font-bold">
-                    Payé: {((contract.paidAmount !== undefined ? contract.paidAmount : (contract.payments?.reduce((s, p) => s + (p.amount || 0), 0) ?? 0))).toLocaleString('fr-FR')} MAD
-                  </span>
-                  <span className="text-slate-300">•</span>
-                  <span className={`font-bold ${((contract.remainingAmount !== undefined ? contract.remainingAmount : Math.max(0, (contract.totalAmount ?? ((contract.pricePerDay || 0) * contract.totalDays)) - (contract.paidAmount ?? 0)))) > 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
-                    Reste: {((contract.remainingAmount !== undefined ? contract.remainingAmount : Math.max(0, (contract.totalAmount ?? ((contract.pricePerDay || 0) * contract.totalDays)) - (contract.paidAmount ?? 0)))).toLocaleString('fr-FR')} MAD
-                  </span>
+                  {(() => {
+                    const pdfPaid = (contract.paidAmount !== undefined ? contract.paidAmount : (contract.payments?.reduce((s, p) => s + (p.amount || 0), 0) ?? 0));
+                    const pdfTotal = (contract.totalAmount ?? ((contract.pricePerDay || 0) * contract.totalDays));
+                    const pdfRemaining = contract.remainingAmount !== undefined ? contract.remainingAmount : Math.max(0, pdfTotal - pdfPaid);
+                    return (
+                      <>
+                        <span className={`font-bold ${pdfPaid > 0 ? 'text-emerald-700' : 'text-slate-500'}`}>
+                          Encaissé: {pdfPaid.toLocaleString('fr-FR')} MAD
+                        </span>
+                        <span className="text-slate-300">•</span>
+                        <span className={`font-bold ${pdfRemaining > 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
+                          Reste: {pdfRemaining.toLocaleString('fr-FR')} MAD {pdfRemaining === 0 ? '(Soldé)' : ''}
+                        </span>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
               <div className="col-span-3 pl-2 text-right">

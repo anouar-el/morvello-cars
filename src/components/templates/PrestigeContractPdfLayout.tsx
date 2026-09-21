@@ -389,22 +389,31 @@ export const PrestigeContractPdfLayout: React.FC<PrestigeContractPdfLayoutProps>
               <div className="col-span-4 border-r border-amber-300 pr-2">
                 <span className="text-[8px] uppercase font-bold text-slate-500 block">Tarif Journalier Prestige</span>
                 <span className="font-mono text-xs font-bold text-slate-950">
-                  {contract.pricePerDay ? `${contract.pricePerDay.toLocaleString()} MAD / jour` : 'Sur Mesure VIP'}
+                  {contract.pricePerDay !== undefined ? `${contract.pricePerDay.toLocaleString()} MAD / jour` : 'Sur Mesure VIP'}
                 </span>
               </div>
               <div className="col-span-4 border-r border-amber-300 pr-2 text-center">
                 <span className="text-[8px] uppercase font-bold text-slate-500 block">Montant Total Location</span>
                 <span className="font-mono text-sm font-black text-amber-950">
-                  {contract.totalAmount ? `${contract.totalAmount.toLocaleString()} MAD` : 'Inclus Pack'}
+                  {contract.totalAmount !== undefined ? `${contract.totalAmount.toLocaleString()} MAD` : 'Inclus Pack'}
                 </span>
                 <div className="mt-0.5 flex items-center justify-center gap-2 text-[7px]">
-                  <span className="text-emerald-700 font-bold">
-                    Payé : {((contract.paidAmount !== undefined ? contract.paidAmount : (contract.payments?.reduce((s, p) => s + (p.amount || 0), 0) ?? 0))).toLocaleString('fr-FR')} MAD
-                  </span>
-                  <span className="text-slate-300">•</span>
-                  <span className={`font-bold ${((contract.remainingAmount !== undefined ? contract.remainingAmount : Math.max(0, (contract.totalAmount ?? ((contract.pricePerDay || 0) * contract.totalDays)) - (contract.paidAmount ?? 0)))) > 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
-                    Reste : {((contract.remainingAmount !== undefined ? contract.remainingAmount : Math.max(0, (contract.totalAmount ?? ((contract.pricePerDay || 0) * contract.totalDays)) - (contract.paidAmount ?? 0)))).toLocaleString('fr-FR')} MAD
-                  </span>
+                  {(() => {
+                    const pdfPaid = (contract.paidAmount !== undefined ? contract.paidAmount : (contract.payments?.reduce((s, p) => s + (p.amount || 0), 0) ?? 0));
+                    const pdfTotal = (contract.totalAmount ?? ((contract.pricePerDay || 0) * contract.totalDays));
+                    const pdfRemaining = contract.remainingAmount !== undefined ? contract.remainingAmount : Math.max(0, pdfTotal - pdfPaid);
+                    return (
+                      <>
+                        <span className={`font-bold ${pdfPaid > 0 ? 'text-emerald-700' : 'text-slate-500'}`}>
+                          Encaissé : {pdfPaid.toLocaleString('fr-FR')} MAD
+                        </span>
+                        <span className="text-slate-300">•</span>
+                        <span className={`font-bold ${pdfRemaining > 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
+                          Reste : {pdfRemaining.toLocaleString('fr-FR')} MAD {pdfRemaining === 0 ? '(Soldé)' : ''}
+                        </span>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
               <div className="col-span-4 pl-2 text-right">

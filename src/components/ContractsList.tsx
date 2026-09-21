@@ -29,6 +29,7 @@ import {
   ShieldCheck,
   Banknote,
   DollarSign,
+  RefreshCw,
 } from 'lucide-react';
 import { formatPlateFrench } from '../utils/plateUtils';
 import { InspectionManagerModal } from './InspectionManagerModal';
@@ -53,6 +54,9 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
     updateContractPayment,
     deleteContractPayment,
     updateContractFinancials,
+    settleContractBalance,
+    refreshActiveContracts,
+    syncWithCloud,
     cancelContract,
     deleteContract,
     setActiveTab,
@@ -68,6 +72,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
   const [managerFilter, setManagerFilter] = useState<string>('all');
   const [inspectionContract, setInspectionContract] = useState<Contract | null>(null);
   const [paymentsModalContract, setPaymentsModalContract] = useState<Contract | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
 
   // Contract Deletion Modal (Gérant only)
   const [contractToDelete, setContractToDelete] = useState<Contract | null>(null);
@@ -138,13 +143,22 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
 
     // Payment status filter
     if (paymentFilter !== 'all') {
-      const cTotal = c.totalAmount ?? ((c.pricePerDay || 0) * (c.totalDays || 1));
-      const cPaid = c.paidAmount !== undefined ? c.paidAmount : (c.payments?.reduce((s, p) => s + (p.amount || 0), 0) ?? 0);
-      const cRemaining = c.remainingAmount !== undefined ? c.remainingAmount : Math.max(0, cTotal - cPaid);
+      const pricePerDay = c.pricePerDay !== undefined ? Number(c.pricePerDay) : 0;
+      const cTotal = c.totalAmount !== undefined ? Number(c.totalAmount) : (pricePerDay * (c.totalDays || 1));
+      const cPaid = c.payments && c.payments.length > 0
+        ? c.payments.reduce((s, p) => s + (Number(p.amount) || 0), 0)
+        : (c.paidAmount !== undefined ? Number(c.paidAmount) : 0);
+      const cRemaining = Math.max(0, cTotal - cPaid);
 
-      if (paymentFilter === 'paid' && cRemaining > 0) return false;
-      if (paymentFilter === 'partial' && (cPaid === 0 || cRemaining === 0)) return false;
-      if (paymentFilter === 'unpaid' && cPaid > 0) return false;
+      if (paymentFilter === 'paid') {
+        if (cTotal > 0 && cRemaining > 0) return false;
+      }
+      if (paymentFilter === 'partial') {
+        if (cTotal === 0 || cPaid === 0 || cRemaining === 0) return false;
+      }
+      if (paymentFilter === 'unpaid') {
+        if (cTotal === 0 || cPaid > 0) return false;
+      }
     }
 
     // Search query: contract number, client name, phone, CIN/Passport, plate
@@ -253,13 +267,38 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
           </p>
         </div>
 
-        <button
-          onClick={() => setActiveTab('new_contract')}
-          className="flex items-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold px-4 py-2 rounded-xl text-xs sm:text-sm shadow-md shadow-amber-500/20 transition-all cursor-pointer"
-        >
-          <PlusCircle className="w-4 h-4" />
-          + Nouveau Contrat
-        </button>
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={async () => {
+              setIsRefreshing(true);
+              try {
+                refreshActiveContracts();
+                await syncWithCloud();
+                setSuccessToastMsg(
+                  'Contrats en cours actualisés avec succès : calculs financiers recalculés et données synchronisées.'
+                );
+              } catch (e) {
+                setSuccessToastMsg('Contrats en cours actualisés localement avec succès.');
+              } finally {
+                setTimeout(() => setIsRefreshing(false), 500);
+              }
+            }}
+            disabled={isRefreshing}
+            className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white border border-slate-700 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer disabled:opacity-50"
+            title="Actualiser et recalculer l'ensemble des contrats en cours"
+          >
+            <RefreshCw className={`w-4 h-4 text-amber-400 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span>Actualiser les contrats</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('new_contract')}
+            className="flex items-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold px-4 py-2 rounded-xl text-xs sm:text-sm shadow-md shadow-amber-500/20 transition-all cursor-pointer"
+          >
+            <PlusCircle className="w-4 h-4" />
+            + Nouveau Contrat
+          </button>
+        </div>
       </div>
 
       {/* DUPLICATE CONTRACTS ALERT BANNER */}
@@ -589,11 +628,18 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                     {/* RÈGLEMENT & SOLDE */}
                     <td className="px-4 py-3.5">
                       {(() => {
-                        const total = cnt.totalAmount ?? ((cnt.pricePerDay || 0) * (cnt.totalDays || 1));
-                        const paid = cnt.paidAmount !== undefined ? cnt.paidAmount : (cnt.payments?.reduce((s, p) => s + (p.amount || 0), 0) ?? 0);
-                        const remaining = cnt.remainingAmount !== undefined ? cnt.remainingAmount : Math.max(0, total - paid);
-                        const isFullyPaid = remaining <= 0 && total > 0;
-                        const isPartiallyPaid = paid > 0 && remaining > 0;
+                        const pricePerDay = cnt.pricePerDay !== undefined ? Number(cnt.pricePerDay) : 0;
+                        const totalDays = cnt.totalDays || 1;
+                        const total = cnt.totalAmount !== undefined ? Number(cnt.totalAmount) : (pricePerDay * totalDays);
+                        const paymentsList = cnt.payments || [];
+                        const paid = paymentsList.length > 0
+                          ? paymentsList.reduce((s, p) => s + (Number(p.amount) || 0), 0)
+                          : (cnt.paidAmount !== undefined ? Number(cnt.paidAmount) : 0);
+                        const remaining = Math.max(0, total - paid);
+
+                        const isZeroTotal = total === 0;
+                        const isFullyPaid = isZeroTotal || remaining <= 0;
+                        const isPartiallyPaid = !isZeroTotal && paid > 0 && remaining > 0;
 
                         return (
                           <div className="space-y-1">
@@ -601,42 +647,68 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                               <span className="font-mono text-slate-300 font-bold">
                                 {total.toLocaleString('fr-FR')} MAD
                               </span>
-                              {isFullyPaid ? (
-                                <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-1.5 py-0.2 rounded font-mono">
+                              {isZeroTotal ? (
+                                <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-1.5 py-0.5 rounded font-mono">
+                                  ✓ Soldé (0 MAD)
+                                </span>
+                              ) : isFullyPaid ? (
+                                <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-1.5 py-0.5 rounded font-mono">
                                   ✓ Soldé
                                 </span>
                               ) : isPartiallyPaid ? (
-                                <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-amber-400 bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.2 rounded font-mono">
+                                <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-amber-400 bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.5 rounded font-mono">
                                   ⚡ Acompte
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-rose-400 bg-rose-500/15 border border-rose-500/30 px-1.5 py-0.2 rounded font-mono">
+                                <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-rose-400 bg-rose-500/15 border border-rose-500/30 px-1.5 py-0.5 rounded font-mono">
                                   ✕ Non payé
                                 </span>
                               )}
                             </div>
 
+                            <div className="text-[10px] font-mono text-slate-400 flex items-center justify-between">
+                              <span>Tarif : {pricePerDay} MAD/j × {totalDays}j</span>
+                            </div>
+
                             <div className="text-[10px] font-mono flex items-center justify-between">
-                              <span className="text-emerald-400">
-                                Payé: {paid.toLocaleString('fr-FR')}
+                              <span className={paid > 0 ? 'text-emerald-400 font-semibold' : 'text-slate-400'}>
+                                Encaissé: {paid.toLocaleString('fr-FR')}
                               </span>
-                              <span className={remaining > 0 ? 'text-rose-400 font-bold' : 'text-slate-500'}>
+                              <span className={remaining > 0 ? 'text-rose-400 font-bold' : isZeroTotal ? 'text-slate-400' : 'text-emerald-400 font-semibold'}>
                                 Reste: {remaining.toLocaleString('fr-FR')}
                               </span>
                             </div>
 
-                            <button
-                              type="button"
-                              onClick={() => setPaymentsModalContract(cnt)}
-                              className="w-full text-left flex items-center justify-between text-[9.5px] text-amber-400/90 hover:text-amber-300 hover:bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 transition-colors cursor-pointer"
-                              title="Gérer les paiements et acomptes de ce contrat"
-                            >
-                              <span className="flex items-center gap-1 font-semibold">
-                                <Banknote className="w-2.5 h-2.5" />
-                                {cnt.payments?.length || 0} versement(s)
-                              </span>
-                              <span className="text-amber-400 font-bold">Gérer &gt;</span>
-                            </button>
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => setPaymentsModalContract(cnt)}
+                                className="flex-1 text-left flex items-center justify-between text-[9.5px] text-amber-400/90 hover:text-amber-300 hover:bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 transition-colors cursor-pointer"
+                                title="Gérer les règlements, modifier le tarif journalier ou le total"
+                              >
+                                <span className="flex items-center gap-1 font-semibold">
+                                  <Banknote className="w-2.5 h-2.5" />
+                                  {cnt.payments?.length || 0} versement(s)
+                                </span>
+                                <span className="text-amber-400 font-bold">Gérer &gt;</span>
+                              </button>
+
+                              {remaining > 0 && hasPermission('canCreateContracts') && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    settleContractBalance(cnt.id);
+                                    setSuccessToastMsg(
+                                      `Contrat ${cnt.contractNumber} soldé avec succès (règlement du reliquat de ${remaining.toLocaleString('fr-FR')} MAD enregistré).`
+                                    );
+                                  }}
+                                  className="text-[9px] font-bold bg-emerald-500/20 hover:bg-emerald-500 text-emerald-300 hover:text-slate-950 border border-emerald-500/40 px-1.5 py-0.5 rounded transition-all cursor-pointer whitespace-nowrap"
+                                  title={`Solder immédiatement le reliquat de ${remaining.toLocaleString('fr-FR')} MAD`}
+                                >
+                                  Solder ({remaining.toLocaleString('fr-FR')})
+                                </button>
+                              )}
+                            </div>
                           </div>
                         );
                       })()}

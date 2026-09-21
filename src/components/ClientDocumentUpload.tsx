@@ -55,11 +55,41 @@ export const ClientDocumentUpload: React.FC<ClientDocumentUploadProps> = ({
   // Drag states
   const [dragActive, setDragActive] = useState<string | null>(null);
 
+  const compressImage = (rawUrl: string, maxWidth = 1200, quality = 0.75): Promise<string> => {
+    if (!rawUrl.startsWith('data:image/')) return Promise.resolve(rawUrl);
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(rawUrl);
+          return;
+        }
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = () => resolve(rawUrl);
+      img.src = rawUrl;
+    });
+  };
+
   const handleFileProcess = (file: File, field: 'cinRecto' | 'cinVerso' | 'licenseRecto' | 'licenseVerso') => {
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (e) => {
-      const dataUrl = e.target?.result as string;
+    reader.onload = async (e) => {
+      let dataUrl = e.target?.result as string;
+      if (file.type.startsWith('image/')) {
+        dataUrl = await compressImage(dataUrl);
+      }
       const fileName = file.name;
 
       if (field === 'cinRecto') {

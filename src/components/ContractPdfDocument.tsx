@@ -659,12 +659,38 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
           {/* ========================================================================= */}
           <div className="border border-slate-300 rounded-xl bg-gradient-to-b from-slate-50 via-white to-amber-50/20 p-2 mb-2 shadow-xs">
             <div className="flex items-center justify-between border-b border-slate-200 pb-1 mb-1.5 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-950 text-white px-2.5 py-1 rounded-lg shadow-2xs">
-              <h2 className="text-[10px] font-black uppercase tracking-wide flex items-center gap-2 text-white">
-                <span className="w-5 h-5 bg-amber-500/30 border border-amber-300/40 rounded flex items-center justify-center shrink-0">
-                  <CreditCard className="w-3 h-3 text-amber-300" />
-                </span>
-                <span>4. Conditions Tarifaires &amp; Dépôt de Garantie (Caution)</span>
-              </h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-[10px] font-black uppercase tracking-wide flex items-center gap-2 text-white">
+                  <span className="w-5 h-5 bg-amber-500/30 border border-amber-300/40 rounded flex items-center justify-center shrink-0">
+                    <CreditCard className="w-3 h-3 text-amber-300" />
+                  </span>
+                  <span>4. Conditions Tarifaires &amp; Dépôt de Garantie (Caution)</span>
+                </h2>
+                {(() => {
+                  const pdfPaid = (contract.paidAmount !== undefined ? contract.paidAmount : (contract.payments?.reduce((s, p) => s + (p.amount || 0), 0) ?? 0));
+                  const pdfTotal = (contract.totalAmount ?? ((contract.pricePerDay || 0) * contract.totalDays));
+                  const pdfRemaining = contract.remainingAmount !== undefined ? contract.remainingAmount : Math.max(0, pdfTotal - pdfPaid);
+                  if (pdfTotal === 0 || pdfRemaining === 0) {
+                    return (
+                      <span className="text-[7.5px] font-bold text-emerald-300 bg-emerald-500/20 border border-emerald-400/40 px-1.5 py-0.2 rounded">
+                        ✓ {pdfTotal === 0 ? 'Soldé (0 MAD)' : 'Soldé'}
+                      </span>
+                    );
+                  }
+                  if (pdfPaid > 0) {
+                    return (
+                      <span className="text-[7.5px] font-bold text-amber-300 bg-amber-500/20 border border-amber-400/40 px-1.5 py-0.2 rounded">
+                        ⚡ Acompte Versé
+                      </span>
+                    );
+                  }
+                  return (
+                    <span className="text-[7.5px] font-bold text-rose-300 bg-rose-500/20 border border-rose-400/40 px-1.5 py-0.2 rounded">
+                      En attente de règlement
+                    </span>
+                  );
+                })()}
+              </div>
               <span className="text-[9px] text-amber-200 font-bold font-arabic">
                 الشروط المالية ومبلغ الضمان
               </span>
@@ -677,7 +703,7 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
                   Tarif Journalier / اليوم
                 </span>
                 <p className="font-mono font-black text-slate-950 text-xs mt-0.5">
-                  {contract.pricePerDay ? `${contract.pricePerDay.toLocaleString('fr-FR')} MAD` : 'Tarif convenu'}
+                  {contract.pricePerDay !== undefined ? `${contract.pricePerDay.toLocaleString('fr-FR')} MAD` : 'Tarif convenu'}
                   <span className="text-[7.5px] font-normal text-slate-500 ml-1">/ jour</span>
                 </p>
                 <span className="text-[7px] text-slate-500 mt-0.5">TTC • Kilométrage illimité</span>
@@ -689,19 +715,28 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
                   Total Facturé ({contract.totalDays}j)
                 </span>
                 <p className="font-mono font-black text-amber-950 text-[13px] mt-0.5">
-                  {contract.totalAmount
+                  {contract.totalAmount !== undefined
                     ? `${contract.totalAmount.toLocaleString('fr-FR')} MAD`
-                    : contract.pricePerDay
+                    : contract.pricePerDay !== undefined
                     ? `${(contract.pricePerDay * contract.totalDays).toLocaleString('fr-FR')} MAD`
                     : 'Sur devis'}
                 </p>
                 <div className="mt-0.5 pt-0.5 border-t border-amber-100 flex items-center justify-between text-[7px]">
-                  <span className="text-emerald-700 font-bold">
-                    Payé : {((contract.paidAmount !== undefined ? contract.paidAmount : (contract.payments?.reduce((s, p) => s + (p.amount || 0), 0) ?? 0))).toLocaleString('fr-FR')} MAD
-                  </span>
-                  <span className={`font-bold ${((contract.remainingAmount !== undefined ? contract.remainingAmount : Math.max(0, (contract.totalAmount ?? ((contract.pricePerDay || 0) * contract.totalDays)) - (contract.paidAmount ?? 0)))) > 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
-                    Reste : {((contract.remainingAmount !== undefined ? contract.remainingAmount : Math.max(0, (contract.totalAmount ?? ((contract.pricePerDay || 0) * contract.totalDays)) - (contract.paidAmount ?? 0)))).toLocaleString('fr-FR')} MAD
-                  </span>
+                  {(() => {
+                    const pdfPaid = (contract.paidAmount !== undefined ? contract.paidAmount : (contract.payments?.reduce((s, p) => s + (p.amount || 0), 0) ?? 0));
+                    const pdfTotal = (contract.totalAmount ?? ((contract.pricePerDay || 0) * contract.totalDays));
+                    const pdfRemaining = contract.remainingAmount !== undefined ? contract.remainingAmount : Math.max(0, pdfTotal - pdfPaid);
+                    return (
+                      <>
+                        <span className={`font-bold ${pdfPaid > 0 ? 'text-emerald-700' : 'text-slate-500'}`}>
+                          Encaissé : {pdfPaid.toLocaleString('fr-FR')} MAD
+                        </span>
+                        <span className={`font-bold ${pdfRemaining > 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
+                          Reste : {pdfRemaining.toLocaleString('fr-FR')} MAD {pdfRemaining === 0 ? '(Soldé)' : ''}
+                        </span>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
 

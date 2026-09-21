@@ -16,6 +16,7 @@ import {
   AlertOctagon,
   Wrench,
   Shield,
+  Users,
 } from 'lucide-react';
 import { formatPlateFrench } from '../utils/plateUtils';
 import { getVehicleHealthSummary } from '../utils/vehicleExpiryUtils';
@@ -42,7 +43,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCheckInModal, onOpen
   const isManager = currentUser?.role === 'manager';
 
   // Isolation stricte selon le rôle
-  const { scopedVehicles, scopedContracts, scopedDeposits } = getScopedDataForUser(
+  const { scopedVehicles, scopedContracts, scopedDeposits, scopedClients } = getScopedDataForUser(
     currentUser,
     vehicles,
     contracts,
@@ -118,8 +119,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCheckInModal, onOpen
         </button>
       </div>
 
-      {/* 2. LES 3 CHIFFRES CLÉS ESSENTIELS */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      {/* 2. LES CHIFFRES CLÉS ESSENTIELS */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Flotte */}
         <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4.5 flex items-center justify-between">
           <div>
@@ -180,6 +181,27 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCheckInModal, onOpen
             <CheckCircle2 className="w-5 h-5" />
           </div>
         </div>
+
+        {/* Répertoire Clients */}
+        <button
+          onClick={() => setActiveTab('clients')}
+          className="bg-slate-900/80 hover:bg-slate-850 border border-slate-800 hover:border-slate-700 rounded-2xl p-4.5 flex items-center justify-between text-left transition-all cursor-pointer group"
+        >
+          <div>
+            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+              {isManager ? 'Mes Clients' : 'Répertoire Clients'}
+            </p>
+            <div className="text-2xl font-black text-white font-mono mt-1">
+              {scopedClients.length}
+            </div>
+            <p className="text-[11px] text-cyan-400 font-medium mt-0.5 group-hover:underline">
+              {isManager ? 'Clients autorisés' : 'Clients enregistrés'} →
+            </p>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 group-hover:scale-105 transition-transform">
+            <Users className="w-5 h-5" />
+          </div>
+        </button>
       </div>
 
       {/* 2.5 VIGILANCE OPÉRATIONNELLE & ALERTES PROACTIVES */}
@@ -292,7 +314,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCheckInModal, onOpen
       </div>
 
       {/* 4. RACCOURCIS SIMPLES & PARC */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
         <button
           onClick={() => setActiveTab('vehicles')}
           className="p-4 bg-slate-900/60 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-xl text-left transition-all flex items-center justify-between cursor-pointer group"
@@ -303,6 +325,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCheckInModal, onOpen
             </p>
             <p className="text-[11px] text-slate-400 mt-0.5">
               {isManager ? 'Consulter les disponibilités de mes véhicules' : 'Consulter les disponibilités et fiches véhicules'}
+            </p>
+          </div>
+          <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-amber-400 transition-colors" />
+        </button>
+
+        <button
+          onClick={() => setActiveTab('clients')}
+          className="p-4 bg-slate-900/60 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-xl text-left transition-all flex items-center justify-between cursor-pointer group"
+        >
+          <div>
+            <p className="font-bold text-white text-xs">
+              {isManager ? `Mes Clients (${scopedClients.length})` : `Répertoire Clients (${clients.length})`}
+            </p>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              Fiches d'identité, permis, coordonnées et historique
             </p>
           </div>
           <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-amber-400 transition-colors" />

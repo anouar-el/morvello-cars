@@ -41,8 +41,35 @@ export interface MorvelloCloudData {
   updatedBy?: string;
 }
 
-// Single primary company document collection in Firestore
+// Primary company document collections in Firestore
 const APP_DOC_PATH = { collection: 'agencies', docId: 'morvello_main' };
+const CLIENTS_DOC_PATH = { collection: 'agencies', docId: 'morvello_clients' };
+
+/**
+ * Optimise les snapshots de contrat pour Firestore en évitant la duplication
+ * redondante d'images base64 de plusieurs centaines de kilo-octets déjà stockées sur la fiche client.
+ */
+function optimizeContractsForFirestore(contracts?: Contract[]): Contract[] | undefined {
+  if (!contracts) return undefined;
+  return contracts.map((c) => {
+    if (c.clientSnapshot && (
+      (c.clientSnapshot.cinDocUrl && c.clientSnapshot.cinDocUrl.length > 1000) ||
+      (c.clientSnapshot.licenseDocUrl && c.clientSnapshot.licenseDocUrl.length > 1000)
+    )) {
+      return {
+        ...c,
+        clientSnapshot: {
+          ...c.clientSnapshot,
+          cinDocUrl: c.clientSnapshot.cinDocUrl ? 'archived' : '',
+          cinDocVersoUrl: c.clientSnapshot.cinDocVersoUrl ? 'archived' : '',
+          licenseDocUrl: c.clientSnapshot.licenseDocUrl ? 'archived' : '',
+          licenseDocVersoUrl: c.clientSnapshot.licenseDocVersoUrl ? 'archived' : '',
+        },
+      };
+    }
+    return c;
+  });
+}
 
 /**
  * Recursively removes all `undefined` values from objects and arrays.
@@ -71,18 +98,47 @@ export function sanitizeForFirestore<T>(val: T): T {
 }
 
 export async function fetchRemoteAgencyData(): Promise<MorvelloCloudData | null> {
-  const fullPath = `${APP_DOC_PATH.collection}/${APP_DOC_PATH.docId}`;
-
-  // 1. Primary: Fetch from Firebase Cloud Firestore
+  // 1. Primary: Fetch from Firebase Cloud Firestore (morvello_main + morvello_clients)
   try {
-    const docRef = doc(db, APP_DOC_PATH.collection, APP_DOC_PATH.docId);
-    const snap = await getDoc(docRef);
-    if (snap.exists()) {
-      const data = snap.data() as MorvelloCloudData;
-      // If Firestore contains agency data, return it directly
-      if (data && (data.contracts?.length || data.clients?.length || data.vehicles?.length || data.companySettings)) {
-        return data;
+    const mainDocRef = doc(db, APP_DOC_PATH.collection, APP_DOC_PATH.docId);
+    const clientsDocRef = doc(db, CLIENTS_DOC_PATH.collection, CLIENTS_DOC_PATH.docId);
+
+    const [mainSnapResult, clientsSnapResult] = await Promise.allSettled([
+      getDoc(mainDocRef),
+      getDoc(clientsDocRef),
+    ]);
+
+    let data: MorvelloCloudData | null = null;
+
+    if (mainSnapResult.status === 'fulfilled' && mainSnapResult.value.exists()) {
+      data = mainSnapResult.value.data() as MorvelloCloudData;
+    }
+
+    if (clientsSnapResult.status === 'fulfilled' && clientsSnapResult.value.exists()) {
+      const clientsData = clientsSnapResult.value.data() as { clients?: Client[] };
+      if (clientsData?.clients && clientsData.clients.length > 0) {
+        if (!data) {
+          data = { clients: clientsData.clients };
+        } else {
+          // Merge clients seamlessly
+          const merged = [...(data.clients || [])];
+          for (const cli of clientsData.clients) {
+            const exists = merged.some(
+              (m) =>
+                m.id === cli.id ||
+                (m.docNumber && cli.docNumber && m.docNumber.trim().toUpperCase() === cli.docNumber.trim().toUpperCase())
+            );
+            if (!exists) {
+              merged.push(cli);
+            }
+          }
+          data.clients = merged;
+        }
       }
+    }
+
+    if (data && (data.contracts?.length || data.clients?.length || data.vehicles?.length || data.companySettings)) {
+      return data;
     }
   } catch (error: any) {
     if (!isAbortException(error)) {
@@ -114,13 +170,35 @@ export async function saveRemoteAgencyData(data: Partial<MorvelloCloudData>): Pr
 
   // 1. Primary: Save to Firebase Cloud Firestore
   try {
-    const docRef = doc(db, APP_DOC_PATH.collection, APP_DOC_PATH.docId);
-    const rawPayload = {
+    const mainDocRef = doc(db, APP_DOC_PATH.collection, APP_DOC_PATH.docId);
+
+    // 1a. If clients are provided, also persist them to dedicated morvello_clients document
+    // to safeguard against Firestore's 1MB single-document limit
+    if (data.clients && data.clients.length > 0) {
+      try {
+        const clientsDocRef = doc(db, CLIENTS_DOC_PATH.collection, CLIENTS_DOC_PATH.docId);
+        await setDoc(
+          clientsDocRef,
+          sanitizeForFirestore({
+            clients: data.clients,
+            updatedAt: new Date().toISOString(),
+          }),
+          { merge: true }
+        );
+      } catch (cliErr) {
+        console.warn('[Firestore] Notice saving morvello_clients:', cliErr);
+      }
+    }
+
+    // 1b. Prepare payload for morvello_main with optimized contract snapshots
+    const optimizedPayload = {
       ...data,
+      contracts: optimizeContractsForFirestore(data.contracts),
       updatedAt: new Date().toISOString(),
     };
-    const sanitizedPayload = sanitizeForFirestore(rawPayload);
-    await setDoc(docRef, sanitizedPayload, { merge: true });
+
+    const sanitizedPayload = sanitizeForFirestore(optimizedPayload);
+    await setDoc(mainDocRef, sanitizedPayload, { merge: true });
     firestoreSuccess = true;
   } catch (error: any) {
     if (!isAbortException(error)) {
@@ -152,14 +230,16 @@ export function subscribeToRemoteAgencyData(
   onError?: (err: any) => void
 ): Unsubscribe {
   let isDisposed = false;
-  const fullPath = `${APP_DOC_PATH.collection}/${APP_DOC_PATH.docId}`;
-  const docRef = doc(db, APP_DOC_PATH.collection, APP_DOC_PATH.docId);
+  const mainDocRef = doc(db, APP_DOC_PATH.collection, APP_DOC_PATH.docId);
+  const clientsDocRef = doc(db, CLIENTS_DOC_PATH.collection, CLIENTS_DOC_PATH.docId);
 
   // 1. Direct Firestore Snapshot Subscription
-  let snapshotUnsub: Unsubscribe | null = null;
+  let mainUnsub: Unsubscribe | null = null;
+  let clientsUnsub: Unsubscribe | null = null;
+
   try {
-    snapshotUnsub = onSnapshot(
-      docRef,
+    mainUnsub = onSnapshot(
+      mainDocRef,
       (snap) => {
         if (isDisposed) return;
         if (snap.exists()) {
@@ -179,6 +259,27 @@ export function subscribeToRemoteAgencyData(
     if (!isDisposed && !isAbortException(err) && onError) onError(err);
   }
 
+  try {
+    clientsUnsub = onSnapshot(
+      clientsDocRef,
+      (snap) => {
+        if (isDisposed) return;
+        if (snap.exists()) {
+          const cData = snap.data() as { clients?: Client[] };
+          if (cData && cData.clients && cData.clients.length > 0) {
+            onData({ clients: cData.clients });
+          }
+        }
+      },
+      (error) => {
+        if (isDisposed || isAbortException(error)) return;
+        console.warn('[Firestore Realtime Clients] notice:', error?.message || error);
+      }
+    );
+  } catch (err: any) {
+    // Non-blocking
+  }
+
   // 2. Supabase Realtime Subscription (parallel sync)
   const unsubscribeSupabase = subscribeToRemoteAgencyDataFromSupabase(
     (data) => {
@@ -193,9 +294,13 @@ export function subscribeToRemoteAgencyData(
 
   return () => {
     isDisposed = true;
-    if (snapshotUnsub) {
-      snapshotUnsub();
-      snapshotUnsub = null;
+    if (mainUnsub) {
+      mainUnsub();
+      mainUnsub = null;
+    }
+    if (clientsUnsub) {
+      clientsUnsub();
+      clientsUnsub = null;
     }
     unsubscribeSupabase();
   };

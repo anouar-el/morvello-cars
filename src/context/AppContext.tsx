@@ -19,6 +19,7 @@ import {
   ThemeMode,
   AiAssistantSettings,
   PaymentRecord,
+  PaymentMethod,
 } from '../types';
 import {
   initialClients,
@@ -40,6 +41,7 @@ import {
   DuplicateContractReport,
 } from '../utils/contractNumberUtils';
 import { reconcileVehiclesWithContracts } from '../utils/vehicleStatusUtils';
+import { reconcileClientsWithContracts } from '../utils/clientSyncUtils';
 
 import { AuthProvider, useAuth } from './AuthContext';
 import { VehiclesProvider, useVehicles } from './VehiclesContext';
@@ -148,6 +150,13 @@ export interface AppContextType {
     },
     actorName?: string
   ) => Contract | undefined;
+  settleContractBalance: (
+    contractId: string,
+    actorName?: string,
+    method?: PaymentMethod,
+    notes?: string
+  ) => Contract | undefined;
+  refreshActiveContracts: () => void;
   startEditingContract: (contract: Contract) => void;
   clearEditingData: () => void;
   completeContract: (id: string, returnKm: number, returnDate: string, returnTime: string, notes?: string) => void;
@@ -217,21 +226,7 @@ const AppContextInner: React.FC<{ children: React.ReactNode }> = ({ children }) 
         contractsCtx.setContractsList(mergedContracts);
       }
 
-      // 2. Clients Merge
-      const localClients = clientsDrivers.clients;
-      const remoteClients = remote?.clients || [];
-      const mergedClients = [...remoteClients];
-      for (const lcli of localClients) {
-        if (!mergedClients.some((rcli) => rcli.id === lcli.id || (rcli.docNumber && lcli.docNumber && rcli.docNumber.trim().toUpperCase() === lcli.docNumber.trim().toUpperCase()))) {
-          mergedClients.push(lcli);
-          shouldPushBack = true;
-        }
-      }
-      if (mergedClients.length > 0) {
-        clientsDrivers.setClientsList(mergedClients);
-      }
-
-      // 3. Vehicles Merge & Reconcile with active contracts
+      // 2. Vehicles Merge & Reconcile with active contracts
       const localVehicles = vehiclesCtx.vehicles;
       const remoteVehicles = remote?.vehicles || [];
       const mergedVehicles = [...remoteVehicles];
@@ -245,6 +240,30 @@ const AppContextInner: React.FC<{ children: React.ReactNode }> = ({ children }) 
       const reconciledVehicles = reconcileVehiclesWithContracts(rawVehicles, mergedContracts);
       if (reconciledVehicles.length > 0) {
         vehiclesCtx.setVehiclesList(reconciledVehicles);
+      }
+
+      // 3. Clients Merge & Reconcile with contracts
+      const localClients = clientsDrivers.clients;
+      const remoteClients = remote?.clients || [];
+      const mergedClients = [...remoteClients];
+      for (const lcli of localClients) {
+        if (!mergedClients.some((rcli) => rcli.id === lcli.id || (rcli.docNumber && lcli.docNumber && rcli.docNumber.trim().toUpperCase() === lcli.docNumber.trim().toUpperCase()))) {
+          mergedClients.push(lcli);
+          shouldPushBack = true;
+        }
+      }
+      const rawClients = mergedClients.length > 0 ? mergedClients : localClients;
+      const reconciledClients = reconcileClientsWithContracts(
+        rawClients,
+        mergedContracts,
+        rawVehicles,
+        remote?.users || auth.users
+      );
+      if (reconciledClients.length > mergedClients.length) {
+        shouldPushBack = true;
+      }
+      if (reconciledClients.length > 0) {
+        clientsDrivers.setClientsList(reconciledClients);
       }
 
       // 4. Deposits Merge
@@ -291,7 +310,7 @@ const AppContextInner: React.FC<{ children: React.ReactNode }> = ({ children }) 
       if (shouldPushBack || !remote || remoteContracts.length < mergedContracts.length) {
         saveRemoteAgencyData({
           vehicles: reconciledVehicles,
-          clients: mergedClients,
+          clients: reconciledClients,
           drivers: clientsDrivers.drivers,
           contracts: mergedContracts,
           deposits: mergedDeposits,
@@ -408,7 +427,22 @@ const AppContextInner: React.FC<{ children: React.ReactNode }> = ({ children }) 
               merged.push(c);
             }
           }
-          ctx.clientsDrivers.setClientsList(merged);
+          const reconciledCli = reconcileClientsWithContracts(
+            merged,
+            effectiveContracts,
+            ctx.vehiclesCtx.vehicles,
+            ctx.auth.users
+          );
+          ctx.clientsDrivers.setClientsList(reconciledCli);
+        } else if (effectiveContracts.length > 0) {
+          const current = ctx.clientsDrivers.clients;
+          const reconciledCli = reconcileClientsWithContracts(
+            current,
+            effectiveContracts,
+            ctx.vehiclesCtx.vehicles,
+            ctx.auth.users
+          );
+          ctx.clientsDrivers.setClientsList(reconciledCli);
         }
 
         if (remote.vehicles && remote.vehicles.length > 0) {
@@ -596,6 +630,9 @@ const AppContextInner: React.FC<{ children: React.ReactNode }> = ({ children }) 
           contractsCtx.deleteContractPayment(contractId, paymentId, actorName || auth.currentUser?.name),
         updateContractFinancials: (contractId, financials, actorName) =>
           contractsCtx.updateContractFinancials(contractId, financials, actorName || auth.currentUser?.name),
+        settleContractBalance: (contractId, actorName, method, notes) =>
+          contractsCtx.settleContractBalance(contractId, actorName || auth.currentUser?.name, method, notes),
+        refreshActiveContracts: contractsCtx.refreshActiveContracts,
         startEditingContract: (contract) =>
           contractsCtx.startEditingContract(contract, () => company.setActiveTab('new_contract')),
         clearEditingData: contractsCtx.clearEditingData,

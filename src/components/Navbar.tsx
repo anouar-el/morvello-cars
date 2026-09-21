@@ -100,7 +100,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenNotifications }) => {
       id: 'clients',
       label: 'Clients',
       icon: <Users className="w-4 h-4" />,
-      badge: currentUser.role === 'manager' ? `${scopedClientsCount} miens` : undefined,
+      badge: currentUser.role === 'manager' ? `${scopedClientsCount} miens` : (clients.length > 0 ? `${clients.length}` : undefined),
     },
     {
       id: 'vehicles',

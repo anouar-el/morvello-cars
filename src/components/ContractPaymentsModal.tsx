@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Contract, PaymentRecord, PaymentMethod } from '../types';
 import {
   CreditCard,
@@ -17,6 +17,7 @@ import {
   Save,
   RotateCcw,
   Percent,
+  Check,
 } from 'lucide-react';
 
 interface ContractPaymentsModalProps {
@@ -54,13 +55,33 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
   currentUserName = 'Direction',
 }) => {
   // Financial edition state
+  const initialPricePerDay = contract.pricePerDay !== undefined ? Number(contract.pricePerDay) : 0;
+  const initialTotalDays = contract.totalDays || 1;
+  const initialTotalAmount = contract.totalAmount !== undefined
+    ? Number(contract.totalAmount)
+    : (initialPricePerDay * initialTotalDays);
+
   const [isEditingFinancials, setIsEditingFinancials] = useState<boolean>(false);
-  const [editPricePerDay, setEditPricePerDay] = useState<number>(contract.pricePerDay || 0);
-  const [editTotalAmount, setEditTotalAmount] = useState<number>(
-    contract.totalAmount ?? ((contract.pricePerDay || 0) * (contract.totalDays || 1))
-  );
+  const [editPricePerDay, setEditPricePerDay] = useState<number>(initialPricePerDay);
+  const [editTotalAmount, setEditTotalAmount] = useState<number>(initialTotalAmount);
   const [editDepositAmount, setEditDepositAmount] = useState<number>(contract.depositAmount ?? 5000);
-  const [editTotalDays, setEditTotalDays] = useState<number>(contract.totalDays || 1);
+  const [editTotalDays, setEditTotalDays] = useState<number>(initialTotalDays);
+
+  // Quick inline daily price editing directly in the card
+  const [isEditingPricePerDayInline, setIsEditingPricePerDayInline] = useState<boolean>(false);
+  const [inlineDailyPrice, setInlineDailyPrice] = useState<number>(initialPricePerDay);
+
+  // Sync state if contract changes
+  useEffect(() => {
+    const p = contract.pricePerDay !== undefined ? Number(contract.pricePerDay) : 0;
+    const d = contract.totalDays || 1;
+    const t = contract.totalAmount !== undefined ? Number(contract.totalAmount) : (p * d);
+    setEditPricePerDay(p);
+    setEditTotalDays(d);
+    setEditTotalAmount(t);
+    setEditDepositAmount(contract.depositAmount ?? 5000);
+    setInlineDailyPrice(p);
+  }, [contract]);
 
   // New payment form state
   const [showAddForm, setShowAddForm] = useState<boolean>(false);
@@ -89,7 +110,11 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
   const [confirmDeletePaymentId, setConfirmDeletePaymentId] = useState<string | null>(null);
 
   // Derived financial figures
-  const totalAmount = contract.totalAmount ?? ((contract.pricePerDay || 0) * (contract.totalDays || 1));
+  const pricePerDay = contract.pricePerDay !== undefined ? Number(contract.pricePerDay) : 0;
+  const totalDays = contract.totalDays || 1;
+  const totalAmount = contract.totalAmount !== undefined
+    ? Number(contract.totalAmount)
+    : (pricePerDay * totalDays);
   const paymentsList = contract.payments || [];
   const totalPaid = paymentsList.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
   const remaining = Math.max(0, totalAmount - totalPaid);
@@ -106,10 +131,25 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
     setIsEditingFinancials(false);
   };
 
+  const handleSaveInlineDailyPrice = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const validRate = isNaN(inlineDailyPrice) ? 0 : Math.max(0, inlineDailyPrice);
+    const newTotal = validRate * totalDays;
+    onUpdateFinancials(contract.id, {
+      pricePerDay: validRate,
+      totalAmount: newTotal,
+      totalDays: totalDays,
+      depositAmount: editDepositAmount,
+    });
+    setIsEditingPricePerDayInline(false);
+  };
+
   const handlePriceOrDaysChange = (pPerDay: number, days: number) => {
-    setEditPricePerDay(pPerDay);
-    setEditTotalDays(days);
-    setEditTotalAmount(pPerDay * days);
+    const validRate = isNaN(pPerDay) ? 0 : Math.max(0, pPerDay);
+    const validDays = isNaN(days) ? 1 : Math.max(1, days);
+    setEditPricePerDay(validRate);
+    setEditTotalDays(validDays);
+    setEditTotalAmount(validRate * validDays);
   };
 
   const handleCreatePayment = (e: React.FormEvent) => {
@@ -229,10 +269,13 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
               Récapitulatif &amp; Tarification du Contrat
             </span>
             <button
-              onClick={() => setIsEditingFinancials(!isEditingFinancials)}
-              className="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1 font-semibold cursor-pointer"
+              onClick={() => {
+                setIsEditingFinancials(!isEditingFinancials);
+                setIsEditingPricePerDayInline(false);
+              }}
+              className="text-xs bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 hover:text-amber-200 border border-amber-500/40 px-2.5 py-1 rounded-lg flex items-center gap-1.5 font-bold transition-all shadow-xs cursor-pointer"
             >
-              <Edit2 className="w-3 h-3" />
+              <Edit2 className="w-3.5 h-3.5 text-amber-400" />
               {isEditingFinancials ? 'Fermer modification' : 'Modifier le tarif'}
             </button>
           </div>
@@ -250,12 +293,32 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
                     type="number"
                     value={editPricePerDay}
                     onChange={(e) =>
-                      handlePriceOrDaysChange(Math.max(0, Number(e.target.value)), editTotalDays)
+                      handlePriceOrDaysChange(
+                        e.target.value === '' ? 0 : Math.max(0, Number(e.target.value)),
+                        editTotalDays
+                      )
                     }
                     className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-mono font-bold focus:border-amber-500 focus:outline-none"
-                    placeholder="400"
+                    placeholder="0"
                     min="0"
                   />
+                  <div className="flex items-center gap-1 mt-1 flex-wrap">
+                    <span className="text-[9px] text-slate-500">Presets :</span>
+                    {[0, 250, 300, 350, 400, 500].map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => handlePriceOrDaysChange(preset, editTotalDays)}
+                        className={`text-[9.5px] font-mono px-1 py-0.2 rounded border transition-colors cursor-pointer ${
+                          editPricePerDay === preset
+                            ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 font-bold'
+                            : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200'
+                        }`}
+                      >
+                        {preset}
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 <div>
                   <label className="block text-slate-400 mb-1 font-medium">Nombre de jours</label>
@@ -263,7 +326,10 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
                     type="number"
                     value={editTotalDays}
                     onChange={(e) =>
-                      handlePriceOrDaysChange(editPricePerDay, Math.max(1, Number(e.target.value)))
+                      handlePriceOrDaysChange(
+                        editPricePerDay,
+                        e.target.value === '' ? 1 : Math.max(1, Number(e.target.value))
+                      )
                     }
                     className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-mono font-bold focus:border-amber-500 focus:outline-none"
                     placeholder="1"
@@ -275,20 +341,31 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
                   <input
                     type="number"
                     value={editTotalAmount}
-                    onChange={(e) => setEditTotalAmount(Math.max(0, Number(e.target.value)))}
+                    onChange={(e) =>
+                      setEditTotalAmount(
+                        e.target.value === '' ? 0 : Math.max(0, Number(e.target.value))
+                      )
+                    }
                     className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-amber-400 font-mono font-bold focus:border-amber-500 focus:outline-none"
-                    placeholder="1000"
+                    placeholder="0"
                     min="0"
                   />
+                  <span className="text-[9.5px] text-slate-500 font-mono block mt-1">
+                    Calcul : {editPricePerDay} MAD × {editTotalDays}j = {editPricePerDay * editTotalDays} MAD
+                  </span>
                 </div>
                 <div>
                   <label className="block text-slate-400 mb-1 font-medium">Caution / Dépôt (MAD)</label>
                   <input
                     type="number"
                     value={editDepositAmount}
-                    onChange={(e) => setEditDepositAmount(Math.max(0, Number(e.target.value)))}
+                    onChange={(e) =>
+                      setEditDepositAmount(
+                        e.target.value === '' ? 0 : Math.max(0, Number(e.target.value))
+                      )
+                    }
                     className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-purple-400 font-mono font-bold focus:border-amber-500 focus:outline-none"
-                    placeholder="5000"
+                    placeholder="0"
                     min="0"
                   />
                 </div>
@@ -314,18 +391,127 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
           {/* 3 FINANCIAL METRICS */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {/* TOTAL FACTURÉ */}
-            <div className="bg-slate-950/80 p-3.5 rounded-xl border border-slate-800 flex flex-col justify-between">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                Total Facturé Location
-              </span>
-              <p className="font-mono text-xl font-black text-white mt-1">
-                {totalAmount.toLocaleString('fr-FR')} <span className="text-xs font-normal text-slate-400">MAD</span>
-              </p>
-              <div className="text-[10px] text-slate-500 mt-1 flex items-center justify-between">
-                <span>{contract.totalDays} jour(s) • {contract.pricePerDay || Math.round(totalAmount / (contract.totalDays || 1))} MAD/j</span>
-                <span>TVA 20% incluse</span>
+            {isEditingPricePerDayInline ? (
+              <div className="bg-slate-950 p-3.5 rounded-xl border-2 border-amber-500/70 shadow-lg shadow-amber-500/10 flex flex-col justify-between animate-in fade-in">
+                <div className="flex items-center justify-between pb-1.5 border-b border-slate-800">
+                  <span className="text-[11px] font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <Edit2 className="w-3 h-3" /> Modifier Prix / Jour
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingPricePerDayInline(false)}
+                    className="text-slate-400 hover:text-white p-0.5 rounded cursor-pointer"
+                    title="Fermer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                <form onSubmit={handleSaveInlineDailyPrice} className="space-y-2 mt-2">
+                  <div>
+                    <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1">
+                      <span>Tarif journalier (MAD) :</span>
+                      <span className="text-slate-400 font-mono font-semibold">{totalDays} jour(s)</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="relative flex-1">
+                        <input
+                          type="number"
+                          min="0"
+                          value={inlineDailyPrice}
+                          onChange={(e) => {
+                            const val = e.target.value === '' ? 0 : Math.max(0, Number(e.target.value));
+                            setInlineDailyPrice(val);
+                          }}
+                          className="w-full bg-slate-900 border border-amber-500/60 rounded-lg px-2.5 py-1.5 text-white font-mono font-black text-sm focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-500 pr-12"
+                          placeholder="0"
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === 'Escape') setIsEditingPricePerDayInline(false);
+                          }}
+                        />
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-mono text-amber-400 font-bold">
+                          MAD/j
+                        </span>
+                      </div>
+                      <button
+                        type="submit"
+                        className="px-2.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-lg text-xs flex items-center gap-1 shadow cursor-pointer transition-colors"
+                        title="Valider et recalculer"
+                      >
+                        <Check className="w-3.5 h-3.5 stroke-[3]" />
+                        <span>Valider</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Boutons rapides */}
+                  <div className="flex items-center gap-1 flex-wrap pt-0.5">
+                    <span className="text-[9px] text-slate-500">Rapide:</span>
+                    {[0, 250, 300, 350, 400, 500].map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => setInlineDailyPrice(preset)}
+                        className={`text-[9.5px] font-mono px-1.5 py-0.5 rounded border transition-colors cursor-pointer ${
+                          inlineDailyPrice === preset
+                            ? 'bg-amber-500/25 text-amber-300 border-amber-500/50 font-bold'
+                            : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200'
+                        }`}
+                      >
+                        {preset}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="text-[10px] font-mono text-slate-400 pt-1 border-t border-slate-800 flex items-center justify-between">
+                    <span>Nouveau Total :</span>
+                    <strong className="text-amber-400 font-black text-xs">
+                      {(inlineDailyPrice * totalDays).toLocaleString('fr-FR')} MAD
+                    </strong>
+                  </div>
+                </form>
               </div>
-            </div>
+            ) : (
+              <div className="bg-slate-950/80 p-3.5 rounded-xl border border-slate-800 flex flex-col justify-between hover:border-slate-700 transition-colors">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                    Total Facturé Location
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setInlineDailyPrice(pricePerDay);
+                      setIsEditingPricePerDayInline(true);
+                      setIsEditingFinancials(false);
+                    }}
+                    className="text-[10.5px] text-amber-300 hover:text-amber-200 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 px-2 py-0.5 rounded-md flex items-center gap-1 font-bold transition-all cursor-pointer shadow-2xs"
+                    title="Modifier directement le tarif journalier"
+                  >
+                    <Edit2 className="w-2.5 h-2.5" /> Modifier tarif
+                  </button>
+                </div>
+                <p className="font-mono text-xl font-black text-white mt-1">
+                  {totalAmount.toLocaleString('fr-FR')} <span className="text-xs font-normal text-slate-400">MAD</span>
+                </p>
+                <div className="text-[10px] text-slate-500 mt-1 flex items-center justify-between flex-wrap gap-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setInlineDailyPrice(pricePerDay);
+                      setIsEditingPricePerDayInline(true);
+                      setIsEditingFinancials(false);
+                    }}
+                    className="inline-flex items-center gap-1 font-mono text-slate-300 hover:text-amber-300 bg-slate-900/90 hover:bg-amber-500/10 px-2 py-0.5 rounded border border-slate-700/80 hover:border-amber-500/40 transition-colors cursor-pointer group"
+                    title="Cliquer pour modifier le prix par jour"
+                  >
+                    <span>{totalDays} jour(s) • <strong className="text-amber-400 font-bold">{pricePerDay} MAD/j</strong></span>
+                    <Edit2 className="w-2.5 h-2.5 text-amber-400 group-hover:scale-110 transition-transform" />
+                  </button>
+                  <span>TVA 20% incluse</span>
+                </div>
+              </div>
+            )}
 
             {/* DÉJÀ ENCAISSÉ */}
             <div className="bg-slate-950/80 p-3.5 rounded-xl border border-emerald-500/30 flex flex-col justify-between">
@@ -366,7 +552,7 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
                 </span>
                 {remaining === 0 ? (
                   <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-1.5 py-0.5 rounded flex items-center gap-1">
-                    <CheckCircle2 className="w-3 h-3" /> Soldé
+                    <CheckCircle2 className="w-3 h-3" /> {totalAmount === 0 ? 'Soldé (0 MAD)' : 'Soldé'}
                   </span>
                 ) : (
                   <span className="text-[10px] font-bold text-rose-400 bg-rose-500/10 border border-rose-500/30 px-1.5 py-0.5 rounded flex items-center gap-1">

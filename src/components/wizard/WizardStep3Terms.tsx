@@ -180,25 +180,27 @@ export const WizardStep3Terms: React.FC<WizardStep3TermsProps> = ({
               <label className="block text-slate-400 mb-1 font-medium">Prix par jour (MAD)</label>
               <input
                 type="number"
-                value={pricePerDay === 0 ? '' : pricePerDay}
+                value={pricePerDay}
                 onChange={(e) => {
                   const raw = e.target.value;
                   setPricePerDay(raw === '' ? 0 : Math.max(0, Number(raw)));
                 }}
                 placeholder="0"
-                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono focus:border-amber-500 focus:outline-none"
+                min="0"
+                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono font-bold focus:border-amber-500 focus:outline-none"
               />
             </div>
             <div>
               <label className="block text-slate-400 mb-1 font-medium">Caution (MAD)</label>
               <input
                 type="number"
-                value={depositAmount === 0 ? '' : depositAmount}
+                value={depositAmount}
                 onChange={(e) => {
                   const raw = e.target.value;
                   setDepositAmount(raw === '' ? 0 : Math.max(0, Number(raw)));
                 }}
                 placeholder="0"
+                min="0"
                 className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono focus:border-amber-500 focus:outline-none"
               />
             </div>
@@ -312,8 +314,9 @@ export const WizardStep3Terms: React.FC<WizardStep3TermsProps> = ({
           Durée calculée : <strong className="text-white text-sm font-mono">{totalDays} jour(s)</strong>
         </div>
         <div className="text-slate-400">
-          Montant total estimé :{' '}
-          <strong className="text-amber-400 text-sm font-mono">{totalAmount.toLocaleString()} MAD</strong>
+          Montant total calculé :{' '}
+          <strong className="text-amber-400 text-sm font-mono">{totalAmount.toLocaleString('fr-FR')} MAD</strong>
+          <span className="text-[11px] text-slate-400 ml-1.5 font-mono">({pricePerDay} MAD/j × {totalDays}j)</span>
         </div>
       </div>
     </div>

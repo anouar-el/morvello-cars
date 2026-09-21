@@ -465,9 +465,9 @@ export const initialContracts: Contract[] = [
     totalDays: 10,
     pricePerDay: 300,
     totalAmount: 3000,
-    paidAmount: 2000,
-    remainingAmount: 1000,
-    paymentStatus: 'partial',
+    paidAmount: 3000,
+    remainingAmount: 0,
+    paymentStatus: 'paid',
     payments: [
       {
         id: 'pay-1',
@@ -477,6 +477,15 @@ export const initialContracts: Contract[] = [
         notes: 'Acompte espèces versé au départ',
         recordedBy: 'Ahmed Benali',
         receiptNumber: 'REC-2026-0050-1',
+      },
+      {
+        id: 'pay-2',
+        amount: 1000,
+        method: 'tpe_card',
+        date: '2026-09-21 11:30',
+        notes: 'Solde carte bancaire TPE réglé avant restitution',
+        recordedBy: 'Ahmed Benali',
+        receiptNumber: 'REC-2026-0050-2',
       },
     ],
     depositAmount: 5000,
@@ -492,6 +501,16 @@ export const initialContracts: Contract[] = [
 ];
 
 export const initialAuditLogs: AuditLog[] = [
+  {
+    id: 'log-5',
+    timestamp: '2026-09-21 11:30:15',
+    userName: 'Ahmed Benali',
+    userRole: 'manager',
+    action: 'Règlement solde contrat',
+    targetType: 'contract',
+    targetId: 'MC-2026-0050',
+    details: 'Solde de 1 000 MAD encaissé par TPE pour le contrat MC-2026-0050 (Contrat 100% Soldé)',
+  },
   {
     id: 'log-1',
     timestamp: '2026-09-01 10:01:14',

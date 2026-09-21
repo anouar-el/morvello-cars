@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { Contract, Client, DocumentType, DriverSnapshot, ContractTemplateId } from '../types';
 import { formatPlateFrench } from '../utils/plateUtils';
@@ -121,7 +121,8 @@ export const ContractWizard: React.FC = () => {
   const [endTime, setEndTime] = useState<string>('18:00');
   const [departureKm, setDepartureKm] = useState<number>(0);
   const [departureFuel, setDepartureFuel] = useState<string>('8/8 (Plein)');
-  const [pricePerDay, setPricePerDay] = useState<number>(400);
+  const [pricePerDay, setPricePerDay] = useState<number>(0);
+  const hasUserCustomizedPriceRef = useRef<boolean>(false);
   const [depositAmount, setDepositAmount] = useState<number>(5000);
   const [contractNotes] = useState<string>('');
 
@@ -171,7 +172,8 @@ export const ContractWizard: React.FC = () => {
           editingContractData.inspection?.departureChecklist?.fuelLevel ||
           '8/8 (Plein)'
       );
-      setPricePerDay(editingContractData.pricePerDay || 400);
+      setPricePerDay(editingContractData.pricePerDay !== undefined ? Number(editingContractData.pricePerDay) : 0);
+      hasUserCustomizedPriceRef.current = true;
       setDepositAmount(editingContractData.depositAmount ?? 5000);
 
       // Manager & Phone
@@ -229,8 +231,9 @@ export const ContractWizard: React.FC = () => {
       const veh = vehicles.find((v) => v.id === duplicateContractData.vehicleId);
       if (veh) {
         setDepartureKm(veh.currentKm);
-        setPricePerDay(veh.dailyRate || 400);
       }
+      setPricePerDay(duplicateContractData.pricePerDay !== undefined ? Number(duplicateContractData.pricePerDay) : 0);
+      hasUserCustomizedPriceRef.current = true;
       if (duplicateContractData.hasSecondDriver && duplicateContractData.secondDriverSnapshot) {
         setHasSecondDriver(true);
         setSecondDriverSource('new');
@@ -269,7 +272,9 @@ export const ContractWizard: React.FC = () => {
       const veh = vehicles.find((v) => v.id === selectedVehicleId);
       if (veh) {
         setDepartureKm(veh.currentKm);
-        if (veh.dailyRate) setPricePerDay(veh.dailyRate);
+        if (!hasUserCustomizedPriceRef.current && veh.dailyRate !== undefined) {
+          setPricePerDay(veh.dailyRate);
+        }
 
         // Auto-assign vehicle's manager or current user if manager
         const targetMgrId = veh.assignedManagerId || (currentUser?.role === 'manager' ? currentUser.id : '');
@@ -299,6 +304,11 @@ export const ContractWizard: React.FC = () => {
 
   const totalDays = computeTotalDays();
   const totalAmount = totalDays * pricePerDay;
+
+  const handleUserPriceChange = (val: number) => {
+    hasUserCustomizedPriceRef.current = true;
+    setPricePerDay(val);
+  };
 
   // Selected entities
   const currentClient =
@@ -766,7 +776,7 @@ export const ContractWizard: React.FC = () => {
             endTime={endTime}
             setEndTime={setEndTime}
             pricePerDay={pricePerDay}
-            setPricePerDay={setPricePerDay}
+            setPricePerDay={handleUserPriceChange}
             depositAmount={depositAmount}
             setDepositAmount={setDepositAmount}
             hasProlongation={hasProlongation}
