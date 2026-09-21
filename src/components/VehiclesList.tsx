@@ -101,6 +101,18 @@ export const VehiclesList: React.FC = () => {
   // afin de limiter la surface d'exposition.
   const canImportVehicles = isAdmin || hasPermission('canImportVehiclesExcel');
 
+  // Helper to determine if vehicle is actively under rental
+  const getActiveContractForVehicle = (v: Vehicle) => {
+    return contracts.find(
+      (c) =>
+        c.status === 'active' &&
+        (c.vehicleId === v.id ||
+          (c.vehicleSnapshot?.plate &&
+            v.plate &&
+            c.vehicleSnapshot.plate.trim().toUpperCase() === v.plate.trim().toUpperCase()))
+    );
+  };
+
   // Filter vehicles: managers strictly see their assigned or proposed vehicles, agents see fleet + their proposals
   const filteredVehicles = vehicles.filter((v) => {
     if (isManager) {
@@ -119,10 +131,13 @@ export const VehiclesList: React.FC = () => {
       if (managerFilter !== 'unassigned' && v.assignedManagerId !== managerFilter) return false;
     }
 
+    const activeContract = getActiveContractForVehicle(v);
+    const effectiveStatus: VehicleStatus = activeContract ? 'rented' : v.status;
+
     if (statusFilter === 'alerts') {
       const summary = getVehicleHealthSummary(v);
       if (!summary.hasAlert) return false;
-    } else if (statusFilter !== 'all' && v.status !== statusFilter) {
+    } else if (statusFilter !== 'all' && effectiveStatus !== statusFilter) {
       return false;
     }
 
@@ -441,8 +456,14 @@ export const VehiclesList: React.FC = () => {
         <div className="flex items-center gap-1.5 overflow-x-auto text-xs">
           {[
             { id: 'all', label: 'Tous' },
-            { id: 'available', label: 'Disponibles' },
-            { id: 'rented', label: 'Loués' },
+            {
+              id: 'available',
+              label: `Disponibles (${vehicles.filter((v) => !getActiveContractForVehicle(v) && v.status === 'available').length})`,
+            },
+            {
+              id: 'rented',
+              label: `Loués (${vehicles.filter((v) => !!getActiveContractForVehicle(v) || v.status === 'rented').length})`,
+            },
             { id: 'maintenance', label: 'Maintenance' },
             {
               id: 'alerts',
@@ -473,9 +494,7 @@ export const VehiclesList: React.FC = () => {
       {/* VEHICLES GRID */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredVehicles.map((veh) => {
-          const activeContract = contracts.find(
-            (c) => c.vehicleId === veh.id && c.status === 'active'
-          );
+          const activeContract = getActiveContractForVehicle(veh);
 
           return (
             <VehicleCard
@@ -499,6 +518,7 @@ export const VehiclesList: React.FC = () => {
       {/* MODAL MODIFIER UN VÉHICULE */}
       <VehicleEditModal
         vehicle={editingVehicle}
+        activeContract={editingVehicle ? getActiveContractForVehicle(editingVehicle) : null}
         currentUser={currentUser}
         users={users}
         canDelete={canUserDeleteVehicles}

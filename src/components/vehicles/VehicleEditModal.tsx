@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Vehicle, FuelType, VehicleStatus } from '../../types';
+import { User, Vehicle, FuelType, VehicleStatus, Contract } from '../../types';
 import {
   Pencil,
   X,
@@ -15,6 +15,7 @@ import {
 
 interface VehicleEditModalProps {
   vehicle: Vehicle | null;
+  activeContract?: Contract | null;
   currentUser: User;
   users: User[];
   canDelete: boolean;
@@ -26,6 +27,7 @@ interface VehicleEditModalProps {
 
 export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
   vehicle,
+  activeContract,
   currentUser,
   users,
   canDelete,
@@ -82,7 +84,7 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
         model: vehicle.model || '',
         plate: vehicle.plate || '',
         fuelType: vehicle.fuelType || 'Diesel',
-        status: vehicle.status || 'available',
+        status: activeContract ? 'rented' : (vehicle.status || 'available'),
         currentKm: vehicle.currentKm ?? 0,
         dailyRate: vehicle.dailyRate ?? 400,
         year: vehicle.year ?? 2024,
@@ -97,7 +99,7 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
         assignedManagerId: vehicle.assignedManagerId || '',
       });
     }
-  }, [vehicle]);
+  }, [vehicle, activeContract]);
 
   if (!vehicle) return null;
 
@@ -110,7 +112,7 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
       model: form.model,
       plate: form.plate.trim(),
       fuelType: form.fuelType,
-      status: form.status,
+      status: activeContract ? 'rented' : form.status,
       currentKm: form.currentKm,
       dailyRate: form.dailyRate,
       year: form.year,
@@ -259,16 +261,26 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
 
             <div>
               <label className="block text-slate-300 font-semibold mb-1">Statut *</label>
-              <select
-                value={form.status}
-                onChange={(e) => setForm({ ...form, status: e.target.value as VehicleStatus })}
-                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white focus:border-amber-500 focus:outline-none font-medium"
-              >
-                <option value="available">Disponible</option>
-                <option value="rented">Loué (En cours)</option>
-                <option value="maintenance">En Maintenance</option>
-                <option value="inactive">Inactif</option>
-              </select>
+              {activeContract ? (
+                <div className="w-full bg-blue-500/10 border border-blue-500/30 rounded-xl px-3 py-2 text-blue-300 text-sm flex items-center justify-between">
+                  <span className="font-semibold flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-blue-400"></span>
+                    Loué (Contrat {activeContract.contractNumber})
+                  </span>
+                  <span className="text-[11px] text-blue-400">Géré automatiquement</span>
+                </div>
+              ) : (
+                <select
+                  value={form.status}
+                  onChange={(e) => setForm({ ...form, status: e.target.value as VehicleStatus })}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white focus:border-amber-500 focus:outline-none font-medium"
+                >
+                  <option value="available">Disponible</option>
+                  <option value="rented">Loué (En cours)</option>
+                  <option value="maintenance">En Maintenance</option>
+                  <option value="inactive">Inactif</option>
+                </select>
+              )}
             </div>
 
             <div className="col-span-2 sm:col-span-1">

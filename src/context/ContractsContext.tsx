@@ -283,9 +283,21 @@ export const ContractsProvider: React.FC<{
 
     if (newContract.status === 'active') {
       onUpdateVehicles((prev) =>
-        prev.map((v) =>
-          v.id === newContract.vehicleId ? { ...v, status: 'rented', currentKm: newContract.departureKm } : v
-        )
+        prev.map((v) => {
+          const matchById = v.id === newContract.vehicleId;
+          const matchByPlate =
+            v.plate &&
+            newContract.vehicleSnapshot?.plate &&
+            v.plate.trim().toUpperCase() === newContract.vehicleSnapshot.plate.trim().toUpperCase();
+          if (matchById || matchByPlate) {
+            return {
+              ...v,
+              status: 'rented' as const,
+              currentKm: Math.max(v.currentKm || 0, newContract.departureKm || 0),
+            };
+          }
+          return v;
+        })
       );
     }
 

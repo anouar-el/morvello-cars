@@ -312,22 +312,36 @@ export const VehiclesProvider: React.FC<{
   };
 
   const releaseVehicle = (vehicleId: string, returnKm?: number) => {
-    setVehicles((prev) =>
-      prev.map((v) => {
+    setVehicles((prev) => {
+      const updated = prev.map((v) => {
         if (v.id === vehicleId) {
           return {
             ...v,
-            status: 'available',
+            status: 'available' as const,
             currentKm: returnKm !== undefined ? returnKm : v.currentKm,
           };
         }
         return v;
-      })
-    );
+      });
+      saveRemoteAgencyData({ vehicles: updated }).catch((err) =>
+        console.warn('Auto-save releaseVehicle to Firestore note:', err)
+      );
+      return updated;
+    });
   };
 
   const setVehiclesList = (newVehicles: Vehicle[]) => {
     setVehicles(newVehicles);
+  };
+
+  const setVehiclesListByUpdater = (updater: (prev: Vehicle[]) => Vehicle[]) => {
+    setVehicles((prev) => {
+      const updated = updater(prev);
+      saveRemoteAgencyData({ vehicles: updated }).catch((err) =>
+        console.warn('Auto-save setVehiclesListByUpdater to Firestore note:', err)
+      );
+      return updated;
+    });
   };
 
   return (
@@ -346,7 +360,7 @@ export const VehiclesProvider: React.FC<{
         addVehicleExpense,
         deleteVehicleExpense,
         setVehiclesList,
-        setVehiclesListByUpdater: setVehicles,
+        setVehiclesListByUpdater,
       }}
     >
       {children}

@@ -1,6 +1,6 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
-import { Contract } from '../types';
+import { Contract, Vehicle } from '../types';
 import {
   FilePlus,
   Car,
@@ -52,8 +52,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCheckInModal, onOpen
   );
 
   const activeContracts = scopedContracts.filter((c) => c.status === 'active');
-  const rentedVehiclesCount = scopedVehicles.filter((v) => v.status === 'rented').length;
-  const availableVehiclesCount = scopedVehicles.filter((v) => v.status === 'available').length;
+  const isVehicleRented = (v: Vehicle) =>
+    v.status === 'rented' ||
+    contracts.some(
+      (c) =>
+        c.status === 'active' &&
+        (c.vehicleId === v.id ||
+          (c.vehicleSnapshot?.plate &&
+            v.plate &&
+            c.vehicleSnapshot.plate.trim().toUpperCase() === v.plate.trim().toUpperCase()))
+    );
+
+  const rentedVehiclesCount = scopedVehicles.filter((v) => isVehicleRented(v)).length;
+  const availableVehiclesCount = scopedVehicles.filter(
+    (v) => !isVehicleRented(v) && v.status === 'available'
+  ).length;
 
   // Vehicles compliance status (Assurance, Visite technique, Vignette, Vidange) pour la flotte concernée
   const vehiclesWithAlerts = scopedVehicles

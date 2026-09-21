@@ -39,6 +39,7 @@ import {
   findDuplicateContractNumbers,
   DuplicateContractReport,
 } from '../utils/contractNumberUtils';
+import { reconcileVehiclesWithContracts } from '../utils/vehicleStatusUtils';
 
 import { AuthProvider, useAuth } from './AuthContext';
 import { VehiclesProvider, useVehicles } from './VehiclesContext';
@@ -230,7 +231,7 @@ const AppContextInner: React.FC<{ children: React.ReactNode }> = ({ children }) 
         clientsDrivers.setClientsList(mergedClients);
       }
 
-      // 3. Vehicles Merge
+      // 3. Vehicles Merge & Reconcile with active contracts
       const localVehicles = vehiclesCtx.vehicles;
       const remoteVehicles = remote?.vehicles || [];
       const mergedVehicles = [...remoteVehicles];
@@ -240,8 +241,10 @@ const AppContextInner: React.FC<{ children: React.ReactNode }> = ({ children }) 
           shouldPushBack = true;
         }
       }
-      if (mergedVehicles.length > 0) {
-        vehiclesCtx.setVehiclesList(mergedVehicles);
+      const rawVehicles = mergedVehicles.length > 0 ? mergedVehicles : localVehicles;
+      const reconciledVehicles = reconcileVehiclesWithContracts(rawVehicles, mergedContracts);
+      if (reconciledVehicles.length > 0) {
+        vehiclesCtx.setVehiclesList(reconciledVehicles);
       }
 
       // 4. Deposits Merge
@@ -287,7 +290,7 @@ const AppContextInner: React.FC<{ children: React.ReactNode }> = ({ children }) 
       // If local browser held records that cloud lacked, or if cloud was not populated:
       if (shouldPushBack || !remote || remoteContracts.length < mergedContracts.length) {
         saveRemoteAgencyData({
-          vehicles: mergedVehicles,
+          vehicles: reconciledVehicles,
           clients: mergedClients,
           drivers: clientsDrivers.drivers,
           contracts: mergedContracts,
@@ -384,6 +387,7 @@ const AppContextInner: React.FC<{ children: React.ReactNode }> = ({ children }) 
         if (!active || !remote) return;
         const ctx = contextsRef.current;
 
+        let effectiveContracts = ctx.contractsCtx.contracts;
         if (remote.contracts && remote.contracts.length > 0) {
           const current = ctx.contractsCtx.contracts;
           const merged = [...remote.contracts];
@@ -392,6 +396,7 @@ const AppContextInner: React.FC<{ children: React.ReactNode }> = ({ children }) 
               merged.push(c);
             }
           }
+          effectiveContracts = merged;
           ctx.contractsCtx.setContractsList(merged);
         }
 
@@ -414,7 +419,12 @@ const AppContextInner: React.FC<{ children: React.ReactNode }> = ({ children }) 
               merged.push(v);
             }
           }
-          ctx.vehiclesCtx.setVehiclesList(merged);
+          const reconciled = reconcileVehiclesWithContracts(merged, effectiveContracts);
+          ctx.vehiclesCtx.setVehiclesList(reconciled);
+        } else {
+          const current = ctx.vehiclesCtx.vehicles;
+          const reconciled = reconcileVehiclesWithContracts(current, effectiveContracts);
+          ctx.vehiclesCtx.setVehiclesList(reconciled);
         }
 
         if (remote.deposits && remote.deposits.length > 0) {

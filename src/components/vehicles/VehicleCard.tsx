@@ -30,6 +30,8 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
   onOpenPdfModal,
   onOpenMaintenanceModal,
 }) => {
+  const effectiveStatus: VehicleStatus = activeContract ? 'rented' : vehicle.status;
+
   const getStatusBadge = (status: VehicleStatus) => {
     switch (status) {
       case 'available':
@@ -68,7 +70,7 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
         {/* TOP STATUS & EDIT BUTTON */}
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            {getStatusBadge(vehicle.status)}
+            {getStatusBadge(effectiveStatus)}
             <span className="text-xs font-mono text-slate-400 font-semibold">
               {vehicle.fuelType}
             </span>
@@ -164,9 +166,9 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
         <div className="flex items-center gap-1.5">
           <button
             onClick={() => onStatusToggle(vehicle)}
-            disabled={vehicle.status === 'rented'}
+            disabled={effectiveStatus === 'rented'}
             className={`text-[11px] px-2.5 py-1 rounded-lg font-semibold transition-colors cursor-pointer ${
-              vehicle.status === 'rented'
+              effectiveStatus === 'rented'
                 ? 'opacity-40 cursor-not-allowed text-slate-500 bg-slate-800'
                 : vehicle.status === 'maintenance'
                 ? 'bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500 hover:text-slate-950'
