@@ -407,6 +407,26 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
         );
       }
     }
+
+    // 5. Profils Collaborateurs & Managers (incluant Ouahib, etc.)
+    if (payload.users && Array.isArray(payload.users) && payload.users.length > 0) {
+      for (const u of payload.users) {
+        await supabase.from('profiles').upsert(
+          {
+            id: u.firebaseUid || u.id,
+            email: u.email,
+            name: u.name,
+            role: u.role,
+            phone: u.phone || null,
+            agency: u.agency || 'Nouaceur Casablanca',
+            assigned_fleet_name: u.assignedFleetName || null,
+            permissions: u.permissions || {},
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'id' }
+        );
+      }
+    }
   } catch (syncErr) {
     console.warn('[Supabase Sync] syncIndividualTables caught:', syncErr);
   }

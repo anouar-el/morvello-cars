@@ -115,9 +115,9 @@ export const CredentialsManager: React.FC = () => {
     const payload: Partial<User> = {
       name: editName.trim(),
       email: editEmail.trim().toLowerCase(),
-      phone: editPhone.trim() || undefined,
+      phone: editPhone.trim(),
       role: editRole,
-      assignedFleetName: editFleet.trim() || undefined,
+      assignedFleetName: editFleet.trim(),
     };
 
     await updateUser(editingUser.id, payload);

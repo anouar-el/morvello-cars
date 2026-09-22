@@ -221,6 +221,8 @@ export const PermissionsManager: React.FC = () => {
 
   // User phone customization state
   const [userPhoneInput, setUserPhoneInput] = useState('');
+  const [isSavingPhone, setIsSavingPhone] = useState(false);
+  const [phoneSaved, setPhoneSaved] = useState(false);
 
   // Add User Modal
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
@@ -251,12 +253,22 @@ export const PermissionsManager: React.FC = () => {
     }
   }, [activeUser?.id, activeUser?.phone]);
 
-  const handleSavePhone = () => {
-    if (!activeUser) return;
-    updateUser(activeUser.id, { phone: userPhoneInput.trim() });
-    triggerToast(
-      `Numéro de téléphone direct mis à jour pour ${activeUser.name} : ${userPhoneInput.trim() || 'Par défaut agence'}`
-    );
+  const handleSavePhone = async () => {
+    if (!activeUser || isSavingPhone) return;
+    setIsSavingPhone(true);
+    try {
+      const cleanPhone = userPhoneInput.trim();
+      await updateUser(activeUser.id, { phone: cleanPhone });
+      setPhoneSaved(true);
+      setTimeout(() => setPhoneSaved(false), 2500);
+      triggerToast(
+        `Numéro de téléphone direct enregistré pour ${activeUser.name} : ${cleanPhone || 'Par défaut agence'}`
+      );
+    } catch (err: any) {
+      triggerToast(`Erreur d'enregistrement : ${err?.message || 'Erreur inattendue'}`);
+    } finally {
+      setIsSavingPhone(false);
+    }
   };
 
   const handleTogglePermission = (key: keyof UserPermissions) => {
@@ -752,17 +764,44 @@ export const PermissionsManager: React.FC = () => {
                       type="tel"
                       value={userPhoneInput}
                       onChange={(e) => setUserPhoneInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleSavePhone();
+                        }
+                      }}
                       placeholder="Ex: +212 661-458920"
                       className="bg-slate-900 border border-slate-700 text-amber-300 font-mono text-xs px-3 py-2 rounded-xl w-48 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
                     />
                   </div>
                   <button
                     onClick={handleSavePhone}
-                    className="px-3.5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-1.5"
-                    title="Enregistrer ce numéro de téléphone"
+                    disabled={isSavingPhone}
+                    className={`px-3.5 py-2 text-xs font-bold rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-1.5 ${
+                      phoneSaved
+                        ? 'bg-emerald-500 text-slate-950 ring-2 ring-emerald-400'
+                        : isSavingPhone
+                        ? 'bg-amber-600 text-slate-950 opacity-80 cursor-wait'
+                        : 'bg-amber-500 hover:bg-amber-400 text-slate-950 active:scale-95'
+                    }`}
+                    title="Enregistrer ce numéro de téléphone dans le profil et le Cloud"
                   >
-                    <Check className="w-3.5 h-3.5" />
-                    <span>Enregistrer</span>
+                    {phoneSaved ? (
+                      <>
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>Enregistré !</span>
+                      </>
+                    ) : isSavingPhone ? (
+                      <>
+                        <Sparkles className="w-3.5 h-3.5 animate-spin" />
+                        <span>Enregistrement...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Enregistrer</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </div>

@@ -90,7 +90,21 @@ CREATE POLICY "deposits_insert" ON public.deposits FOR INSERT TO anon, authentic
 CREATE POLICY "deposits_update" ON public.deposits FOR UPDATE TO anon, authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "deposits_delete" ON public.deposits FOR DELETE TO anon, authenticated USING (true);
 
--- 4. FONCTION RPC DE SYNCHRONISATION CLIENT (SECURITY DEFINER)
+-- 4. POLITIQUES PERMISSIVES POUR PROFILS UTILISATEURS (COLLABORATEURS & GÉRANCE)
+DROP POLICY IF EXISTS "profiles_select" ON public.profiles;
+DROP POLICY IF EXISTS "profiles_insert" ON public.profiles;
+DROP POLICY IF EXISTS "profiles_update" ON public.profiles;
+DROP POLICY IF EXISTS "profiles_delete" ON public.profiles;
+DROP POLICY IF EXISTS "morvello_profiles_policy" ON public.profiles;
+DROP POLICY IF EXISTS "profiles_select_authenticated" ON public.profiles;
+DROP POLICY IF EXISTS "profiles_insert_own" ON public.profiles;
+
+CREATE POLICY "profiles_select" ON public.profiles FOR SELECT TO anon, authenticated USING (true);
+CREATE POLICY "profiles_insert" ON public.profiles FOR INSERT TO anon, authenticated WITH CHECK (true);
+CREATE POLICY "profiles_update" ON public.profiles FOR UPDATE TO anon, authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "profiles_delete" ON public.profiles FOR DELETE TO anon, authenticated USING (true);
+
+-- 5. FONCTION RPC DE SYNCHRONISATION CLIENT (SECURITY DEFINER)
 -- Bypasse les RLS de manière hermétique et sécurisée pour garantir la persistance des fiches clients
 CREATE OR REPLACE FUNCTION public.sync_client_record(client_data jsonb)
 RETURNS jsonb

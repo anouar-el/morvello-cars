@@ -7,6 +7,7 @@ import {
 } from '../types';
 import { initialUsers } from '../data/mockData';
 import { saveUserProfileToSupabase } from '../lib/supabaseSync';
+import { saveRemoteAgencyData } from '../lib/firestoreSync';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 export interface AuthContextType {
@@ -69,9 +70,11 @@ export const AuthProvider: React.FC<{
               const initialMatch = initialUsers.find((iu) => iu.id === u.id);
               return {
                 ...u,
-                name: initialMatch?.name || u.name,
-                email: initialMatch?.email || u.email,
-                phone: u.phone || initialMatch?.phone,
+                name: u.name || initialMatch?.name || '',
+                email: u.email || initialMatch?.email || '',
+                phone: u.phone !== undefined ? u.phone : (initialMatch?.phone || ''),
+                agency: u.agency || initialMatch?.agency || 'Agence Morvello',
+                assignedFleetName: u.assignedFleetName || initialMatch?.assignedFleetName,
                 permissions: u.permissions || { ...DEFAULT_PERMISSIONS_BY_ROLE[u.role] },
                 mustChangePassword: false,
               };
@@ -431,6 +434,23 @@ export const AuthProvider: React.FC<{
     );
   };
 
+  const persistUsersLocallyAndCloud = (updatedUsers: User[]) => {
+    try {
+      const sanitized = updatedUsers.map((u) => {
+        const { password: _p, ...rest } = u as any;
+        return rest;
+      });
+      localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(sanitized));
+    } catch (err) {
+      console.warn('Failed to cache users to localStorage:', err);
+    }
+
+    // Persist to Cloud Firestore and Supabase agency_data
+    saveRemoteAgencyData({
+      users: updatedUsers,
+    }).catch((err) => console.warn('[Cloud Sync] Failed to sync users to cloud:', err));
+  };
+
   const addUser = async (userData: Omit<User, 'id'> & { password?: string }): Promise<User> => {
     const newId = `usr-${Date.now().toString(36)}`;
     const newUser: User = {
@@ -444,10 +464,16 @@ export const AuthProvider: React.FC<{
       role: newUser.role,
       email: newUser.email,
       name: newUser.name,
+      phone: newUser.phone,
       permissions: newUser.permissions,
     }).catch(() => {});
 
-    setUsers((prev) => [...prev, newUser]);
+    setUsers((prev) => {
+      const updated = [...prev, newUser];
+      persistUsersLocallyAndCloud(updated);
+      return updated;
+    });
+
     logAction(
       'Ajout membre d’équipe',
       'user_permission',
@@ -460,8 +486,9 @@ export const AuthProvider: React.FC<{
   const updateUser = async (userId: string, data: Partial<User>) => {
     const updatePayload = { ...data };
 
-    setUsers((prev) =>
-      prev.map((u) => {
+    let updatedList: User[] = [];
+    setUsers((prev) => {
+      updatedList = prev.map((u) => {
         if (u.id === userId) {
           const updated = { ...u, ...updatePayload };
           if (currentUser?.id === userId) {
@@ -470,15 +497,27 @@ export const AuthProvider: React.FC<{
           return updated;
         }
         return u;
-      })
-    );
+      });
+      persistUsersLocallyAndCloud(updatedList);
+      return updatedList;
+    });
 
-    const target = users.find((u) => u.id === userId);
+    const target = updatedList.find((u) => u.id === userId) || users.find((u) => u.id === userId);
+    if (target) {
+      saveUserProfileToSupabase(target.firebaseUid || target.id, {
+        role: target.role,
+        email: target.email,
+        name: target.name,
+        phone: target.phone,
+        permissions: target.permissions,
+      }).catch((err) => console.warn('[Supabase Profile] Sync notice:', err));
+    }
+
     logAction(
       'Mise à jour collaborateur',
       'user_permission',
       userId,
-      `Profil et permissions mis à jour pour ${target?.name || userId}`
+      `Profil et coordonnées mis à jour pour ${target?.name || userId}`
     );
   };
 
@@ -502,11 +541,14 @@ export const AuthProvider: React.FC<{
       }
     }
 
-    setUsers((prev) =>
-      prev.map((u) =>
+    setUsers((prev) => {
+      const updated = prev.map((u) =>
         u.id === userId ? { ...u, mustChangePassword: false } : u
-      )
-    );
+      );
+      persistUsersLocallyAndCloud(updated);
+      return updated;
+    });
+
     if (currentUser?.id === userId) {
       setCurrentUser((prev) => (prev ? { ...prev, mustChangePassword: false } : null));
     }
@@ -541,7 +583,11 @@ export const AuthProvider: React.FC<{
   const deleteUser = (userId: string) => {
     const targetUser = users.find((u) => u.id === userId);
     if (!targetUser) return;
-    setUsers((prev) => prev.filter((u) => u.id !== userId));
+    setUsers((prev) => {
+      const updated = prev.filter((u) => u.id !== userId);
+      persistUsersLocallyAndCloud(updated);
+      return updated;
+    });
     logAction(
       'Suppression collaborateur',
       'user_permission',
@@ -551,14 +597,26 @@ export const AuthProvider: React.FC<{
   };
 
   const updateUserPermissions = (userId: string, permissions: Partial<UserPermissions>) => {
-    setUsers((prev) =>
-      prev.map((u) =>
+    let updatedList: User[] = [];
+    setUsers((prev) => {
+      updatedList = prev.map((u) =>
         u.id === userId
           ? { ...u, permissions: { ...(u.permissions || DEFAULT_PERMISSIONS_BY_ROLE[u.role]), ...permissions } }
           : u
-      )
-    );
-    const target = users.find((u) => u.id === userId);
+      );
+      persistUsersLocallyAndCloud(updatedList);
+      return updatedList;
+    });
+    const target = updatedList.find((u) => u.id === userId) || users.find((u) => u.id === userId);
+    if (target) {
+      saveUserProfileToSupabase(target.firebaseUid || target.id, {
+        role: target.role,
+        email: target.email,
+        name: target.name,
+        phone: target.phone,
+        permissions: target.permissions,
+      }).catch(() => {});
+    }
     logAction(
       'Modification permissions',
       'user_permission',
@@ -568,15 +626,16 @@ export const AuthProvider: React.FC<{
   };
 
   const updateUserRole = async (userId: string, role: UserRole): Promise<void> => {
-    const target = users.find((u) => u.id === userId);
-
-    setUsers((prev) =>
-      prev.map((u) =>
+    let updatedList: User[] = [];
+    setUsers((prev) => {
+      updatedList = prev.map((u) =>
         u.id === userId
           ? { ...u, role, permissions: { ...DEFAULT_PERMISSIONS_BY_ROLE[role] } }
           : u
-      )
-    );
+      );
+      persistUsersLocallyAndCloud(updatedList);
+      return updatedList;
+    });
 
     if (currentUser?.id === userId) {
       setCurrentUser((prev) =>
@@ -586,11 +645,13 @@ export const AuthProvider: React.FC<{
       );
     }
 
+    const target = updatedList.find((u) => u.id === userId) || users.find((u) => u.id === userId);
     try {
       await saveUserProfileToSupabase(target?.firebaseUid || userId, {
         role,
         email: target?.email || '',
         name: target?.name,
+        phone: target?.phone,
         permissions: { ...DEFAULT_PERMISSIONS_BY_ROLE[role] },
       });
     } catch (sbErr) {
@@ -608,13 +669,15 @@ export const AuthProvider: React.FC<{
   const resetUserPermissions = (userId: string) => {
     const targetUser = users.find((u) => u.id === userId);
     if (!targetUser) return;
-    setUsers((prev) =>
-      prev.map((u) =>
+    setUsers((prev) => {
+      const updated = prev.map((u) =>
         u.id === userId
           ? { ...u, permissions: { ...DEFAULT_PERMISSIONS_BY_ROLE[u.role] } }
           : u
-      )
-    );
+      );
+      persistUsersLocallyAndCloud(updated);
+      return updated;
+    });
     logAction(
       'Réinitialisation permissions',
       'user_permission',
@@ -634,7 +697,39 @@ export const AuthProvider: React.FC<{
   };
 
   const setUsersList = (newUsers: User[]) => {
-    setUsers(newUsers);
+    if (!Array.isArray(newUsers) || newUsers.length === 0) return;
+    setUsers((prev) => {
+      // Reconcile intelligently: keep customized phone, agency, and fleet if cloud is missing them
+      const merged: User[] = newUsers.map((nu): User => {
+        const local = prev.find((p) => p.id === nu.id);
+        return {
+          ...nu,
+          phone: nu.phone || local?.phone,
+          agency: nu.agency || local?.agency || 'Agence Morvello',
+          assignedFleetName: nu.assignedFleetName || local?.assignedFleetName,
+          permissions: nu.permissions || local?.permissions || { ...DEFAULT_PERMISSIONS_BY_ROLE[nu.role] },
+          mustChangePassword: false,
+        };
+      });
+
+      // Keep any local-only users not yet in remote
+      for (const lu of prev) {
+        if (!merged.some((m) => m.id === lu.id)) {
+          merged.push(lu);
+        }
+      }
+
+      try {
+        const sanitized = merged.map((u) => {
+          const { password: _p, ...rest } = u as any;
+          return rest;
+        });
+        localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(sanitized));
+      } catch (err) {
+        console.warn('Failed to cache reconciled users:', err);
+      }
+      return merged;
+    });
   };
 
   return (

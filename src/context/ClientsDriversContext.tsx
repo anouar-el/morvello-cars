@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Client, Driver, User, Contract, Vehicle } from '../types';
 import { initialClients, initialDrivers } from '../data/mockData';
 import { saveRemoteAgencyData } from '../lib/firestoreSync';
+import { syncAllClientsToSupabase } from '../lib/supabaseSync';
 import { resolveClientManagerAndVehicle, ClientManagerAssignment } from '../utils/clientManagerUtils';
 
 export interface ClientsDriversContextType {
@@ -98,19 +99,34 @@ export const ClientsDriversProvider: React.FC<{
     };
     const updatedClients = [newClient, ...clients];
     setClients(updatedClients);
+    try {
+      localStorage.setItem(STORAGE_KEYS.CLIENTS, JSON.stringify(updatedClients));
+    } catch (err) {
+      console.warn('Failed to cache new client to localStorage:', err);
+    }
     saveRemoteAgencyData({ clients: updatedClients }).catch((err) =>
       console.warn('Auto-save addClient to Firestore note:', err)
     );
+    syncAllClientsToSupabase([newClient]).catch(() => {});
     logAction('Création client', 'client', newClient.id, `Nouveau client : ${newClient.firstName} ${newClient.lastName}`);
     return newClient;
   };
 
   const updateClient = (id: string, data: Partial<Client>) => {
-    const updated = clients.map((c) => (c.id === id ? { ...c, ...data } : c));
+    const updated = clients.map((c) => (c.id === id ? { ...c, ...data, updatedAt: new Date().toISOString() } : c));
     setClients(updated);
+    try {
+      localStorage.setItem(STORAGE_KEYS.CLIENTS, JSON.stringify(updated));
+    } catch (err) {
+      console.warn('Failed to cache updated clients to localStorage:', err);
+    }
     saveRemoteAgencyData({ clients: updated }).catch((err) =>
       console.warn('Auto-save updateClient to Firestore note:', err)
     );
+    const target = updated.find((c) => c.id === id);
+    if (target) {
+      syncAllClientsToSupabase([target]).catch(() => {});
+    }
     logAction('Mise à jour client', 'client', id, `Modification fiche client #${id}`);
   };
 
