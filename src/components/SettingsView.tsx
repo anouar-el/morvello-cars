@@ -61,59 +61,34 @@ export const SettingsView: React.FC = () => {
   const [copiedSql, setCopiedSql] = useState(false);
 
   const SQL_FIX_SCRIPT = `-- ==============================================================================
--- MORVELLO CARS - RÉSOLUTION DÉFINITIVE RLS SUPABASE POUR LA SYNCHRONISATION
+-- RESTAURATION STRICTE ROW LEVEL SECURITY (RLS) - MORVELLO CARS
+-- Idempotent : supprime les RPC bypass et rétablit les policies isolées par manager
 -- ==============================================================================
--- 1. POLITIQUES PERMISSIVES SUR CLIENTS
+DROP FUNCTION IF EXISTS public.sync_agency_state(jsonb, text);
+DROP FUNCTION IF EXISTS public.sync_agency_state(jsonb);
+DROP FUNCTION IF EXISTS public.sync_agency_state();
+DROP FUNCTION IF EXISTS public.sync_client_record(jsonb);
+DROP FUNCTION IF EXISTS public.sync_client_record();
+
+ALTER TABLE public.agency_data ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.vehicles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.clients ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.contracts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.deposits ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
+
+-- Nettoyage des anciennes policies ouvertes
 DROP POLICY IF EXISTS "clients_select" ON public.clients;
 DROP POLICY IF EXISTS "clients_insert" ON public.clients;
 DROP POLICY IF EXISTS "clients_update" ON public.clients;
 DROP POLICY IF EXISTS "clients_delete" ON public.clients;
 
-CREATE POLICY "clients_select" ON public.clients FOR SELECT TO anon, authenticated USING (true);
-CREATE POLICY "clients_insert" ON public.clients FOR INSERT TO anon, authenticated WITH CHECK (true);
-CREATE POLICY "clients_update" ON public.clients FOR UPDATE TO anon, authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "clients_delete" ON public.clients FOR DELETE TO anon, authenticated USING (true);
-
--- 2. POLITIQUES PERMISSIVES SUR AGENCY_DATA
-DROP POLICY IF EXISTS "agency_data_select" ON public.agency_data;
-DROP POLICY IF EXISTS "agency_data_insert" ON public.agency_data;
-DROP POLICY IF EXISTS "agency_data_update" ON public.agency_data;
-
-CREATE POLICY "agency_data_select" ON public.agency_data FOR SELECT TO anon, authenticated USING (true);
-CREATE POLICY "agency_data_insert" ON public.agency_data FOR INSERT TO anon, authenticated WITH CHECK (true);
-CREATE POLICY "agency_data_update" ON public.agency_data FOR UPDATE TO anon, authenticated USING (true) WITH CHECK (true);
-
--- 3. FONCTION RPC DE SECOURS (SECURITY DEFINER)
-CREATE OR REPLACE FUNCTION public.sync_client_record(client_data jsonb)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-DECLARE v_id text; BEGIN
-  v_id := COALESCE(client_data->>'id', 'cli-' || floor(extract(epoch from now()) * 1000)::text);
-  INSERT INTO public.clients (id, first_name, last_name, doc_type, doc_number, phone, email, contract_count, assigned_manager_id, created_by, data, updated_at)
-  VALUES (
-    v_id,
-    COALESCE(client_data->>'firstName', client_data->>'first_name', ''),
-    COALESCE(client_data->>'lastName', client_data->>'last_name', ''),
-    COALESCE(client_data->>'docType', client_data->>'doc_type', 'CIN'),
-    COALESCE(client_data->>'docNumber', client_data->>'doc_number', ''),
-    COALESCE(client_data->>'phone', ''),
-    COALESCE(client_data->>'email', ''),
-    COALESCE((client_data->>'contractCount')::int, 0),
-    COALESCE(client_data->>'assignedManagerId', client_data->>'assigned_manager_id'),
-    COALESCE(client_data->>'createdBy', client_data->>'created_by', 'system'),
-    client_data, now()
-  )
-  ON CONFLICT (id) DO UPDATE SET
-    first_name = EXCLUDED.first_name, last_name = EXCLUDED.last_name,
-    doc_type = EXCLUDED.doc_type, doc_number = EXCLUDED.doc_number,
-    phone = EXCLUDED.phone, email = EXCLUDED.email,
-    contract_count = EXCLUDED.contract_count,
-    assigned_manager_id = COALESCE(EXCLUDED.assigned_manager_id, public.clients.assigned_manager_id),
-    data = EXCLUDED.data, updated_at = now()
-  RETURNING to_jsonb(public.clients.*) INTO client_data;
-  RETURN client_data;
-END;
-$$;
-GRANT EXECUTE ON FUNCTION public.sync_client_record(jsonb) TO anon, authenticated, service_role;`;
+-- Policies strictes pour clients (réservé aux utilisateurs authentifiés & isolées par manager)
+CREATE POLICY "clients_select" ON public.clients FOR SELECT TO authenticated USING (public.can_access_manager_row(assigned_manager_id, created_by));
+CREATE POLICY "clients_insert" ON public.clients FOR INSERT TO authenticated WITH CHECK (auth.uid() IS NOT NULL AND public.can_assign_manager(assigned_manager_id));
+CREATE POLICY "clients_update" ON public.clients FOR UPDATE TO authenticated USING (public.can_access_manager_row(assigned_manager_id, created_by)) WITH CHECK (auth.uid() IS NOT NULL AND public.can_assign_manager(assigned_manager_id));
+CREATE POLICY "clients_delete" ON public.clients FOR DELETE TO authenticated USING (public.is_admin());`;
 
   const handleCopySql = () => {
     navigator.clipboard.writeText(SQL_FIX_SCRIPT);
@@ -473,8 +448,8 @@ GRANT EXECUTE ON FUNCTION public.sync_client_record(jsonb) TO anon, authenticate
 
                 <div className="relative pt-2">
                   <div className="text-[11px] text-slate-400 font-semibold mb-1 flex items-center justify-between">
-                    <span>Aperçu du script d'autorisation (fix_supabase_sync_rls.sql) :</span>
-                    <span className="text-[10px] text-slate-500 font-mono">public.clients • RLS bypass & RPC</span>
+                    <span>Aperçu du script de sécurité stricte (restore_strict_supabase_rls.sql) :</span>
+                    <span className="text-[10px] text-amber-500 font-mono">RLS strict • Isolation Manager</span>
                   </div>
                   <pre className="text-[10px] text-slate-300 bg-slate-900 border border-slate-800 rounded-lg p-3 overflow-x-auto max-h-36 font-mono leading-relaxed select-all">
                     {SQL_FIX_SCRIPT}

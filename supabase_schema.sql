@@ -181,11 +181,14 @@ AS $$
     public.is_admin()
     OR (
       auth.uid() IS NOT NULL AND (
-        -- 2. Affecté directement au manager/agent via son UID
-        (row_assigned_manager_id IS NOT NULL AND row_assigned_manager_id = auth.uid()::text)
-        -- 3. Ou créé par le manager/agent via son UID
+        -- 2. Lignes non assignées (NULL ou vide) accessibles à tous les collaborateurs authentifiés
+        row_assigned_manager_id IS NULL
+        OR trim(row_assigned_manager_id) = ''
+        -- 3. Affecté directement au manager/agent via son UID
+        OR (row_assigned_manager_id = auth.uid()::text)
+        -- 4. Ou créé par le manager/agent via son UID
         OR (row_created_by IS NOT NULL AND row_created_by = auth.uid()::text)
-        -- 4. Ou correspondance avec le profil collaborateur (id interne, nom ou email)
+        -- 5. Ou correspondance avec le profil collaborateur (id interne, nom ou email)
         OR EXISTS (
           SELECT 1 FROM public.profiles p 
           WHERE p.id = auth.uid()::text 
@@ -277,27 +280,33 @@ DROP POLICY IF EXISTS "audit_logs_insert" ON public.audit_logs;
 CREATE POLICY "audit_logs_insert" ON public.audit_logs
   FOR INSERT TO authenticated WITH CHECK (auth.uid() IS NOT NULL);
 
--- Policies CLIENTS (Lecture et écriture synchronisée)
+-- Policies CLIENTS (Isolation Manager & Agent par RLS)
 DROP POLICY IF EXISTS "clients_select" ON public.clients;
 CREATE POLICY "clients_select" ON public.clients
-  FOR SELECT TO anon, authenticated 
-  USING (true);
+  FOR SELECT TO authenticated 
+  USING (public.can_access_manager_row(assigned_manager_id, created_by));
 
 DROP POLICY IF EXISTS "clients_insert" ON public.clients;
 CREATE POLICY "clients_insert" ON public.clients
-  FOR INSERT TO anon, authenticated 
-  WITH CHECK (true);
+  FOR INSERT TO authenticated 
+  WITH CHECK (
+    auth.uid() IS NOT NULL
+    AND public.can_assign_manager(assigned_manager_id)
+  );
 
 DROP POLICY IF EXISTS "clients_update" ON public.clients;
 CREATE POLICY "clients_update" ON public.clients
-  FOR UPDATE TO anon, authenticated 
-  USING (true)
-  WITH CHECK (true);
+  FOR UPDATE TO authenticated 
+  USING (public.can_access_manager_row(assigned_manager_id, created_by))
+  WITH CHECK (
+    auth.uid() IS NOT NULL
+    AND public.can_assign_manager(assigned_manager_id)
+  );
 
 DROP POLICY IF EXISTS "clients_delete" ON public.clients;
 CREATE POLICY "clients_delete" ON public.clients
-  FOR DELETE TO anon, authenticated 
-  USING (true);
+  FOR DELETE TO authenticated 
+  USING (public.is_admin());
 
 -- Policies CONTRACTS (Cloisonnement Manager & Agent par RLS)
 DROP POLICY IF EXISTS "contracts_select" ON public.contracts;
@@ -379,22 +388,22 @@ DROP POLICY IF EXISTS "vehicles_delete" ON public.vehicles;
 CREATE POLICY "vehicles_delete" ON public.vehicles
   FOR DELETE TO authenticated USING (public.is_admin());
 
--- Policies AGENCY_DATA (Accessible en lecture et écriture synchronisée multi-postes)
+-- Policies AGENCY_DATA (Accessible uniquement aux utilisateurs authentifiés)
 DROP POLICY IF EXISTS "agency_data_select" ON public.agency_data;
 CREATE POLICY "agency_data_select" ON public.agency_data
-  FOR SELECT TO anon, authenticated USING (true);
+  FOR SELECT TO authenticated USING (true);
 
 DROP POLICY IF EXISTS "agency_data_insert" ON public.agency_data;
 CREATE POLICY "agency_data_insert" ON public.agency_data
-  FOR INSERT TO anon, authenticated WITH CHECK (true);
+  FOR INSERT TO authenticated WITH CHECK (auth.uid() IS NOT NULL);
 
 DROP POLICY IF EXISTS "agency_data_update" ON public.agency_data;
 CREATE POLICY "agency_data_update" ON public.agency_data
-  FOR UPDATE TO anon, authenticated USING (true) WITH CHECK (true);
+  FOR UPDATE TO authenticated USING (auth.uid() IS NOT NULL) WITH CHECK (auth.uid() IS NOT NULL);
 
 DROP POLICY IF EXISTS "agency_data_delete" ON public.agency_data;
 CREATE POLICY "agency_data_delete" ON public.agency_data
-  FOR DELETE TO anon, authenticated USING (public.is_admin());
+  FOR DELETE TO authenticated USING (public.is_admin());
 
 -- ==============================================================================
 -- 10. ACTIVATION DE LA RÉPLICATION TEMPS-RÉEL (SUPABASE REALTIME)

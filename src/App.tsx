@@ -6,6 +6,7 @@
 import React, { useState, lazy, Suspense } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { Navbar } from './components/Navbar';
+import { SyncErrorBanner } from './components/SyncErrorBanner';
 import { Dashboard } from './components/Dashboard';
 import { LoginView } from './components/LoginView';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -175,6 +176,9 @@ function MainAppContent() {
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col antialiased selection:bg-amber-500 selection:text-slate-950 relative">
       {/* NAVBAR */}
       <Navbar onOpenNotifications={() => setIsNotificationsOpen(true)} />
+
+      {/* CLOUD & SUPABASE SYNC ERROR BANNER */}
+      <SyncErrorBanner />
 
       {/* MAIN CONTAINER */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
