@@ -23,6 +23,7 @@ import {
   Check,
   AlertTriangle,
   FileCode,
+  ExternalLink,
 } from 'lucide-react';
 import { CompanyStamp } from './CompanyStamp';
 import { CompanyLogo } from './CompanyLogo';
@@ -401,32 +402,81 @@ GRANT EXECUTE ON FUNCTION public.sync_client_record(jsonb) TO anon, authenticate
 
             {/* RLS HELPER & SQL SCRIPT COPIER */}
             {showRlsHelper && (
-              <div className="bg-slate-950/70 border border-amber-500/30 rounded-xl p-4 space-y-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h4 className="text-xs font-bold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
-                      <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
-                      Origine & Résolution de l'écart Supabase (1 seul client au lieu de 3)
+              <div className="bg-slate-950/80 border border-amber-500/40 rounded-xl p-5 space-y-4 shadow-lg">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" />
+                    <h4 className="text-sm font-bold text-amber-300">
+                      Pourquoi seulement 1 client sur Supabase alors que vous en avez 3 ?
                     </h4>
-                    <p className="text-[11px] text-slate-300 mt-1 leading-relaxed">
-                      <strong>Origine :</strong> Les tables Supabase ont une politique de sécurité (RLS) configurée sur <code className="text-amber-300 bg-slate-800 px-1 rounded">TO authenticated WITH CHECK (auth.uid() IS NOT NULL)</code>. Comme l'application utilise une connexion par clé API sans session active Supabase Auth, PostgreSQL bloque les nouveaux clients avec l'erreur <strong className="text-rose-400">42501 (RLS violation)</strong>.
-                    </p>
-                    <p className="text-[11px] text-slate-300 mt-1 leading-relaxed">
-                      <strong>Solution :</strong> Exécutez le script SQL ci-dessous dans la console de votre projet Supabase (<strong>SQL Editor</strong> &gt; <strong>Run</strong>). Il autorise l'écriture synchronisée et déploie une fonction sécurisée <code className="text-amber-300 bg-slate-800 px-1 rounded">sync_client_record</code>.
-                    </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleCopySql}
-                    className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs px-3 py-1.5 rounded-lg transition-all shrink-0 cursor-pointer shadow-sm"
-                  >
-                    {copiedSql ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                    {copiedSql ? 'Copié !' : 'Copier le script SQL'}
-                  </button>
+                  <p className="text-xs text-slate-300 leading-relaxed">
+                    <strong>Rassurez-vous :</strong> Vos 3 clients ne sont <strong>pas perdus</strong>. Ils sont bien sauvegardés dans votre application Morvello Cars et dans Firebase.
+                  </p>
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    Supabase possède un verrou de sécurité automatique (appelé <em>Row-Level Security</em>). Ce verrou empêche l'application d'écrire de nouveaux clients sans mot de passe administrateur Supabase. Pour lever ce verrou une bonne fois pour toutes, il suffit d'exécuter une autorisation en 3 étapes simples :
+                  </p>
                 </div>
 
-                <div className="relative">
-                  <pre className="text-[10px] text-slate-300 bg-slate-900 border border-slate-800 rounded-lg p-3 overflow-x-auto max-h-48 font-mono leading-relaxed select-all">
+                {/* ÉTAPES 1 - 2 - 3 */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="bg-slate-900 border border-slate-800 p-3.5 rounded-xl space-y-2">
+                    <div className="flex items-center gap-2 text-xs font-bold text-amber-400">
+                      <span className="w-5 h-5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center text-[11px]">1</span>
+                      Copier le code
+                    </div>
+                    <p className="text-[11px] text-slate-400">
+                      Copiez le script d'autorisation prêt à l'emploi dans votre presse-papier.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleCopySql}
+                      className="w-full flex items-center justify-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs py-2 px-3 rounded-lg transition-all cursor-pointer shadow-sm mt-1"
+                    >
+                      {copiedSql ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                      {copiedSql ? 'Copié dans le presse-papier !' : 'Copier le script SQL'}
+                    </button>
+                  </div>
+
+                  <div className="bg-slate-900 border border-slate-800 p-3.5 rounded-xl space-y-2">
+                    <div className="flex items-center gap-2 text-xs font-bold text-blue-400">
+                      <span className="w-5 h-5 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30 flex items-center justify-center text-[11px]">2</span>
+                      Ouvrir Supabase
+                    </div>
+                    <p className="text-[11px] text-slate-400">
+                      Cliquez pour ouvrir directement la page de commande SQL de votre projet Supabase.
+                    </p>
+                    <a
+                      href="https://supabase.com/dashboard/project/uxswtmfrrxagkmewpwyd/sql/new"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs py-2 px-3 rounded-lg transition-all cursor-pointer shadow-sm mt-1"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      Ouvrir Supabase SQL Editor
+                    </a>
+                  </div>
+
+                  <div className="bg-slate-900 border border-slate-800 p-3.5 rounded-xl space-y-2">
+                    <div className="flex items-center gap-2 text-xs font-bold text-emerald-400">
+                      <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center text-[11px]">3</span>
+                      Coller & Cliquer sur Run
+                    </div>
+                    <p className="text-[11px] text-slate-400">
+                      Dans la page Supabase, faites un clic droit &gt; <strong>Coller</strong> (Ctrl+V), puis cliquez sur le bouton vert <strong>Run</strong> en bas à droite.
+                    </p>
+                    <div className="text-[10px] text-emerald-400/90 font-medium bg-emerald-500/10 border border-emerald-500/20 p-1.5 rounded-md text-center mt-1">
+                      Dès que c'est fait, cliquez sur "Synchroniser les {clients.length} clients" ci-dessus !
+                    </div>
+                  </div>
+                </div>
+
+                <div className="relative pt-2">
+                  <div className="text-[11px] text-slate-400 font-semibold mb-1 flex items-center justify-between">
+                    <span>Aperçu du script d'autorisation (fix_supabase_sync_rls.sql) :</span>
+                    <span className="text-[10px] text-slate-500 font-mono">public.clients • RLS bypass & RPC</span>
+                  </div>
+                  <pre className="text-[10px] text-slate-300 bg-slate-900 border border-slate-800 rounded-lg p-3 overflow-x-auto max-h-36 font-mono leading-relaxed select-all">
                     {SQL_FIX_SCRIPT}
                   </pre>
                 </div>
