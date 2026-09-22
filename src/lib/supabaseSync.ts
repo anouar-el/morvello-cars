@@ -547,12 +547,12 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
 
         const createdBy = existing?.created_by || cnt.createdBy || currentAuthUid || 'system';
 
-        const { error: contractErr } = await resilientUpsert('contracts', {
+        const contractPayload = {
           id: cnt.id,
           contract_number: cnt.contractNumber,
           status: cnt.status,
-          client_id: cnt.clientId,
-          vehicle_id: cnt.vehicleId,
+          client_id: cnt.clientId || null,
+          vehicle_id: cnt.vehicleId || null,
           start_date: cnt.startDate,
           end_date: cnt.endDate,
           total_amount: cnt.totalAmount,
@@ -565,7 +565,100 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
             createdBy: createdBy,
           },
           updated_at: new Date().toISOString(),
-        });
+        };
+
+        let { error: contractErr } = await resilientUpsert('contracts', contractPayload);
+
+        // Gestion résiliente des violations de clés étrangères (PostgreSQL code 23503)
+        // Cas 1 : contracts_client_id_fkey - Le client n'existe pas encore dans public.clients
+        if (
+          contractErr &&
+          contractErr.code === '23503' &&
+          (contractErr.message?.includes('contracts_client_id_fkey') ||
+            contractErr.details?.includes('clients') ||
+            contractErr.message?.includes('clients'))
+        ) {
+          console.warn(
+            `[Supabase Sync] Clé étrangère client_id (${cnt.clientId}) non trouvée dans 'clients' pour ${cnt.contractNumber}. Auto-création du client...`
+          );
+
+          if (cnt.clientId && cnt.clientSnapshot) {
+            const snap = cnt.clientSnapshot;
+            const autoClientPayload = {
+              id: cnt.clientId,
+              firstName: snap.firstName || '',
+              lastName: snap.lastName || '',
+              birthDate: snap.birthDate || '',
+              drivingLicense: snap.drivingLicense || '',
+              docType: snap.docType || 'CIN',
+              docNumber: snap.docNumber || '',
+              phone: snap.phone || '',
+              email: snap.email || '',
+              country: snap.country || '',
+              address: snap.address || '',
+              contractCount: 1,
+              assignedManagerId: assignedMgrId,
+              createdBy: createdBy,
+            };
+
+            await resilientUpsert('clients', {
+              id: cnt.clientId,
+              first_name: autoClientPayload.firstName,
+              last_name: autoClientPayload.lastName,
+              doc_type: autoClientPayload.docType,
+              doc_number: autoClientPayload.docNumber,
+              phone: autoClientPayload.phone,
+              email: autoClientPayload.email,
+              contract_count: 1,
+              assigned_manager_id: assignedMgrId,
+              created_by: createdBy,
+              data: autoClientPayload,
+              updated_at: new Date().toISOString(),
+            });
+
+            const retryWithClient = await resilientUpsert('contracts', contractPayload);
+            contractErr = retryWithClient.error;
+          }
+
+          // Si la contrainte de clé étrangère persiste (client non trouvable ou RLS restrictif),
+          // insérer avec client_id: null pour ne jamais bloquer la synchronisation
+          // (l'intégralité des données du client reste préservée dans la colonne JSONB data).
+          if (
+            contractErr &&
+            contractErr.code === '23503' &&
+            (contractErr.message?.includes('contracts_client_id_fkey') ||
+              contractErr.details?.includes('clients') ||
+              contractErr.message?.includes('clients'))
+          ) {
+            console.warn(
+              `[Supabase Sync] Repli résilient : enregistrement de ${cnt.contractNumber} avec client_id=null pour satisfaire PostgreSQL (données 100% préservées dans JSONB).`
+            );
+            const fallbackNullClient = await resilientUpsert('contracts', {
+              ...contractPayload,
+              client_id: null,
+            });
+            contractErr = fallbackNullClient.error;
+          }
+        }
+
+        // Cas 2 : contracts_vehicle_id_fkey - Le véhicule n'existe pas encore dans public.vehicles
+        if (
+          contractErr &&
+          contractErr.code === '23503' &&
+          (contractErr.message?.includes('contracts_vehicle_id_fkey') ||
+            contractErr.details?.includes('vehicles') ||
+            contractErr.message?.includes('vehicles'))
+        ) {
+          console.warn(
+            `[Supabase Sync] Clé étrangère vehicle_id (${cnt.vehicleId}) non trouvée dans 'vehicles' pour ${cnt.contractNumber}. Repli avec vehicle_id=null.`
+          );
+          const fallbackVehicleRes = await resilientUpsert('contracts', {
+            ...contractPayload,
+            client_id: contractErr.message?.includes('clients') ? null : contractPayload.client_id,
+            vehicle_id: null,
+          });
+          contractErr = fallbackVehicleRes.error;
+        }
 
         if (contractErr) {
           contractHadError = true;

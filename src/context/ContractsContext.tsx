@@ -322,35 +322,7 @@ export const ContractsProvider: React.FC<{
       newContract.depositRecord = newDeposit;
     }
 
-    const updatedContracts = sortContractsByNumber([newContract, ...contracts], 'desc');
-    setContracts(updatedContracts);
-    saveRemoteAgencyData({
-      contracts: updatedContracts,
-      companySettings: updatedCompanySettings,
-    }).catch((err) =>
-      console.warn('Auto-save createContract to Firestore note:', err)
-    );
-
-    if (newContract.status === 'active') {
-      onUpdateVehicles((prev) =>
-        prev.map((v) => {
-          const matchById = v.id === newContract.vehicleId;
-          const matchByPlate =
-            v.plate &&
-            newContract.vehicleSnapshot?.plate &&
-            v.plate.trim().toUpperCase() === newContract.vehicleSnapshot.plate.trim().toUpperCase();
-          if (matchById || matchByPlate) {
-            return {
-              ...v,
-              status: 'rented' as const,
-              currentKm: Math.max(v.currentKm || 0, newContract.departureKm || 0),
-            };
-          }
-          return v;
-        })
-      );
-    }
-
+    let computedClients: Client[] | undefined;
     onUpdateClients((prev) => {
       const existingIdx = prev.findIndex(
         (c) =>
@@ -416,12 +388,39 @@ export const ContractsProvider: React.FC<{
       } else {
         updatedClients = prev;
       }
-
-      saveRemoteAgencyData({ clients: updatedClients }).catch((err) =>
-        console.warn('Auto-save updated clients to Firestore notice:', err)
-      );
+      computedClients = updatedClients;
       return updatedClients;
     });
+
+    if (newContract.status === 'active') {
+      onUpdateVehicles((prev) =>
+        prev.map((v) => {
+          const matchById = v.id === newContract.vehicleId;
+          const matchByPlate =
+            v.plate &&
+            newContract.vehicleSnapshot?.plate &&
+            v.plate.trim().toUpperCase() === newContract.vehicleSnapshot.plate.trim().toUpperCase();
+          if (matchById || matchByPlate) {
+            return {
+              ...v,
+              status: 'rented' as const,
+              currentKm: Math.max(v.currentKm || 0, newContract.departureKm || 0),
+            };
+          }
+          return v;
+        })
+      );
+    }
+
+    const updatedContracts = sortContractsByNumber([newContract, ...contracts], 'desc');
+    setContracts(updatedContracts);
+    saveRemoteAgencyData({
+      contracts: updatedContracts,
+      clients: computedClients,
+      companySettings: updatedCompanySettings,
+    }).catch((err) =>
+      console.warn('Auto-save createContract to Firestore note:', err)
+    );
 
     logAction(
       'Création contrat',
