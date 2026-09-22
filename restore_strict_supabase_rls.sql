@@ -23,6 +23,23 @@ ALTER TABLE public.contracts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.deposits ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 
+-- 2.1 ASSURANCE DES COLONNES MULTI-GESTIONNAIRES & RECHARGEMENT DU SCHÉMA
+ALTER TABLE public.vehicles ADD COLUMN IF NOT EXISTS assigned_manager_id TEXT;
+ALTER TABLE public.vehicles ADD COLUMN IF NOT EXISTS created_by TEXT;
+ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS assigned_manager_id TEXT;
+ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS created_by TEXT;
+ALTER TABLE public.contracts ADD COLUMN IF NOT EXISTS assigned_manager_id TEXT;
+ALTER TABLE public.contracts ADD COLUMN IF NOT EXISTS created_by TEXT;
+ALTER TABLE public.deposits ADD COLUMN IF NOT EXISTS assigned_manager_id TEXT;
+ALTER TABLE public.deposits ADD COLUMN IF NOT EXISTS created_by TEXT;
+
+CREATE INDEX IF NOT EXISTS idx_vehicles_assigned_manager ON public.vehicles(assigned_manager_id);
+CREATE INDEX IF NOT EXISTS idx_clients_assigned_manager ON public.clients(assigned_manager_id);
+CREATE INDEX IF NOT EXISTS idx_contracts_assigned_manager ON public.contracts(assigned_manager_id);
+CREATE INDEX IF NOT EXISTS idx_deposits_assigned_manager ON public.deposits(assigned_manager_id);
+
+NOTIFY pgrst, 'reload schema';
+
 -- 3. FONCTIONS D'ACCÈS SÉCURISÉES (FONCTIONS UTILITAIRES SANS BYPASS)
 CREATE OR REPLACE FUNCTION public.current_user_role()
 RETURNS text

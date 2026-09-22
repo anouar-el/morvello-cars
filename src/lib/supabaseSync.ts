@@ -277,6 +277,106 @@ export async function saveUserProfileToSupabase(
   }
 }
 
+// Cache set of known missing columns per table: e.g. "contracts:assigned_manager_id"
+const knownMissingColumns = new Set<string>();
+
+export function isColumnMissing(table: string, column: string): boolean {
+  return knownMissingColumns.has(`${table}:${column}`);
+}
+
+export function markColumnMissing(table: string, column: string): void {
+  knownMissingColumns.add(`${table}:${column}`);
+}
+
+export function clearMissingColumnsCache(): void {
+  knownMissingColumns.clear();
+}
+
+export function extractMissingColumnFromError(error: any): string | null {
+  if (!error) return null;
+  const msg = `${error.message || ''} ${error.details || ''} ${error.hint || ''}`;
+  const match = msg.match(/Could not find the '([^']+)' column/i);
+  if (match && match[1]) {
+    return match[1];
+  }
+  return null;
+}
+
+/**
+ * Lit les identifiants et métadonnées existants de façon résiliente aux colonnes manquantes
+ */
+async function fetchExistingRows(
+  table: string,
+  ids: string[]
+): Promise<Map<string, { id: string; assigned_manager_id?: string | null; created_by?: string | null }>> {
+  const map = new Map<string, { id: string; assigned_manager_id?: string | null; created_by?: string | null }>();
+  if (!ids.length) return map;
+
+  const requestWithManagerCol = !isColumnMissing(table, 'assigned_manager_id');
+  const cols = requestWithManagerCol ? 'id, assigned_manager_id, created_by' : 'id, created_by';
+
+  try {
+    let res = await supabase.from(table).select(cols).in('id', ids);
+    if (res.error) {
+      if (res.error.code === 'PGRST204' || res.error.message?.includes('schema cache')) {
+        const missing = extractMissingColumnFromError(res.error) || 'assigned_manager_id';
+        markColumnMissing(table, missing);
+        const retryRes = await supabase.from(table).select('id, created_by').in('id', ids);
+        if (retryRes.data) {
+          retryRes.data.forEach((r: any) => map.set(r.id, r));
+        }
+      } else {
+        console.warn(`[Supabase Sync] Note lecture ${table} existants:`, res.error);
+      }
+    } else if (res.data) {
+      res.data.forEach((r: any) => map.set(r.id, r));
+    }
+  } catch (err) {
+    console.warn(`[Supabase Sync] Exception lecture ${table} existants:`, err);
+  }
+
+  return map;
+}
+
+/**
+ * Upsert résilient aux colonnes manquantes dans le cache de schéma Supabase (PGRST204).
+ * Si une colonne n'existe pas encore en base, elle est retirée du payload SQL
+ * tout en restant 100% persistée dans la colonne data (JSONB), puis réessayée immédiatement.
+ */
+async function resilientUpsert(
+  table: string,
+  payload: Record<string, any>,
+  conflictCol: string = 'id'
+): Promise<{ error: any }> {
+  const cleanPayload = { ...payload };
+  for (const key of Object.keys(cleanPayload)) {
+    if (isColumnMissing(table, key)) {
+      delete cleanPayload[key];
+    }
+  }
+
+  let { error } = await supabase.from(table).upsert(cleanPayload, { onConflict: conflictCol });
+
+  let retries = 0;
+  while (error && (error.code === 'PGRST204' || error.message?.includes('schema cache')) && retries < 3) {
+    retries++;
+    const missingCol = extractMissingColumnFromError(error);
+    if (missingCol && missingCol in cleanPayload) {
+      console.warn(
+        `[Supabase Sync] Colonne '${missingCol}' absente de '${table}' dans le cache PostgREST. Repli automatique sans cette colonne.`
+      );
+      markColumnMissing(table, missingCol);
+      delete cleanPayload[missingCol];
+      const retryRes = await supabase.from(table).upsert(cleanPayload, { onConflict: conflictCol });
+      error = retryRes.error;
+    } else {
+      break;
+    }
+  }
+
+  return { error };
+}
+
 /**
  * Synchronise les entités individuelles dans leurs tables PostgreSQL dédiées
  * en respectant scrupuleusement les règles RLS sans aucun contournement.
@@ -296,22 +396,8 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
     // 1. Véhicules
     if (payload.vehicles && Array.isArray(payload.vehicles) && payload.vehicles.length > 0) {
       const vehicleIds = payload.vehicles.map((v) => v.id).filter(Boolean);
-      const existingVehicleMap = new Map<
-        string,
-        { id: string; assigned_manager_id: string | null; created_by: string | null }
-      >();
-
-      try {
-        const { data: existingRows } = await supabase
-          .from('vehicles')
-          .select('id, assigned_manager_id, created_by')
-          .in('id', vehicleIds);
-        if (existingRows) {
-          existingRows.forEach((r) => existingVehicleMap.set(r.id, r));
-        }
-      } catch (fetchErr) {
-        console.warn('[Supabase Sync] Note lecture véhicules existants:', fetchErr);
-      }
+      const existingVehicleMap = await fetchExistingRows('vehicles', vehicleIds);
+      let vehicleHadError = false;
 
       for (const v of payload.vehicles) {
         const existing = existingVehicleMap.get(v.id);
@@ -325,30 +411,28 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
           currentAuthUid ||
           'system';
 
-        const { error: vehicleErr } = await supabase.from('vehicles').upsert(
-          {
-            id: v.id,
-            brand: v.brand,
-            model: v.model,
-            plate: v.plate,
-            fuel_type: v.fuelType,
-            status: v.status,
-            current_km: v.currentKm,
-            daily_rate: v.dailyRate,
-            assigned_manager_id: assignedMgrId,
-            created_by: createdBy,
-            approval_status: v.approvalStatus || 'approved',
-            data: {
-              ...v,
-              assignedManagerId: assignedMgrId,
-              createdBy: createdBy,
-            },
-            updated_at: new Date().toISOString(),
+        const { error: vehicleErr } = await resilientUpsert('vehicles', {
+          id: v.id,
+          brand: v.brand,
+          model: v.model,
+          plate: v.plate,
+          fuel_type: v.fuelType,
+          status: v.status,
+          current_km: v.currentKm,
+          daily_rate: v.dailyRate,
+          assigned_manager_id: assignedMgrId,
+          created_by: createdBy,
+          approval_status: v.approvalStatus || 'approved',
+          data: {
+            ...v,
+            assignedManagerId: assignedMgrId,
+            createdBy: createdBy,
           },
-          { onConflict: 'id' }
-        );
+          updated_at: new Date().toISOString(),
+        });
 
         if (vehicleErr) {
+          vehicleHadError = true;
           console.error(
             `[Supabase Sync] Erreur upsert véhicule ${v.plate || v.id}:`,
             `Code: ${vehicleErr.code}`,
@@ -365,27 +449,17 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
           });
         }
       }
+
+      if (!vehicleHadError && lastSyncErrorState?.table === 'vehicles') {
+        clearSyncError();
+      }
     }
 
     // 2. Clients (soumis aux règles strictes RLS, sans aucune fonction RPC contournante)
     if (payload.clients && Array.isArray(payload.clients) && payload.clients.length > 0) {
       const clientIds = payload.clients.map((c) => c.id).filter(Boolean);
-      const existingClientMap = new Map<
-        string,
-        { id: string; assigned_manager_id: string | null; created_by: string | null }
-      >();
-
-      try {
-        const { data: existingRows } = await supabase
-          .from('clients')
-          .select('id, assigned_manager_id, created_by')
-          .in('id', clientIds);
-        if (existingRows) {
-          existingRows.forEach((r) => existingClientMap.set(r.id, r));
-        }
-      } catch (fetchErr) {
-        console.warn('[Supabase Sync] Note lecture clients existants:', fetchErr);
-      }
+      const existingClientMap = await fetchExistingRows('clients', clientIds);
+      let clientHadError = false;
 
       for (const c of payload.clients) {
         const existing = existingClientMap.get(c.id);
@@ -409,25 +483,23 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
           createdBy: createdBy,
         };
 
-        const { error: clientUpsertErr } = await supabase.from('clients').upsert(
-          {
-            id: c.id,
-            first_name: c.firstName,
-            last_name: c.lastName,
-            doc_type: c.docType,
-            doc_number: c.docNumber,
-            phone: c.phone,
-            email: c.email,
-            contract_count: c.contractCount || 0,
-            assigned_manager_id: assignedMgrId,
-            created_by: createdBy,
-            data: clientPayload,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'id' }
-        );
+        const { error: clientUpsertErr } = await resilientUpsert('clients', {
+          id: c.id,
+          first_name: c.firstName,
+          last_name: c.lastName,
+          doc_type: c.docType,
+          doc_number: c.docNumber,
+          phone: c.phone,
+          email: c.email,
+          contract_count: c.contractCount || 0,
+          assigned_manager_id: assignedMgrId,
+          created_by: createdBy,
+          data: clientPayload,
+          updated_at: new Date().toISOString(),
+        });
 
         if (clientUpsertErr) {
+          clientHadError = true;
           console.error(
             `[Supabase Sync] Erreur upsert client "${c.firstName} ${c.lastName}" (${c.id}):`,
             `Code: ${clientUpsertErr.code}`,
@@ -444,6 +516,10 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
           });
         }
       }
+
+      if (!clientHadError && lastSyncErrorState?.table === 'clients') {
+        clearSyncError();
+      }
     }
 
     // 3. Contrats
@@ -451,22 +527,8 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
     // afin de ne pas déclencher de rejet par la policy RLS can_assign_manager.
     if (payload.contracts && Array.isArray(payload.contracts) && payload.contracts.length > 0) {
       const contractIds = payload.contracts.map((c) => c.id).filter(Boolean);
-      const existingContractMap = new Map<
-        string,
-        { id: string; assigned_manager_id: string | null; created_by: string | null }
-      >();
-
-      try {
-        const { data: existingRows } = await supabase
-          .from('contracts')
-          .select('id, assigned_manager_id, created_by')
-          .in('id', contractIds);
-        if (existingRows) {
-          existingRows.forEach((r) => existingContractMap.set(r.id, r));
-        }
-      } catch (fetchErr) {
-        console.warn('[Supabase Sync] Note lecture contrats existants:', fetchErr);
-      }
+      const existingContractMap = await fetchExistingRows('contracts', contractIds);
+      let contractHadError = false;
 
       for (const cnt of payload.contracts) {
         const existing = existingContractMap.get(cnt.id);
@@ -485,30 +547,28 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
 
         const createdBy = existing?.created_by || cnt.createdBy || currentAuthUid || 'system';
 
-        const { error: contractErr } = await supabase.from('contracts').upsert(
-          {
-            id: cnt.id,
-            contract_number: cnt.contractNumber,
-            status: cnt.status,
-            client_id: cnt.clientId,
-            vehicle_id: cnt.vehicleId,
-            start_date: cnt.startDate,
-            end_date: cnt.endDate,
-            total_amount: cnt.totalAmount,
-            deposit_amount: cnt.depositAmount,
-            assigned_manager_id: assignedMgrId,
-            created_by: createdBy,
-            data: {
-              ...cnt,
-              assignedManagerId: assignedMgrId,
-              createdBy: createdBy,
-            },
-            updated_at: new Date().toISOString(),
+        const { error: contractErr } = await resilientUpsert('contracts', {
+          id: cnt.id,
+          contract_number: cnt.contractNumber,
+          status: cnt.status,
+          client_id: cnt.clientId,
+          vehicle_id: cnt.vehicleId,
+          start_date: cnt.startDate,
+          end_date: cnt.endDate,
+          total_amount: cnt.totalAmount,
+          deposit_amount: cnt.depositAmount,
+          assigned_manager_id: assignedMgrId,
+          created_by: createdBy,
+          data: {
+            ...cnt,
+            assignedManagerId: assignedMgrId,
+            createdBy: createdBy,
           },
-          { onConflict: 'id' }
-        );
+          updated_at: new Date().toISOString(),
+        });
 
         if (contractErr) {
+          contractHadError = true;
           console.error(
             `[Supabase Sync] Erreur upsert contrat ${cnt.contractNumber || cnt.id}:`,
             `Code: ${contractErr.code}`,
@@ -525,28 +585,18 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
           });
         }
       }
+
+      if (!contractHadError && lastSyncErrorState?.table === 'contracts') {
+        clearSyncError();
+      }
     }
 
     // 4. Cautions
     // Même principe : préserver l'existant en base et prioriser l'utilisateur connecté comme repli
     if (payload.deposits && Array.isArray(payload.deposits) && payload.deposits.length > 0) {
       const depositIds = payload.deposits.map((d) => d.id).filter(Boolean);
-      const existingDepositMap = new Map<
-        string,
-        { id: string; assigned_manager_id: string | null; created_by: string | null }
-      >();
-
-      try {
-        const { data: existingRows } = await supabase
-          .from('deposits')
-          .select('id, assigned_manager_id, created_by')
-          .in('id', depositIds);
-        if (existingRows) {
-          existingRows.forEach((r) => existingDepositMap.set(r.id, r));
-        }
-      } catch (fetchErr) {
-        console.warn('[Supabase Sync] Note lecture cautions existantes:', fetchErr);
-      }
+      const existingDepositMap = await fetchExistingRows('deposits', depositIds);
+      let depositHadError = false;
 
       for (const dep of payload.deposits) {
         const existing = existingDepositMap.get(dep.id);
@@ -571,27 +621,25 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
           currentAuthUid ||
           'system';
 
-        const { error: depositErr } = await supabase.from('deposits').upsert(
-          {
-            id: dep.id,
-            contract_id: dep.contractId,
-            client_name: dep.clientName,
-            amount: dep.amount,
-            status: dep.status === 'held' ? 'pending' : dep.status,
-            method: dep.method,
-            assigned_manager_id: assignedMgrId,
-            created_by: createdBy,
-            data: {
-              ...dep,
-              assignedManagerId: assignedMgrId,
-              createdBy: createdBy,
-            },
-            updated_at: new Date().toISOString(),
+        const { error: depositErr } = await resilientUpsert('deposits', {
+          id: dep.id,
+          contract_id: dep.contractId,
+          client_name: dep.clientName,
+          amount: dep.amount,
+          status: dep.status === 'held' ? 'pending' : dep.status,
+          method: dep.method,
+          assigned_manager_id: assignedMgrId,
+          created_by: createdBy,
+          data: {
+            ...dep,
+            assignedManagerId: assignedMgrId,
+            createdBy: createdBy,
           },
-          { onConflict: 'id' }
-        );
+          updated_at: new Date().toISOString(),
+        });
 
         if (depositErr) {
+          depositHadError = true;
           console.error(
             `[Supabase Sync] Erreur upsert caution ${dep.id}:`,
             `Code: ${depositErr.code}`,
@@ -607,6 +655,10 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
             timestamp: new Date().toISOString(),
           });
         }
+      }
+
+      if (!depositHadError && lastSyncErrorState?.table === 'deposits') {
+        clearSyncError();
       }
     }
 
@@ -693,23 +745,20 @@ export async function syncAllClientsToSupabase(clients: any[]): Promise<{
       const assignedMgrId = c.assignedManagerId || currentAuthUid || null;
       const createdBy = c.createdBy || currentAuthUid || 'system';
 
-      const { error: upsertErr } = await supabase.from('clients').upsert(
-        {
-          id: c.id,
-          first_name: c.firstName || '',
-          last_name: c.lastName || '',
-          doc_type: c.docType || 'CIN',
-          doc_number: c.docNumber || '',
-          phone: c.phone || '',
-          email: c.email || '',
-          contract_count: c.contractCount || 0,
-          assigned_manager_id: assignedMgrId,
-          created_by: createdBy,
-          data: { ...c, assignedManagerId: assignedMgrId, createdBy },
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'id' }
-      );
+      const { error: upsertErr } = await resilientUpsert('clients', {
+        id: c.id,
+        first_name: c.firstName || '',
+        last_name: c.lastName || '',
+        doc_type: c.docType || 'CIN',
+        doc_number: c.docNumber || '',
+        phone: c.phone || '',
+        email: c.email || '',
+        contract_count: c.contractCount || 0,
+        assigned_manager_id: assignedMgrId,
+        created_by: createdBy,
+        data: { ...c, assignedManagerId: assignedMgrId, createdBy },
+        updated_at: new Date().toISOString(),
+      });
 
       if (!upsertErr) {
         syncedCount++;
