@@ -419,7 +419,11 @@ export const PrestigeContractPdfLayout: React.FC<PrestigeContractPdfLayoutProps>
               <div className="col-span-4 pl-2 text-right">
                 <span className="text-[8px] uppercase font-bold text-slate-500 block">Dépôt de Garantie VIP</span>
                 <span className="font-mono text-xs font-black text-slate-950 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded inline-block">
-                  {contract.depositAmount ? `${contract.depositAmount.toLocaleString()} MAD (Empreinte)` : 'Pré-autorisation'}
+                  {contract.depositAmount !== undefined
+                    ? `${Number(contract.depositAmount).toLocaleString()} MAD (Empreinte)`
+                    : contract.depositRecord?.amount !== undefined
+                    ? `${Number(contract.depositRecord.amount).toLocaleString()} MAD (Empreinte)`
+                    : 'Pré-autorisation'}
                 </span>
               </div>
             </div>

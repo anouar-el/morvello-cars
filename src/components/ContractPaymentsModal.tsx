@@ -18,6 +18,7 @@ import {
   RotateCcw,
   Percent,
   Check,
+  Shield,
 } from 'lucide-react';
 
 interface ContractPaymentsModalProps {
@@ -61,10 +62,17 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
     ? Number(contract.totalAmount)
     : (initialPricePerDay * initialTotalDays);
 
+  const initialDepositAmount =
+    contract.depositAmount !== undefined
+      ? Number(contract.depositAmount)
+      : contract.depositRecord?.amount !== undefined
+      ? Number(contract.depositRecord.amount)
+      : 5000;
+
   const [isEditingFinancials, setIsEditingFinancials] = useState<boolean>(false);
   const [editPricePerDay, setEditPricePerDay] = useState<number>(initialPricePerDay);
   const [editTotalAmount, setEditTotalAmount] = useState<number>(initialTotalAmount);
-  const [editDepositAmount, setEditDepositAmount] = useState<number>(contract.depositAmount ?? 5000);
+  const [editDepositAmount, setEditDepositAmount] = useState<number>(initialDepositAmount);
   const [editTotalDays, setEditTotalDays] = useState<number>(initialTotalDays);
 
   // Quick inline daily price editing directly in the card
@@ -76,10 +84,16 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
     const p = contract.pricePerDay !== undefined ? Number(contract.pricePerDay) : 0;
     const d = contract.totalDays || 1;
     const t = contract.totalAmount !== undefined ? Number(contract.totalAmount) : (p * d);
+    const dep =
+      contract.depositAmount !== undefined
+        ? Number(contract.depositAmount)
+        : contract.depositRecord?.amount !== undefined
+        ? Number(contract.depositRecord.amount)
+        : 5000;
     setEditPricePerDay(p);
     setEditTotalDays(d);
     setEditTotalAmount(t);
-    setEditDepositAmount(contract.depositAmount ?? 5000);
+    setEditDepositAmount(dep);
     setInlineDailyPrice(p);
   }, [contract]);
 
@@ -388,8 +402,8 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
             </form>
           )}
 
-          {/* 3 FINANCIAL METRICS */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {/* 4 FINANCIAL METRICS */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {/* TOTAL FACTURÉ */}
             {isEditingPricePerDayInline ? (
               <div className="bg-slate-950 p-3.5 rounded-xl border-2 border-amber-500/70 shadow-lg shadow-amber-500/10 flex flex-col justify-between animate-in fade-in">
@@ -572,6 +586,44 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
                   ? 'Paiement à réclamer avant restitution'
                   : 'Totalité du montant réglée par le client'}
               </span>
+            </div>
+
+            {/* CAUTION DE GARANTIE */}
+            <div className="bg-slate-950/80 p-3.5 rounded-xl border border-purple-500/30 flex flex-col justify-between hover:border-purple-500/50 transition-colors">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-purple-400 uppercase tracking-wider flex items-center gap-1">
+                  <Shield className="w-3 h-3 text-purple-400" /> Caution / Dépôt
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsEditingFinancials(true)}
+                  className="text-[10px] text-purple-300 hover:text-purple-200 bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/30 px-2 py-0.5 rounded-md flex items-center gap-1 font-bold transition-all cursor-pointer"
+                  title="Modifier le montant de la caution"
+                >
+                  <Edit2 className="w-2.5 h-2.5" /> Modifier
+                </button>
+              </div>
+              <p className="font-mono text-xl font-black text-purple-400 mt-1">
+                {(contract.depositAmount !== undefined
+                  ? contract.depositAmount
+                  : (contract.depositRecord?.amount ?? 5000)
+                ).toLocaleString('fr-FR')}{' '}
+                <span className="text-xs font-normal text-purple-300">MAD</span>
+              </p>
+              <div className="text-[10px] text-slate-400 mt-1 flex items-center justify-between">
+                <span className="truncate max-w-[125px]" title={contract.depositRecord?.methodDetails || 'Empreinte bancaire TPE'}>
+                  {contract.depositRecord?.method === 'cheque'
+                    ? 'Chèque de caution'
+                    : contract.depositRecord?.method === 'cash'
+                    ? 'Espèces consignées'
+                    : contract.depositRecord?.method === 'virement'
+                    ? 'Virement bancaire'
+                    : 'Empreinte TPE'}
+                </span>
+                <span className="text-emerald-400 font-mono text-[9px] bg-emerald-500/10 px-1.5 py-0.2 rounded border border-emerald-500/30">
+                  {contract.depositRecord?.status === 'released' ? 'Restituée' : 'Détenue'}
+                </span>
+              </div>
             </div>
           </div>
         </div>

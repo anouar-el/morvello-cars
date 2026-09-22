@@ -116,7 +116,7 @@ export const DashboardFlightDeck: React.FC<DashboardFlightDeckProps> = ({
                           <ShieldCheck className="w-3 h-3 text-purple-400" />
                           Caution :{' '}
                           <strong className="text-slate-200 font-mono">
-                            {cnt.depositAmount?.toLocaleString('fr-FR') || 5000} DH
+                            {cnt.depositAmount !== undefined ? cnt.depositAmount.toLocaleString('fr-FR') : (cnt.depositRecord?.amount !== undefined ? cnt.depositRecord.amount.toLocaleString('fr-FR') : 5000)} DH
                           </strong>
                         </span>
                         {cnt.clientSnapshot.phone && (

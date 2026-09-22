@@ -746,7 +746,7 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
                   Caution / الضمانة
                 </span>
                 <p className="font-mono font-black text-slate-950 text-xs mt-0.5">
-                  {(contract.depositAmount ?? 5000).toLocaleString('fr-FR')} MAD
+                  {(contract.depositAmount !== undefined ? Number(contract.depositAmount) : (contract.depositRecord?.amount !== undefined ? Number(contract.depositRecord.amount) : 5000)).toLocaleString('fr-FR')} MAD
                 </p>
                 <span className="text-[7px] text-purple-900 font-semibold mt-0.5">
                   {contract.depositRecord?.method === 'cheque'

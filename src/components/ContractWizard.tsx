@@ -174,7 +174,13 @@ export const ContractWizard: React.FC = () => {
       );
       setPricePerDay(editingContractData.pricePerDay !== undefined ? Number(editingContractData.pricePerDay) : 0);
       hasUserCustomizedPriceRef.current = true;
-      setDepositAmount(editingContractData.depositAmount ?? 5000);
+      setDepositAmount(
+        editingContractData.depositAmount !== undefined
+          ? Number(editingContractData.depositAmount)
+          : editingContractData.depositRecord?.amount !== undefined
+          ? Number(editingContractData.depositRecord.amount)
+          : 5000
+      );
 
       // Manager & Phone
       if (editingContractData.assignedManagerId) {
@@ -544,7 +550,7 @@ export const ContractWizard: React.FC = () => {
         totalDays,
         pricePerDay,
         totalAmount,
-        depositAmount,
+        depositAmount: Number(depositAmount),
         notes: contractNotes,
       });
 

@@ -373,7 +373,11 @@ export const CorporateContractPdfLayout: React.FC<CorporateContractPdfLayoutProp
               <div className="col-span-3 pl-2 text-right">
                 <span className="text-[8px] uppercase font-bold text-slate-500 block">Dépôt de Garantie Flotte</span>
                 <span className="font-mono text-xs font-black text-slate-950 bg-blue-100 border border-blue-300 px-2 py-0.5 rounded inline-block">
-                  {contract.depositAmount ? `${contract.depositAmount.toLocaleString()} MAD (Caution)` : 'Convention cadre'}
+                  {contract.depositAmount !== undefined
+                    ? `${Number(contract.depositAmount).toLocaleString()} MAD (Caution)`
+                    : contract.depositRecord?.amount !== undefined
+                    ? `${Number(contract.depositRecord.amount).toLocaleString()} MAD (Caution)`
+                    : 'Convention cadre'}
                 </span>
               </div>
             </div>

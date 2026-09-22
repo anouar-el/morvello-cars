@@ -42,6 +42,7 @@ import {
 } from '../utils/contractNumberUtils';
 import { reconcileVehiclesWithContracts } from '../utils/vehicleStatusUtils';
 import { reconcileClientsWithContracts } from '../utils/clientSyncUtils';
+import { formatPlateFrench } from '../utils/plateUtils';
 
 import { AuthProvider, useAuth } from './AuthContext';
 import { VehiclesProvider, useVehicles } from './VehiclesContext';
@@ -534,9 +535,131 @@ const AppContextInner: React.FC<{ children: React.ReactNode }> = ({ children }) 
     });
   };
 
+  // Synchronize contract depositAmount with deposits context
+  const syncContractDeposit = useCallback((contract: Contract, newDepositAmount?: number) => {
+    if (newDepositAmount === undefined) return;
+    const amount = Math.max(0, Number(newDepositAmount) || 0);
+
+    const existingIndex = depositsCtx.deposits.findIndex(
+      (d) =>
+        d.contractId === contract.id ||
+        d.contractNumber === contract.contractNumber ||
+        (contract.depositRecord && d.id === contract.depositRecord.id)
+    );
+
+    if (existingIndex >= 0) {
+      const existing = depositsCtx.deposits[existingIndex];
+      depositsCtx.updateDeposit(existing.id, {
+        amount,
+        contractId: contract.id,
+        contractNumber: contract.contractNumber,
+        clientId: contract.clientId || existing.clientId,
+        clientName:
+          `${contract.clientSnapshot?.firstName || ''} ${contract.clientSnapshot?.lastName || ''}`.trim() ||
+          existing.clientName,
+        clientPhone: contract.clientSnapshot?.phone || existing.clientPhone,
+        vehicleName: contract.vehicleSnapshot
+          ? `${contract.vehicleSnapshot.brand} ${contract.vehicleSnapshot.model}`
+          : existing.vehicleName,
+        vehiclePlate: contract.vehicleSnapshot
+          ? formatPlateFrench(contract.vehicleSnapshot.plate)
+          : existing.vehiclePlate,
+        assignedManagerId: contract.assignedManagerId || existing.assignedManagerId,
+        assignedManagerName: contract.assignedManagerName || existing.assignedManagerName,
+      });
+    } else if (amount > 0) {
+      const newDeposit: DepositRecord = {
+        id: `dep-${Date.now()}`,
+        contractId: contract.id,
+        contractNumber: contract.contractNumber,
+        clientId: contract.clientId,
+        clientName:
+          `${contract.clientSnapshot?.firstName || ''} ${contract.clientSnapshot?.lastName || ''}`.trim() ||
+          'Client',
+        clientPhone: contract.clientSnapshot?.phone || '',
+        vehicleName: contract.vehicleSnapshot
+          ? `${contract.vehicleSnapshot.brand} ${contract.vehicleSnapshot.model}`
+          : 'Véhicule',
+        vehiclePlate: contract.vehicleSnapshot ? formatPlateFrench(contract.vehicleSnapshot.plate) : '',
+        amount,
+        method: contract.depositRecord?.method || 'preauth_card',
+        methodDetails: contract.depositRecord?.methodDetails || 'Empreinte bancaire TPE',
+        status: 'held',
+        receivedAt: `${contract.startDate || ''} ${contract.startTime || ''}`.trim() || new Date().toISOString(),
+        receivedBy: auth.currentUser?.name || 'Direction',
+        deductions: [],
+        notes: `Caution enregistrée pour le contrat ${contract.contractNumber}.`,
+        assignedManagerId: contract.assignedManagerId,
+        assignedManagerName: contract.assignedManagerName,
+        createdBy: auth.currentUser?.name || 'Direction',
+      };
+      depositsCtx.addDepositRecord(newDeposit);
+    }
+  }, [depositsCtx, auth.currentUser]);
+
   const updateContract = (id: string, data: Partial<Contract>): Contract | undefined => {
-    return contractsCtx.updateContract(id, data, vehiclesCtx.setVehiclesListByUpdater);
+    const updated = contractsCtx.updateContract(id, data, vehiclesCtx.setVehiclesListByUpdater);
+    if (updated && data.depositAmount !== undefined) {
+      syncContractDeposit(updated, data.depositAmount);
+    }
+    return updated;
   };
+
+  const updateDepositAndSyncContract = useCallback((id: string, data: Partial<DepositRecord>) => {
+    depositsCtx.updateDeposit(id, data);
+    const existing = depositsCtx.deposits.find((d) => d.id === id);
+    const contractNumber = data.contractNumber || existing?.contractNumber;
+    const contractId = data.contractId || existing?.contractId;
+
+    if (contractId || contractNumber) {
+      const linkedContract = contractsCtx.contracts.find(
+        (c) => (contractId && c.id === contractId) || (contractNumber && c.contractNumber === contractNumber)
+      );
+      if (linkedContract && data.amount !== undefined) {
+        contractsCtx.updateContract(linkedContract.id, {
+          depositAmount: Number(data.amount),
+          depositRecord: {
+            ...(existing || {}),
+            ...data,
+          } as DepositRecord,
+        });
+      }
+    }
+  }, [depositsCtx, contractsCtx]);
+
+  // Reconcile contract deposit amounts with deposits records on startup
+  const hasReconciledDepositsRef = useRef(false);
+  useEffect(() => {
+    if (hasReconciledDepositsRef.current) return;
+    if (contractsCtx.contracts.length === 0 || depositsCtx.deposits.length === 0) return;
+    hasReconciledDepositsRef.current = true;
+
+    let hasChanges = false;
+    const updatedDeposits = depositsCtx.deposits.map((dep) => {
+      const matchedContract = contractsCtx.contracts.find(
+        (c) => c.id === dep.contractId || c.contractNumber === dep.contractNumber
+      );
+      if (
+        matchedContract &&
+        matchedContract.depositAmount !== undefined &&
+        matchedContract.depositAmount !== dep.amount
+      ) {
+        hasChanges = true;
+        return {
+          ...dep,
+          amount: Number(matchedContract.depositAmount),
+        };
+      }
+      return dep;
+    });
+
+    if (hasChanges) {
+      depositsCtx.setDepositsList(updatedDeposits);
+      saveRemoteAgencyData({ deposits: updatedDeposits }).catch((err) =>
+        console.warn('Auto-save reconciled deposits to Firestore:', err)
+      );
+    }
+  }, [contractsCtx.contracts, depositsCtx.deposits, depositsCtx]);
 
   const getClientAssignedManager = (client: Client): ClientManagerAssignment => {
     return resolveClientManagerAndVehicle(client, contractsCtx.contracts, vehiclesCtx.vehicles, auth.users);
@@ -628,8 +751,13 @@ const AppContextInner: React.FC<{ children: React.ReactNode }> = ({ children }) 
           contractsCtx.updateContractPayment(contractId, paymentId, paymentData, actorName || auth.currentUser?.name),
         deleteContractPayment: (contractId, paymentId, actorName) =>
           contractsCtx.deleteContractPayment(contractId, paymentId, actorName || auth.currentUser?.name),
-        updateContractFinancials: (contractId, financials, actorName) =>
-          contractsCtx.updateContractFinancials(contractId, financials, actorName || auth.currentUser?.name),
+        updateContractFinancials: (contractId, financials, actorName) => {
+          const updated = contractsCtx.updateContractFinancials(contractId, financials, actorName || auth.currentUser?.name);
+          if (updated && financials.depositAmount !== undefined) {
+            syncContractDeposit(updated, financials.depositAmount);
+          }
+          return updated;
+        },
         settleContractBalance: (contractId, actorName, method, notes) =>
           contractsCtx.settleContractBalance(contractId, actorName || auth.currentUser?.name, method, notes),
         refreshActiveContracts: contractsCtx.refreshActiveContracts,
@@ -659,7 +787,7 @@ const AppContextInner: React.FC<{ children: React.ReactNode }> = ({ children }) 
         setSelectedContract: contractsCtx.setSelectedContract,
         setSelectedClient: clientsDrivers.setSelectedClient,
         setSelectedVehicle: vehiclesCtx.setSelectedVehicle,
-        updateDeposit: depositsCtx.updateDeposit,
+        updateDeposit: updateDepositAndSyncContract,
         releaseDeposit: (depositId, amount, notes) =>
           depositsCtx.releaseDeposit(depositId, amount, notes, auth.currentUser?.name),
         deductDeposit: (depositId, deduction, refundRemaining) =>

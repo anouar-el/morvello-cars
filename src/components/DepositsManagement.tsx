@@ -30,6 +30,8 @@ import {
   FileText,
   X,
   Sparkles,
+  Edit2,
+  Save,
 } from 'lucide-react';
 import { formatPlateFrench } from '../utils/plateUtils';
 import { isDepositOwnedByManager } from '../utils/managerScopeUtils';
@@ -39,6 +41,7 @@ export const DepositsManagement: React.FC = () => {
     deposits,
     releaseDeposit,
     deductDeposit,
+    updateDeposit,
     contracts,
     vehicles,
     openPdfModal,
@@ -70,6 +73,13 @@ export const DepositsManagement: React.FC = () => {
   const [deductionCategory, setDeductionCategory] = useState<string>('carburant');
   const [deductionLabel, setDeductionLabel] = useState<string>('Carburant manquant (restitution réservoir)');
   const [refundRemainingImmediately, setRefundRemainingImmediately] = useState<boolean>(true);
+
+  // Edit deposit modal state
+  const [selectedDepositForEdit, setSelectedDepositForEdit] = useState<DepositRecord | null>(null);
+  const [editAmount, setEditAmount] = useState<number>(5000);
+  const [editMethod, setEditMethod] = useState<DepositMethod>('preauth_card');
+  const [editMethodDetails, setEditMethodDetails] = useState<string>('');
+  const [editNotes, setEditNotes] = useState<string>('');
 
   // Receipt modal
   const [receiptDeposit, setReceiptDeposit] = useState<DepositRecord | null>(null);
@@ -212,6 +222,27 @@ export const DepositsManagement: React.FC = () => {
       refundRemainingImmediately
     );
     setSelectedDepositForDeduct(null);
+  };
+
+  // Open edit modal
+  const handleOpenEditModal = (dep: DepositRecord) => {
+    setSelectedDepositForEdit(dep);
+    setEditAmount(dep.amount);
+    setEditMethod(dep.method);
+    setEditMethodDetails(dep.methodDetails || '');
+    setEditNotes(dep.notes || '');
+  };
+
+  const handleConfirmEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedDepositForEdit) return;
+    updateDeposit(selectedDepositForEdit.id, {
+      amount: Math.max(0, Number(editAmount) || 0),
+      method: editMethod,
+      methodDetails: editMethodDetails,
+      notes: editNotes,
+    });
+    setSelectedDepositForEdit(null);
   };
 
   return (
@@ -473,6 +504,15 @@ export const DepositsManagement: React.FC = () => {
                             </button>
                           )}
 
+                          {/* MODIFIER LA CAUTION */}
+                          <button
+                            onClick={() => handleOpenEditModal(dep)}
+                            className="p-1.5 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 hover:text-purple-200 border border-purple-500/30 text-xs transition-colors cursor-pointer"
+                            title="Modifier le montant ou le mode de garantie de la caution"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+
                           {/* 3. REÇU / DÉCHARGE */}
                           <button
                             onClick={() => setReceiptDeposit(dep)}
@@ -706,6 +746,124 @@ export const DepositsManagement: React.FC = () => {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: MODIFIER LE MONTANT / MODE DE LA CAUTION */}
+      {selectedDepositForEdit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
+            <div className="bg-slate-950 px-5 py-4 border-b border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Edit2 className="w-5 h-5 text-purple-400" />
+                <div>
+                  <h3 className="text-sm font-bold text-white">Modifier la Caution</h3>
+                  <p className="text-[10px] text-slate-400 font-mono">
+                    Contrat : {selectedDepositForEdit.contractNumber}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedDepositForEdit(null)}
+                className="text-slate-400 hover:text-white cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmEdit} className="p-5 space-y-4 text-xs">
+              <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-1">
+                <div className="flex justify-between text-slate-400">
+                  <span>Client :</span>
+                  <span className="font-bold text-white uppercase">{selectedDepositForEdit.clientName}</span>
+                </div>
+                <div className="flex justify-between text-slate-400">
+                  <span>Véhicule :</span>
+                  <span className="text-white font-mono">{selectedDepositForEdit.vehicleName} ({formatPlateFrench(selectedDepositForEdit.vehiclePlate)})</span>
+                </div>
+                <div className="flex justify-between text-slate-400">
+                  <span>Montant actuel :</span>
+                  <span className="font-bold text-purple-400 font-mono">{selectedDepositForEdit.amount.toLocaleString('fr-FR')} MAD</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">
+                  Nouveau Montant de la Caution (MAD) * :
+                </label>
+                <input
+                  type="number"
+                  value={editAmount}
+                  onChange={(e) => setEditAmount(e.target.value === '' ? 0 : Math.max(0, Number(e.target.value)))}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-purple-400 font-mono font-bold text-base focus:border-purple-500 focus:outline-none"
+                  min="0"
+                  required
+                />
+                <span className="text-[10px] text-slate-500 mt-1 block">
+                  Indiquez 0 MAD si dispense de caution ou garantie par convention.
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">
+                  Mode de Garantie / Règlement :
+                </label>
+                <select
+                  value={editMethod}
+                  onChange={(e) => setEditMethod(e.target.value as DepositMethod)}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white focus:border-purple-500 focus:outline-none"
+                >
+                  <option value="preauth_card">Empreinte Bancaire TPE (CB)</option>
+                  <option value="cheque">Chèque de Garantie</option>
+                  <option value="cash">Espèces (Séquestre)</option>
+                  <option value="virement">Virement Bancaire</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">
+                  Référence / Détails (N° Autorisation TPE, Banque, N° Chèque) :
+                </label>
+                <input
+                  type="text"
+                  value={editMethodDetails}
+                  onChange={(e) => setEditMethodDetails(e.target.value)}
+                  placeholder="Ex: Empreinte TPE CB N° 849204, ou Chèque N° 004928"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white focus:border-purple-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">
+                  Notes / Motif de modification :
+                </label>
+                <textarea
+                  value={editNotes}
+                  onChange={(e) => setEditNotes(e.target.value)}
+                  rows={2}
+                  placeholder="Justification de la modification de caution..."
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white focus:border-purple-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setSelectedDepositForEdit(null)}
+                  className="px-3 py-1.5 rounded-lg text-slate-400 hover:text-white cursor-pointer"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  className="bg-purple-600 hover:bg-purple-500 text-white font-bold px-4 py-2 rounded-xl flex items-center gap-1.5 shadow-md shadow-purple-600/20 cursor-pointer transition-colors"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>Enregistrer la Caution</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

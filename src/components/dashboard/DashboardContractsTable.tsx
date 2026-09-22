@@ -307,7 +307,7 @@ export const DashboardContractsTable: React.FC<DashboardContractsTableProps> = (
                         </span>
                       </div>
                       <div className="text-[10px] text-purple-300 font-mono">
-                        Caution : {cnt.depositAmount?.toLocaleString('fr-FR') || 5000} DH
+                        Caution : {cnt.depositAmount !== undefined ? cnt.depositAmount.toLocaleString('fr-FR') : (cnt.depositRecord?.amount !== undefined ? cnt.depositRecord.amount.toLocaleString('fr-FR') : 5000)} DH
                       </div>
                     </td>
 

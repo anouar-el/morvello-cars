@@ -445,7 +445,18 @@ export const ContractsProvider: React.FC<{
 
     const updatedContracts = contracts.map((c) => {
       if (c.id === id) {
-        updatedContract = normalizeContractFinancials({ ...c, ...data });
+        const merged: Contract = { ...c, ...data };
+        if (data.depositAmount !== undefined) {
+          const numDeposit = Number(data.depositAmount);
+          merged.depositAmount = numDeposit;
+          if (merged.depositRecord) {
+            merged.depositRecord = {
+              ...merged.depositRecord,
+              amount: numDeposit,
+            };
+          }
+        }
+        updatedContract = normalizeContractFinancials(merged);
         return updatedContract;
       }
       return c;
@@ -654,8 +665,13 @@ export const ContractsProvider: React.FC<{
     const newPaymentStatus: 'paid' | 'partial' | 'unpaid' =
       newTotalAmount === 0 || newRemaining <= 0 ? 'paid' : totalPaid > 0 ? 'partial' : 'unpaid';
 
+    const newDepositAmount = financials.depositAmount !== undefined
+      ? Number(financials.depositAmount)
+      : existing.depositAmount;
+
     const updated = updateContract(contractId, {
       ...financials,
+      depositAmount: newDepositAmount,
       pricePerDay,
       totalDays,
       totalAmount: newTotalAmount,
