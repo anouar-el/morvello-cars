@@ -33,6 +33,7 @@ import {
   ArrowUpDown,
 } from 'lucide-react';
 import { formatPlateFrench } from '../utils/plateUtils';
+import { sortContractsByNumber } from '../utils/contractNumberUtils';
 import { InspectionManagerModal } from './InspectionManagerModal';
 import { DigitalSignatureModal } from './DigitalSignatureModal';
 import { ContractPaymentsModal } from './ContractPaymentsModal';
@@ -178,16 +179,9 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
       c.vehicleSnapshot.model.toLowerCase().includes(q) ||
       c.vehicleSnapshot.plate.toLowerCase().includes(q)
     );
-  })
-  .sort((a, b) => {
-    const numA = (a.contractNumber || '').trim();
-    const numB = (b.contractNumber || '').trim();
-    const comp = numA.localeCompare(numB, 'fr', { numeric: true, sensitivity: 'base' });
-    if (comp !== 0) {
-      return sortOrder === 'desc' ? -comp : comp;
-    }
-    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
+
+  const sortedContracts = sortContractsByNumber(filteredContracts, sortOrder);
 
   const getStatusBadge = (status: ContractStatus) => {
     switch (status) {
@@ -545,14 +539,14 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800">
-              {filteredContracts.length === 0 ? (
+              {sortedContracts.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="text-center py-12 text-slate-500 text-xs">
                     Aucun contrat ne correspond à vos critères de recherche.
                   </td>
                 </tr>
               ) : (
-                filteredContracts.map((cnt) => (
+                sortedContracts.map((cnt) => (
                   <tr key={cnt.id} className="hover:bg-slate-850/60 transition-colors">
                     {/* NUMÉRO & DATE */}
                     <td className="px-4 py-3.5">

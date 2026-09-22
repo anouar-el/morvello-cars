@@ -222,3 +222,47 @@ export function repairAndDeduplicateContracts(
     renumberedCount,
   };
 }
+
+/**
+ * Trie une liste de contrats par leur numéro de contrat (ordre naturel numérique et chronologique)
+ * Exemple d'ordre 'desc' : MC-2026-0050 > MC-2026-0049 > ... > MC-2026-0001
+ * Exemple d'ordre 'asc'  : MC-2026-0001 > MC-2026-0002 > ... > MC-2026-0050
+ */
+export function sortContractsByNumber(
+  contracts: Contract[],
+  order: 'desc' | 'asc' = 'desc'
+): Contract[] {
+  return [...contracts].sort((a, b) => {
+    const parsedA = parseContractNumber(a.contractNumber);
+    const parsedB = parseContractNumber(b.contractNumber);
+
+    if (parsedA && parsedB) {
+      // 1. Année en priorité
+      if (parsedA.year !== parsedB.year) {
+        return order === 'desc' ? parsedB.year - parsedA.year : parsedA.year - parsedB.year;
+      }
+      // 2. Numéro de séquence (50 > 49 > ... > 1)
+      if (parsedA.sequence !== parsedB.sequence) {
+        return order === 'desc' ? parsedB.sequence - parsedA.sequence : parsedA.sequence - parsedB.sequence;
+      }
+      // 3. Préfixe si différent
+      const prefixComp = parsedA.prefix.localeCompare(parsedB.prefix);
+      if (prefixComp !== 0) {
+        return order === 'desc' ? -prefixComp : prefixComp;
+      }
+    } else {
+      // Fallback avec tri alphanumérique naturel (gère 10 après 9 au lieu d'après 1)
+      const numA = (a.contractNumber || '').trim();
+      const numB = (b.contractNumber || '').trim();
+      const comp = numA.localeCompare(numB, 'fr', { numeric: true, sensitivity: 'base' });
+      if (comp !== 0) {
+        return order === 'desc' ? -comp : comp;
+      }
+    }
+
+    // En cas d'égalité stricte de numéro, date de création en second critère
+    const timeA = new Date(a.createdAt || 0).getTime();
+    const timeB = new Date(b.createdAt || 0).getTime();
+    return order === 'desc' ? timeB - timeA : timeA - timeB;
+  });
+}

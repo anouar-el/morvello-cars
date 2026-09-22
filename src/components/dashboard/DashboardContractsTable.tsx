@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { Contract } from '../../types';
 import { formatPlateFrench } from '../../utils/plateUtils';
+import { sortContractsByNumber } from '../../utils/contractNumberUtils';
 
 interface DashboardContractsTableProps {
   contracts: Contract[];
@@ -60,16 +61,9 @@ export const DashboardContractsTable: React.FC<DashboardContractsTableProps> = (
         car.includes(q) ||
         manager.includes(q)
       );
-    })
-    .sort((a, b) => {
-      const numA = (a.contractNumber || '').trim();
-      const numB = (b.contractNumber || '').trim();
-      const comp = numA.localeCompare(numB, 'fr', { numeric: true, sensitivity: 'base' });
-      if (comp !== 0) {
-        return sortOrder === 'desc' ? -comp : comp;
-      }
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
+
+  const sortedContracts = sortContractsByNumber(filteredContracts, sortOrder);
 
   const getStatusBadge = (cnt: Contract) => {
     if (cnt.prolongation?.isActive && cnt.status === 'active') {
@@ -239,7 +233,7 @@ export const DashboardContractsTable: React.FC<DashboardContractsTableProps> = (
                 </td>
               </tr>
             ) : (
-              filteredContracts.slice(0, 8).map((cnt) => {
+              sortedContracts.slice(0, 8).map((cnt) => {
                 const effectiveEndDate = cnt.prolongation?.isActive
                   ? cnt.prolongation.newEndDate
                   : cnt.endDate;

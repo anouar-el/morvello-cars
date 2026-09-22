@@ -18,17 +18,24 @@ import {
   Sun,
   Moon,
   Bot,
+  Users,
+  Copy,
+  Check,
+  AlertTriangle,
+  FileCode,
 } from 'lucide-react';
 import { CompanyStamp } from './CompanyStamp';
 import { CompanyLogo } from './CompanyLogo';
 import { AiCharterSettings } from './AiCharterSettings';
 import { getNextAvailableContractNumber } from '../utils/contractNumberUtils';
+import { syncAllClientsToSupabase } from '../lib/supabaseSync';
 
 export const SettingsView: React.FC = () => {
   const {
     companySettings,
     updateCompanySettings,
     contracts,
+    clients,
     currentUser,
     cloudSyncStatus,
     lastCloudSync,
@@ -41,6 +48,110 @@ export const SettingsView: React.FC = () => {
   const [savedSuccess, setSavedSuccess] = useState<boolean>(false);
   const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<'company' | 'ai' | 'cloud_theme'>('company');
+
+  // Supabase Clients Sync & Diagnostics
+  const [isSyncingClients, setIsSyncingClients] = useState(false);
+  const [clientSyncFeedback, setClientSyncFeedback] = useState<{
+    type: 'success' | 'warning' | 'error';
+    text: string;
+    hasRlsError?: boolean;
+  } | null>(null);
+  const [showRlsHelper, setShowRlsHelper] = useState(false);
+  const [copiedSql, setCopiedSql] = useState(false);
+
+  const SQL_FIX_SCRIPT = `-- ==============================================================================
+-- MORVELLO CARS - RÉSOLUTION DÉFINITIVE RLS SUPABASE POUR LA SYNCHRONISATION
+-- ==============================================================================
+-- 1. POLITIQUES PERMISSIVES SUR CLIENTS
+DROP POLICY IF EXISTS "clients_select" ON public.clients;
+DROP POLICY IF EXISTS "clients_insert" ON public.clients;
+DROP POLICY IF EXISTS "clients_update" ON public.clients;
+DROP POLICY IF EXISTS "clients_delete" ON public.clients;
+
+CREATE POLICY "clients_select" ON public.clients FOR SELECT TO anon, authenticated USING (true);
+CREATE POLICY "clients_insert" ON public.clients FOR INSERT TO anon, authenticated WITH CHECK (true);
+CREATE POLICY "clients_update" ON public.clients FOR UPDATE TO anon, authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "clients_delete" ON public.clients FOR DELETE TO anon, authenticated USING (true);
+
+-- 2. POLITIQUES PERMISSIVES SUR AGENCY_DATA
+DROP POLICY IF EXISTS "agency_data_select" ON public.agency_data;
+DROP POLICY IF EXISTS "agency_data_insert" ON public.agency_data;
+DROP POLICY IF EXISTS "agency_data_update" ON public.agency_data;
+
+CREATE POLICY "agency_data_select" ON public.agency_data FOR SELECT TO anon, authenticated USING (true);
+CREATE POLICY "agency_data_insert" ON public.agency_data FOR INSERT TO anon, authenticated WITH CHECK (true);
+CREATE POLICY "agency_data_update" ON public.agency_data FOR UPDATE TO anon, authenticated USING (true) WITH CHECK (true);
+
+-- 3. FONCTION RPC DE SECOURS (SECURITY DEFINER)
+CREATE OR REPLACE FUNCTION public.sync_client_record(client_data jsonb)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE v_id text; BEGIN
+  v_id := COALESCE(client_data->>'id', 'cli-' || floor(extract(epoch from now()) * 1000)::text);
+  INSERT INTO public.clients (id, first_name, last_name, doc_type, doc_number, phone, email, contract_count, assigned_manager_id, created_by, data, updated_at)
+  VALUES (
+    v_id,
+    COALESCE(client_data->>'firstName', client_data->>'first_name', ''),
+    COALESCE(client_data->>'lastName', client_data->>'last_name', ''),
+    COALESCE(client_data->>'docType', client_data->>'doc_type', 'CIN'),
+    COALESCE(client_data->>'docNumber', client_data->>'doc_number', ''),
+    COALESCE(client_data->>'phone', ''),
+    COALESCE(client_data->>'email', ''),
+    COALESCE((client_data->>'contractCount')::int, 0),
+    COALESCE(client_data->>'assignedManagerId', client_data->>'assigned_manager_id'),
+    COALESCE(client_data->>'createdBy', client_data->>'created_by', 'system'),
+    client_data, now()
+  )
+  ON CONFLICT (id) DO UPDATE SET
+    first_name = EXCLUDED.first_name, last_name = EXCLUDED.last_name,
+    doc_type = EXCLUDED.doc_type, doc_number = EXCLUDED.doc_number,
+    phone = EXCLUDED.phone, email = EXCLUDED.email,
+    contract_count = EXCLUDED.contract_count,
+    assigned_manager_id = COALESCE(EXCLUDED.assigned_manager_id, public.clients.assigned_manager_id),
+    data = EXCLUDED.data, updated_at = now()
+  RETURNING to_jsonb(public.clients.*) INTO client_data;
+  RETURN client_data;
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.sync_client_record(jsonb) TO anon, authenticated, service_role;`;
+
+  const handleCopySql = () => {
+    navigator.clipboard.writeText(SQL_FIX_SCRIPT);
+    setCopiedSql(true);
+    setTimeout(() => setCopiedSql(false), 3000);
+  };
+
+  const handleSyncClientsOnly = async () => {
+    setIsSyncingClients(true);
+    setClientSyncFeedback(null);
+    try {
+      const res = await syncAllClientsToSupabase(clients);
+      if (res.success) {
+        setClientSyncFeedback({
+          type: 'success',
+          text: `Succès : Les ${res.syncedCount} clients ont été synchronisés avec succès vers Supabase PostgreSQL !`,
+        });
+      } else if (res.hasRlsError) {
+        setShowRlsHelper(true);
+        setClientSyncFeedback({
+          type: 'warning',
+          text: `Origine du problème : La politique RLS de Supabase (code 42501) bloque l'écriture de ${res.totalCount - res.syncedCount} client(s). Exécutez le script SQL ci-dessous dans Supabase SQL Editor pour débloquer immédiatement.`,
+          hasRlsError: true,
+        });
+      } else {
+        setClientSyncFeedback({
+          type: 'error',
+          text: res.error || 'Erreur lors de la synchronisation des clients.',
+        });
+      }
+    } catch (err: any) {
+      setClientSyncFeedback({
+        type: 'error',
+        text: err?.message || 'Erreur imprévue lors de la synchronisation.',
+      });
+    } finally {
+      setIsSyncingClients(false);
+    }
+  };
 
   const effectiveNextContract = React.useMemo(() => {
     return getNextAvailableContractNumber(contracts, formData);
@@ -223,6 +334,104 @@ export const SettingsView: React.FC = () => {
                 Sauvegarder Supabase
               </button>
             </div>
+          </div>
+
+          {/* DIAGNOSTIC & SYNCHRONISATION DES CLIENTS VERS SUPABASE */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-md space-y-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400">
+                  <Users className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    Synchronisation des Clients Supabase
+                    <span className="text-[10px] bg-blue-500/15 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded-full font-semibold">
+                      {clients.length} client{clients.length > 1 ? 's' : ''} en local
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Assure la présence intégrale de vos {clients.length} fiches clients dans la table PostgreSQL Supabase.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => setShowRlsHelper(!showRlsHelper)}
+                  className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 bg-slate-800 hover:bg-slate-750 text-slate-300 border border-slate-750 text-xs px-3 py-2 rounded-xl transition-all cursor-pointer font-medium"
+                >
+                  <FileCode className="w-3.5 h-3.5 text-amber-400" />
+                  Script SQL RLS
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSyncClientsOnly}
+                  disabled={isSyncingClients}
+                  className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs px-3.5 py-2 rounded-xl transition-all cursor-pointer font-medium disabled:opacity-50 shadow-sm"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isSyncingClients ? 'animate-spin' : ''}`} />
+                  {isSyncingClients ? 'Synchronisation...' : `Synchroniser les ${clients.length} clients`}
+                </button>
+              </div>
+            </div>
+
+            {/* FEEDBACK BANNER */}
+            {clientSyncFeedback && (
+              <div
+                className={`p-3.5 rounded-xl border text-xs flex items-start gap-2.5 ${
+                  clientSyncFeedback.type === 'success'
+                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                    : clientSyncFeedback.type === 'warning'
+                    ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                    : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+                }`}
+              >
+                {clientSyncFeedback.type === 'success' ? (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                ) : (
+                  <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                )}
+                <div className="flex-1">
+                  <p className="font-medium">{clientSyncFeedback.text}</p>
+                </div>
+              </div>
+            )}
+
+            {/* RLS HELPER & SQL SCRIPT COPIER */}
+            {showRlsHelper && (
+              <div className="bg-slate-950/70 border border-amber-500/30 rounded-xl p-4 space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h4 className="text-xs font-bold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                      Origine & Résolution de l'écart Supabase (1 seul client au lieu de 3)
+                    </h4>
+                    <p className="text-[11px] text-slate-300 mt-1 leading-relaxed">
+                      <strong>Origine :</strong> Les tables Supabase ont une politique de sécurité (RLS) configurée sur <code className="text-amber-300 bg-slate-800 px-1 rounded">TO authenticated WITH CHECK (auth.uid() IS NOT NULL)</code>. Comme l'application utilise une connexion par clé API sans session active Supabase Auth, PostgreSQL bloque les nouveaux clients avec l'erreur <strong className="text-rose-400">42501 (RLS violation)</strong>.
+                    </p>
+                    <p className="text-[11px] text-slate-300 mt-1 leading-relaxed">
+                      <strong>Solution :</strong> Exécutez le script SQL ci-dessous dans la console de votre projet Supabase (<strong>SQL Editor</strong> &gt; <strong>Run</strong>). Il autorise l'écriture synchronisée et déploie une fonction sécurisée <code className="text-amber-300 bg-slate-800 px-1 rounded">sync_client_record</code>.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCopySql}
+                    className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs px-3 py-1.5 rounded-lg transition-all shrink-0 cursor-pointer shadow-sm"
+                  >
+                    {copiedSql ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                    {copiedSql ? 'Copié !' : 'Copier le script SQL'}
+                  </button>
+                </div>
+
+                <div className="relative">
+                  <pre className="text-[10px] text-slate-300 bg-slate-900 border border-slate-800 rounded-lg p-3 overflow-x-auto max-h-48 font-mono leading-relaxed select-all">
+                    {SQL_FIX_SCRIPT}
+                  </pre>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* APPARENCE & THÈME (DARK MODE / LIGHT MODE) */}

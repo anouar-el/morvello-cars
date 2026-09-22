@@ -18,6 +18,7 @@ import {
   getNextAvailableContractNumber,
   findDuplicateContractNumbers,
   repairAndDeduplicateContracts,
+  sortContractsByNumber,
   DuplicateContractReport,
 } from '../utils/contractNumberUtils';
 
@@ -177,14 +178,14 @@ export const ContractsProvider: React.FC<{
               }
               return c;
             });
-            return upgraded.map(normalizeContractFinancials);
+            return sortContractsByNumber(upgraded.map(normalizeContractFinancials), 'desc');
           }
         }
       } catch (e) {
         console.warn('Error reading saved contracts:', e);
       }
     }
-    return initialContracts.map(normalizeContractFinancials);
+    return sortContractsByNumber(initialContracts.map(normalizeContractFinancials), 'desc');
   });
 
   const [selectedContract, setSelectedContract] = useState<Contract | null>(null);
@@ -321,7 +322,7 @@ export const ContractsProvider: React.FC<{
       newContract.depositRecord = newDeposit;
     }
 
-    const updatedContracts = [newContract, ...contracts];
+    const updatedContracts = sortContractsByNumber([newContract, ...contracts], 'desc');
     setContracts(updatedContracts);
     saveRemoteAgencyData({
       contracts: updatedContracts,
@@ -950,7 +951,7 @@ export const ContractsProvider: React.FC<{
       (c) => !['cnt-1', 'cnt-2', 'cnt-3', 'cnt-4', 'cnt-48', 'cnt-49'].includes(c.id)
     );
     const normalized = (filtered.length > 0 ? filtered : initialContracts).map(normalizeContractFinancials);
-    setContracts(normalized);
+    setContracts(sortContractsByNumber(normalized, 'desc'));
   };
 
   return (

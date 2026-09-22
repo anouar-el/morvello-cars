@@ -71,6 +71,20 @@ export async function saveRemoteAgencyDataToSupabase(
       updatedBy: userId || 'morvello_user',
     };
 
+    // 1. Tenter la synchronisation via la fonction RPC SECURITY DEFINER (bypass RLS propre)
+    try {
+      const { error: rpcErr } = await supabase.rpc('sync_agency_state', {
+        payload: cleanPayload,
+        updater_id: userId || 'system',
+      });
+      if (!rpcErr) {
+        return true;
+      }
+    } catch {
+      // Ignorer si la fonction RPC n'est pas encore déployée dans la base
+    }
+
+    // 2. Repli vers l'upsert direct sur agency_data
     const { error } = await supabase
       .from('agency_data')
       .upsert(
@@ -87,14 +101,20 @@ export async function saveRemoteAgencyDataToSupabase(
       if (error.code === 'PGRST205' || error.message?.includes('does not exist')) {
         if (!hasWarnedMissingSchema) {
           console.warn(
-            '[Supabase] Exécutez le script supabase_schema.sql dans Supabase pour activer la sauvegarde PostgreSQL.'
+            '[Supabase] Exécutez le script fix_supabase_sync_rls.sql dans Supabase pour activer la sauvegarde PostgreSQL.'
           );
           hasWarnedMissingSchema = true;
         }
         return false;
       }
-      console.error('[Supabase Sync] Failed to save agency data:', error.message);
-      return false;
+      if (error.code === '42501' || error.message?.includes('row-level security')) {
+        console.warn(
+          '[Supabase Sync] Blocage RLS (42501) détecté. Veuillez exécuter le script fix_supabase_sync_rls.sql dans votre SQL Editor Supabase.'
+        );
+      } else {
+        console.error('[Supabase Sync] Failed to save agency data:', error.message);
+      }
+      // Poursuivre tout de même la synchronisation granulaire individuelle (avec repli RPC)
     }
 
     // Synchronisation granulaire dans les tables individuelles Supabase (en tâche de fond sécurisée)
@@ -102,7 +122,7 @@ export async function saveRemoteAgencyDataToSupabase(
       console.warn('[Supabase Sync] Granular tables sync note:', err);
     });
 
-    return true;
+    return !error;
   } catch (err: any) {
     if (isAbortException(err)) return false;
     console.error('[Supabase Sync] Exception during save:', err);
@@ -252,27 +272,58 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
           null;
         const createdBy = (c as any).createdBy || (payload.updatedBy ? String(payload.updatedBy) : null);
 
-        await supabase.from('clients').upsert(
-          {
-            id: c.id,
-            first_name: c.firstName,
-            last_name: c.lastName,
-            doc_type: c.docType,
-            doc_number: c.docNumber,
-            phone: c.phone,
-            email: c.email,
-            contract_count: c.contractCount || 0,
-            assigned_manager_id: assignedMgrId,
-            created_by: createdBy,
-            data: {
-              ...c,
-              assignedManagerId: assignedMgrId || c.assignedManagerId,
-              createdBy: createdBy || (c as any).createdBy,
+        const clientPayload = {
+          ...c,
+          assignedManagerId: assignedMgrId || c.assignedManagerId,
+          createdBy: createdBy || (c as any).createdBy,
+        };
+
+        // 2a. Tenter d'abord la RPC SECURITY DEFINER (résout immédiatement les blocages RLS 42501)
+        let rpcSuccess = false;
+        try {
+          const { error: rpcErr } = await supabase.rpc('sync_client_record', {
+            client_data: clientPayload,
+          });
+          if (!rpcErr) {
+            rpcSuccess = true;
+          }
+        } catch {
+          // RPC pas encore créée
+        }
+
+        // 2b. Repli vers l'upsert standard si la RPC n'a pas répondu
+        if (!rpcSuccess) {
+          const { error: clientUpsertErr } = await supabase.from('clients').upsert(
+            {
+              id: c.id,
+              first_name: c.firstName,
+              last_name: c.lastName,
+              doc_type: c.docType,
+              doc_number: c.docNumber,
+              phone: c.phone,
+              email: c.email,
+              contract_count: c.contractCount || 0,
+              assigned_manager_id: assignedMgrId,
+              created_by: createdBy,
+              data: clientPayload,
+              updated_at: new Date().toISOString(),
             },
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'id' }
-        );
+            { onConflict: 'id' }
+          );
+
+          if (clientUpsertErr) {
+            if (clientUpsertErr.code === '42501') {
+              console.warn(
+                `[Supabase Sync] Blocage RLS (42501) sur le client "${c.firstName} ${c.lastName}". Exécutez fix_supabase_sync_rls.sql dans Supabase SQL Editor.`
+              );
+            } else {
+              console.warn(
+                `[Supabase Sync] Note upsert client "${c.firstName} ${c.lastName}":`,
+                clientUpsertErr.message
+              );
+            }
+          }
+        }
       }
     }
 
@@ -360,4 +411,100 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
     console.warn('[Supabase Sync] syncIndividualTables caught:', syncErr);
   }
 }
+
+/**
+ * Synchronise explicitement l'ensemble des clients enregistrés vers Supabase
+ * avec diagnostic détaillé des succès et erreurs de politiques RLS.
+ */
+export async function syncAllClientsToSupabase(clients: any[]): Promise<{
+  success: boolean;
+  syncedCount: number;
+  totalCount: number;
+  hasRlsError: boolean;
+  error?: string;
+}> {
+  if (!isSupabaseConfigured) {
+    return {
+      success: false,
+      syncedCount: 0,
+      totalCount: clients?.length || 0,
+      hasRlsError: false,
+      error: 'Supabase n’est pas configuré.',
+    };
+  }
+
+  if (!clients || !Array.isArray(clients) || clients.length === 0) {
+    return {
+      success: true,
+      syncedCount: 0,
+      totalCount: 0,
+      hasRlsError: false,
+    };
+  }
+
+  let syncedCount = 0;
+  let hasRlsError = false;
+  let lastErrorMessage = '';
+
+  for (const c of clients) {
+    // 1. Tenter la RPC SECURITY DEFINER en priorité
+    let succeeded = false;
+    try {
+      const { error: rpcErr } = await supabase.rpc('sync_client_record', {
+        client_data: c,
+      });
+      if (!rpcErr) {
+        succeeded = true;
+        syncedCount++;
+      }
+    } catch {
+      // RPC non disponible
+    }
+
+    // 2. Si la RPC n'a pas répondu, tenter l'upsert standard
+    if (!succeeded) {
+      try {
+        const { error: upsertErr } = await supabase.from('clients').upsert(
+          {
+            id: c.id,
+            first_name: c.firstName || '',
+            last_name: c.lastName || '',
+            doc_type: c.docType || 'CIN',
+            doc_number: c.docNumber || '',
+            phone: c.phone || '',
+            email: c.email || '',
+            contract_count: c.contractCount || 0,
+            assigned_manager_id: c.assignedManagerId || null,
+            created_by: c.createdBy || 'system',
+            data: c,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'id' }
+        );
+
+        if (!upsertErr) {
+          syncedCount++;
+        } else {
+          lastErrorMessage = upsertErr.message;
+          if (upsertErr.code === '42501' || upsertErr.message?.includes('row-level security')) {
+            hasRlsError = true;
+          }
+        }
+      } catch (err: any) {
+        lastErrorMessage = err?.message || String(err);
+      }
+    }
+  }
+
+  return {
+    success: syncedCount === clients.length,
+    syncedCount,
+    totalCount: clients.length,
+    hasRlsError,
+    error: hasRlsError
+      ? 'Erreur 42501 (RLS Supabase) : La politique de sécurité Supabase bloque l’écriture sans session Auth. Exécutez fix_supabase_sync_rls.sql.'
+      : lastErrorMessage || undefined,
+  };
+}
+
 

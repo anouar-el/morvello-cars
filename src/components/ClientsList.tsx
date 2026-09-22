@@ -3,6 +3,7 @@ import { useApp } from '../context/AppContext';
 import { Client, DocumentType } from '../types';
 import { ClientDocumentUpload } from './ClientDocumentUpload';
 import { isContractOwnedByManager, isClientOwnedByManager } from '../utils/managerScopeUtils';
+import { sortContractsByNumber } from '../utils/contractNumberUtils';
 import {
   Users,
   Search,
@@ -270,13 +271,16 @@ export const ClientsList: React.FC = () => {
 
   // Contracts associated with selected client (respecting manager isolation)
   const clientContracts = selectedClientDetail
-    ? contracts.filter((c) => {
-        if (c.clientId !== selectedClientDetail.id) return false;
-        if (currentUser.role === 'manager') {
-          return isContractOwnedByManager(c, currentUser.id, vehicles, currentUser.name);
-        }
-        return true;
-      })
+    ? sortContractsByNumber(
+        contracts.filter((c) => {
+          if (c.clientId !== selectedClientDetail.id) return false;
+          if (currentUser.role === 'manager') {
+            return isContractOwnedByManager(c, currentUser.id, vehicles, currentUser.name);
+          }
+          return true;
+        }),
+        'desc'
+      )
     : [];
 
   return (
