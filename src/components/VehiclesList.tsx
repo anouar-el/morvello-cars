@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { getVehicleHealthSummary } from '../utils/vehicleExpiryUtils';
+import { isVehicleOwnedByManager } from '../utils/managerScopeUtils';
 import { VehicleCard } from './vehicles/VehicleCard';
 import { VehicleAddModal } from './vehicles/VehicleAddModal';
 import { VehicleEditModal } from './vehicles/VehicleEditModal';
@@ -113,24 +114,25 @@ export const VehiclesList: React.FC = () => {
     );
   };
 
-  // Filter vehicles: managers strictly see their assigned or proposed vehicles, agents see fleet + their proposals
-  const filteredVehicles = vehicles.filter((v) => {
+  // Périmètre des véhicules autorisés selon le rôle (Manager, Agent, ou Admin avec filtre responsable)
+  const baseVehicles = vehicles.filter((v) => {
     if (isManager) {
-      const isMine = v.assignedManagerId === currentUser.id || v.proposedBy === currentUser.name;
-      if (!isMine) return false;
+      return isVehicleOwnedByManager(v, currentUser?.id || '', currentUser?.name);
     }
 
     if (isAgent) {
-      const isApprovedOrProposedByMe =
-        v.approvalStatus === 'approved' || v.proposedBy === currentUser.name;
-      if (!isApprovedOrProposedByMe) return false;
+      return v.approvalStatus === 'approved' || v.proposedBy === currentUser?.name;
     }
 
     if (isAdmin && managerFilter !== 'all') {
-      if (managerFilter === 'unassigned' && v.assignedManagerId) return false;
-      if (managerFilter !== 'unassigned' && v.assignedManagerId !== managerFilter) return false;
+      if (managerFilter === 'unassigned') return !v.assignedManagerId;
+      return v.assignedManagerId === managerFilter;
     }
 
+    return true;
+  });
+
+  const filteredVehicles = baseVehicles.filter((v) => {
     const activeContract = getActiveContractForVehicle(v);
     const effectiveStatus: VehicleStatus = activeContract ? 'rented' : v.status;
 
@@ -455,23 +457,29 @@ export const VehiclesList: React.FC = () => {
 
         <div className="flex items-center gap-1.5 overflow-x-auto text-xs">
           {[
-            { id: 'all', label: 'Tous' },
+            { id: 'all', label: `Tous (${baseVehicles.length})` },
             {
               id: 'available',
-              label: `Disponibles (${vehicles.filter((v) => !getActiveContractForVehicle(v) && v.status === 'available').length})`,
+              label: `Disponibles (${baseVehicles.filter((v) => !getActiveContractForVehicle(v) && v.status === 'available').length})`,
             },
             {
               id: 'rented',
-              label: `Loués (${vehicles.filter((v) => !!getActiveContractForVehicle(v) || v.status === 'rented').length})`,
+              label: `Loués (${baseVehicles.filter((v) => !!getActiveContractForVehicle(v) || v.status === 'rented').length})`,
             },
-            { id: 'maintenance', label: 'Maintenance' },
+            {
+              id: 'maintenance',
+              label: `Maintenance (${baseVehicles.filter((v) => v.status === 'maintenance').length})`,
+            },
             {
               id: 'alerts',
               label: `⚠️ Échéances & Alertes (${
-                vehicles.filter((v) => getVehicleHealthSummary(v).hasAlert).length
+                baseVehicles.filter((v) => getVehicleHealthSummary(v).hasAlert).length
               })`,
             },
-            { id: 'inactive', label: 'Inactifs' },
+            {
+              id: 'inactive',
+              label: `Inactifs (${baseVehicles.filter((v) => v.status === 'inactive').length})`,
+            },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -480,7 +488,7 @@ export const VehiclesList: React.FC = () => {
                 statusFilter === tab.id
                   ? 'bg-amber-500 text-slate-950 font-bold shadow-sm'
                   : tab.id === 'alerts' &&
-                    vehicles.some((v) => getVehicleHealthSummary(v).criticalCount > 0)
+                    baseVehicles.some((v) => getVehicleHealthSummary(v).criticalCount > 0)
                   ? 'bg-rose-500/15 text-rose-300 border border-rose-500/30 hover:bg-rose-500/25'
                   : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'
               }`}

@@ -30,7 +30,15 @@ export interface VehicleHealthSummary {
   }>;
 }
 
-const DEFAULT_REF_DATE = '2026-09-01'; // Date de référence opérationnelle pour Morvello
+export function getTodayDateString(): string {
+  try {
+    return new Date().toISOString().split('T')[0];
+  } catch {
+    return '2026-09-22';
+  }
+}
+
+export const DEFAULT_REF_DATE = getTodayDateString();
 
 /**
  * Calcule le nombre de jours restants avant une date d'échéance.

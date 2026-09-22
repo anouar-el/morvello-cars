@@ -19,7 +19,7 @@ import {
   Users,
 } from 'lucide-react';
 import { formatPlateFrench } from '../utils/plateUtils';
-import { getVehicleHealthSummary } from '../utils/vehicleExpiryUtils';
+import { getVehicleHealthSummary, getTodayDateString } from '../utils/vehicleExpiryUtils';
 import { DashboardAlertsBanner } from './DashboardAlertsBanner';
 import { getScopedDataForUser } from '../utils/managerScopeUtils';
 
@@ -78,7 +78,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCheckInModal, onOpen
   const warningVehicles = vehiclesWithAlerts.filter((i) => i.health.criticalCount === 0);
 
   // Today reference
-  const todayStr = '2026-09-01';
+  const todayStr = getTodayDateString();
   const returnsToday = activeContracts.filter((c) => {
     const end = c.prolongation?.isActive ? c.prolongation.newEndDate : c.endDate;
     return end <= todayStr;

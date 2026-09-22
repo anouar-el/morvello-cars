@@ -1,5 +1,5 @@
 import { Vehicle, Contract, DepositRecord } from '../types';
-import { getVehicleHealthSummary } from './vehicleExpiryUtils';
+import { getVehicleHealthSummary, getTodayDateString } from './vehicleExpiryUtils';
 
 export type AlertSeverity = 'critical' | 'warning' | 'info';
 
@@ -30,7 +30,7 @@ export interface OperationalAlert {
   deposit?: DepositRecord;
 }
 
-const DEFAULT_REF_DATE = '2026-09-01';
+export const DEFAULT_REF_DATE = getTodayDateString();
 
 /**
  * Analyse proactive de l'ensemble de la flotte et des contrats pour générer
@@ -145,22 +145,43 @@ export function computeOperationalAlerts(
     }
   });
 
-  // 3. Alertes sur les cautions conservées (plus de 15 jours sur contrat terminé)
+  // 3. Alertes sur les cautions conservées (sur contrat clôturé non libéré OU contrat arrivant à échéance)
   deposits.forEach((dep) => {
     if (dep.status === 'held') {
       const parentContract = contracts.find((c) => c.id === dep.contractId || c.contractNumber === dep.contractNumber);
-      if (parentContract && parentContract.status === 'completed') {
-        alerts.push({
-          id: `dep-held-${dep.id}`,
-          category: 'deposit_held',
-          severity: 'warning',
-          title: `Caution toujours bloquée sur contrat clôturé : ${dep.clientName}`,
-          description: `Caution de ${dep.amount.toLocaleString()} MAD (#${dep.contractNumber}) non libérée alors que le contrat est terminé.`,
-          targetTab: 'deposits',
-          entityId: dep.id,
-          badgeText: 'Caution en suspens',
-          deposit: dep,
-        });
+      if (parentContract) {
+        const effectiveEnd = parentContract.prolongation?.isActive
+          ? parentContract.prolongation.newEndDate
+          : parentContract.endDate;
+        const targetDate = new Date(effectiveEnd);
+        const ref = new Date(refDate);
+        const diffDays = Math.ceil((targetDate.getTime() - ref.getTime()) / (1000 * 60 * 60 * 24));
+
+        if (parentContract.status === 'completed') {
+          alerts.push({
+            id: `dep-held-${dep.id}`,
+            category: 'deposit_held',
+            severity: 'warning',
+            title: `Caution non libérée sur contrat clôturé : ${dep.clientName}`,
+            description: `Caution de ${dep.amount.toLocaleString('fr-FR')} MAD (#${dep.contractNumber}) non libérée alors que le contrat est terminé.`,
+            targetTab: 'deposits',
+            entityId: dep.id,
+            badgeText: 'À libérer',
+            deposit: dep,
+          });
+        } else if (parentContract.status === 'active' && diffDays <= 0) {
+          alerts.push({
+            id: `dep-due-${dep.id}`,
+            category: 'deposit_held',
+            severity: 'warning',
+            title: `Caution à traiter lors de la restitution : ${dep.clientName}`,
+            description: `Caution de ${dep.amount.toLocaleString('fr-FR')} MAD (#${dep.contractNumber}) à restituer ou déduire lors du retour prévu aujourd'hui.`,
+            targetTab: 'deposits',
+            entityId: dep.id,
+            badgeText: 'Caution à traiter',
+            deposit: dep,
+          });
+        }
       }
     }
   });
