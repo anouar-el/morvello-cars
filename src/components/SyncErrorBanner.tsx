@@ -34,6 +34,7 @@ CREATE INDEX IF NOT EXISTS idx_vehicles_assigned_manager ON public.vehicles(assi
 NOTIFY pgrst, 'reload schema';`;
 
 const FIX_RLS_SQL_SCRIPT = `-- MORVELLO CARS - Déblocage RLS des Gestionnaires (Ouahib, Said, etc.)
+-- 1. Fonction sécurisée : can_access_manager_row (USING pour SELECT & UPDATE)
 CREATE OR REPLACE FUNCTION public.can_access_manager_row(row_assigned_manager_id text, row_created_by text)
 RETURNS boolean
 LANGUAGE sql
@@ -89,10 +90,56 @@ AS $$
     );
 $$;
 
+-- 2. Fonction sécurisée : can_assign_manager (WITH CHECK pour INSERT & UPDATE)
+CREATE OR REPLACE FUNCTION public.can_assign_manager(row_assigned_manager_id text)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT
+    public.is_admin()
+    OR (
+      auth.uid() IS NOT NULL
+      AND (
+        row_assigned_manager_id IS NULL
+        OR trim(row_assigned_manager_id) = ''
+        OR row_assigned_manager_id = auth.uid()::text
+        OR ((auth.jwt()->>'email' ILIKE '%said%' OR auth.jwt()->>'email' ILIKE '%khomri%') 
+            AND (row_assigned_manager_id ILIKE '%usr-2%' OR row_assigned_manager_id ILIKE '%said%'))
+        OR (auth.jwt()->>'email' ILIKE '%ouahib%' 
+            AND (row_assigned_manager_id ILIKE '%usr-3%' OR row_assigned_manager_id ILIKE '%ouahib%'))
+        OR (auth.jwt()->>'email' ILIKE '%benali%' 
+            AND (row_assigned_manager_id ILIKE '%usr-1%' OR row_assigned_manager_id ILIKE '%benali%'))
+        OR (auth.jwt()->>'email' ILIKE '%ezzay%' 
+            AND (row_assigned_manager_id ILIKE '%usr-5%' OR row_assigned_manager_id ILIKE '%ezzay%'))
+        OR (auth.jwt()->>'email' ILIKE '%larbi%' 
+            AND (row_assigned_manager_id ILIKE '%usr-6%' OR row_assigned_manager_id ILIKE '%larbi%'))
+        OR EXISTS (
+          SELECT 1 FROM public.profiles p 
+          WHERE p.id = auth.uid()::text 
+          AND (
+            p.id = row_assigned_manager_id
+            OR p.name = row_assigned_manager_id
+            OR (p.local_id IS NOT NULL AND p.local_id = row_assigned_manager_id)
+            OR (p.name ILIKE '%said%' AND (row_assigned_manager_id ILIKE '%usr-2%' OR row_assigned_manager_id ILIKE '%said%'))
+            OR (p.name ILIKE '%ouahib%' AND (row_assigned_manager_id ILIKE '%usr-3%' OR row_assigned_manager_id ILIKE '%ouahib%'))
+            OR (p.name ILIKE '%benali%' AND (row_assigned_manager_id ILIKE '%usr-1%' OR row_assigned_manager_id ILIKE '%benali%'))
+            OR (p.name ILIKE '%ezzay%' AND (row_assigned_manager_id ILIKE '%usr-5%' OR row_assigned_manager_id ILIKE '%ezzay%'))
+            OR (p.name ILIKE '%larbi%' AND (row_assigned_manager_id ILIKE '%usr-6%' OR row_assigned_manager_id ILIKE '%larbi%'))
+          )
+        )
+      )
+    );
+$$;
+
+-- 3. Réaffectation immédiate du contrat MC-2026-0050 à Abdelkader Ouahib
 UPDATE public.contracts 
 SET assigned_manager_id = 'usr-3' 
 WHERE contract_number = 'MC-2026-0050' OR id = 'cnt-1789166132353';
 
+-- 4. Rechargement à chaud du cache de schéma Supabase
 NOTIFY pgrst, 'reload schema';`;
 
 export const SyncErrorBanner: React.FC = () => {
