@@ -233,7 +233,6 @@ CREATE POLICY "vehicles_update" ON public.vehicles
   USING (auth.uid() IS NOT NULL)
   WITH CHECK (
     auth.uid() IS NOT NULL
-    AND public.can_assign_manager(assigned_manager_id)
   );
 
 CREATE POLICY "vehicles_delete" ON public.vehicles
