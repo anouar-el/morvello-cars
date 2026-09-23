@@ -14,11 +14,18 @@ export function isVehicleOwnedByManager(
   if (vehicle.assignedManagerId === managerId) return true;
   if (managerUid && vehicle.assignedManagerId === managerUid) return true;
 
-  // Rapprochement Ouahib (usr-3)
+  // Rapprochement Ouahib (usr-3) & Said (usr-2)
   if (
     (managerId === 'usr-3' || (managerName && managerName.toLowerCase().includes('ouahib'))) &&
     (vehicle.assignedManagerId === 'usr-3' ||
       (vehicle.assignedManagerName && vehicle.assignedManagerName.toLowerCase().includes('ouahib')))
+  ) {
+    return true;
+  }
+  if (
+    (managerId === 'usr-2' || (managerName && managerName.trim().toLowerCase() === 'said khomri')) &&
+    (vehicle.assignedManagerId === 'usr-2' ||
+      (vehicle.assignedManagerName && vehicle.assignedManagerName.trim().toLowerCase() === 'said khomri'))
   ) {
     return true;
   }
@@ -59,11 +66,18 @@ export function isContractOwnedByManager(
   if (contract.assignedManagerId === managerId) return true;
   if (managerUid && contract.assignedManagerId === managerUid) return true;
 
-  // Rapprochement Ouahib (usr-3)
+  // Rapprochement Ouahib (usr-3) & Said (usr-2)
   if (
     (managerId === 'usr-3' || (managerName && managerName.toLowerCase().includes('ouahib'))) &&
     (contract.assignedManagerId === 'usr-3' ||
       (contract.assignedManagerName && contract.assignedManagerName.toLowerCase().includes('ouahib')))
+  ) {
+    return true;
+  }
+  if (
+    (managerId === 'usr-2' || (managerName && managerName.trim().toLowerCase() === 'said khomri')) &&
+    (contract.assignedManagerId === 'usr-2' ||
+      (contract.assignedManagerName && contract.assignedManagerName.trim().toLowerCase() === 'said khomri'))
   ) {
     return true;
   }
@@ -119,11 +133,18 @@ export function isDepositOwnedByManager(
   if (deposit.assignedManagerId === managerId) return true;
   if (managerUid && deposit.assignedManagerId === managerUid) return true;
 
-  // Rapprochement Ouahib (usr-3)
+  // Rapprochement Ouahib (usr-3) & Said (usr-2)
   if (
     (managerId === 'usr-3' || (managerName && managerName.toLowerCase().includes('ouahib'))) &&
     (deposit.assignedManagerId === 'usr-3' ||
       (deposit.assignedManagerName && deposit.assignedManagerName.toLowerCase().includes('ouahib')))
+  ) {
+    return true;
+  }
+  if (
+    (managerId === 'usr-2' || (managerName && managerName.trim().toLowerCase() === 'said khomri')) &&
+    (deposit.assignedManagerId === 'usr-2' ||
+      (deposit.assignedManagerName && deposit.assignedManagerName.trim().toLowerCase() === 'said khomri'))
   ) {
     return true;
   }

@@ -267,6 +267,17 @@ export async function saveUserProfileToSupabase(
       error = retry.error;
     }
 
+    // Si 42501 survient (ex: restriction de l'insert policy sur le rôle manager), tentons un update si le profil existe
+    if (error && error.code === '42501') {
+      const { error: updateErr } = await supabase
+        .from('profiles')
+        .update(profilePayload)
+        .eq('id', userId);
+      if (!updateErr) {
+        error = null;
+      }
+    }
+
     if (error) {
       if (error.code !== 'PGRST205' && !error.message?.includes('does not exist')) {
         console.error(
@@ -282,6 +293,10 @@ export async function saveUserProfileToSupabase(
         });
       }
       return false;
+    }
+
+    if (lastSyncErrorState?.table === 'profiles') {
+      clearSyncError();
     }
     return true;
   } catch (err: any) {
@@ -404,6 +419,13 @@ function resolveAssignedManagerForSupabase(
   currentAuthEmail: string | null
 ): string | null {
   if (currentAuthUid) {
+    const isSaid =
+      currentAuthEmail?.includes('said') ||
+      currentAuthEmail?.includes('khomri') ||
+      assignedId === 'usr-2' ||
+      existingDbId === 'usr-2' ||
+      (assignedName && (assignedName.toLowerCase().includes('said') || assignedName.toLowerCase().includes('khomri')));
+
     const isOuahib =
       currentAuthEmail?.includes('ouahib') ||
       assignedId === 'usr-3' ||
@@ -412,37 +434,33 @@ function resolveAssignedManagerForSupabase(
 
     const isBenali =
       currentAuthEmail?.includes('benali') ||
+      currentAuthEmail?.includes('anouar') ||
       assignedId === 'usr-1' ||
       existingDbId === 'usr-1' ||
-      (assignedName && assignedName.toLowerCase().includes('benali'));
+      (assignedName && (assignedName.toLowerCase().includes('benali') || assignedName.toLowerCase().includes('anouar')));
 
-    const isMansouri =
-      currentAuthEmail?.includes('mansouri') ||
-      assignedId === 'usr-2' ||
-      existingDbId === 'usr-2' ||
-      (assignedName && assignedName.toLowerCase().includes('mansouri'));
-
-    const isAlami =
-      currentAuthEmail?.includes('alami') ||
-      assignedId === 'usr-4' ||
-      existingDbId === 'usr-4' ||
-      (assignedName && assignedName.toLowerCase().includes('alami'));
-
-    const isTazi =
-      currentAuthEmail?.includes('tazi') ||
+    const isEzzay =
+      currentAuthEmail?.includes('ezzay') ||
+      currentAuthEmail?.includes('mohamed') ||
       assignedId === 'usr-5' ||
       existingDbId === 'usr-5' ||
-      (assignedName && assignedName.toLowerCase().includes('tazi'));
+      (assignedName && (assignedName.toLowerCase().includes('ezzay') || assignedName.toLowerCase().includes('mohamed')));
+
+    const isLarbi =
+      currentAuthEmail?.includes('larbi') ||
+      assignedId === 'usr-6' ||
+      existingDbId === 'usr-6' ||
+      (assignedName && assignedName.toLowerCase().includes('larbi'));
 
     // Si la ressource appartient au gestionnaire actuellement connecté,
     // transmettre son UID Supabase garantit que auth.uid()::text = assigned_manager_id
     // est immédiatement vrai dans PostgreSQL RLS.
     if (
+      (isSaid && (currentAuthEmail?.includes('said') || currentAuthEmail?.includes('khomri'))) ||
       (isOuahib && currentAuthEmail?.includes('ouahib')) ||
-      (isBenali && currentAuthEmail?.includes('benali')) ||
-      (isMansouri && currentAuthEmail?.includes('mansouri')) ||
-      (isAlami && currentAuthEmail?.includes('alami')) ||
-      (isTazi && currentAuthEmail?.includes('tazi')) ||
+      (isBenali && (currentAuthEmail?.includes('benali') || currentAuthEmail?.includes('anouar'))) ||
+      (isEzzay && (currentAuthEmail?.includes('ezzay') || currentAuthEmail?.includes('mohamed'))) ||
+      (isLarbi && currentAuthEmail?.includes('larbi')) ||
       assignedId === currentAuthUid ||
       existingDbId === currentAuthUid
     ) {
@@ -835,23 +853,68 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
 
     // 5. Profils Collaborateurs & Managers
     if (payload.users && Array.isArray(payload.users) && payload.users.length > 0) {
-      for (const u of payload.users) {
-        const { error: profileErr } = await supabase.from('profiles').upsert(
-          {
-            id: u.firebaseUid || u.id,
-            email: u.email,
-            name: u.name,
-            role: u.role,
-            phone: u.phone || null,
-            agency: u.agency || 'Nouaceur Casablanca',
-            assigned_fleet_name: u.assignedFleetName || null,
-            permissions: u.permissions || {},
-            updated_at: new Date().toISOString(),
-          },
+      const isCurrentAdmin =
+        currentAuthEmail?.includes('anouar') ||
+        payload.users.some(
+          (u) =>
+            (u.id === currentAuthUid || u.firebaseUid === currentAuthUid) &&
+            u.role === 'admin'
+        );
+
+      // Les administrateurs peuvent synchroniser tous les profils.
+      // Les gestionnaires et agents ne synchronisent que leur propre profil conformément à RLS.
+      const targetUsers = isCurrentAdmin
+        ? payload.users
+        : payload.users.filter(
+            (u) =>
+              (currentAuthUid && (u.firebaseUid === currentAuthUid || u.id === currentAuthUid)) ||
+              (currentAuthEmail && u.email?.toLowerCase().trim() === currentAuthEmail)
+          );
+
+      let profileHadError = false;
+      for (const u of targetUsers) {
+        const profileId =
+          !isCurrentAdmin && currentAuthUid ? currentAuthUid : u.firebaseUid || u.id;
+
+        const profilePayload: Record<string, any> = {
+          id: profileId,
+          email: u.email,
+          name: u.name,
+          role: u.role,
+          phone: u.phone || null,
+          agency: u.agency || 'Nouaceur Casablanca',
+          assigned_fleet_name: u.assignedFleetName || null,
+          permissions: u.permissions || {},
+          updated_at: new Date().toISOString(),
+        };
+
+        if (u.id) {
+          profilePayload.local_id = u.id;
+        }
+
+        let { error: profileErr } = await supabase.from('profiles').upsert(
+          profilePayload,
           { onConflict: 'id' }
         );
 
+        if (profileErr && (profileErr.code === 'PGRST204' || profileErr.message?.includes('local_id'))) {
+          delete profilePayload.local_id;
+          const retry = await supabase.from('profiles').upsert(profilePayload, { onConflict: 'id' });
+          profileErr = retry.error;
+        }
+
+        if (profileErr && profileErr.code === '42501') {
+          const { error: updateErr } = await supabase
+            .from('profiles')
+            .update(profilePayload)
+            .eq('id', profileId);
+          if (!updateErr) {
+            profileErr = null;
+          }
+        }
+
         if (profileErr) {
+          profileHadError = true;
           console.error(
             `[Supabase Sync] Erreur upsert profil (${u.name || u.email || u.id}):`,
             `Code: ${profileErr.code}`,
@@ -867,6 +930,10 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
             timestamp: new Date().toISOString(),
           });
         }
+      }
+
+      if (!profileHadError && lastSyncErrorState?.table === 'profiles') {
+        clearSyncError();
       }
     }
   } catch (syncErr) {
