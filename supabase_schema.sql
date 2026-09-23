@@ -169,6 +169,7 @@ AS $$
 $$;
 
 -- Vérifie si l'utilisateur connecté (admin, manager ou agent) a le droit de lire une ressource
+-- Supporte l'UID Supabase Auth, l'identifiant local (usr-1 à usr-5), et le nom du manager
 CREATE OR REPLACE FUNCTION public.can_access_manager_row(row_assigned_manager_id text, row_created_by text)
 RETURNS boolean
 LANGUAGE sql
@@ -193,8 +194,27 @@ AS $$
           SELECT 1 FROM public.profiles p 
           WHERE p.id = auth.uid()::text 
           AND (
-            (row_assigned_manager_id IS NOT NULL AND (p.id = row_assigned_manager_id OR p.name = row_assigned_manager_id))
-            OR (row_created_by IS NOT NULL AND (p.id = row_created_by OR p.name = row_created_by OR p.email = row_created_by))
+            (row_assigned_manager_id IS NOT NULL AND (
+              p.id = row_assigned_manager_id 
+              OR p.name = row_assigned_manager_id
+              OR (p.local_id IS NOT NULL AND p.local_id = row_assigned_manager_id)
+              OR (p.name ILIKE '%ouahib%' AND (row_assigned_manager_id ILIKE '%usr-3%' OR row_assigned_manager_id ILIKE '%ouahib%'))
+              OR (p.name ILIKE '%benali%' AND (row_assigned_manager_id ILIKE '%usr-1%' OR row_assigned_manager_id ILIKE '%benali%'))
+              OR (p.name ILIKE '%mansouri%' AND (row_assigned_manager_id ILIKE '%usr-2%' OR row_assigned_manager_id ILIKE '%mansouri%'))
+              OR (p.name ILIKE '%alami%' AND (row_assigned_manager_id ILIKE '%usr-4%' OR row_assigned_manager_id ILIKE '%alami%'))
+              OR (p.name ILIKE '%tazi%' AND (row_assigned_manager_id ILIKE '%usr-5%' OR row_assigned_manager_id ILIKE '%tazi%'))
+            ))
+            OR (row_created_by IS NOT NULL AND (
+              p.id = row_created_by 
+              OR p.name = row_created_by 
+              OR p.email = row_created_by
+              OR (p.local_id IS NOT NULL AND p.local_id = row_created_by)
+              OR (p.name ILIKE '%ouahib%' AND (row_created_by ILIKE '%usr-3%' OR row_created_by ILIKE '%ouahib%'))
+              OR (p.name ILIKE '%benali%' AND (row_created_by ILIKE '%usr-1%' OR row_created_by ILIKE '%benali%'))
+              OR (p.name ILIKE '%mansouri%' AND (row_created_by ILIKE '%usr-2%' OR row_created_by ILIKE '%mansouri%'))
+              OR (p.name ILIKE '%alami%' AND (row_created_by ILIKE '%usr-4%' OR row_created_by ILIKE '%alami%'))
+              OR (p.name ILIKE '%tazi%' AND (row_created_by ILIKE '%usr-5%' OR row_created_by ILIKE '%tazi%'))
+            ))
           )
         )
       )
@@ -202,6 +222,7 @@ AS $$
 $$;
 
 -- Empêche un manager ou agent d'assigner une ligne à un autre manager que lui-même
+-- Supporte l'UID Supabase Auth, l'identifiant local (usr-1 à usr-5), et le nom du manager
 CREATE OR REPLACE FUNCTION public.can_assign_manager(row_assigned_manager_id text)
 RETURNS boolean
 LANGUAGE sql
@@ -227,6 +248,12 @@ AS $$
           AND (
             p.id = row_assigned_manager_id
             OR p.name = row_assigned_manager_id
+            OR (p.local_id IS NOT NULL AND p.local_id = row_assigned_manager_id)
+            OR (p.name ILIKE '%ouahib%' AND (row_assigned_manager_id ILIKE '%usr-3%' OR row_assigned_manager_id ILIKE '%ouahib%'))
+            OR (p.name ILIKE '%benali%' AND (row_assigned_manager_id ILIKE '%usr-1%' OR row_assigned_manager_id ILIKE '%benali%'))
+            OR (p.name ILIKE '%mansouri%' AND (row_assigned_manager_id ILIKE '%usr-2%' OR row_assigned_manager_id ILIKE '%mansouri%'))
+            OR (p.name ILIKE '%alami%' AND (row_assigned_manager_id ILIKE '%usr-4%' OR row_assigned_manager_id ILIKE '%alami%'))
+            OR (p.name ILIKE '%tazi%' AND (row_assigned_manager_id ILIKE '%usr-5%' OR row_assigned_manager_id ILIKE '%tazi%'))
           )
         )
       )

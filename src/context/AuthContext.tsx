@@ -328,6 +328,7 @@ export const AuthProvider: React.FC<{
         role: finalUser.role,
         email: finalUser.email,
         name: finalUser.name,
+        localId: finalUser.id,
         permissions: finalUser.permissions,
       }).catch(() => {});
 

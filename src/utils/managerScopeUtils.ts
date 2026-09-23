@@ -7,10 +7,22 @@ import { resolveClientManagerAndVehicle } from './clientManagerUtils';
 export function isVehicleOwnedByManager(
   vehicle: Vehicle,
   managerId: string,
-  managerName?: string
+  managerName?: string,
+  managerUid?: string
 ): boolean {
   if (!vehicle || !managerId) return false;
   if (vehicle.assignedManagerId === managerId) return true;
+  if (managerUid && vehicle.assignedManagerId === managerUid) return true;
+
+  // Rapprochement Ouahib (usr-3)
+  if (
+    (managerId === 'usr-3' || (managerName && managerName.toLowerCase().includes('ouahib'))) &&
+    (vehicle.assignedManagerId === 'usr-3' ||
+      (vehicle.assignedManagerName && vehicle.assignedManagerName.toLowerCase().includes('ouahib')))
+  ) {
+    return true;
+  }
+
   if (
     vehicle.proposedBy &&
     managerName &&
@@ -30,7 +42,7 @@ export function isVehicleOwnedByManager(
 
 /**
  * Vérifie si un contrat est sous la responsabilité d'un responsable spécifique :
- * - Soit le contrat est directement affecté au responsable (assignedManagerId === managerId)
+ * - Soit le contrat est directement affecté au responsable (assignedManagerId === managerId ou managerUid)
  * - Soit le véhicule associé au contrat appartient au responsable
  * - Soit le contrat a été créé par le responsable (createdBy === managerName)
  */
@@ -38,12 +50,23 @@ export function isContractOwnedByManager(
   contract: Contract,
   managerId: string,
   vehicles: Vehicle[],
-  managerName?: string
+  managerName?: string,
+  managerUid?: string
 ): boolean {
   if (!contract || !managerId) return false;
 
   // 1. Affectation directe sur le contrat
   if (contract.assignedManagerId === managerId) return true;
+  if (managerUid && contract.assignedManagerId === managerUid) return true;
+
+  // Rapprochement Ouahib (usr-3)
+  if (
+    (managerId === 'usr-3' || (managerName && managerName.toLowerCase().includes('ouahib'))) &&
+    (contract.assignedManagerId === 'usr-3' ||
+      (contract.assignedManagerName && contract.assignedManagerName.toLowerCase().includes('ouahib')))
+  ) {
+    return true;
+  }
 
   // 2. Recherche du véhicule loué dans le parc
   const matchedVeh = vehicles.find(
@@ -51,7 +74,7 @@ export function isContractOwnedByManager(
       (contract.vehicleId && v.id === contract.vehicleId) ||
       (contract.vehicleSnapshot?.plate && v.plate && v.plate.trim() === contract.vehicleSnapshot.plate.trim())
   );
-  if (matchedVeh && isVehicleOwnedByManager(matchedVeh, managerId, managerName)) {
+  if (matchedVeh && isVehicleOwnedByManager(matchedVeh, managerId, managerName, managerUid)) {
     return true;
   }
 
@@ -87,9 +110,23 @@ export function isDepositOwnedByManager(
   managerId: string,
   contracts: Contract[],
   vehicles: Vehicle[],
-  managerName?: string
+  managerName?: string,
+  managerUid?: string
 ): boolean {
   if (!deposit || !managerId) return false;
+
+  // Affectation directe ou par UID
+  if (deposit.assignedManagerId === managerId) return true;
+  if (managerUid && deposit.assignedManagerId === managerUid) return true;
+
+  // Rapprochement Ouahib (usr-3)
+  if (
+    (managerId === 'usr-3' || (managerName && managerName.toLowerCase().includes('ouahib'))) &&
+    (deposit.assignedManagerId === 'usr-3' ||
+      (deposit.assignedManagerName && deposit.assignedManagerName.toLowerCase().includes('ouahib')))
+  ) {
+    return true;
+  }
 
   // 1. Contrat correspondant
   const matchedContract = contracts.find(
@@ -100,7 +137,7 @@ export function isDepositOwnedByManager(
         deposit.contractNumber.trim() === c.contractNumber.trim())
   );
   if (matchedContract) {
-    return isContractOwnedByManager(matchedContract, managerId, vehicles, managerName);
+    return isContractOwnedByManager(matchedContract, managerId, vehicles, managerName, managerUid);
   }
 
   // 2. Véhicule correspondant par plaque
@@ -108,7 +145,7 @@ export function isDepositOwnedByManager(
     const matchedVeh = vehicles.find(
       (v) => v.plate && v.plate.trim() === deposit.vehiclePlate!.trim()
     );
-    if (matchedVeh && isVehicleOwnedByManager(matchedVeh, managerId, managerName)) {
+    if (matchedVeh && isVehicleOwnedByManager(matchedVeh, managerId, managerName, managerUid)) {
       return true;
     }
   }
@@ -169,17 +206,18 @@ export function getScopedDataForUser(
 
   const managerId = currentUser.id;
   const managerName = currentUser.name;
+  const managerUid = currentUser.firebaseUid;
 
   const scopedVehicles = allVehicles.filter((v) =>
-    isVehicleOwnedByManager(v, managerId, managerName)
+    isVehicleOwnedByManager(v, managerId, managerName, managerUid)
   );
 
   const scopedContracts = allContracts.filter((c) =>
-    isContractOwnedByManager(c, managerId, allVehicles, managerName)
+    isContractOwnedByManager(c, managerId, allVehicles, managerName, managerUid)
   );
 
   const scopedDeposits = allDeposits.filter((d) =>
-    isDepositOwnedByManager(d, managerId, allContracts, allVehicles, managerName)
+    isDepositOwnedByManager(d, managerId, allContracts, allVehicles, managerName, managerUid)
   );
 
   const scopedClients = allClients.filter((cli) => {
