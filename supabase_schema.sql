@@ -193,6 +193,22 @@ AS $$
         OR (row_assigned_manager_id = auth.uid()::text)
         -- 4. Ou créé par le manager/agent via son UID
         OR (row_created_by IS NOT NULL AND row_created_by = auth.uid()::text)
+        -- Correspondance directe par email JWT (infaillible même si la table profiles est en cours de création)
+        OR ((auth.jwt()->>'email' ILIKE '%said%' OR auth.jwt()->>'email' ILIKE '%khomri%') 
+            AND ((row_assigned_manager_id ILIKE '%usr-2%' OR row_assigned_manager_id ILIKE '%said%') 
+                 OR (row_created_by ILIKE '%usr-2%' OR row_created_by ILIKE '%said%')))
+        OR (auth.jwt()->>'email' ILIKE '%ouahib%' 
+            AND ((row_assigned_manager_id ILIKE '%usr-3%' OR row_assigned_manager_id ILIKE '%ouahib%')
+                 OR (row_created_by ILIKE '%usr-3%' OR row_created_by ILIKE '%ouahib%')))
+        OR (auth.jwt()->>'email' ILIKE '%benali%' 
+            AND ((row_assigned_manager_id ILIKE '%usr-1%' OR row_assigned_manager_id ILIKE '%benali%')
+                 OR (row_created_by ILIKE '%usr-1%' OR row_created_by ILIKE '%benali%')))
+        OR (auth.jwt()->>'email' ILIKE '%ezzay%' 
+            AND ((row_assigned_manager_id ILIKE '%usr-5%' OR row_assigned_manager_id ILIKE '%ezzay%')
+                 OR (row_created_by ILIKE '%usr-5%' OR row_created_by ILIKE '%ezzay%')))
+        OR (auth.jwt()->>'email' ILIKE '%larbi%' 
+            AND ((row_assigned_manager_id ILIKE '%usr-6%' OR row_assigned_manager_id ILIKE '%larbi%')
+                 OR (row_created_by ILIKE '%usr-6%' OR row_created_by ILIKE '%larbi%')))
         -- 5. Ou correspondance avec le profil collaborateur (id interne, nom ou email)
         OR EXISTS (
           SELECT 1 FROM public.profiles p 
@@ -247,6 +263,17 @@ AS $$
         OR trim(row_assigned_manager_id) = ''
         -- 3. Assigné à son propre UID Supabase Auth
         OR row_assigned_manager_id = auth.uid()::text
+        -- Correspondance directe par email JWT
+        OR ((auth.jwt()->>'email' ILIKE '%said%' OR auth.jwt()->>'email' ILIKE '%khomri%') 
+            AND (row_assigned_manager_id ILIKE '%usr-2%' OR row_assigned_manager_id ILIKE '%said%'))
+        OR (auth.jwt()->>'email' ILIKE '%ouahib%' 
+            AND (row_assigned_manager_id ILIKE '%usr-3%' OR row_assigned_manager_id ILIKE '%ouahib%'))
+        OR (auth.jwt()->>'email' ILIKE '%benali%' 
+            AND (row_assigned_manager_id ILIKE '%usr-1%' OR row_assigned_manager_id ILIKE '%benali%'))
+        OR (auth.jwt()->>'email' ILIKE '%ezzay%' 
+            AND (row_assigned_manager_id ILIKE '%usr-5%' OR row_assigned_manager_id ILIKE '%ezzay%'))
+        OR (auth.jwt()->>'email' ILIKE '%larbi%' 
+            AND (row_assigned_manager_id ILIKE '%usr-6%' OR row_assigned_manager_id ILIKE '%larbi%'))
         -- 4. Assigné à son propre identifiant interne ou nom de profil
         OR EXISTS (
           SELECT 1 FROM public.profiles p 

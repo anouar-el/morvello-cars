@@ -1,6 +1,11 @@
 import { supabase, isSupabaseConfigured } from './supabase';
 import { isAbortException } from '../initErrorHandling';
 import { MorvelloCloudData } from './firestoreSync';
+import {
+  isContractOwnedByManager,
+  isDepositOwnedByManager,
+  isClientOwnedByManager,
+} from '../utils/managerScopeUtils';
 
 const AGENCY_RECORD_ID = 'morvello_main';
 
@@ -411,7 +416,7 @@ async function resilientUpsert(
  * Permet aux managers avec identifiants locaux (ex: 'usr-3' pour Abdelkader Ouahib)
  * de satisfaire immédiatement les politiques strictes RLS can_assign_manager et can_access_manager_row.
  */
-function resolveAssignedManagerForSupabase(
+export function resolveAssignedManagerForSupabase(
   assignedId: string | null | undefined,
   assignedName: string | null | undefined,
   existingDbId: string | null | undefined,
@@ -419,35 +424,36 @@ function resolveAssignedManagerForSupabase(
   currentAuthEmail: string | null
 ): string | null {
   if (currentAuthUid) {
-    const isSaid =
-      currentAuthEmail?.includes('said') ||
-      currentAuthEmail?.includes('khomri') ||
+    const isCurrentSaid =
+      currentAuthEmail?.includes('said') || currentAuthEmail?.includes('khomri');
+    const isCurrentOuahib = currentAuthEmail?.includes('ouahib');
+    const isCurrentBenali =
+      currentAuthEmail?.includes('benali') || currentAuthEmail?.includes('anouar');
+    const isCurrentEzzay =
+      currentAuthEmail?.includes('ezzay') || currentAuthEmail?.includes('mohamed');
+    const isCurrentLarbi = currentAuthEmail?.includes('larbi');
+
+    const resourceBelongsToSaid =
       assignedId === 'usr-2' ||
       existingDbId === 'usr-2' ||
       (assignedName && (assignedName.toLowerCase().includes('said') || assignedName.toLowerCase().includes('khomri')));
 
-    const isOuahib =
-      currentAuthEmail?.includes('ouahib') ||
+    const resourceBelongsToOuahib =
       assignedId === 'usr-3' ||
       existingDbId === 'usr-3' ||
       (assignedName && assignedName.toLowerCase().includes('ouahib'));
 
-    const isBenali =
-      currentAuthEmail?.includes('benali') ||
-      currentAuthEmail?.includes('anouar') ||
+    const resourceBelongsToBenali =
       assignedId === 'usr-1' ||
       existingDbId === 'usr-1' ||
       (assignedName && (assignedName.toLowerCase().includes('benali') || assignedName.toLowerCase().includes('anouar')));
 
-    const isEzzay =
-      currentAuthEmail?.includes('ezzay') ||
-      currentAuthEmail?.includes('mohamed') ||
+    const resourceBelongsToEzzay =
       assignedId === 'usr-5' ||
       existingDbId === 'usr-5' ||
       (assignedName && (assignedName.toLowerCase().includes('ezzay') || assignedName.toLowerCase().includes('mohamed')));
 
-    const isLarbi =
-      currentAuthEmail?.includes('larbi') ||
+    const resourceBelongsToLarbi =
       assignedId === 'usr-6' ||
       existingDbId === 'usr-6' ||
       (assignedName && assignedName.toLowerCase().includes('larbi'));
@@ -456,11 +462,11 @@ function resolveAssignedManagerForSupabase(
     // transmettre son UID Supabase garantit que auth.uid()::text = assigned_manager_id
     // est immédiatement vrai dans PostgreSQL RLS.
     if (
-      (isSaid && (currentAuthEmail?.includes('said') || currentAuthEmail?.includes('khomri'))) ||
-      (isOuahib && currentAuthEmail?.includes('ouahib')) ||
-      (isBenali && (currentAuthEmail?.includes('benali') || currentAuthEmail?.includes('anouar'))) ||
-      (isEzzay && (currentAuthEmail?.includes('ezzay') || currentAuthEmail?.includes('mohamed'))) ||
-      (isLarbi && currentAuthEmail?.includes('larbi')) ||
+      (resourceBelongsToSaid && isCurrentSaid) ||
+      (resourceBelongsToOuahib && isCurrentOuahib) ||
+      (resourceBelongsToBenali && isCurrentBenali) ||
+      (resourceBelongsToEzzay && isCurrentEzzay) ||
+      (resourceBelongsToLarbi && isCurrentLarbi) ||
       assignedId === currentAuthUid ||
       existingDbId === currentAuthUid
     ) {
@@ -494,6 +500,47 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
         ? String(payload.updatedBy)
         : null);
     const currentAuthEmail = (sessionUser?.email || '').toLowerCase().trim();
+
+    const isCurrentAdmin =
+      currentAuthEmail?.includes('anouar') ||
+      payload.users?.some(
+        (u) =>
+          (u.id === currentAuthUid || u.firebaseUid === currentAuthUid) &&
+          u.role === 'admin'
+      );
+
+    const currentUser = payload.users?.find(
+      (u) =>
+        (currentAuthUid && (u.firebaseUid === currentAuthUid || u.id === currentAuthUid)) ||
+        (currentAuthEmail && u.email?.toLowerCase().trim() === currentAuthEmail)
+    );
+    const currentManagerId =
+      currentUser?.id ||
+      (currentAuthEmail?.includes('said') || currentAuthEmail?.includes('khomri')
+        ? 'usr-2'
+        : currentAuthEmail?.includes('ouahib')
+        ? 'usr-3'
+        : currentAuthEmail?.includes('ezzay')
+        ? 'usr-5'
+        : currentAuthEmail?.includes('larbi')
+        ? 'usr-6'
+        : currentAuthEmail?.includes('benali') || currentAuthEmail?.includes('anouar')
+        ? 'usr-1'
+        : currentAuthUid || '');
+
+    const currentManagerName =
+      currentUser?.name ||
+      (currentManagerId === 'usr-2'
+        ? 'Said Khomri'
+        : currentManagerId === 'usr-3'
+        ? 'Abdelkader Ouahib'
+        : currentManagerId === 'usr-5'
+        ? 'Mohamed Ezzay'
+        : currentManagerId === 'usr-6'
+        ? 'Larbi Khomri'
+        : currentManagerId === 'usr-1'
+        ? 'Ahmed Benali'
+        : '');
 
     // 1. Véhicules
     if (payload.vehicles && Array.isArray(payload.vehicles) && payload.vehicles.length > 0) {
@@ -563,11 +610,22 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
 
     // 2. Clients (soumis aux règles strictes RLS, sans aucune fonction RPC contournante)
     if (payload.clients && Array.isArray(payload.clients) && payload.clients.length > 0) {
-      const clientIds = payload.clients.map((c) => c.id).filter(Boolean);
+      const targetClients = isCurrentAdmin
+        ? payload.clients
+        : payload.clients.filter((c) =>
+            isClientOwnedByManager(
+              c as any,
+              currentManagerId,
+              (payload.contracts || []) as any,
+              (payload.vehicles || []) as any
+            )
+          );
+
+      const clientIds = targetClients.map((c) => c.id).filter(Boolean);
       const existingClientMap = await fetchExistingRows('clients', clientIds);
       let clientHadError = false;
 
-      for (const c of payload.clients) {
+      for (const c of targetClients) {
         const existing = existingClientMap.get(c.id);
         const assignedMgrId = resolveAssignedManagerForSupabase(
           c.assignedManagerId,
@@ -626,12 +684,25 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
     // 3. Contrats
     // Si le contrat existe déjà avec un assigned_manager_id, le conserver sans le recalculer
     // afin de ne pas déclencher de rejet par la policy RLS can_assign_manager.
+    // Les gestionnaires ne synchronisent que les contrats de leur périmètre conformément aux règles RLS.
     if (payload.contracts && Array.isArray(payload.contracts) && payload.contracts.length > 0) {
-      const contractIds = payload.contracts.map((c) => c.id).filter(Boolean);
+      const targetContracts = isCurrentAdmin
+        ? payload.contracts
+        : payload.contracts.filter((cnt) =>
+            isContractOwnedByManager(
+              cnt as any,
+              currentManagerId,
+              (payload.vehicles || []) as any,
+              currentManagerName,
+              currentAuthUid || undefined
+            )
+          );
+
+      const contractIds = targetContracts.map((c) => c.id).filter(Boolean);
       const existingContractMap = await fetchExistingRows('contracts', contractIds);
       let contractHadError = false;
 
-      for (const cnt of payload.contracts) {
+      for (const cnt of targetContracts) {
         const existing = existingContractMap.get(cnt.id);
         const assignedMgrId = resolveAssignedManagerForSupabase(
           cnt.assignedManagerId,
@@ -781,12 +852,26 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
 
     // 4. Cautions
     // Même principe : préserver l'existant en base et prioriser l'utilisateur connecté comme repli
+    // Les gestionnaires ne synchronisent que les cautions de leur périmètre conformément aux règles RLS.
     if (payload.deposits && Array.isArray(payload.deposits) && payload.deposits.length > 0) {
-      const depositIds = payload.deposits.map((d) => d.id).filter(Boolean);
+      const targetDeposits = isCurrentAdmin
+        ? payload.deposits
+        : payload.deposits.filter((dep) =>
+            isDepositOwnedByManager(
+              dep as any,
+              currentManagerId,
+              (payload.contracts || []) as any,
+              (payload.vehicles || []) as any,
+              currentManagerName,
+              currentAuthUid || undefined
+            )
+          );
+
+      const depositIds = targetDeposits.map((d) => d.id).filter(Boolean);
       const existingDepositMap = await fetchExistingRows('deposits', depositIds);
       let depositHadError = false;
 
-      for (const dep of payload.deposits) {
+      for (const dep of targetDeposits) {
         const existing = existingDepositMap.get(dep.id);
 
         const matchedContract = payload.contracts?.find(
@@ -853,14 +938,6 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
 
     // 5. Profils Collaborateurs & Managers
     if (payload.users && Array.isArray(payload.users) && payload.users.length > 0) {
-      const isCurrentAdmin =
-        currentAuthEmail?.includes('anouar') ||
-        payload.users.some(
-          (u) =>
-            (u.id === currentAuthUid || u.firebaseUid === currentAuthUid) &&
-            u.role === 'admin'
-        );
-
       // Les administrateurs peuvent synchroniser tous les profils.
       // Les gestionnaires et agents ne synchronisent que leur propre profil conformément à RLS.
       const targetUsers = isCurrentAdmin
