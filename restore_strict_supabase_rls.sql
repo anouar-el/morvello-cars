@@ -375,3 +375,34 @@ CREATE POLICY "audit_logs_select" ON public.audit_logs
 CREATE POLICY "audit_logs_insert" ON public.audit_logs
   FOR INSERT TO authenticated 
   WITH CHECK (auth.uid() IS NOT NULL);
+
+-- 12. Rapprochement automatique des fiches existantes (Ouahib, Said, etc.)
+DO $$
+DECLARE
+  ouahib_uid text;
+  said_uid text;
+BEGIN
+  -- Rapprochement Ouahib (usr-3)
+  SELECT id INTO ouahib_uid FROM public.profiles WHERE name ILIKE '%ouahib%' OR email ILIKE '%ouahib%' LIMIT 1;
+  IF ouahib_uid IS NOT NULL THEN
+    UPDATE public.profiles SET local_id = 'usr-3' WHERE id = ouahib_uid;
+    UPDATE public.contracts SET assigned_manager_id = ouahib_uid WHERE assigned_manager_id = 'usr-3' OR contract_number = 'MC-2026-0050' OR id = 'cnt-1789166132353';
+    UPDATE public.vehicles SET assigned_manager_id = ouahib_uid WHERE assigned_manager_id = 'usr-3';
+    UPDATE public.deposits SET assigned_manager_id = ouahib_uid WHERE assigned_manager_id = 'usr-3';
+    UPDATE public.clients SET assigned_manager_id = ouahib_uid WHERE assigned_manager_id = 'usr-3';
+  ELSE
+    UPDATE public.contracts SET assigned_manager_id = 'usr-3' WHERE contract_number = 'MC-2026-0050' OR id = 'cnt-1789166132353';
+  END IF;
+
+  -- Rapprochement Said (usr-2)
+  SELECT id INTO said_uid FROM public.profiles WHERE name ILIKE '%said%' OR email ILIKE '%said%' LIMIT 1;
+  IF said_uid IS NOT NULL THEN
+    UPDATE public.profiles SET local_id = 'usr-2' WHERE id = said_uid;
+    UPDATE public.contracts SET assigned_manager_id = said_uid WHERE assigned_manager_id = 'usr-2' AND contract_number <> 'MC-2026-0050' AND id <> 'cnt-1789166132353';
+    UPDATE public.vehicles SET assigned_manager_id = said_uid WHERE assigned_manager_id = 'usr-2';
+    UPDATE public.deposits SET assigned_manager_id = said_uid WHERE assigned_manager_id = 'usr-2';
+    UPDATE public.clients SET assigned_manager_id = said_uid WHERE assigned_manager_id = 'usr-2';
+  END IF;
+END $$;
+
+NOTIFY pgrst, 'reload schema';

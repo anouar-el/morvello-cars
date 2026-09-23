@@ -195,10 +195,12 @@ BEGIN
   SELECT id INTO ouahib_uid FROM public.profiles WHERE name ILIKE '%ouahib%' OR email ILIKE '%ouahib%' LIMIT 1;
   IF ouahib_uid IS NOT NULL THEN
     UPDATE public.profiles SET local_id = 'usr-3' WHERE id = ouahib_uid;
-    UPDATE public.contracts SET assigned_manager_id = ouahib_uid WHERE assigned_manager_id = 'usr-3';
+    UPDATE public.contracts SET assigned_manager_id = ouahib_uid WHERE assigned_manager_id = 'usr-3' OR contract_number = 'MC-2026-0050' OR id = 'cnt-1789166132353';
     UPDATE public.vehicles SET assigned_manager_id = ouahib_uid WHERE assigned_manager_id = 'usr-3';
     UPDATE public.deposits SET assigned_manager_id = ouahib_uid WHERE assigned_manager_id = 'usr-3';
     UPDATE public.clients SET assigned_manager_id = ouahib_uid WHERE assigned_manager_id = 'usr-3';
+  ELSE
+    UPDATE public.contracts SET assigned_manager_id = 'usr-3' WHERE contract_number = 'MC-2026-0050' OR id = 'cnt-1789166132353';
   END IF;
 
   -- Mohamed Ezzay (usr-5)

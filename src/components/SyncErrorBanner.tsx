@@ -33,6 +33,68 @@ CREATE INDEX IF NOT EXISTS idx_vehicles_assigned_manager ON public.vehicles(assi
 
 NOTIFY pgrst, 'reload schema';`;
 
+const FIX_RLS_SQL_SCRIPT = `-- MORVELLO CARS - Déblocage RLS des Gestionnaires (Ouahib, Said, etc.)
+CREATE OR REPLACE FUNCTION public.can_access_manager_row(row_assigned_manager_id text, row_created_by text)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT 
+    public.is_admin()
+    OR (
+      auth.uid() IS NOT NULL AND (
+        row_assigned_manager_id IS NULL
+        OR trim(row_assigned_manager_id) = ''
+        OR (row_assigned_manager_id = auth.uid()::text)
+        OR (row_created_by IS NOT NULL AND row_created_by = auth.uid()::text)
+        OR ((auth.jwt()->>'email' ILIKE '%said%' OR auth.jwt()->>'email' ILIKE '%khomri%') 
+            AND ((row_assigned_manager_id ILIKE '%usr-2%' OR row_assigned_manager_id ILIKE '%said%') 
+                 OR (row_created_by ILIKE '%usr-2%' OR row_created_by ILIKE '%said%')))
+        OR (auth.jwt()->>'email' ILIKE '%ouahib%' 
+            AND ((row_assigned_manager_id ILIKE '%usr-3%' OR row_assigned_manager_id ILIKE '%ouahib%')
+                 OR (row_created_by ILIKE '%usr-3%' OR row_created_by ILIKE '%ouahib%')))
+        OR (auth.jwt()->>'email' ILIKE '%benali%' 
+            AND ((row_assigned_manager_id ILIKE '%usr-1%' OR row_assigned_manager_id ILIKE '%benali%')
+                 OR (row_created_by ILIKE '%usr-1%' OR row_created_by ILIKE '%benali%')))
+        OR (auth.jwt()->>'email' ILIKE '%ezzay%' 
+            AND ((row_assigned_manager_id ILIKE '%usr-5%' OR row_assigned_manager_id ILIKE '%ezzay%')
+                 OR (row_created_by ILIKE '%usr-5%' OR row_created_by ILIKE '%ezzay%')))
+        OR (auth.jwt()->>'email' ILIKE '%larbi%' 
+            AND ((row_assigned_manager_id ILIKE '%usr-6%' OR row_assigned_manager_id ILIKE '%larbi%')
+                 OR (row_created_by ILIKE '%usr-6%' OR row_created_by ILIKE '%larbi%')))
+        OR EXISTS (
+          SELECT 1 FROM public.profiles p 
+          WHERE p.id = auth.uid()::text 
+          AND (
+            (row_assigned_manager_id IS NOT NULL AND (
+              p.id = row_assigned_manager_id 
+              OR p.name = row_assigned_manager_id
+              OR (p.local_id IS NOT NULL AND p.local_id = row_assigned_manager_id)
+              OR (p.name ILIKE '%said%' AND (row_assigned_manager_id ILIKE '%usr-2%' OR row_assigned_manager_id ILIKE '%said%'))
+              OR (p.name ILIKE '%ouahib%' AND (row_assigned_manager_id ILIKE '%usr-3%' OR row_assigned_manager_id ILIKE '%ouahib%'))
+              OR (p.name ILIKE '%benali%' AND (row_assigned_manager_id ILIKE '%usr-1%' OR row_assigned_manager_id ILIKE '%benali%'))
+            ))
+            OR (row_created_by IS NOT NULL AND (
+              p.id = row_created_by 
+              OR p.name = row_created_by 
+              OR (p.local_id IS NOT NULL AND p.local_id = row_created_by)
+              OR (p.name ILIKE '%said%' AND (row_created_by ILIKE '%usr-2%' OR row_created_by ILIKE '%said%'))
+              OR (p.name ILIKE '%ouahib%' AND (row_created_by ILIKE '%usr-3%' OR row_created_by ILIKE '%ouahib%'))
+            ))
+          )
+        )
+      )
+    );
+$$;
+
+UPDATE public.contracts 
+SET assigned_manager_id = 'usr-3' 
+WHERE contract_number = 'MC-2026-0050' OR id = 'cnt-1789166132353';
+
+NOTIFY pgrst, 'reload schema';`;
+
 export const SyncErrorBanner: React.FC = () => {
   const [syncError, setSyncError] = useState<SupabaseSyncError | null>(null);
   const [showDetails, setShowDetails] = useState(false);
@@ -68,9 +130,11 @@ export const SyncErrorBanner: React.FC = () => {
 
   const tableLabel = tableLabels[syncError.table] || syncError.table;
 
+  const activeSqlScript = isRls ? FIX_RLS_SQL_SCRIPT : FIX_SQL_SCRIPT;
+
   const handleCopySql = async () => {
     try {
-      await navigator.clipboard.writeText(FIX_SQL_SCRIPT);
+      await navigator.clipboard.writeText(activeSqlScript);
       setCopiedSql(true);
       setTimeout(() => setCopiedSql(false), 3000);
     } catch {
@@ -149,12 +213,16 @@ export const SyncErrorBanner: React.FC = () => {
                 : syncError.message}
             </p>
 
-            {isSchemaCache && (
+            {(isSchemaCache || isRls) && (
               <div className="pt-1 flex items-center gap-2 flex-wrap text-xs">
                 <button
                   type="button"
                   onClick={handleCopySql}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 font-medium transition-colors text-xs"
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md font-medium transition-colors text-xs ${
+                    isRls
+                      ? 'bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40'
+                      : 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40'
+                  }`}
                 >
                   {copiedSql ? (
                     <>
@@ -163,13 +231,19 @@ export const SyncErrorBanner: React.FC = () => {
                     </>
                   ) : (
                     <>
-                      <Copy className="w-3.5 h-3.5 text-amber-400" />
-                      <span>Copier le script SQL de réparation</span>
+                      <Copy className={`w-3.5 h-3.5 ${isRls ? 'text-rose-400' : 'text-amber-400'}`} />
+                      <span>
+                        {isRls
+                          ? 'Copier le script SQL de déblocage RLS (fix_manager_rls_mapping.sql)'
+                          : 'Copier le script SQL de réparation (Cache & Colonnes)'}
+                      </span>
                     </>
                   )}
                 </button>
                 <span className="text-[11px] text-slate-400">
-                  À exécuter dans Supabase SQL Editor pour recharger le cache.
+                  {isRls
+                    ? 'À coller dans Supabase SQL Editor pour débloquer les droits et réassigner la fiche.'
+                    : 'À exécuter dans Supabase SQL Editor pour recharger le cache.'}
                 </span>
               </div>
             )}
@@ -187,13 +261,15 @@ export const SyncErrorBanner: React.FC = () => {
                 <div>
                   <strong>Horodatage :</strong> {new Date(syncError.timestamp).toLocaleTimeString()}
                 </div>
-                {isSchemaCache && (
+                {(isSchemaCache || isRls) && (
                   <div className="mt-2 pt-2 border-t border-slate-800/80">
-                    <p className="text-amber-300 font-semibold mb-1">
-                      Script SQL à exécuter dans Supabase (fix_supabase_schema_cache.sql) :
+                    <p className={`font-semibold mb-1 ${isRls ? 'text-rose-300' : 'text-amber-300'}`}>
+                      {isRls
+                        ? 'Script SQL correctif RLS à exécuter dans Supabase (fix_manager_rls_mapping.sql) :'
+                        : 'Script SQL à exécuter dans Supabase (fix_supabase_schema_cache.sql) :'}
                     </p>
-                    <pre className="text-[10px] text-slate-300 bg-slate-900/90 p-2 rounded border border-slate-800 overflow-x-auto whitespace-pre">
-                      {FIX_SQL_SCRIPT}
+                    <pre className="text-[10px] text-slate-300 bg-slate-900/90 p-2 rounded border border-slate-800 overflow-x-auto whitespace-pre max-h-48">
+                      {activeSqlScript}
                     </pre>
                   </div>
                 )}
