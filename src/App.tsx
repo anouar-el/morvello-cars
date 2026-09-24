@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, lazy, Suspense } from 'react';
+import React, { useState } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { Navbar } from './components/Navbar';
 import { SyncErrorBanner } from './components/SyncErrorBanner';
@@ -11,92 +11,24 @@ import { Dashboard } from './components/Dashboard';
 import { LoginView } from './components/LoginView';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Contract } from './types';
-import { Bot, Sparkles, Loader2 } from 'lucide-react';
+import { Bot, Sparkles } from 'lucide-react';
 
-// Helper to automatically recover from stale dynamic chunks after a deployment
-function lazyWithRetry<T extends React.ComponentType<any>>(
-  factory: () => Promise<{ default: T }>
-) {
-  return lazy(async () => {
-    try {
-      return await factory();
-    } catch (error: any) {
-      const isDynamicImportError =
-        error?.message?.includes('Failed to fetch dynamically imported module') ||
-        error?.message?.includes('dynamically imported module') ||
-        error?.name === 'ChunkLoadError';
-
-      if (isDynamicImportError && typeof window !== 'undefined') {
-        const reloadKey = 'morvello_chunk_reload';
-        const lastReload = sessionStorage.getItem(reloadKey);
-        const now = Date.now();
-        // Automatically reload once if an outdated chunk is requested after a deployment
-        if (!lastReload || now - Number(lastReload) > 15000) {
-          sessionStorage.setItem(reloadKey, String(now));
-          window.location.reload();
-          return new Promise<{ default: T }>(() => {});
-        }
-      }
-      throw error;
-    }
-  });
-}
-
-// Code splitting / Lazy imports with auto-reload protection
-const ContractWizard = lazyWithRetry(() =>
-  import('./components/ContractWizard').then((m) => ({ default: m.ContractWizard }))
-);
-const ContractsList = lazyWithRetry(() =>
-  import('./components/ContractsList').then((m) => ({ default: m.ContractsList }))
-);
-const ClientsList = lazyWithRetry(() =>
-  import('./components/ClientsList').then((m) => ({ default: m.ClientsList }))
-);
-const VehiclesList = lazyWithRetry(() =>
-  import('./components/VehiclesList').then((m) => ({ default: m.VehiclesList }))
-);
-const TermsManager = lazyWithRetry(() =>
-  import('./components/TermsManager').then((m) => ({ default: m.TermsManager }))
-);
-const SettingsView = lazyWithRetry(() =>
-  import('./components/SettingsView').then((m) => ({ default: m.SettingsView }))
-);
-const AuditView = lazyWithRetry(() =>
-  import('./components/AuditView').then((m) => ({ default: m.AuditView }))
-);
-const DepositsManagement = lazyWithRetry(() =>
-  import('./components/DepositsManagement').then((m) => ({ default: m.DepositsManagement }))
-);
-const PermissionsManager = lazyWithRetry(() =>
-  import('./components/PermissionsManager').then((m) => ({ default: m.PermissionsManager }))
-);
-const PdfModal = lazyWithRetry(() =>
-  import('./components/PdfModal').then((m) => ({ default: m.PdfModal }))
-);
-const ReturnCheckInModal = lazyWithRetry(() =>
-  import('./components/ReturnCheckInModal').then((m) => ({ default: m.ReturnCheckInModal }))
-);
-const InspectionManagerModal = lazyWithRetry(() =>
-  import('./components/InspectionManagerModal').then((m) => ({ default: m.InspectionManagerModal }))
-);
-const NotificationsCenterModal = lazyWithRetry(() =>
-  import('./components/NotificationsCenterModal').then((m) => ({ default: m.NotificationsCenterModal }))
-);
-const MemberAiAssistant = lazyWithRetry(() =>
-  import('./components/MemberAiAssistant').then((m) => ({ default: m.MemberAiAssistant }))
-);
-const ContractTemplatesManager = lazyWithRetry(() =>
-  import('./components/ContractTemplatesManager').then((m) => ({
-    default: m.ContractTemplatesManager,
-  }))
-);
-
-const ViewLoadingFallback = () => (
-  <div className="flex flex-col items-center justify-center min-h-[400px] w-full gap-3 text-slate-400">
-    <Loader2 className="w-8 h-8 text-amber-500 animate-spin" />
-    <span className="text-xs font-mono tracking-wider text-slate-400">Chargement du module...</span>
-  </div>
-);
+// Core application view components (statically imported for instant, error-free tab navigation)
+import { ContractWizard } from './components/ContractWizard';
+import { ContractsList } from './components/ContractsList';
+import { ClientsList } from './components/ClientsList';
+import { VehiclesList } from './components/VehiclesList';
+import { TermsManager } from './components/TermsManager';
+import { SettingsView } from './components/SettingsView';
+import { AuditView } from './components/AuditView';
+import { DepositsManagement } from './components/DepositsManagement';
+import { PermissionsManager } from './components/PermissionsManager';
+import { PdfModal } from './components/PdfModal';
+import { ReturnCheckInModal } from './components/ReturnCheckInModal';
+import { InspectionManagerModal } from './components/InspectionManagerModal';
+import { NotificationsCenterModal } from './components/NotificationsCenterModal';
+import { MemberAiAssistant } from './components/MemberAiAssistant';
+import { ContractTemplatesManager } from './components/ContractTemplatesManager';
 
 function MainAppContent() {
   const { activeTab, setActiveTab, currentUser } = useApp();
@@ -160,7 +92,12 @@ function MainAppContent() {
         return <PermissionsManager />;
       case 'contract_templates':
         if (currentUser.role !== 'admin') {
-          return <Dashboard />;
+          return (
+            <Dashboard
+              onOpenCheckInModal={(contract) => setCheckInContract(contract)}
+              onOpenAllAlerts={() => setIsNotificationsOpen(true)}
+            />
+          );
         }
         return <ContractTemplatesManager />;
       case 'settings':
@@ -168,7 +105,12 @@ function MainAppContent() {
       case 'audit':
         return <AuditView />;
       default:
-        return <Dashboard />;
+        return (
+          <Dashboard
+            onOpenCheckInModal={(contract) => setCheckInContract(contract)}
+            onOpenAllAlerts={() => setIsNotificationsOpen(true)}
+          />
+        );
     }
   };
 
@@ -182,10 +124,8 @@ function MainAppContent() {
 
       {/* MAIN CONTAINER */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
-        <ErrorBoundary isolateView fallbackTitle="Erreur dans le module actif">
-          <Suspense fallback={<ViewLoadingFallback />}>
-            {renderContent()}
-          </Suspense>
+        <ErrorBoundary key={activeTab} isolateView fallbackTitle="Erreur dans le module actif">
+          {renderContent()}
         </ErrorBoundary>
       </main>
 
@@ -229,14 +169,12 @@ function MainAppContent() {
               isAssistantExpanded ? 'sm:w-[780px] md:w-[880px]' : 'sm:w-[520px] md:w-[580px]'
             } h-full bg-slate-900 shadow-2xl border-l border-slate-800 flex flex-col transform transition-all duration-300 ease-in-out`}
           >
-            <Suspense fallback={<ViewLoadingFallback />}>
-              <MemberAiAssistant
-                isDrawer={true}
-                onClose={() => setIsAssistantOpen(false)}
-                isExpanded={isAssistantExpanded}
-                onToggleExpand={() => setIsAssistantExpanded(!isAssistantExpanded)}
-              />
-            </Suspense>
+            <MemberAiAssistant
+              isDrawer={true}
+              onClose={() => setIsAssistantOpen(false)}
+              isExpanded={isAssistantExpanded}
+              onToggleExpand={() => setIsAssistantExpanded(!isAssistantExpanded)}
+            />
           </div>
         </div>
       )}
@@ -254,24 +192,22 @@ function MainAppContent() {
       </footer>
 
       {/* GLOBAL MODALS */}
-      <Suspense fallback={null}>
-        <PdfModal />
-        <ReturnCheckInModal
-          contract={checkInContract}
-          onClose={() => setCheckInContract(null)}
-          onOpenDetailedInspection={(contract) => setInspectionContract(contract)}
-        />
-        <InspectionManagerModal
-          contract={inspectionContract}
-          isOpen={!!inspectionContract}
-          onClose={() => setInspectionContract(null)}
-        />
-        <NotificationsCenterModal
-          isOpen={isNotificationsOpen}
-          onClose={() => setIsNotificationsOpen(false)}
-          onOpenCheckInModal={(contract) => setCheckInContract(contract)}
-        />
-      </Suspense>
+      <PdfModal />
+      <ReturnCheckInModal
+        contract={checkInContract}
+        onClose={() => setCheckInContract(null)}
+        onOpenDetailedInspection={(contract) => setInspectionContract(contract)}
+      />
+      <InspectionManagerModal
+        contract={inspectionContract}
+        isOpen={!!inspectionContract}
+        onClose={() => setInspectionContract(null)}
+      />
+      <NotificationsCenterModal
+        isOpen={isNotificationsOpen}
+        onClose={() => setIsNotificationsOpen(false)}
+        onOpenCheckInModal={(contract) => setCheckInContract(contract)}
+      />
     </div>
   );
 }

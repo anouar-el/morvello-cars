@@ -219,6 +219,37 @@ export async function openContractPdfInNewTab(
   options: GeneratePdfOptions = {}
 ): Promise<GeneratedPdfResult> {
   const result = await generateContractPdf(contract, options);
-  window.open(result.blobUrl, '_blank');
+  let opened = false;
+
+  try {
+    const newTab = window.open(result.blobUrl, '_blank');
+    if (newTab && !newTab.closed && typeof newTab.closed !== 'undefined') {
+      opened = true;
+    }
+  } catch (err) {
+    console.warn('window.open was blocked by the browser:', err);
+  }
+
+  // Fallback: If popup was blocked by iframe/sandbox, use simulated link or direct download
+  if (!opened && typeof document !== 'undefined') {
+    try {
+      const link = document.createElement('a');
+      link.href = result.blobUrl;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      document.body.appendChild(link);
+      link.click();
+      setTimeout(() => {
+        if (link.parentNode) {
+          link.parentNode.removeChild(link);
+        }
+      }, 500);
+      opened = true;
+    } catch {
+      // Direct download fallback
+      downloadContractPdf(contract, options);
+    }
+  }
+
   return result;
 }
