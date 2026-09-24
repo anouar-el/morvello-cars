@@ -146,17 +146,26 @@ export async function saveRemoteAgencyDataToSupabase(
         return false;
       }
 
-      console.error(
-        `[Supabase Sync] Échec sauvegarde agency_data : Code ${error.code} - ${error.message} - ${error.details || ''}`
-      );
-      reportSyncError({
-        table: 'agency_data',
-        entityId: AGENCY_RECORD_ID,
-        code: error.code,
-        message: error.message,
-        details: error.details,
-        timestamp: nowIso,
-      });
+      const isNetworkErr =
+        error.message?.toLowerCase().includes('failed to fetch') ||
+        error.message?.toLowerCase().includes('network') ||
+        error.message?.toLowerCase().includes('load failed');
+
+      if (!isNetworkErr) {
+        console.warn(
+          `[Supabase Sync] Échec sauvegarde agency_data : Code ${error.code} - ${error.message} - ${error.details || ''}`
+        );
+        reportSyncError({
+          table: 'agency_data',
+          entityId: AGENCY_RECORD_ID,
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          timestamp: nowIso,
+        });
+      } else {
+        console.warn('[Supabase Sync] Serveur Supabase temporairement inaccessible (réseau/hors ligne):', error.message);
+      }
     }
 
     // Synchronisation granulaire dans les tables individuelles Supabase
@@ -167,7 +176,7 @@ export async function saveRemoteAgencyDataToSupabase(
     return !error;
   } catch (err: any) {
     if (isAbortException(err)) return false;
-    console.error('[Supabase Sync] Exception during save:', err);
+    console.warn('[Supabase Sync] Exception during save:', err);
     return false;
   }
 }
@@ -240,6 +249,7 @@ export async function saveUserProfileToSupabase(
     name?: string;
     phone?: string;
     localId?: string;
+    legacyId?: string;
     permissions?: any;
   }
 ): Promise<boolean> {
@@ -256,8 +266,10 @@ export async function saveUserProfileToSupabase(
       updated_at: new Date().toISOString(),
     };
 
-    if (profile.localId) {
-      profilePayload.local_id = profile.localId;
+    const legacyVal = profile.legacyId || profile.localId;
+    if (legacyVal) {
+      profilePayload.legacy_id = legacyVal;
+      profilePayload.local_id = legacyVal;
     }
 
     let { error } = await supabase.from('profiles').upsert(
@@ -265,8 +277,9 @@ export async function saveUserProfileToSupabase(
       { onConflict: 'id' }
     );
 
-    // Si la colonne local_id n'existe pas encore en base, réessayons sans cette colonne
-    if (error && (error.code === 'PGRST204' || error.message?.includes('local_id'))) {
+    // Si les colonnes legacy_id ou local_id n'existent pas encore en base, réessayons sans ces colonnes
+    if (error && (error.code === 'PGRST204' || error.message?.includes('legacy_id') || error.message?.includes('local_id'))) {
+      delete profilePayload.legacy_id;
       delete profilePayload.local_id;
       const retry = await supabase.from('profiles').upsert(profilePayload, { onConflict: 'id' });
       error = retry.error;
@@ -285,17 +298,24 @@ export async function saveUserProfileToSupabase(
 
     if (error) {
       if (error.code !== 'PGRST205' && !error.message?.includes('does not exist')) {
-        console.error(
-          `[Supabase Profile] Erreur sauvegarde profil (${userId}): Code ${error.code} - ${error.message}`
-        );
-        reportSyncError({
-          table: 'profiles',
-          entityId: userId,
-          code: error.code,
-          message: error.message,
-          details: error.details,
-          timestamp: new Date().toISOString(),
-        });
+        const isNetworkErr =
+          error.message?.toLowerCase().includes('failed to fetch') ||
+          error.message?.toLowerCase().includes('network') ||
+          error.message?.toLowerCase().includes('load failed');
+
+        if (!isNetworkErr) {
+          console.warn(
+            `[Supabase Profile] Erreur sauvegarde profil (${userId}): Code ${error.code} - ${error.message}`
+          );
+          reportSyncError({
+            table: 'profiles',
+            entityId: userId,
+            code: error.code,
+            message: error.message,
+            details: error.details,
+            timestamp: new Date().toISOString(),
+          });
+        }
       }
       return false;
     }
@@ -412,18 +432,46 @@ async function resilientUpsert(
 }
 
 /**
- * Rapproche l'identifiant de gestionnaire avec l'UID d'authentification Supabase actuel.
- * Permet aux managers avec identifiants locaux (ex: 'usr-3' pour Abdelkader Ouahib)
- * de satisfaire immédiatement les politiques strictes RLS can_assign_manager et can_access_manager_row.
+ * Rapproche l'identifiant de gestionnaire avec le véritable UID Supabase Auth.
+ * Transmet toujours l'UUID Supabase plutôt que l'ancien 'usr-N' dès qu'il est disponible.
  */
 export function resolveAssignedManagerForSupabase(
   assignedId: string | null | undefined,
   assignedName: string | null | undefined,
   existingDbId: string | null | undefined,
   currentAuthUid: string | null,
-  currentAuthEmail: string | null
+  currentAuthEmail: string | null,
+  users?: Array<{ id: string; legacyId?: string; email?: string; firebaseUid?: string }>
 ): string | null {
   if (currentAuthUid) {
+    // 1. Déjà assigné directement à l'UID Supabase connecté
+    if (assignedId === currentAuthUid || existingDbId === currentAuthUid) {
+      return currentAuthUid;
+    }
+
+    // 2. Si l'utilisateur connecté correspond à la ressource par mapping legacyId
+    if (users && users.length > 0) {
+      const currentLoggedInUser = users.find(
+        (u) => u.id === currentAuthUid || u.firebaseUid === currentAuthUid
+      );
+      if (
+        currentLoggedInUser &&
+        currentLoggedInUser.legacyId &&
+        (assignedId === currentLoggedInUser.legacyId || existingDbId === currentLoggedInUser.legacyId)
+      ) {
+        return currentAuthUid;
+      }
+
+      // Si assignedId pointe vers un utilisateur connu dans users, résoudre son véritable UUID
+      const targetUser = users.find((u) => u.legacyId === assignedId || u.id === assignedId);
+      if (targetUser?.firebaseUid) {
+        return targetUser.firebaseUid;
+      }
+      if (targetUser?.id && !targetUser.id.startsWith('usr-')) {
+        return targetUser.id;
+      }
+    }
+
     const isCurrentSaid =
       currentAuthEmail?.includes('said') || currentAuthEmail?.includes('khomri');
     const isCurrentOuahib = currentAuthEmail?.includes('ouahib');
@@ -459,16 +507,14 @@ export function resolveAssignedManagerForSupabase(
       (assignedName && assignedName.toLowerCase().includes('larbi'));
 
     // Si la ressource appartient au gestionnaire actuellement connecté,
-    // transmettre son UID Supabase garantit que auth.uid()::text = assigned_manager_id
+    // transmettre son véritable UID Supabase garantit que auth.uid()::text = assigned_manager_id
     // est immédiatement vrai dans PostgreSQL RLS.
     if (
       (resourceBelongsToSaid && isCurrentSaid) ||
       (resourceBelongsToOuahib && isCurrentOuahib) ||
       (resourceBelongsToBenali && isCurrentBenali) ||
       (resourceBelongsToEzzay && isCurrentEzzay) ||
-      (resourceBelongsToLarbi && isCurrentLarbi) ||
-      assignedId === currentAuthUid ||
-      existingDbId === currentAuthUid
+      (resourceBelongsToLarbi && isCurrentLarbi)
     ) {
       return currentAuthUid;
     }
@@ -515,32 +561,12 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
         (currentAuthEmail && u.email?.toLowerCase().trim() === currentAuthEmail)
     );
     const currentManagerId =
+      (currentUser?.id && !currentUser.id.startsWith('usr-') ? currentUser.id : null) ||
+      currentAuthUid ||
       currentUser?.id ||
-      (currentAuthEmail?.includes('said') || currentAuthEmail?.includes('khomri')
-        ? 'usr-2'
-        : currentAuthEmail?.includes('ouahib')
-        ? 'usr-3'
-        : currentAuthEmail?.includes('ezzay')
-        ? 'usr-5'
-        : currentAuthEmail?.includes('larbi')
-        ? 'usr-6'
-        : currentAuthEmail?.includes('benali') || currentAuthEmail?.includes('anouar')
-        ? 'usr-1'
-        : currentAuthUid || '');
+      '';
 
-    const currentManagerName =
-      currentUser?.name ||
-      (currentManagerId === 'usr-2'
-        ? 'Said Khomri'
-        : currentManagerId === 'usr-3'
-        ? 'Abdelkader Ouahib'
-        : currentManagerId === 'usr-5'
-        ? 'Mohamed Ezzay'
-        : currentManagerId === 'usr-6'
-        ? 'Larbi Khomri'
-        : currentManagerId === 'usr-1'
-        ? 'Ahmed Benali'
-        : '');
+    const currentManagerName = currentUser?.name || '';
 
     // 1. Véhicules
     if (payload.vehicles && Array.isArray(payload.vehicles) && payload.vehicles.length > 0) {
@@ -555,7 +581,8 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
           v.assignedManagerName,
           existing?.assigned_manager_id,
           currentAuthUid,
-          currentAuthEmail
+          currentAuthEmail,
+          payload.users
         );
         const createdBy =
           existing?.created_by ||
@@ -586,20 +613,27 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
 
         if (vehicleErr) {
           vehicleHadError = true;
-          console.error(
-            `[Supabase Sync] Erreur upsert véhicule ${v.plate || v.id}:`,
-            `Code: ${vehicleErr.code}`,
-            `Message: ${vehicleErr.message}`,
-            `Détails: ${vehicleErr.details || ''}`
-          );
-          reportSyncError({
-            table: 'vehicles',
-            entityId: v.plate || v.id,
-            code: vehicleErr.code,
-            message: vehicleErr.message,
-            details: vehicleErr.details,
-            timestamp: new Date().toISOString(),
-          });
+          const isNet =
+            vehicleErr.message?.toLowerCase().includes('failed to fetch') ||
+            vehicleErr.message?.toLowerCase().includes('network') ||
+            vehicleErr.message?.toLowerCase().includes('load failed');
+
+          if (!isNet) {
+            console.warn(
+              `[Supabase Sync] Erreur upsert véhicule ${v.plate || v.id}:`,
+              `Code: ${vehicleErr.code}`,
+              `Message: ${vehicleErr.message}`,
+              `Détails: ${vehicleErr.details || ''}`
+            );
+            reportSyncError({
+              table: 'vehicles',
+              entityId: v.plate || v.id,
+              code: vehicleErr.code,
+              message: vehicleErr.message,
+              details: vehicleErr.details,
+              timestamp: new Date().toISOString(),
+            });
+          }
         }
       }
 
@@ -632,7 +666,8 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
           c.assignedManagerName,
           existing?.assigned_manager_id,
           currentAuthUid,
-          currentAuthEmail
+          currentAuthEmail,
+          payload.users
         );
         const createdBy = existing?.created_by || (c as any).createdBy || currentAuthUid || 'system';
 
@@ -659,20 +694,27 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
 
         if (clientUpsertErr) {
           clientHadError = true;
-          console.error(
-            `[Supabase Sync] Erreur upsert client "${c.firstName} ${c.lastName}" (${c.id}):`,
-            `Code: ${clientUpsertErr.code}`,
-            `Message: ${clientUpsertErr.message}`,
-            `Détails: ${clientUpsertErr.details || ''}`
-          );
-          reportSyncError({
-            table: 'clients',
-            entityId: `${c.firstName} ${c.lastName}`.trim() || c.id,
-            code: clientUpsertErr.code,
-            message: clientUpsertErr.message,
-            details: clientUpsertErr.details,
-            timestamp: new Date().toISOString(),
-          });
+          const isNet =
+            clientUpsertErr.message?.toLowerCase().includes('failed to fetch') ||
+            clientUpsertErr.message?.toLowerCase().includes('network') ||
+            clientUpsertErr.message?.toLowerCase().includes('load failed');
+
+          if (!isNet) {
+            console.warn(
+              `[Supabase Sync] Erreur upsert client "${c.firstName} ${c.lastName}" (${c.id}):`,
+              `Code: ${clientUpsertErr.code}`,
+              `Message: ${clientUpsertErr.message}`,
+              `Détails: ${clientUpsertErr.details || ''}`
+            );
+            reportSyncError({
+              table: 'clients',
+              entityId: `${c.firstName} ${c.lastName}`.trim() || c.id,
+              code: clientUpsertErr.code,
+              message: clientUpsertErr.message,
+              details: clientUpsertErr.details,
+              timestamp: new Date().toISOString(),
+            });
+          }
         }
       }
 
@@ -709,7 +751,8 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
           cnt.assignedManagerName,
           existing?.assigned_manager_id,
           currentAuthUid,
-          currentAuthEmail
+          currentAuthEmail,
+          payload.users
         );
         const createdBy = existing?.created_by || cnt.createdBy || currentAuthUid || 'system';
 
@@ -828,20 +871,27 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
 
         if (contractErr) {
           contractHadError = true;
-          console.error(
-            `[Supabase Sync] Erreur upsert contrat ${cnt.contractNumber || cnt.id}:`,
-            `Code: ${contractErr.code}`,
-            `Message: ${contractErr.message}`,
-            `Détails: ${contractErr.details || ''}`
-          );
-          reportSyncError({
-            table: 'contracts',
-            entityId: cnt.contractNumber || cnt.id,
-            code: contractErr.code,
-            message: contractErr.message,
-            details: contractErr.details,
-            timestamp: new Date().toISOString(),
-          });
+          const isNet =
+            contractErr.message?.toLowerCase().includes('failed to fetch') ||
+            contractErr.message?.toLowerCase().includes('network') ||
+            contractErr.message?.toLowerCase().includes('load failed');
+
+          if (!isNet) {
+            console.warn(
+              `[Supabase Sync] Erreur upsert contrat ${cnt.contractNumber || cnt.id}:`,
+              `Code: ${contractErr.code}`,
+              `Message: ${contractErr.message}`,
+              `Détails: ${contractErr.details || ''}`
+            );
+            reportSyncError({
+              table: 'contracts',
+              entityId: cnt.contractNumber || cnt.id,
+              code: contractErr.code,
+              message: contractErr.message,
+              details: contractErr.details,
+              timestamp: new Date().toISOString(),
+            });
+          }
         }
       }
 
@@ -885,7 +935,8 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
           candidateMgrName,
           existing?.assigned_manager_id,
           currentAuthUid,
-          currentAuthEmail
+          currentAuthEmail,
+          payload.users
         );
 
         const createdBy =
@@ -914,20 +965,27 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
 
         if (depositErr) {
           depositHadError = true;
-          console.error(
-            `[Supabase Sync] Erreur upsert caution ${dep.id}:`,
-            `Code: ${depositErr.code}`,
-            `Message: ${depositErr.message}`,
-            `Détails: ${depositErr.details || ''}`
-          );
-          reportSyncError({
-            table: 'deposits',
-            entityId: dep.id,
-            code: depositErr.code,
-            message: depositErr.message,
-            details: depositErr.details,
-            timestamp: new Date().toISOString(),
-          });
+          const isNet =
+            depositErr.message?.toLowerCase().includes('failed to fetch') ||
+            depositErr.message?.toLowerCase().includes('network') ||
+            depositErr.message?.toLowerCase().includes('load failed');
+
+          if (!isNet) {
+            console.warn(
+              `[Supabase Sync] Erreur upsert caution ${dep.id}:`,
+              `Code: ${depositErr.code}`,
+              `Message: ${depositErr.message}`,
+              `Détails: ${depositErr.details || ''}`
+            );
+            reportSyncError({
+              table: 'deposits',
+              entityId: dep.id,
+              code: depositErr.code,
+              message: depositErr.message,
+              details: depositErr.details,
+              timestamp: new Date().toISOString(),
+            });
+          }
         }
       }
 
@@ -992,20 +1050,27 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
 
         if (profileErr) {
           profileHadError = true;
-          console.error(
-            `[Supabase Sync] Erreur upsert profil (${u.name || u.email || u.id}):`,
-            `Code: ${profileErr.code}`,
-            `Message: ${profileErr.message}`,
-            `Détails: ${profileErr.details || ''}`
-          );
-          reportSyncError({
-            table: 'profiles',
-            entityId: u.name || u.email || u.id,
-            code: profileErr.code,
-            message: profileErr.message,
-            details: profileErr.details,
-            timestamp: new Date().toISOString(),
-          });
+          const isNet =
+            profileErr.message?.toLowerCase().includes('failed to fetch') ||
+            profileErr.message?.toLowerCase().includes('network') ||
+            profileErr.message?.toLowerCase().includes('load failed');
+
+          if (!isNet) {
+            console.warn(
+              `[Supabase Sync] Erreur upsert profil (${u.name || u.email || u.id}):`,
+              `Code: ${profileErr.code}`,
+              `Message: ${profileErr.message}`,
+              `Détails: ${profileErr.details || ''}`
+            );
+            reportSyncError({
+              table: 'profiles',
+              entityId: u.name || u.email || u.id,
+              code: profileErr.code,
+              message: profileErr.message,
+              details: profileErr.details,
+              timestamp: new Date().toISOString(),
+            });
+          }
         }
       }
 
@@ -1078,24 +1143,31 @@ export async function syncAllClientsToSupabase(clients: any[]): Promise<{
       if (!upsertErr) {
         syncedCount++;
       } else {
-        console.error(
-          `[Supabase Sync] Erreur synchronisation client "${c.firstName} ${c.lastName}" (${c.id}):`,
-          `Code: ${upsertErr.code}`,
-          `Message: ${upsertErr.message}`,
-          `Détails: ${upsertErr.details || ''}`
-        );
-        lastErrorMessage = `${upsertErr.code || ''}: ${upsertErr.message}`;
-        if (upsertErr.code === '42501' || upsertErr.message?.includes('row-level security')) {
-          hasRlsError = true;
+        const isNet =
+          upsertErr.message?.toLowerCase().includes('failed to fetch') ||
+          upsertErr.message?.toLowerCase().includes('network') ||
+          upsertErr.message?.toLowerCase().includes('load failed');
+
+        if (!isNet) {
+          console.warn(
+            `[Supabase Sync] Erreur synchronisation client "${c.firstName} ${c.lastName}" (${c.id}):`,
+            `Code: ${upsertErr.code}`,
+            `Message: ${upsertErr.message}`,
+            `Détails: ${upsertErr.details || ''}`
+          );
+          lastErrorMessage = `${upsertErr.code || ''}: ${upsertErr.message}`;
+          if (upsertErr.code === '42501' || upsertErr.message?.includes('row-level security')) {
+            hasRlsError = true;
+          }
+          reportSyncError({
+            table: 'clients',
+            entityId: `${c.firstName} ${c.lastName}`.trim() || c.id,
+            code: upsertErr.code,
+            message: upsertErr.message,
+            details: upsertErr.details,
+            timestamp: new Date().toISOString(),
+          });
         }
-        reportSyncError({
-          table: 'clients',
-          entityId: `${c.firstName} ${c.lastName}`.trim() || c.id,
-          code: upsertErr.code,
-          message: upsertErr.message,
-          details: upsertErr.details,
-          timestamp: new Date().toISOString(),
-        });
       }
     } catch (err: any) {
       lastErrorMessage = err?.message || String(err);

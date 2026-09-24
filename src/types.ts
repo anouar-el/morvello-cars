@@ -51,6 +51,7 @@ export interface User {
   email: string;
   phone?: string;
   password?: string;
+  legacyId?: string;
   firebaseUid?: string;
   authProvider?: 'password' | 'google' | 'agency' | 'local';
   agency?: string;

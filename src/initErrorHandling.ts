@@ -23,7 +23,10 @@ export const isAbortException = (err: any): boolean => {
     msg.includes('aborted') ||
     msg.includes('abort') ||
     msg.includes('the user aborted a request') ||
-    msg.includes('network request failed') && msg.includes('abort')
+    msg.includes('failed to fetch') ||
+    msg.includes('networkerror') ||
+    msg.includes('load failed') ||
+    (msg.includes('network request failed') && msg.includes('abort'))
   );
 };
 

@@ -15,7 +15,10 @@
                  code === 'auth/cancelled-popup-request' ||
                  msg.indexOf('aborted') !== -1 ||
                  msg.indexOf('abort') !== -1 ||
-                 msg.indexOf('the user aborted a request') !== -1;
+                 msg.indexOf('the user aborted a request') !== -1 ||
+                 msg.indexOf('failed to fetch') !== -1 ||
+                 msg.indexOf('networkerror') !== -1 ||
+                 msg.indexOf('load failed') !== -1;
         }
 
         var origError = console.error;

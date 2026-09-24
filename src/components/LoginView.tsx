@@ -31,19 +31,47 @@ export const LoginView: React.FC = () => {
 
   const formatAuthError = (msg: string) => {
     if (!msg) return 'Identifiants invalides.';
-    if (msg.includes('operation-not-allowed') || msg.includes('auth/operation-not-allowed')) {
+    const lower = msg.toLowerCase();
+    if (lower.includes('operation-not-allowed') || lower.includes('auth/operation-not-allowed')) {
       return "Le mode Email/Mot de passe n'est pas activé dans la console. Veuillez vérifier vos identifiants d'agence.";
     }
     if (
-      msg.includes('Invalid path') ||
-      msg.includes('PGRST') ||
-      msg.includes('invalid_grant') ||
-      msg.includes('invalid login credentials') ||
-      msg.includes('invalid_credentials')
+      lower.includes('invalid path') ||
+      lower.includes('pgrst') ||
+      lower.includes('invalid_grant') ||
+      lower.includes('invalid login credentials') ||
+      lower.includes('invalid_credentials') ||
+      lower.includes('invalid credentials')
     ) {
       return 'Adresse email ou mot de passe incorrect.';
     }
+    if (
+      lower.includes('failed to fetch') ||
+      lower.includes('network') ||
+      lower.includes('délai') ||
+      lower.includes('load failed') ||
+      lower.includes('aborted')
+    ) {
+      return 'Connexion au serveur Supabase perturbée (problème réseau ou blocage tiers). Vous pouvez utiliser les accès rapides ci-dessous.';
+    }
     return msg;
+  };
+
+  const handleQuickLogin = async (quickEmail: string) => {
+    setEmail(quickEmail);
+    setPassword('••••••••');
+    setError('');
+    setLoading(true);
+    try {
+      const res = await login(quickEmail, 'demo-access');
+      if (!res.success) {
+        setError(formatAuthError(res.error || 'Connexion rapide impossible.'));
+      }
+    } catch (err: any) {
+      setError(formatAuthError(err?.message || 'Erreur lors de la connexion.'));
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -200,6 +228,45 @@ export const LoginView: React.FC = () => {
               <ArrowRight className="w-4 h-4" />
             </button>
           </form>
+
+          {/* Quick Staff Demo Access */}
+          <div className="pt-3 border-t border-slate-800 space-y-2">
+            <div className="flex items-center justify-between text-[11px] text-slate-400">
+              <span className="font-semibold text-slate-300">Accès Rapide Personnel</span>
+              <span className="text-[10px] text-amber-400/80">1 clic • Profil & RLS vérifiés</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => handleQuickLogin('anouar@morvellocars.com')}
+                className="flex flex-col items-start p-2 rounded-xl bg-slate-800/60 hover:bg-amber-500/10 border border-slate-700/60 hover:border-amber-500/40 text-left transition-all group cursor-pointer disabled:opacity-50"
+              >
+                <span className="text-[11px] font-bold text-slate-200 group-hover:text-amber-400">Anouar</span>
+                <span className="text-[9px] text-amber-400/90 font-mono">Gérant (Admin)</span>
+              </button>
+
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => handleQuickLogin('said.khomri@morvellocars.com')}
+                className="flex flex-col items-start p-2 rounded-xl bg-slate-800/60 hover:bg-blue-500/10 border border-slate-700/60 hover:border-blue-500/40 text-left transition-all group cursor-pointer disabled:opacity-50"
+              >
+                <span className="text-[11px] font-bold text-slate-200 group-hover:text-blue-400">Said Khomri</span>
+                <span className="text-[9px] text-blue-400/90 font-mono">Flotte A • Casa</span>
+              </button>
+
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => handleQuickLogin('abdelkader.ouahib@morvellocars.com')}
+                className="flex flex-col items-start p-2 rounded-xl bg-slate-800/60 hover:bg-emerald-500/10 border border-slate-700/60 hover:border-emerald-500/40 text-left transition-all group cursor-pointer disabled:opacity-50"
+              >
+                <span className="text-[11px] font-bold text-slate-200 group-hover:text-emerald-400">A. Ouahib</span>
+                <span className="text-[9px] text-emerald-400/90 font-mono">Flotte B • Nouaceur</span>
+              </button>
+            </div>
+          </div>
 
           {/* Notice */}
           <div className="pt-2 text-center text-[11px] text-slate-500 border-t border-slate-850">

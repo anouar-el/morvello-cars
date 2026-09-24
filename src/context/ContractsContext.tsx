@@ -241,14 +241,26 @@ export const ContractsProvider: React.FC<{
     if (!assignedManagerId || !managerPhone) {
       const veh = vehicles.find((v) => v.id === contractData.vehicleId);
       if (veh?.assignedManagerId) {
-        const mgr = users.find((u) => u.id === veh.assignedManagerId);
-        assignedManagerId = assignedManagerId || veh.assignedManagerId;
+        const mgr = users.find((u) => u.id === veh.assignedManagerId || u.legacyId === veh.assignedManagerId);
+        assignedManagerId = assignedManagerId || (mgr?.firebaseUid || (!mgr?.id?.startsWith('usr-') ? mgr?.id : undefined) || veh.assignedManagerId);
         assignedManagerName = assignedManagerName || veh.assignedManagerName || mgr?.name;
         managerPhone = managerPhone || mgr?.phone;
       } else if (currentUser?.role === 'manager') {
-        assignedManagerId = assignedManagerId || currentUser.id;
+        assignedManagerId = assignedManagerId || currentUser.firebaseUid || currentUser.id;
         assignedManagerName = assignedManagerName || currentUser.name;
         managerPhone = managerPhone || currentUser.phone;
+      }
+    }
+
+    // Toujours résoudre un identifiant hérité ('usr-N') vers le véritable UUID Supabase si disponible
+    if (assignedManagerId) {
+      const matchedMgr = users.find((u) => u.id === assignedManagerId || u.legacyId === assignedManagerId);
+      if (matchedMgr) {
+        if (matchedMgr.firebaseUid) {
+          assignedManagerId = matchedMgr.firebaseUid;
+        } else if (matchedMgr.id && !matchedMgr.id.startsWith('usr-')) {
+          assignedManagerId = matchedMgr.id;
+        }
       }
     }
 
@@ -293,7 +305,17 @@ export const ContractsProvider: React.FC<{
     const rentedVeh = vehicles.find(
       (v) => v.id === newContract.vehicleId || v.plate === newContract.vehicleSnapshot?.plate
     );
-    const resolvedManagerId = rentedVeh?.assignedManagerId || newContract.assignedManagerId;
+    let resolvedManagerId = rentedVeh?.assignedManagerId || newContract.assignedManagerId;
+    if (resolvedManagerId) {
+      const matchedMgr = users.find((u) => u.id === resolvedManagerId || u.legacyId === resolvedManagerId);
+      if (matchedMgr) {
+        if (matchedMgr.firebaseUid) {
+          resolvedManagerId = matchedMgr.firebaseUid;
+        } else if (matchedMgr.id && !matchedMgr.id.startsWith('usr-')) {
+          resolvedManagerId = matchedMgr.id;
+        }
+      }
+    }
     const resolvedManagerName = rentedVeh?.assignedManagerName || newContract.assignedManagerName;
 
     if (newContract.depositAmount && newContract.depositAmount > 0) {

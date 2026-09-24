@@ -24,6 +24,7 @@ ALTER TABLE public.deposits ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 
 -- 2.1 ASSURANCE DES COLONNES MULTI-GESTIONNAIRES & RECHARGEMENT DU SCHÉMA
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS legacy_id TEXT;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS local_id TEXT;
 ALTER TABLE public.vehicles ADD COLUMN IF NOT EXISTS assigned_manager_id TEXT;
 ALTER TABLE public.vehicles ADD COLUMN IF NOT EXISTS created_by TEXT;
@@ -34,6 +35,8 @@ ALTER TABLE public.contracts ADD COLUMN IF NOT EXISTS created_by TEXT;
 ALTER TABLE public.deposits ADD COLUMN IF NOT EXISTS assigned_manager_id TEXT;
 ALTER TABLE public.deposits ADD COLUMN IF NOT EXISTS created_by TEXT;
 
+CREATE INDEX IF NOT EXISTS idx_profiles_legacy_id ON public.profiles(legacy_id);
+CREATE INDEX IF NOT EXISTS idx_profiles_local_id ON public.profiles(local_id);
 CREATE INDEX IF NOT EXISTS idx_vehicles_assigned_manager ON public.vehicles(assigned_manager_id);
 CREATE INDEX IF NOT EXISTS idx_clients_assigned_manager ON public.clients(assigned_manager_id);
 CREATE INDEX IF NOT EXISTS idx_contracts_assigned_manager ON public.contracts(assigned_manager_id);
@@ -60,8 +63,7 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
   SELECT COALESCE(
-    (SELECT role = 'admin' OR local_id = 'usr-1' OR email ILIKE '%anouar%' FROM public.profiles WHERE id = auth.uid()::text),
-    (auth.jwt()->>'email' ILIKE '%anouar%'),
+    (SELECT role = 'admin' OR legacy_id = 'usr-1' OR local_id = 'usr-1' FROM public.profiles WHERE id = auth.uid()::text),
     false
   );
 $$;
@@ -70,7 +72,7 @@ $$;
 -- - Les administrateurs ont accès à tout
 -- - Les lignes non assignées (NULL ou '') sont visibles par tous les collaborateurs authentifiés
 -- - Les lignes assignées sont réservées au manager assigné ou au créateur
--- - Supporte à la fois l'UID Supabase Auth, l'identifiant local (usr-1 à usr-6), et le nom du manager
+-- - Comparaisons strictes d'identifiants (auth.uid() ou mapping profiles.legacy_id / local_id) SANS MATCHING TEXTE LIBRE
 CREATE OR REPLACE FUNCTION public.can_access_manager_row(row_assigned_manager_id text, row_created_by text)
 RETURNS boolean
 LANGUAGE sql
@@ -86,48 +88,17 @@ AS $$
         OR trim(row_assigned_manager_id) = ''
         OR (row_assigned_manager_id = auth.uid()::text)
         OR (row_created_by IS NOT NULL AND row_created_by = auth.uid()::text)
-        -- Correspondance directe par email JWT (infaillible même si la table profiles est en cours de création)
-        OR ((auth.jwt()->>'email' ILIKE '%said%' OR auth.jwt()->>'email' ILIKE '%khomri%') 
-            AND ((row_assigned_manager_id ILIKE '%usr-2%' OR row_assigned_manager_id ILIKE '%said%') 
-                 OR (row_created_by ILIKE '%usr-2%' OR row_created_by ILIKE '%said%')))
-        OR (auth.jwt()->>'email' ILIKE '%ouahib%' 
-            AND ((row_assigned_manager_id ILIKE '%usr-3%' OR row_assigned_manager_id ILIKE '%ouahib%')
-                 OR (row_created_by ILIKE '%usr-3%' OR row_created_by ILIKE '%ouahib%')))
-        OR (auth.jwt()->>'email' ILIKE '%benali%' 
-            AND ((row_assigned_manager_id ILIKE '%usr-1%' OR row_assigned_manager_id ILIKE '%benali%')
-                 OR (row_created_by ILIKE '%usr-1%' OR row_created_by ILIKE '%benali%')))
-        OR (auth.jwt()->>'email' ILIKE '%ezzay%' 
-            AND ((row_assigned_manager_id ILIKE '%usr-5%' OR row_assigned_manager_id ILIKE '%ezzay%')
-                 OR (row_created_by ILIKE '%usr-5%' OR row_created_by ILIKE '%ezzay%')))
-        OR (auth.jwt()->>'email' ILIKE '%larbi%' 
-            AND ((row_assigned_manager_id ILIKE '%usr-6%' OR row_assigned_manager_id ILIKE '%larbi%')
-                 OR (row_created_by ILIKE '%usr-6%' OR row_created_by ILIKE '%larbi%')))
         OR EXISTS (
           SELECT 1 FROM public.profiles p 
           WHERE p.id = auth.uid()::text 
           AND (
             (row_assigned_manager_id IS NOT NULL AND (
-              p.id = row_assigned_manager_id 
-              OR p.name = row_assigned_manager_id
-              OR (p.local_id IS NOT NULL AND p.local_id = row_assigned_manager_id)
-              OR (p.name ILIKE '%said%' AND (row_assigned_manager_id ILIKE '%usr-2%' OR row_assigned_manager_id ILIKE '%said%'))
-              OR (p.name ILIKE '%ouahib%' AND (row_assigned_manager_id ILIKE '%usr-3%' OR row_assigned_manager_id ILIKE '%ouahib%'))
-              OR (p.name ILIKE '%benali%' AND (row_assigned_manager_id ILIKE '%usr-1%' OR row_assigned_manager_id ILIKE '%benali%'))
-              OR (p.name ILIKE '%ezzay%' AND (row_assigned_manager_id ILIKE '%usr-5%' OR row_assigned_manager_id ILIKE '%ezzay%'))
-              OR (p.name ILIKE '%larbi%' AND (row_assigned_manager_id ILIKE '%usr-6%' OR row_assigned_manager_id ILIKE '%larbi%'))
-              OR (p.name ILIKE '%mansouri%' AND (row_assigned_manager_id ILIKE '%usr-2%' OR row_assigned_manager_id ILIKE '%mansouri%'))
-              OR (p.name ILIKE '%alami%' AND (row_assigned_manager_id ILIKE '%usr-4%' OR row_assigned_manager_id ILIKE '%alami%'))
+              p.legacy_id = row_assigned_manager_id 
+              OR p.local_id = row_assigned_manager_id
             ))
             OR (row_created_by IS NOT NULL AND (
-              p.id = row_created_by 
-              OR p.name = row_created_by 
-              OR p.email = row_created_by
-              OR (p.local_id IS NOT NULL AND p.local_id = row_created_by)
-              OR (p.name ILIKE '%said%' AND (row_created_by ILIKE '%usr-2%' OR row_created_by ILIKE '%said%'))
-              OR (p.name ILIKE '%ouahib%' AND (row_created_by ILIKE '%usr-3%' OR row_created_by ILIKE '%ouahib%'))
-              OR (p.name ILIKE '%benali%' AND (row_created_by ILIKE '%usr-1%' OR row_created_by ILIKE '%benali%'))
-              OR (p.name ILIKE '%ezzay%' AND (row_created_by ILIKE '%usr-5%' OR row_created_by ILIKE '%ezzay%'))
-              OR (p.name ILIKE '%larbi%' AND (row_created_by ILIKE '%usr-6%' OR row_created_by ILIKE '%larbi%'))
+              p.legacy_id = row_created_by 
+              OR p.local_id = row_created_by
             ))
           )
         )
@@ -136,7 +107,7 @@ AS $$
 $$;
 
 -- Empêche un manager ou agent d'affecter une ressource à un autre gestionnaire que lui-même
--- Supporte l'UID Supabase, l'identifiant local (usr-1 à usr-5), et le nom du manager
+-- Comparaisons strictes d'identifiants (auth.uid() ou mapping profiles.legacy_id / local_id) SANS MATCHING TEXTE LIBRE
 CREATE OR REPLACE FUNCTION public.can_assign_manager(row_assigned_manager_id text)
 RETURNS boolean
 LANGUAGE sql
@@ -152,29 +123,12 @@ AS $$
         row_assigned_manager_id IS NULL
         OR trim(row_assigned_manager_id) = ''
         OR row_assigned_manager_id = auth.uid()::text
-        -- Correspondance directe par email JWT
-        OR ((auth.jwt()->>'email' ILIKE '%said%' OR auth.jwt()->>'email' ILIKE '%khomri%') 
-            AND (row_assigned_manager_id ILIKE '%usr-2%' OR row_assigned_manager_id ILIKE '%said%'))
-        OR (auth.jwt()->>'email' ILIKE '%ouahib%' 
-            AND (row_assigned_manager_id ILIKE '%usr-3%' OR row_assigned_manager_id ILIKE '%ouahib%'))
-        OR (auth.jwt()->>'email' ILIKE '%benali%' 
-            AND (row_assigned_manager_id ILIKE '%usr-1%' OR row_assigned_manager_id ILIKE '%benali%'))
-        OR (auth.jwt()->>'email' ILIKE '%ezzay%' 
-            AND (row_assigned_manager_id ILIKE '%usr-5%' OR row_assigned_manager_id ILIKE '%ezzay%'))
-        OR (auth.jwt()->>'email' ILIKE '%larbi%' 
-            AND (row_assigned_manager_id ILIKE '%usr-6%' OR row_assigned_manager_id ILIKE '%larbi%'))
         OR EXISTS (
           SELECT 1 FROM public.profiles p 
           WHERE p.id = auth.uid()::text 
           AND (
-            p.id = row_assigned_manager_id
-            OR p.name = row_assigned_manager_id
-            OR (p.local_id IS NOT NULL AND p.local_id = row_assigned_manager_id)
-            OR (p.name ILIKE '%said%' AND (row_assigned_manager_id ILIKE '%usr-2%' OR row_assigned_manager_id ILIKE '%said%'))
-            OR (p.name ILIKE '%ouahib%' AND (row_assigned_manager_id ILIKE '%usr-3%' OR row_assigned_manager_id ILIKE '%ouahib%'))
-            OR (p.name ILIKE '%benali%' AND (row_assigned_manager_id ILIKE '%usr-1%' OR row_assigned_manager_id ILIKE '%benali%'))
-            OR (p.name ILIKE '%ezzay%' AND (row_assigned_manager_id ILIKE '%usr-5%' OR row_assigned_manager_id ILIKE '%ezzay%'))
-            OR (p.name ILIKE '%larbi%' AND (row_assigned_manager_id ILIKE '%usr-6%' OR row_assigned_manager_id ILIKE '%larbi%'))
+            p.legacy_id = row_assigned_manager_id 
+            OR p.local_id = row_assigned_manager_id
           )
         )
       )
@@ -376,33 +330,48 @@ CREATE POLICY "audit_logs_insert" ON public.audit_logs
   FOR INSERT TO authenticated 
   WITH CHECK (auth.uid() IS NOT NULL);
 
--- 12. Rapprochement automatique des fiches existantes (Ouahib, Said, etc.)
-DO $$
-DECLARE
-  ouahib_uid text;
-  said_uid text;
-BEGIN
-  -- Rapprochement Ouahib (usr-3)
-  SELECT id INTO ouahib_uid FROM public.profiles WHERE name ILIKE '%ouahib%' OR email ILIKE '%ouahib%' LIMIT 1;
-  IF ouahib_uid IS NOT NULL THEN
-    UPDATE public.profiles SET local_id = 'usr-3' WHERE id = ouahib_uid;
-    UPDATE public.contracts SET assigned_manager_id = ouahib_uid WHERE assigned_manager_id = 'usr-3' OR contract_number = 'MC-2026-0050' OR id = 'cnt-1789166132353';
-    UPDATE public.vehicles SET assigned_manager_id = ouahib_uid WHERE assigned_manager_id = 'usr-3';
-    UPDATE public.deposits SET assigned_manager_id = ouahib_uid WHERE assigned_manager_id = 'usr-3';
-    UPDATE public.clients SET assigned_manager_id = ouahib_uid WHERE assigned_manager_id = 'usr-3';
-  ELSE
-    UPDATE public.contracts SET assigned_manager_id = 'usr-3' WHERE contract_number = 'MC-2026-0050' OR id = 'cnt-1789166132353';
-  END IF;
+-- 12. Rapprochement et migration des identifiants existants (legacy_id -> UUID)
+-- Migration ponctuelle par jointure stricte sur profiles.legacy_id
+UPDATE public.contracts c
+SET assigned_manager_id = p.id
+FROM public.profiles p
+WHERE (c.assigned_manager_id = p.legacy_id OR c.assigned_manager_id = p.local_id)
+  AND p.id IS NOT NULL;
 
-  -- Rapprochement Said (usr-2)
-  SELECT id INTO said_uid FROM public.profiles WHERE name ILIKE '%said%' OR email ILIKE '%said%' LIMIT 1;
-  IF said_uid IS NOT NULL THEN
-    UPDATE public.profiles SET local_id = 'usr-2' WHERE id = said_uid;
-    UPDATE public.contracts SET assigned_manager_id = said_uid WHERE assigned_manager_id = 'usr-2' AND contract_number <> 'MC-2026-0050' AND id <> 'cnt-1789166132353';
-    UPDATE public.vehicles SET assigned_manager_id = said_uid WHERE assigned_manager_id = 'usr-2';
-    UPDATE public.deposits SET assigned_manager_id = said_uid WHERE assigned_manager_id = 'usr-2';
-    UPDATE public.clients SET assigned_manager_id = said_uid WHERE assigned_manager_id = 'usr-2';
-  END IF;
-END $$;
+UPDATE public.contracts c
+SET created_by = p.id
+FROM public.profiles p
+WHERE (c.created_by = p.legacy_id OR c.created_by = p.local_id)
+  AND p.id IS NOT NULL;
+
+UPDATE public.vehicles v
+SET assigned_manager_id = p.id
+FROM public.profiles p
+WHERE (v.assigned_manager_id = p.legacy_id OR v.assigned_manager_id = p.local_id)
+  AND p.id IS NOT NULL;
+
+UPDATE public.clients c
+SET assigned_manager_id = p.id
+FROM public.profiles p
+WHERE (c.assigned_manager_id = p.legacy_id OR c.assigned_manager_id = p.local_id)
+  AND p.id IS NOT NULL;
+
+UPDATE public.clients c
+SET created_by = p.id
+FROM public.profiles p
+WHERE (c.created_by = p.legacy_id OR c.created_by = p.local_id)
+  AND p.id IS NOT NULL;
+
+UPDATE public.deposits d
+SET assigned_manager_id = p.id
+FROM public.profiles p
+WHERE (d.assigned_manager_id = p.legacy_id OR d.assigned_manager_id = p.local_id)
+  AND p.id IS NOT NULL;
+
+UPDATE public.deposits d
+SET created_by = p.id
+FROM public.profiles p
+WHERE (d.created_by = p.legacy_id OR d.created_by = p.local_id)
+  AND p.id IS NOT NULL;
 
 NOTIFY pgrst, 'reload schema';

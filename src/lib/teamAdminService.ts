@@ -216,10 +216,10 @@ export async function callProvisionTeamMember(
     console.warn('[teamAdminService] Backend API provision-team-member error:', backendError);
   }
 
-  // Fallback return with simulated UID for offline continuity
+  // Fallback return with standard UUID for offline continuity
   return {
     success: true,
-    uid: `usr-prov-${Date.now()}`,
+    uid: crypto.randomUUID(),
     email,
     name,
     role,

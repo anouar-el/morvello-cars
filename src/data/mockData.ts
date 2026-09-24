@@ -20,6 +20,7 @@ export const initialCompanySettings: CompanySettings = {
 export const initialUsers: User[] = [
   {
     id: 'usr-1',
+    legacyId: 'usr-1',
     name: 'Anouar',
     role: 'admin',
     email: 'anouar@morvellocars.com',
@@ -32,6 +33,7 @@ export const initialUsers: User[] = [
   },
   {
     id: 'usr-2',
+    legacyId: 'usr-2',
     name: 'Said Khomri',
     role: 'manager',
     email: 'said.khomri@morvellocars.com',
@@ -44,6 +46,7 @@ export const initialUsers: User[] = [
   },
   {
     id: 'usr-3',
+    legacyId: 'usr-3',
     name: 'Abdelkader Ouahib',
     role: 'manager',
     email: 'abdelkader.ouahib@morvellocars.com',
@@ -56,6 +59,7 @@ export const initialUsers: User[] = [
   },
   {
     id: 'usr-5',
+    legacyId: 'usr-5',
     name: 'Mohamed Ezzay',
     role: 'manager',
     email: 'mohamed.ezzay@morvellocars.com',
@@ -68,6 +72,7 @@ export const initialUsers: User[] = [
   },
   {
     id: 'usr-6',
+    legacyId: 'usr-6',
     name: 'Larbi Khomri',
     role: 'manager',
     email: 'larbi.khomri@morvellocars.com',

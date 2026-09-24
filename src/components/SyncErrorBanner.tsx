@@ -33,8 +33,78 @@ CREATE INDEX IF NOT EXISTS idx_vehicles_assigned_manager ON public.vehicles(assi
 
 NOTIFY pgrst, 'reload schema';`;
 
-const FIX_RLS_SQL_SCRIPT = `-- MORVELLO CARS - Déblocage RLS des Gestionnaires (Ouahib, Said, etc.)
--- 1. Fonction sécurisée : can_access_manager_row (USING pour SELECT & UPDATE)
+const FIX_RLS_SQL_SCRIPT = `-- MORVELLO CARS - Migration définitive & Sécurisation stricte RLS
+-- 1. Étape 1 : Assurer les colonnes legacy_id et local_id sur public.profiles
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS legacy_id TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS local_id TEXT;
+
+CREATE INDEX IF NOT EXISTS idx_profiles_legacy_id ON public.profiles(legacy_id);
+CREATE INDEX IF NOT EXISTS idx_profiles_local_id ON public.profiles(local_id);
+
+-- Associer ponctuellement les legacy_id
+UPDATE public.profiles SET legacy_id = 'usr-1', local_id = 'usr-1' WHERE email ILIKE '%anouar%' OR name ILIKE '%anouar%';
+UPDATE public.profiles SET legacy_id = 'usr-2', local_id = 'usr-2' WHERE email ILIKE '%said%' OR email ILIKE '%khomri%' OR name ILIKE '%said%';
+UPDATE public.profiles SET legacy_id = 'usr-3', local_id = 'usr-3' WHERE email ILIKE '%ouahib%' OR name ILIKE '%ouahib%';
+UPDATE public.profiles SET legacy_id = 'usr-5', local_id = 'usr-5' WHERE email ILIKE '%ezzay%' OR name ILIKE '%ezzay%';
+UPDATE public.profiles SET legacy_id = 'usr-6', local_id = 'usr-6' WHERE email ILIKE '%larbi%' OR name ILIKE '%larbi%';
+
+-- 2. Étape 2 : Migration des données existantes par jointure stricte sur legacy_id (usr-N -> UUID)
+UPDATE public.contracts c
+SET assigned_manager_id = p.id
+FROM public.profiles p
+WHERE (c.assigned_manager_id = p.legacy_id OR c.assigned_manager_id = p.local_id)
+  AND p.id IS NOT NULL;
+
+UPDATE public.contracts c
+SET created_by = p.id
+FROM public.profiles p
+WHERE (c.created_by = p.legacy_id OR c.created_by = p.local_id)
+  AND p.id IS NOT NULL;
+
+UPDATE public.vehicles v
+SET assigned_manager_id = p.id
+FROM public.profiles p
+WHERE (v.assigned_manager_id = p.legacy_id OR v.assigned_manager_id = p.local_id)
+  AND p.id IS NOT NULL;
+
+UPDATE public.clients c
+SET assigned_manager_id = p.id
+FROM public.profiles p
+WHERE (c.assigned_manager_id = p.legacy_id OR c.assigned_manager_id = p.local_id)
+  AND p.id IS NOT NULL;
+
+UPDATE public.clients c
+SET created_by = p.id
+FROM public.profiles p
+WHERE (c.created_by = p.legacy_id OR c.created_by = p.local_id)
+  AND p.id IS NOT NULL;
+
+UPDATE public.deposits d
+SET assigned_manager_id = p.id
+FROM public.profiles p
+WHERE (d.assigned_manager_id = p.legacy_id OR d.assigned_manager_id = p.local_id)
+  AND p.id IS NOT NULL;
+
+UPDATE public.deposits d
+SET created_by = p.id
+FROM public.profiles p
+WHERE (d.created_by = p.legacy_id OR d.created_by = p.local_id)
+  AND p.id IS NOT NULL;
+
+-- 3. Étape 3 : Fonctions RLS strictes SANS AUCUN matching texte libre sur email/nom
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT COALESCE(
+    (SELECT role = 'admin' OR legacy_id = 'usr-1' OR local_id = 'usr-1' FROM public.profiles WHERE id = auth.uid()::text),
+    false
+  );
+$$;
+
 CREATE OR REPLACE FUNCTION public.can_access_manager_row(row_assigned_manager_id text, row_created_by text)
 RETURNS boolean
 LANGUAGE sql
@@ -50,39 +120,17 @@ AS $$
         OR trim(row_assigned_manager_id) = ''
         OR (row_assigned_manager_id = auth.uid()::text)
         OR (row_created_by IS NOT NULL AND row_created_by = auth.uid()::text)
-        OR ((auth.jwt()->>'email' ILIKE '%said%' OR auth.jwt()->>'email' ILIKE '%khomri%') 
-            AND ((row_assigned_manager_id ILIKE '%usr-2%' OR row_assigned_manager_id ILIKE '%said%') 
-                 OR (row_created_by ILIKE '%usr-2%' OR row_created_by ILIKE '%said%')))
-        OR (auth.jwt()->>'email' ILIKE '%ouahib%' 
-            AND ((row_assigned_manager_id ILIKE '%usr-3%' OR row_assigned_manager_id ILIKE '%ouahib%')
-                 OR (row_created_by ILIKE '%usr-3%' OR row_created_by ILIKE '%ouahib%')))
-        OR (auth.jwt()->>'email' ILIKE '%benali%' 
-            AND ((row_assigned_manager_id ILIKE '%usr-1%' OR row_assigned_manager_id ILIKE '%benali%')
-                 OR (row_created_by ILIKE '%usr-1%' OR row_created_by ILIKE '%benali%')))
-        OR (auth.jwt()->>'email' ILIKE '%ezzay%' 
-            AND ((row_assigned_manager_id ILIKE '%usr-5%' OR row_assigned_manager_id ILIKE '%ezzay%')
-                 OR (row_created_by ILIKE '%usr-5%' OR row_created_by ILIKE '%ezzay%')))
-        OR (auth.jwt()->>'email' ILIKE '%larbi%' 
-            AND ((row_assigned_manager_id ILIKE '%usr-6%' OR row_assigned_manager_id ILIKE '%larbi%')
-                 OR (row_created_by ILIKE '%usr-6%' OR row_created_by ILIKE '%larbi%')))
         OR EXISTS (
           SELECT 1 FROM public.profiles p 
           WHERE p.id = auth.uid()::text 
           AND (
             (row_assigned_manager_id IS NOT NULL AND (
-              p.id = row_assigned_manager_id 
-              OR p.name = row_assigned_manager_id
-              OR (p.local_id IS NOT NULL AND p.local_id = row_assigned_manager_id)
-              OR (p.name ILIKE '%said%' AND (row_assigned_manager_id ILIKE '%usr-2%' OR row_assigned_manager_id ILIKE '%said%'))
-              OR (p.name ILIKE '%ouahib%' AND (row_assigned_manager_id ILIKE '%usr-3%' OR row_assigned_manager_id ILIKE '%ouahib%'))
-              OR (p.name ILIKE '%benali%' AND (row_assigned_manager_id ILIKE '%usr-1%' OR row_assigned_manager_id ILIKE '%benali%'))
+              p.legacy_id = row_assigned_manager_id 
+              OR p.local_id = row_assigned_manager_id
             ))
             OR (row_created_by IS NOT NULL AND (
-              p.id = row_created_by 
-              OR p.name = row_created_by 
-              OR (p.local_id IS NOT NULL AND p.local_id = row_created_by)
-              OR (p.name ILIKE '%said%' AND (row_created_by ILIKE '%usr-2%' OR row_created_by ILIKE '%said%'))
-              OR (p.name ILIKE '%ouahib%' AND (row_created_by ILIKE '%usr-3%' OR row_created_by ILIKE '%ouahib%'))
+              p.legacy_id = row_created_by 
+              OR p.local_id = row_created_by
             ))
           )
         )
@@ -90,7 +138,6 @@ AS $$
     );
 $$;
 
--- 2. Fonction sécurisée : can_assign_manager (WITH CHECK pour INSERT & UPDATE)
 CREATE OR REPLACE FUNCTION public.can_assign_manager(row_assigned_manager_id text)
 RETURNS boolean
 LANGUAGE sql
@@ -106,40 +153,19 @@ AS $$
         row_assigned_manager_id IS NULL
         OR trim(row_assigned_manager_id) = ''
         OR row_assigned_manager_id = auth.uid()::text
-        OR ((auth.jwt()->>'email' ILIKE '%said%' OR auth.jwt()->>'email' ILIKE '%khomri%') 
-            AND (row_assigned_manager_id ILIKE '%usr-2%' OR row_assigned_manager_id ILIKE '%said%'))
-        OR (auth.jwt()->>'email' ILIKE '%ouahib%' 
-            AND (row_assigned_manager_id ILIKE '%usr-3%' OR row_assigned_manager_id ILIKE '%ouahib%'))
-        OR (auth.jwt()->>'email' ILIKE '%benali%' 
-            AND (row_assigned_manager_id ILIKE '%usr-1%' OR row_assigned_manager_id ILIKE '%benali%'))
-        OR (auth.jwt()->>'email' ILIKE '%ezzay%' 
-            AND (row_assigned_manager_id ILIKE '%usr-5%' OR row_assigned_manager_id ILIKE '%ezzay%'))
-        OR (auth.jwt()->>'email' ILIKE '%larbi%' 
-            AND (row_assigned_manager_id ILIKE '%usr-6%' OR row_assigned_manager_id ILIKE '%larbi%'))
         OR EXISTS (
           SELECT 1 FROM public.profiles p 
           WHERE p.id = auth.uid()::text 
           AND (
-            p.id = row_assigned_manager_id
-            OR p.name = row_assigned_manager_id
-            OR (p.local_id IS NOT NULL AND p.local_id = row_assigned_manager_id)
-            OR (p.name ILIKE '%said%' AND (row_assigned_manager_id ILIKE '%usr-2%' OR row_assigned_manager_id ILIKE '%said%'))
-            OR (p.name ILIKE '%ouahib%' AND (row_assigned_manager_id ILIKE '%usr-3%' OR row_assigned_manager_id ILIKE '%ouahib%'))
-            OR (p.name ILIKE '%benali%' AND (row_assigned_manager_id ILIKE '%usr-1%' OR row_assigned_manager_id ILIKE '%benali%'))
-            OR (p.name ILIKE '%ezzay%' AND (row_assigned_manager_id ILIKE '%usr-5%' OR row_assigned_manager_id ILIKE '%ezzay%'))
-            OR (p.name ILIKE '%larbi%' AND (row_assigned_manager_id ILIKE '%usr-6%' OR row_assigned_manager_id ILIKE '%larbi%'))
+            p.legacy_id = row_assigned_manager_id 
+            OR p.local_id = row_assigned_manager_id
           )
         )
       )
     );
 $$;
 
--- 3. Réaffectation immédiate du contrat MC-2026-0050 à Abdelkader Ouahib
-UPDATE public.contracts 
-SET assigned_manager_id = 'usr-3' 
-WHERE contract_number = 'MC-2026-0050' OR id = 'cnt-1789166132353';
-
--- 4. Rechargement à chaud du cache de schéma Supabase
+-- 4. Rechargement du cache schéma Supabase
 NOTIFY pgrst, 'reload schema';`;
 
 export const SyncErrorBanner: React.FC = () => {

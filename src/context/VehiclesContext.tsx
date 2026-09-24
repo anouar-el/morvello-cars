@@ -61,6 +61,15 @@ export const VehiclesProvider: React.FC<{
 
     const assignedUser = initialUsers.find((u) => u.id === vehicleData.assignedManagerId);
 
+    const currentUserId = currentUser?.firebaseUid || currentUser?.id;
+    let resolvedManagerId = isManager && currentUserId ? currentUserId : vehicleData.assignedManagerId;
+    if (resolvedManagerId) {
+      const matched = initialUsers.find((u) => u.id === resolvedManagerId || u.legacyId === resolvedManagerId);
+      if (matched?.firebaseUid) {
+        resolvedManagerId = matched.firebaseUid;
+      }
+    }
+
     const newVehicle: Vehicle = {
       ...vehicleData,
       id: `veh-${Date.now()}`,
@@ -68,7 +77,7 @@ export const VehiclesProvider: React.FC<{
       approvalStatus: needsGerantApproval ? 'pending_approval' : (vehicleData.approvalStatus || 'approved'),
       proposedBy: needsGerantApproval ? (currentUser?.name || 'Agent') : (vehicleData.proposedBy || currentUser?.name || 'Gérant'),
       proposedAt: needsGerantApproval ? new Date().toISOString() : (vehicleData.proposedAt || new Date().toISOString()),
-      assignedManagerId: isManager && currentUser ? currentUser.id : vehicleData.assignedManagerId,
+      assignedManagerId: resolvedManagerId,
       assignedManagerName: isManager && currentUser ? currentUser.name : (assignedUser?.name || vehicleData.assignedManagerName),
     };
 
@@ -110,12 +119,13 @@ export const VehiclesProvider: React.FC<{
     const updatedVehicles = vehicles.map((v) => {
       if (v.id === vehicleId) {
         const targetManager = assignedManagerId
-          ? initialUsers.find((u) => u.id === assignedManagerId)
-          : initialUsers.find((u) => u.id === v.assignedManagerId);
+          ? initialUsers.find((u) => u.id === assignedManagerId || u.legacyId === assignedManagerId)
+          : initialUsers.find((u) => u.id === v.assignedManagerId || u.legacyId === v.assignedManagerId);
+        const resolvedId = targetManager?.firebaseUid || (targetManager?.id && !targetManager.id.startsWith('usr-') ? targetManager.id : undefined) || assignedManagerId || v.assignedManagerId;
         return {
           ...v,
           approvalStatus: 'approved' as const,
-          assignedManagerId: targetManager ? targetManager.id : v.assignedManagerId,
+          assignedManagerId: resolvedId,
           assignedManagerName: targetManager ? targetManager.name : v.assignedManagerName,
         };
       }
@@ -161,11 +171,13 @@ export const VehiclesProvider: React.FC<{
     managerName: string,
     actorName: string = 'Gérant'
   ) => {
+    const matched = initialUsers.find((u) => u.id === managerId || u.legacyId === managerId);
+    const resolvedId = matched?.firebaseUid || (matched?.id && !matched.id.startsWith('usr-') ? matched.id : managerId);
     const updatedVehicles = vehicles.map((v) =>
       v.id === vehicleId
         ? {
             ...v,
-            assignedManagerId: managerId,
+            assignedManagerId: resolvedId,
             assignedManagerName: managerName,
           }
         : v

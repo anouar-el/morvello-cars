@@ -166,14 +166,13 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
   SELECT COALESCE(
-    (SELECT role = 'admin' OR local_id = 'usr-1' OR email ILIKE '%anouar%' FROM public.profiles WHERE id = auth.uid()::text),
-    (auth.jwt()->>'email' ILIKE '%anouar%'),
+    (SELECT role = 'admin' OR legacy_id = 'usr-1' OR local_id = 'usr-1' FROM public.profiles WHERE id = auth.uid()::text),
     false
   );
 $$;
 
 -- Vérifie si l'utilisateur connecté (admin, manager ou agent) a le droit de lire une ressource
--- Supporte l'UID Supabase Auth, l'identifiant local (usr-1 à usr-5), et le nom du manager
+-- Supporte l'UID Supabase Auth et les identifiants migrés (profiles.legacy_id / profiles.local_id) sans texte libre
 CREATE OR REPLACE FUNCTION public.can_access_manager_row(row_assigned_manager_id text, row_created_by text)
 RETURNS boolean
 LANGUAGE sql
@@ -193,49 +192,18 @@ AS $$
         OR (row_assigned_manager_id = auth.uid()::text)
         -- 4. Ou créé par le manager/agent via son UID
         OR (row_created_by IS NOT NULL AND row_created_by = auth.uid()::text)
-        -- Correspondance directe par email JWT (infaillible même si la table profiles est en cours de création)
-        OR ((auth.jwt()->>'email' ILIKE '%said%' OR auth.jwt()->>'email' ILIKE '%khomri%') 
-            AND ((row_assigned_manager_id ILIKE '%usr-2%' OR row_assigned_manager_id ILIKE '%said%') 
-                 OR (row_created_by ILIKE '%usr-2%' OR row_created_by ILIKE '%said%')))
-        OR (auth.jwt()->>'email' ILIKE '%ouahib%' 
-            AND ((row_assigned_manager_id ILIKE '%usr-3%' OR row_assigned_manager_id ILIKE '%ouahib%')
-                 OR (row_created_by ILIKE '%usr-3%' OR row_created_by ILIKE '%ouahib%')))
-        OR (auth.jwt()->>'email' ILIKE '%benali%' 
-            AND ((row_assigned_manager_id ILIKE '%usr-1%' OR row_assigned_manager_id ILIKE '%benali%')
-                 OR (row_created_by ILIKE '%usr-1%' OR row_created_by ILIKE '%benali%')))
-        OR (auth.jwt()->>'email' ILIKE '%ezzay%' 
-            AND ((row_assigned_manager_id ILIKE '%usr-5%' OR row_assigned_manager_id ILIKE '%ezzay%')
-                 OR (row_created_by ILIKE '%usr-5%' OR row_created_by ILIKE '%ezzay%')))
-        OR (auth.jwt()->>'email' ILIKE '%larbi%' 
-            AND ((row_assigned_manager_id ILIKE '%usr-6%' OR row_assigned_manager_id ILIKE '%larbi%')
-                 OR (row_created_by ILIKE '%usr-6%' OR row_created_by ILIKE '%larbi%')))
-        -- 5. Ou correspondance avec le profil collaborateur (id interne, nom ou email)
+        -- 5. Correspondance exacte avec le profil collaborateur via legacy_id / local_id
         OR EXISTS (
           SELECT 1 FROM public.profiles p 
           WHERE p.id = auth.uid()::text 
           AND (
             (row_assigned_manager_id IS NOT NULL AND (
-              p.id = row_assigned_manager_id 
-              OR p.name = row_assigned_manager_id
-              OR (p.local_id IS NOT NULL AND p.local_id = row_assigned_manager_id)
-              OR (p.name ILIKE '%said%' AND (row_assigned_manager_id ILIKE '%usr-2%' OR row_assigned_manager_id ILIKE '%said%'))
-              OR (p.name ILIKE '%ouahib%' AND (row_assigned_manager_id ILIKE '%usr-3%' OR row_assigned_manager_id ILIKE '%ouahib%'))
-              OR (p.name ILIKE '%benali%' AND (row_assigned_manager_id ILIKE '%usr-1%' OR row_assigned_manager_id ILIKE '%benali%'))
-              OR (p.name ILIKE '%ezzay%' AND (row_assigned_manager_id ILIKE '%usr-5%' OR row_assigned_manager_id ILIKE '%ezzay%'))
-              OR (p.name ILIKE '%larbi%' AND (row_assigned_manager_id ILIKE '%usr-6%' OR row_assigned_manager_id ILIKE '%larbi%'))
-              OR (p.name ILIKE '%mansouri%' AND (row_assigned_manager_id ILIKE '%usr-2%' OR row_assigned_manager_id ILIKE '%mansouri%'))
-              OR (p.name ILIKE '%alami%' AND (row_assigned_manager_id ILIKE '%usr-4%' OR row_assigned_manager_id ILIKE '%alami%'))
+              p.legacy_id = row_assigned_manager_id 
+              OR p.local_id = row_assigned_manager_id
             ))
             OR (row_created_by IS NOT NULL AND (
-              p.id = row_created_by 
-              OR p.name = row_created_by 
-              OR p.email = row_created_by
-              OR (p.local_id IS NOT NULL AND p.local_id = row_created_by)
-              OR (p.name ILIKE '%said%' AND (row_created_by ILIKE '%usr-2%' OR row_created_by ILIKE '%said%'))
-              OR (p.name ILIKE '%ouahib%' AND (row_created_by ILIKE '%usr-3%' OR row_created_by ILIKE '%ouahib%'))
-              OR (p.name ILIKE '%benali%' AND (row_created_by ILIKE '%usr-1%' OR row_created_by ILIKE '%benali%'))
-              OR (p.name ILIKE '%ezzay%' AND (row_created_by ILIKE '%usr-5%' OR row_created_by ILIKE '%ezzay%'))
-              OR (p.name ILIKE '%larbi%' AND (row_created_by ILIKE '%usr-6%' OR row_created_by ILIKE '%larbi%'))
+              p.legacy_id = row_created_by 
+              OR p.local_id = row_created_by
             ))
           )
         )
@@ -244,7 +212,7 @@ AS $$
 $$;
 
 -- Empêche un manager ou agent d'assigner une ligne à un autre manager que lui-même
--- Supporte l'UID Supabase Auth, l'identifiant local (usr-1 à usr-5), et le nom du manager
+-- Supporte l'UID Supabase Auth et les identifiants migrés (profiles.legacy_id / profiles.local_id) sans texte libre
 CREATE OR REPLACE FUNCTION public.can_assign_manager(row_assigned_manager_id text)
 RETURNS boolean
 LANGUAGE sql
@@ -263,30 +231,13 @@ AS $$
         OR trim(row_assigned_manager_id) = ''
         -- 3. Assigné à son propre UID Supabase Auth
         OR row_assigned_manager_id = auth.uid()::text
-        -- Correspondance directe par email JWT
-        OR ((auth.jwt()->>'email' ILIKE '%said%' OR auth.jwt()->>'email' ILIKE '%khomri%') 
-            AND (row_assigned_manager_id ILIKE '%usr-2%' OR row_assigned_manager_id ILIKE '%said%'))
-        OR (auth.jwt()->>'email' ILIKE '%ouahib%' 
-            AND (row_assigned_manager_id ILIKE '%usr-3%' OR row_assigned_manager_id ILIKE '%ouahib%'))
-        OR (auth.jwt()->>'email' ILIKE '%benali%' 
-            AND (row_assigned_manager_id ILIKE '%usr-1%' OR row_assigned_manager_id ILIKE '%benali%'))
-        OR (auth.jwt()->>'email' ILIKE '%ezzay%' 
-            AND (row_assigned_manager_id ILIKE '%usr-5%' OR row_assigned_manager_id ILIKE '%ezzay%'))
-        OR (auth.jwt()->>'email' ILIKE '%larbi%' 
-            AND (row_assigned_manager_id ILIKE '%usr-6%' OR row_assigned_manager_id ILIKE '%larbi%'))
-        -- 4. Assigné à son propre identifiant interne ou nom de profil
+        -- 4. Assigné via legacy_id / local_id mappé
         OR EXISTS (
           SELECT 1 FROM public.profiles p 
           WHERE p.id = auth.uid()::text 
           AND (
-            p.id = row_assigned_manager_id
-            OR p.name = row_assigned_manager_id
-            OR (p.local_id IS NOT NULL AND p.local_id = row_assigned_manager_id)
-            OR (p.name ILIKE '%said%' AND (row_assigned_manager_id ILIKE '%usr-2%' OR row_assigned_manager_id ILIKE '%said%'))
-            OR (p.name ILIKE '%ouahib%' AND (row_assigned_manager_id ILIKE '%usr-3%' OR row_assigned_manager_id ILIKE '%ouahib%'))
-            OR (p.name ILIKE '%benali%' AND (row_assigned_manager_id ILIKE '%usr-1%' OR row_assigned_manager_id ILIKE '%benali%'))
-            OR (p.name ILIKE '%ezzay%' AND (row_assigned_manager_id ILIKE '%usr-5%' OR row_assigned_manager_id ILIKE '%ezzay%'))
-            OR (p.name ILIKE '%larbi%' AND (row_assigned_manager_id ILIKE '%usr-6%' OR row_assigned_manager_id ILIKE '%larbi%'))
+            p.legacy_id = row_assigned_manager_id 
+            OR p.local_id = row_assigned_manager_id
           )
         )
       )
