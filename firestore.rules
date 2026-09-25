@@ -2,35 +2,176 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Default deny for unmatched collections
+    // 1. Default Catch-All: Reject all unauthenticated or unmatched requests
     match /{document=**} {
       allow read, write: if false;
     }
 
-    // Security Primitives
+    // =========================================================================
+    // Security Helpers & Primitives
+    // =========================================================================
+
     function isSignedIn() {
       return request.auth != null;
     }
 
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
     function isValidId(id) {
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
-    // Connection validation document
+    // Bootstrapped Admin Verification (Strict email + email_verified check)
+    function isBootstrappedAdmin() {
+      return isSignedIn() &&
+        request.auth.token.email == 'anouar7fac@gmail.com' &&
+        request.auth.token.email_verified == true;
+    }
+
+    // Authoritative Admin Check
+    function isAdmin() {
+      return isSignedIn() && (
+        isBootstrappedAdmin() ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
+        ('admin' in request.auth.token && request.auth.token.admin == true) ||
+        ('role' in request.auth.token && request.auth.token.role == 'admin')
+      );
+    }
+
+    // Agency Member Verification
+    function isAgencyMember(agencyId) {
+      return isSignedIn() && (
+        isAdmin() ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.agency == agencyId ||
+          (agencyId.matches('^morvello.*$') && (
+            !('agency' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data) ||
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.agency == 'Agence Morvello' ||
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.agency == 'morvello_main'
+          ))
+        ))
+      );
+    }
+
+    // UserProfile Entity Validation Helper
+    function isValidUserProfile(data) {
+      return data.uid is string && data.uid.size() > 0 && data.uid.size() <= 128 &&
+             data.email is string && data.email.size() > 0 && data.email.size() <= 256 &&
+             data.role is string && (data.role == 'admin' || data.role == 'manager' || data.role == 'agent') &&
+             (!('name' in data) || (data.name is string && data.name.size() <= 200)) &&
+             (!('phone' in data) || (data.phone is string && data.phone.size() <= 50)) &&
+             (!('agency' in data) || (data.agency is string && data.agency.size() <= 200)) &&
+             (!('assignedFleetName' in data) || (data.assignedFleetName is string && data.assignedFleetName.size() <= 200)) &&
+             (!('adminClaim' in data) || data.adminClaim is bool) &&
+             (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 100)) &&
+             (!('updatedBy' in data) || (data.updatedBy is string && data.updatedBy.size() <= 128));
+    }
+
+    // Agency Entity Validation Helper
+    function isValidAgency(data) {
+      return data.updatedAt is string && data.updatedAt.size() <= 100 &&
+             (!('vehicles' in data) || (data.vehicles is list && data.vehicles.size() <= 5000)) &&
+             (!('clients' in data) || (data.clients is list && data.clients.size() <= 5000)) &&
+             (!('drivers' in data) || (data.drivers is list && data.drivers.size() <= 5000)) &&
+             (!('contracts' in data) || (data.contracts is list && data.contracts.size() <= 5000)) &&
+             (!('deposits' in data) || (data.deposits is list && data.deposits.size() <= 5000)) &&
+             (!('companySettings' in data) || data.companySettings is map) &&
+             (!('termsVersion' in data) || data.termsVersion is map) &&
+             (!('users' in data) || (data.users is list && data.users.size() <= 500)) &&
+             (!('aiSettings' in data) || data.aiSettings is map) &&
+             (!('auditLogs' in data) || (data.auditLogs is list && data.auditLogs.size() <= 5000)) &&
+             (!('updatedBy' in data) || (data.updatedBy is string && data.updatedBy.size() <= 128));
+    }
+
+    // =========================================================================
+    // Collection Rules
+    // =========================================================================
+
+    // 1. Connection Health Probe Document
     match /test/{docId} {
-      allow read: if isValidId(docId);
+      allow read: if isSignedIn() && isValidId(docId);
+      allow write: if false;
     }
 
-    // Individual user profile and role document (RBAC)
+    // 2. Individual User Profile & RBAC Document (/users/{userId})
     match /users/{userId} {
-      allow read, write: if isValidId(userId);
+      // PII Isolation: Owner or Admin only
+      allow read: if isSignedIn() && isValidId(userId) && (
+        request.auth.uid == userId || isAdmin()
+      );
+
+      // Create: Admin or self-registration with non-admin role
+      allow create: if isSignedIn() &&
+        isValidId(userId) &&
+        isValidUserProfile(incoming()) && (
+          isAdmin() ||
+          (
+            request.auth.uid == userId &&
+            incoming().uid == request.auth.uid &&
+            incoming().role in ['manager', 'agent'] &&
+            (!('adminClaim' in incoming()) || incoming().adminClaim == false)
+          )
+        );
+
+      // Update: Tiered privileges to prevent privilege escalation
+      allow update: if isSignedIn() &&
+        isValidId(userId) &&
+        isValidUserProfile(incoming()) && (
+          isAdmin() ||
+          (
+            request.auth.uid == userId &&
+            incoming().uid == existing().uid &&
+            incoming().email == existing().email &&
+            incoming().role == existing().role &&
+            (!('adminClaim' in incoming()) || incoming().adminClaim == existing().adminClaim) &&
+            (!('agency' in incoming()) || incoming().agency == existing().agency) &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['name', 'phone', 'updatedAt'])
+          )
+        );
+
+      // Delete: Admin only, cannot delete self
+      allow delete: if isAdmin() && isValidId(userId) && userId != request.auth.uid;
     }
 
-    // Central agency cloud document
-    // Accessible across all authorized Morvello agency workstations for multi-browser sync
+    // 3. Central Agency Cloud Documents (/agencies/{agencyId})
     match /agencies/{agencyId} {
-      allow read, write: if isValidId(agencyId);
+      // Read: Authenticated agency team members or admins only
+      allow read: if isSignedIn() && isValidId(agencyId) && isAgencyMember(agencyId);
+
+      // Create: Admin only
+      allow create: if isSignedIn() && isValidId(agencyId) && isValidAgency(incoming()) && isAdmin();
+
+      // Update: Tiered privileges
+      // - Admins can update any field (companySettings, terms, users, fleet)
+      // - Managers & Agents can only update operational fleet/contracts/clients/deposits
+      allow update: if isSignedIn() &&
+        isValidId(agencyId) &&
+        isValidAgency(incoming()) &&
+        isAgencyMember(agencyId) && (
+          isAdmin() ||
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'vehicles',
+            'clients',
+            'drivers',
+            'contracts',
+            'deposits',
+            'aiSettings',
+            'auditLogs',
+            'updatedAt',
+            'updatedBy'
+          ])
+        );
+
+      // Delete: Admin only
+      allow delete: if isAdmin() && isValidId(agencyId);
     }
   }
 }
-

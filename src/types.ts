@@ -155,6 +155,8 @@ export interface Vehicle {
   // Responsable attitré & Isolation de flotte
   assignedManagerId?: string;
   assignedManagerName?: string;
+  createdBy?: string;
+  agencyId?: string;
   // Statut de validation (Gérant vs Manager)
   approvalStatus?: 'approved' | 'pending_approval' | 'rejected';
   proposedBy?: string;

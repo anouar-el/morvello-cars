@@ -13,6 +13,7 @@ export function isVehicleOwnedByManager(
   if (!vehicle || !managerId) return false;
   if (vehicle.assignedManagerId === managerId) return true;
   if (managerUid && vehicle.assignedManagerId === managerUid) return true;
+  if (vehicle.createdBy && (vehicle.createdBy === managerId || (managerUid && vehicle.createdBy === managerUid))) return true;
 
   // Rapprochement Ouahib (usr-3) & Said (usr-2)
   if (
@@ -26,6 +27,20 @@ export function isVehicleOwnedByManager(
     (managerId === 'usr-2' || (managerName && managerName.trim().toLowerCase() === 'said khomri')) &&
     (vehicle.assignedManagerId === 'usr-2' ||
       (vehicle.assignedManagerName && vehicle.assignedManagerName.trim().toLowerCase() === 'said khomri'))
+  ) {
+    return true;
+  }
+  if (
+    (managerId === 'usr-5' || (managerName && (managerName.toLowerCase().includes('ezzay') || managerName.toLowerCase().includes('mohamed')))) &&
+    (vehicle.assignedManagerId === 'usr-5' ||
+      (vehicle.assignedManagerName && (vehicle.assignedManagerName.toLowerCase().includes('ezzay') || vehicle.assignedManagerName.toLowerCase().includes('mohamed'))))
+  ) {
+    return true;
+  }
+  if (
+    (managerId === 'usr-6' || (managerName && managerName.toLowerCase().includes('larbi'))) &&
+    (vehicle.assignedManagerId === 'usr-6' ||
+      (vehicle.assignedManagerName && vehicle.assignedManagerName.toLowerCase().includes('larbi')))
   ) {
     return true;
   }

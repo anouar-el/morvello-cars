@@ -23,7 +23,7 @@ import { describe, it, expect } from 'vitest';
  */
 
 // Représentation d'un profil collaborateur dans public.profiles
-interface ProfileRow {
+export interface ProfileRow {
   id: string; // Supabase Auth UUID ou identifiant interne
   email: string;
   name: string;
@@ -35,7 +35,7 @@ interface ProfileRow {
 }
 
 // Représentation d'une ligne métier (contract, client, vehicle, deposit, etc.)
-interface BusinessRow {
+export interface BusinessRow {
   id: string;
   agency_id: string;
   assigned_manager_id?: string | null;
@@ -53,7 +53,7 @@ interface BusinessRow {
  * 6. public.can_assign_manager()
  * 7. public.protect_profile_privilege_escalation()
  */
-class PostgresRlsEngine {
+export class PostgresRlsEngine {
   /**
    * CREATE OR REPLACE FUNCTION public.is_admin()
    */
@@ -114,6 +114,22 @@ class PostgresRlsEngine {
       (profile.local_id && profile.local_id === targetManagerId) ||
       (profile.legacy_id && profile.legacy_id === targetManagerId) ||
       (profile.email && profile.email.toLowerCase() === targetManagerId.toLowerCase())
+    );
+  }
+
+  /**
+   * CREATE OR REPLACE FUNCTION public.can_access_manager_row(target_manager_id text, target_created_by text)
+   */
+  static canAccessManagerRow(
+    targetManagerId: string | null | undefined,
+    targetCreatedBy: string | null | undefined,
+    authUid: string | null,
+    profiles: Map<string, ProfileRow>
+  ): boolean {
+    if (!authUid) return false;
+    return (
+      this.isCurrentManager(targetManagerId, authUid, profiles) ||
+      this.isCurrentManager(targetCreatedBy, authUid, profiles)
     );
   }
 
@@ -208,6 +224,13 @@ class PostgresRlsEngine {
       return { allowed: false, error: 'Security violation: usr-1 identity is reserved.' };
     }
 
+    if (
+      (oldRow.local_id === 'usr-1' || oldRow.legacy_id === 'usr-1' || oldRow.id === 'usr-1') &&
+      newRow.role !== 'admin'
+    ) {
+      return { allowed: false, error: 'Security violation: primary administrator usr-1 cannot be demoted.' };
+    }
+
     return { allowed: true };
   }
 
@@ -222,8 +245,29 @@ class PostgresRlsEngine {
   ): boolean {
     if (!authUid) return false;
 
+    if (table === 'profiles') {
+      if (this.isAdmin(authUid, profiles)) {
+        return this.isSameAgency(row.agency_id, authUid, profiles);
+      }
+      return (
+        row.id === authUid ||
+        this.isCurrentManager(row.local_id, authUid, profiles) ||
+        this.isCurrentManager(row.legacy_id, authUid, profiles) ||
+        (Boolean(row.email) && profiles.get(authUid)?.email?.toLowerCase() === row.email?.toLowerCase())
+      );
+    }
+
+    if (table === 'safe_profiles') {
+      return this.isSameAgency(row.agency_id, authUid, profiles);
+    }
+
     if (table === 'agency_data') {
-      return this.isAdmin(authUid, profiles) && this.isSameAgency(row.agency_id, authUid, profiles);
+      if (!this.isSameAgency(row.agency_id, authUid, profiles)) return false;
+      if (this.isAdmin(authUid, profiles)) return true;
+      return Boolean(
+        row.assigned_manager_id &&
+          this.canAccessManagerRow(row.assigned_manager_id, row.created_by, authUid, profiles)
+      );
     }
 
     return this.canAccessRecord(row, authUid, profiles);
@@ -240,8 +284,24 @@ class PostgresRlsEngine {
   ): boolean {
     if (!authUid) return false;
 
+    if (table === 'profiles') {
+      if (this.isAdmin(authUid, profiles)) {
+        return this.isSameAgency(newRow.agency_id, authUid, profiles);
+      }
+      const isOwnProfile = newRow.id === authUid;
+      const isNotAdminRole = newRow.role !== 'admin' && ['manager', 'agent'].includes(newRow.role);
+      const isNotUsurpingUsr1 = newRow.local_id !== 'usr-1' && newRow.legacy_id !== 'usr-1';
+      const isSameAgency = this.isSameAgency(newRow.agency_id, authUid, profiles);
+      return isOwnProfile && isNotAdminRole && isNotUsurpingUsr1 && isSameAgency;
+    }
+
     if (table === 'agency_data') {
-      return this.isAdmin(authUid, profiles) && this.isSameAgency(newRow.agency_id, authUid, profiles);
+      if (!this.isSameAgency(newRow.agency_id, authUid, profiles)) return false;
+      if (this.isAdmin(authUid, profiles)) return true;
+      return Boolean(
+        newRow.assigned_manager_id &&
+          this.canAssignManager(newRow.assigned_manager_id, newRow.created_by, authUid, profiles)
+      );
     }
 
     if (!this.isSameAgency(newRow.agency_id, authUid, profiles)) return false;
@@ -261,15 +321,52 @@ class PostgresRlsEngine {
   ): boolean {
     if (!authUid) return false;
 
+    if (table === 'profiles') {
+      if (this.isAdmin(authUid, profiles)) {
+        return (
+          this.isSameAgency(existingRow.agency_id, authUid, profiles) &&
+          this.isSameAgency(updatedRow.agency_id, authUid, profiles)
+        );
+      }
+      const isOwn =
+        existingRow.id === authUid ||
+        this.isCurrentManager(existingRow.local_id, authUid, profiles) ||
+        this.isCurrentManager(existingRow.legacy_id, authUid, profiles);
+      if (!isOwn) return false;
+
+      const checkResult = this.validateProfileUpdate(existingRow as ProfileRow, updatedRow as ProfileRow, authUid, profiles);
+      if (!checkResult.allowed) return false;
+
+      return (
+        this.isSameAgency(existingRow.agency_id, authUid, profiles) &&
+        this.isSameAgency(updatedRow.agency_id, authUid, profiles) &&
+        updatedRow.id === existingRow.id &&
+        updatedRow.role !== 'admin' &&
+        updatedRow.local_id !== 'usr-1' &&
+        updatedRow.legacy_id !== 'usr-1'
+      );
+    }
+
+    if (table === 'agency_data') {
+      if (!this.isSameAgency(existingRow.agency_id, authUid, profiles)) return false;
+      if (!this.isSameAgency(updatedRow.agency_id, authUid, profiles)) return false;
+      if (this.isAdmin(authUid, profiles)) return true;
+      const canAccessExisting = Boolean(
+        existingRow.assigned_manager_id &&
+          this.canAccessManagerRow(existingRow.assigned_manager_id, existingRow.created_by, authUid, profiles)
+      );
+      const canAssignNew = Boolean(
+        updatedRow.assigned_manager_id &&
+          this.canAssignManager(updatedRow.assigned_manager_id, updatedRow.created_by, authUid, profiles)
+      );
+      return canAccessExisting && canAssignNew;
+    }
+
     // 1. USING: L'utilisateur a-t-il le droit de cibler la ligne existante ?
     if (!this.canAccessRecord(existingRow, authUid, profiles)) return false;
 
     // 2. WITH CHECK: La nouvelle ligne respecte-t-elle l'agence et les règles d'assignation ?
     if (!this.isSameAgency(updatedRow.agency_id, authUid, profiles)) return false;
-
-    if (table === 'agency_data') {
-      return this.isAdmin(authUid, profiles);
-    }
 
     // Le manager ne peut pas transférer la ligne à un autre manager
     return this.canAssignManager(updatedRow.assigned_manager_id, updatedRow.created_by, authUid, profiles);
@@ -285,6 +382,22 @@ class PostgresRlsEngine {
     profiles: Map<string, ProfileRow>
   ): boolean {
     if (!authUid) return false;
+
+    if (table === 'profiles') {
+      if (!this.isAdmin(authUid, profiles)) return false;
+      if (!this.isSameAgency(existingRow.agency_id, authUid, profiles)) return false;
+      if (existingRow.id === 'usr-1' || existingRow.local_id === 'usr-1' || existingRow.legacy_id === 'usr-1') return false;
+      return true;
+    }
+
+    if (table === 'agency_data') {
+      if (!this.isSameAgency(existingRow.agency_id, authUid, profiles)) return false;
+      if (this.isAdmin(authUid, profiles)) return true;
+      return Boolean(
+        existingRow.assigned_manager_id &&
+          this.canAccessManagerRow(existingRow.assigned_manager_id, existingRow.created_by, authUid, profiles)
+      );
+    }
     if (!this.canAccessRecord(existingRow, authUid, profiles)) return false;
 
     const callerIsAdmin = this.isAdmin(authUid, profiles);

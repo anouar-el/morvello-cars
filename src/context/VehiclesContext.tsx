@@ -3,6 +3,7 @@ import { Vehicle, User, VehicleExpense } from '../types';
 import { initialVehicles, initialUsers } from '../data/mockData';
 import { formatPlateFrench } from '../utils/plateUtils';
 import { saveRemoteAgencyData } from '../lib/firestoreSync';
+import { isVehicleOwnedByManager } from '../utils/managerScopeUtils';
 
 export interface VehiclesContextType {
   vehicles: Vehicle[];
@@ -212,6 +213,22 @@ export const VehiclesProvider: React.FC<{
         success: false,
         error: 'Permission refusée : seuls le Gérant et les Managers peuvent supprimer un véhicule.',
       };
+    }
+
+    if (!isGerant) {
+      const currentUserId = currentUser?.firebaseUid || currentUser?.id;
+      const isOwned = isVehicleOwnedByManager(
+        veh,
+        currentUserId || '',
+        currentUser?.name,
+        currentUser?.firebaseUid
+      );
+      if (!isOwned) {
+        return {
+          success: false,
+          error: 'Permission refusée : vous ne pouvez supprimer que les véhicules sous votre responsabilité.',
+        };
+      }
     }
 
     if (activeContractCheck && activeContractCheck(vehicleId)) {

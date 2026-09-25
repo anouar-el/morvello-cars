@@ -2,6 +2,19 @@ import { supabase, isSupabaseConfigured } from './supabase';
 import { isAbortException } from '../initErrorHandling';
 import { MorvelloCloudData } from './firestoreSync';
 import {
+  Vehicle,
+  Client,
+  Driver,
+  Contract,
+  DepositRecord,
+  User,
+  UserRole,
+  UserPermissions,
+  DEFAULT_PERMISSIONS_BY_ROLE,
+  AuditLog,
+} from '../types';
+import {
+  isVehicleOwnedByManager,
   isContractOwnedByManager,
   isDepositOwnedByManager,
   isClientOwnedByManager,
@@ -57,7 +70,18 @@ export function clearSyncError(): void {
 }
 
 /**
- * Fetches the centralized Morvello Cars agency state from Supabase PostgreSQL
+ * Fetches the authoritative Morvello Cars agency state from Supabase PostgreSQL.
+ *
+ * ARCHITECTURAL DESIGN (PROBLEM #2 RESOLUTION):
+ * - Normalized tables (`vehicles`, `clients`, `drivers`, `contracts`, `deposits`, `profiles`, `audit_logs`)
+ *   serve as the authoritative source of truth for all business operational data.
+ *   Each table is protected by PostgreSQL Row Level Security (RLS), guaranteeing that:
+ *   - Admins receive all agency records.
+ *   - Managers receive ONLY their authorized records (assigned to or created by them).
+ *   - Unauthenticated callers receive zero business records.
+ * - The `agency_data` table is restricted by RLS and used ONLY for agency-level configuration:
+ *   `companySettings`, `termsVersion`, `aiSettings`.
+ *   Sensitive operational data (clients, contracts, deposits) is NEVER read from or dependent on `agency_data`.
  */
 export async function fetchRemoteAgencyDataFromSupabase(): Promise<MorvelloCloudData | null> {
   if (!isSupabaseConfigured) {
@@ -65,40 +89,220 @@ export async function fetchRemoteAgencyDataFromSupabase(): Promise<MorvelloCloud
   }
 
   try {
-    const { data, error } = await supabase
-      .from('agency_data')
-      .select('data, updated_at, updated_by')
-      .eq('id', AGENCY_RECORD_ID)
-      .maybeSingle();
+    // 1. Interrogation parallèle des tables normalisées faisant autorité et de agency_data
+    const [
+      agencyDataRes,
+      vehiclesRes,
+      clientsRes,
+      driversRes,
+      contractsRes,
+      depositsRes,
+      profilesRes,
+      safeProfilesRes,
+      auditLogsRes,
+    ] = await Promise.all([
+      supabase
+        .from('agency_data')
+        .select('data, updated_at, updated_by')
+        .eq('id', AGENCY_RECORD_ID)
+        .maybeSingle(),
+      supabase.from('vehicles').select('*'),
+      supabase.from('clients').select('*'),
+      supabase.from('drivers').select('*'),
+      supabase.from('contracts').select('*'),
+      supabase.from('deposits').select('*'),
+      supabase.from('profiles').select('*'),
+      Promise.resolve(supabase.from('safe_profiles').select('*')).catch(() => ({ data: null })),
+      supabase.from('audit_logs').select('*').order('timestamp', { ascending: false }).limit(200),
+    ]);
 
-    if (error) {
-      // PGRST205 / 42P01 means the table hasn't been created yet in the SQL editor
-      if (error.code === 'PGRST205' || error.message?.includes('does not exist')) {
+    // Notification préventive si le schéma n'a pas encore été migré dans Supabase
+    const checkTableMissing = (err: any, tableName: string) => {
+      if (err && (err.code === 'PGRST205' || err.message?.includes('does not exist'))) {
         if (!hasWarnedMissingSchema) {
           console.info(
-            '[Supabase] Table "agency_data" non trouvée. Veuillez exécuter le script restore_strict_supabase_rls.sql dans votre SQL Editor Supabase.'
+            `[Supabase] Table "${tableName}" non trouvée. Veuillez exécuter le script restore_strict_supabase_rls.sql dans votre SQL Editor Supabase.`
           );
           hasWarnedMissingSchema = true;
         }
-        return null;
       }
-      // 42501 means RLS restricted access (expected for non-admin managers)
-      if (error.code === '42501' || error.message?.includes('row-level security')) {
-        return null;
-      }
-      console.warn('[Supabase Sync] Error fetching agency data:', error.message);
+    };
+
+    checkTableMissing(agencyDataRes.error, 'agency_data');
+    checkTableMissing(vehiclesRes.error, 'vehicles');
+    checkTableMissing(clientsRes.error, 'clients');
+    checkTableMissing(contractsRes.error, 'contracts');
+    checkTableMissing(depositsRes.error, 'deposits');
+
+    // 2. Extraction sécurisée de la configuration d'agence depuis agency_data (sans données sensibles)
+    const agencyDataObj =
+      agencyDataRes.data?.data && typeof agencyDataRes.data.data === 'object'
+        ? (agencyDataRes.data.data as any)
+        : null;
+
+    const companySettings = agencyDataObj?.companySettings;
+    const termsVersion = agencyDataObj?.termsVersion;
+    const aiSettings = agencyDataObj?.aiSettings;
+
+    // 3. Mapping des tables normalisées (filtrées nativement par les politiques RLS PostgreSQL)
+    const vehicles: Vehicle[] = (vehiclesRes.data || []).map((row: any) => {
+      const d = row.data && typeof row.data === 'object' ? row.data : {};
+      return {
+        ...d,
+        id: row.id,
+        brand: row.brand || d.brand || '',
+        model: row.model || d.model || '',
+        plate: row.plate || d.plate || '',
+        fuelType: row.fuel_type || d.fuelType || 'Essence',
+        status: row.status || d.status || 'available',
+        currentKm: Number(row.current_km ?? d.currentKm ?? 0),
+        dailyRate: Number(row.daily_rate ?? d.dailyRate ?? 0),
+        assignedManagerId: row.assigned_manager_id || d.assignedManagerId,
+        createdBy: row.created_by || d.createdBy,
+        approvalStatus: row.approval_status || d.approvalStatus || 'approved',
+      };
+    });
+
+    const clients: Client[] = (clientsRes.data || []).map((row: any) => {
+      const d = row.data && typeof row.data === 'object' ? row.data : {};
+      return {
+        ...d,
+        id: row.id,
+        firstName: row.first_name || d.firstName || '',
+        lastName: row.last_name || d.lastName || '',
+        docType: row.doc_type || d.docType || 'CIN',
+        docNumber: row.doc_number || d.docNumber || '',
+        phone: row.phone || d.phone || '',
+        email: row.email || d.email || '',
+        contractCount: Number(row.contract_count ?? d.contractCount ?? 0),
+        assignedManagerId: row.assigned_manager_id || d.assignedManagerId,
+        createdBy: row.created_by || d.createdBy,
+      };
+    });
+
+    const drivers: Driver[] = (driversRes.data || []).map((row: any) => {
+      const d = row.data && typeof row.data === 'object' ? row.data : {};
+      return {
+        ...d,
+        id: row.id,
+        name: row.name || d.name || '',
+        licenseNumber: row.driving_license || d.licenseNumber || '',
+        phone: row.phone || d.phone || '',
+        email: row.email || d.email || '',
+        assignedManagerId: row.assigned_manager_id || d.assignedManagerId,
+        createdBy: row.created_by || d.createdBy,
+      };
+    });
+
+    const contracts: Contract[] = (contractsRes.data || []).map((row: any) => {
+      const d = row.data && typeof row.data === 'object' ? row.data : {};
+      return {
+        ...d,
+        id: row.id,
+        contractNumber: row.contract_number || d.contractNumber || '',
+        status: row.status || d.status || 'draft',
+        clientId: row.client_id || d.clientId || '',
+        vehicleId: row.vehicle_id || d.vehicleId || '',
+        startDate: row.start_date || d.startDate || '',
+        endDate: row.end_date || d.endDate || '',
+        totalAmount: Number(row.total_amount ?? d.totalAmount ?? 0),
+        depositAmount: Number(row.deposit_amount ?? d.depositAmount ?? 0),
+        assignedManagerId: row.assigned_manager_id || d.assignedManagerId,
+        createdBy: row.created_by || d.createdBy,
+      };
+    });
+
+    const deposits: DepositRecord[] = (depositsRes.data || []).map((row: any) => {
+      const d = row.data && typeof row.data === 'object' ? row.data : {};
+      return {
+        ...d,
+        id: row.id,
+        contractId: row.contract_id || d.contractId || '',
+        clientName: row.client_name || d.clientName || '',
+        amount: Number(row.amount ?? d.amount ?? 0),
+        status: row.status || d.status || 'pending',
+        assignedManagerId: row.assigned_manager_id || d.assignedManagerId,
+        createdBy: row.created_by || d.createdBy,
+      };
+    });
+
+    // 3. Extraction des profils utilisateurs :
+    // - Profils complets (avec rôle et permissions RBAC) retournés pour l'utilisateur connecté ou l'administrateur
+    const usersMap = new Map<string, User>();
+    (profilesRes.data || []).forEach((row: any) => {
+      usersMap.set(row.id, {
+        id: row.id,
+        email: row.email,
+        name: row.name,
+        role: row.role as UserRole,
+        agency: row.agency || row.agency_id,
+        legacyId: row.legacy_id || row.local_id,
+        permissions: row.permissions || { ...DEFAULT_PERMISSIONS_BY_ROLE[(row.role as UserRole) || 'agent'] },
+        phone: row.phone,
+      });
+    });
+
+    // - Profils publics non-sensibles de l'annuaire (safe_profiles) pour les collègues de la même agence
+    if (safeProfilesRes && Array.isArray(safeProfilesRes.data)) {
+      safeProfilesRes.data.forEach((safeRow: any) => {
+        if (!usersMap.has(safeRow.id)) {
+          usersMap.set(safeRow.id, {
+            id: safeRow.id,
+            email: safeRow.email,
+            name: safeRow.name,
+            role: 'agent' as UserRole,
+            agency: safeRow.agency || safeRow.agency_id,
+            phone: safeRow.phone,
+            permissions: { ...DEFAULT_PERMISSIONS_BY_ROLE['agent'] },
+          });
+        }
+      });
+    }
+
+    const users: User[] = Array.from(usersMap.values());
+
+    const auditLogs: AuditLog[] = (auditLogsRes.data || []).map((row: any) => {
+      const d = row.data && typeof row.data === 'object' ? row.data : {};
+      return {
+        ...d,
+        id: row.id,
+        userId: row.user_id || d.userId || '',
+        userName: row.user_name || d.userName || '',
+        action: row.action || d.action || '',
+        details: row.details || d.details || '',
+        timestamp: row.timestamp || d.timestamp || '',
+        agencyId: row.agency_id || d.agencyId,
+      };
+    });
+
+    // Détermination de présence de données réelles
+    const hasAnyOperationalData =
+      vehicles.length > 0 ||
+      clients.length > 0 ||
+      drivers.length > 0 ||
+      contracts.length > 0 ||
+      deposits.length > 0 ||
+      users.length > 0 ||
+      Boolean(companySettings);
+
+    if (!hasAnyOperationalData) {
       return null;
     }
 
-    if (data && data.data && typeof data.data === 'object') {
-      return {
-        ...(data.data as MorvelloCloudData),
-        updatedAt: data.updated_at || (data.data as any).updatedAt,
-        updatedBy: data.updated_by || (data.data as any).updatedBy,
-      };
-    }
-
-    return null;
+    return {
+      vehicles,
+      clients,
+      drivers,
+      contracts,
+      deposits,
+      companySettings: companySettings || undefined,
+      termsVersion: termsVersion || undefined,
+      aiSettings: aiSettings || undefined,
+      users: users.length > 0 ? users : undefined,
+      auditLogs: auditLogs.length > 0 ? auditLogs : undefined,
+      updatedAt: agencyDataRes.data?.updated_at || new Date().toISOString(),
+      updatedBy: agencyDataRes.data?.updated_by || 'supabase',
+    };
   } catch (err: any) {
     if (isAbortException(err)) return null;
     console.warn('[Supabase Sync] Exception during fetch:', err);
@@ -107,8 +311,15 @@ export async function fetchRemoteAgencyDataFromSupabase(): Promise<MorvelloCloud
 }
 
 /**
- * Saves or updates the Morvello Cars agency state in Supabase PostgreSQL
- * Respects strict Row Level Security (no bypass RPC functions).
+ * Saves or updates the Morvello Cars application state in Supabase PostgreSQL.
+ *
+ * ARCHITECTURAL DESIGN (PROBLEM #2 RESOLUTION):
+ * 1. Synchronises all business operational records (vehicles, clients, contracts, deposits, drivers, users)
+ *    directly into their respective NORMALIZED TABLES (via syncIndividualTables).
+ *    This ensures PostgreSQL RLS controls manager-level authorization for all business data.
+ * 2. ONLY stores non-sensitive agency configuration (companySettings, termsVersion, aiSettings)
+ *    in the `agency_data` table.
+ *    CRITICAL: SENSITIVE OPERATIONAL DATA IS STRIPPED from agency_data to prevent any RLS bypass.
  */
 export async function saveRemoteAgencyDataToSupabase(
   payload: Partial<MorvelloCloudData>,
@@ -120,71 +331,69 @@ export async function saveRemoteAgencyDataToSupabase(
 
   try {
     const nowIso = new Date().toISOString();
-    const cleanPayload = {
-      ...payload,
-      updatedAt: nowIso,
-      updatedBy: userId || 'morvello_user',
-    };
 
-    // Upsert direct sur agency_data (soumis aux règles strictes RLS réservées aux admins)
-    const { error } = await supabase
-      .from('agency_data')
-      .upsert(
-        {
-          id: AGENCY_RECORD_ID,
-          agency_id: 'agency_morvello',
-          data: cleanPayload,
-          updated_at: nowIso,
-          updated_by: userId || 'system',
-        },
-        { onConflict: 'id' }
-      );
+    // 1. SOURCE DE VÉRITÉ PRIMAIRE : Synchronisation granulaire dans les tables normalisées
+    // Protégées par les politiques RLS strictes multi-agence et par manager
+    await syncIndividualTables(payload);
 
-    if (error) {
-      if (error.code === 'PGRST205' || error.message?.includes('does not exist')) {
-        if (!hasWarnedMissingSchema) {
-          console.warn(
-            '[Supabase] Table "agency_data" introuvable. Exécutez restore_strict_supabase_rls.sql dans Supabase SQL Editor.'
-          );
-          hasWarnedMissingSchema = true;
-        }
-        return false;
-      }
+    // 2. CONFIGURATION D'AGENCE : Stockage sécurisé sans entités métier sensibles dans agency_data
+    if (payload.companySettings || payload.termsVersion || payload.aiSettings) {
+      const sanitizedAgencyConfig = {
+        companySettings: payload.companySettings,
+        termsVersion: payload.termsVersion,
+        aiSettings: payload.aiSettings,
+        updatedAt: nowIso,
+        updatedBy: userId || 'morvello_user',
+        authoritativeSource: 'normalized_tables',
+      };
 
-      // Code 42501 : La politique RLS stricte réserve agency_data aux administrateurs.
-      // Pour les managers, leurs modifications individuelles sont synchronisées via syncIndividualTables.
-      if (error.code === '42501' || error.message?.includes('row-level security')) {
-        // Expected under RLS v2: non-admin managers do not modify the global agency_data JSON blob.
-      } else {
-        const isNetworkErr =
-          error.message?.toLowerCase().includes('failed to fetch') ||
-          error.message?.toLowerCase().includes('network') ||
-          error.message?.toLowerCase().includes('load failed');
+      const { error } = await supabase
+        .from('agency_data')
+        .upsert(
+          {
+            id: AGENCY_RECORD_ID,
+            agency_id: 'agency_morvello',
+            data: sanitizedAgencyConfig,
+            updated_at: nowIso,
+            updated_by: userId || 'system',
+          },
+          { onConflict: 'id' }
+        );
 
-        if (!isNetworkErr) {
-          console.warn(
-            `[Supabase Sync] Échec sauvegarde agency_data : Code ${error.code} - ${error.message} - ${error.details || ''}`
-          );
-          reportSyncError({
-            table: 'agency_data',
-            entityId: AGENCY_RECORD_ID,
-            code: error.code,
-            message: error.message,
-            details: error.details,
-            timestamp: nowIso,
-          });
+      if (error) {
+        if (error.code === 'PGRST205' || error.message?.includes('does not exist')) {
+          if (!hasWarnedMissingSchema) {
+            console.warn(
+              '[Supabase] Table "agency_data" introuvable. Exécutez restore_strict_supabase_rls.sql dans Supabase SQL Editor.'
+            );
+            hasWarnedMissingSchema = true;
+          }
+        } else if (error.code === '42501' || error.message?.includes('row-level security')) {
+          // Expected under RLS: non-admin managers do not modify global agency settings.
         } else {
-          console.warn('[Supabase Sync] Serveur Supabase temporairement inaccessible (réseau/hors ligne):', error.message);
+          const isNetworkErr =
+            error.message?.toLowerCase().includes('failed to fetch') ||
+            error.message?.toLowerCase().includes('network') ||
+            error.message?.toLowerCase().includes('load failed');
+
+          if (!isNetworkErr) {
+            console.warn(
+              `[Supabase Sync] Échec sauvegarde agency_data : Code ${error.code} - ${error.message} - ${error.details || ''}`
+            );
+            reportSyncError({
+              table: 'agency_data',
+              entityId: AGENCY_RECORD_ID,
+              code: error.code,
+              message: error.message,
+              details: error.details,
+              timestamp: nowIso,
+            });
+          }
         }
       }
     }
 
-    // Synchronisation granulaire dans les tables individuelles Supabase
-    syncIndividualTables(cleanPayload).catch((err) => {
-      console.warn('[Supabase Sync] Granular tables sync note:', err);
-    });
-
-    return !error;
+    return true;
   } catch (err: any) {
     if (isAbortException(err)) return false;
     console.warn('[Supabase Sync] Exception during save:', err);
@@ -193,7 +402,9 @@ export async function saveRemoteAgencyDataToSupabase(
 }
 
 /**
- * Real-time listener using Supabase Realtime Channels
+ * Real-time listener using Supabase Realtime Channels.
+ * Subscribes to changes on normalized tables and agency_data to maintain
+ * synchronized, RLS-filtered state across multiple workstations.
  */
 export function subscribeToRemoteAgencyDataFromSupabase(
   onData: (data: MorvelloCloudData) => void,
@@ -204,39 +415,56 @@ export function subscribeToRemoteAgencyDataFromSupabase(
   }
 
   try {
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    const triggerRefetch = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(async () => {
+        try {
+          const freshData = await fetchRemoteAgencyDataFromSupabase();
+          if (freshData) {
+            onData(freshData);
+          }
+        } catch (fetchErr) {
+          console.warn('[Supabase Realtime] Refetch notice:', fetchErr);
+        }
+      }, 300);
+    };
+
     const channel = supabase
-      .channel('public:agency_data:morvello_main')
+      .channel('public:morvello_realtime_sync')
       .on(
         'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'agency_data',
-          filter: `id=eq.${AGENCY_RECORD_ID}`,
-        },
-        (payload) => {
-          if (payload.new && (payload.new as any).data) {
-            const rawData = (payload.new as any).data;
-            if (typeof rawData === 'object') {
-              onData({
-                ...rawData,
-                updatedAt: (payload.new as any).updated_at || rawData.updatedAt,
-                updatedBy: (payload.new as any).updated_by || rawData.updatedBy,
-              });
-            }
-          }
-        }
+        { event: '*', schema: 'public', table: 'agency_data' },
+        triggerRefetch
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'contracts' },
+        triggerRefetch
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'vehicles' },
+        triggerRefetch
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'clients' },
+        triggerRefetch
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'deposits' },
+        triggerRefetch
       )
       .subscribe((status, err) => {
-        if (status === 'SUBSCRIBED') {
-          // Channel connected
-        }
         if (err && onError) {
           onError(err);
         }
       });
 
     return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
       try {
         supabase.removeChannel(channel);
       } catch (unsubErr) {
@@ -244,7 +472,7 @@ export function subscribeToRemoteAgencyDataFromSupabase(
       }
     };
   } catch (subErr) {
-    console.warn('[Supabase Realtime] Exception subscribing to agency_data:', subErr);
+    console.warn('[Supabase Realtime] Exception subscribing:', subErr);
     return () => {};
   }
 }
@@ -296,13 +524,18 @@ export async function saveUserProfileToSupabase(
       error = retry.error;
     }
 
-    // Si 42501 survient (ex: restriction de l'insert policy sur le rôle manager), tentons un update si le profil existe
-    if (error && error.code === '42501') {
-      const { error: updateErr } = await supabase
+    // Si 42501 ou rejet d'élévation de privilèges survient pour un non-admin, tentons un update des champs modifiables (name, phone)
+    if (error && (error.code === '42501' || error.message?.includes('Privilege escalation') || error.message?.includes('administrators'))) {
+      const safeFields: Record<string, any> = {
+        name: profilePayload.name,
+        phone: profilePayload.phone,
+        updated_at: new Date().toISOString(),
+      };
+      const { error: safeUpdateErr } = await supabase
         .from('profiles')
-        .update(profilePayload)
+        .update(safeFields)
         .eq('id', userId);
-      if (!updateErr) {
+      if (!safeUpdateErr) {
         error = null;
       }
     }
@@ -579,13 +812,24 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
 
     const currentManagerName = currentUser?.name || '';
 
-    // 1. Véhicules
+    // 1. Véhicules (cloisonnés strictement au périmètre du gestionnaire)
     if (payload.vehicles && Array.isArray(payload.vehicles) && payload.vehicles.length > 0) {
-      const vehicleIds = payload.vehicles.map((v) => v.id).filter(Boolean);
+      const targetVehicles = isCurrentAdmin
+        ? payload.vehicles
+        : payload.vehicles.filter((v) =>
+            isVehicleOwnedByManager(
+              v as any,
+              currentManagerId,
+              currentManagerName,
+              currentAuthUid || undefined
+            )
+          );
+
+      const vehicleIds = targetVehicles.map((v) => v.id).filter(Boolean);
       const existingVehicleMap = await fetchExistingRows('vehicles', vehicleIds);
       let vehicleHadError = false;
 
-      for (const v of payload.vehicles) {
+      for (const v of targetVehicles) {
         const existing = existingVehicleMap.get(v.id);
         const assignedMgrId = resolveAssignedManagerForSupabase(
           v.assignedManagerId,
@@ -956,10 +1200,14 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
           profileErr = retry.error;
         }
 
-        if (profileErr && profileErr.code === '42501') {
+        if (profileErr && (profileErr.code === '42501' || profileErr.message?.includes('Privilege escalation') || profileErr.message?.includes('administrators'))) {
           const { error: updateErr } = await supabase
             .from('profiles')
-            .update(profilePayload)
+            .update({
+              name: profilePayload.name,
+              phone: profilePayload.phone,
+              updated_at: new Date().toISOString(),
+            })
             .eq('id', profileId);
           if (!updateErr) {
             profileErr = null;

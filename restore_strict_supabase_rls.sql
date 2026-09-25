@@ -44,14 +44,74 @@ CREATE INDEX IF NOT EXISTS idx_profiles_agency_id ON public.profiles(agency_id);
 CREATE INDEX IF NOT EXISTS idx_profiles_local_id ON public.profiles(local_id);
 CREATE INDEX IF NOT EXISTS idx_profiles_legacy_id ON public.profiles(legacy_id);
 
+-- VUE SÉCURISÉE PUBLIQUE (SÉPARATION DES DONNÉES D'AUTORISATION SENSIBLES - PROBLEM #4)
+CREATE OR REPLACE VIEW public.safe_profiles
+WITH (security_barrier = true)
+AS
+SELECT
+  p.id,
+  p.name,
+  p.email,
+  p.phone,
+  p.agency,
+  p.agency_id,
+  p.assigned_fleet_name,
+  p.created_at,
+  p.updated_at
+FROM public.profiles p
+WHERE
+  auth.uid() IS NOT NULL
+  AND public.is_same_agency(p.agency_id);
+
+GRANT SELECT ON public.safe_profiles TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.get_safe_team_members()
+RETURNS TABLE (
+  id text,
+  name text,
+  email text,
+  phone text,
+  agency text,
+  agency_id text,
+  assigned_fleet_name text
+)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT
+    p.id,
+    p.name,
+    p.email,
+    p.phone,
+    p.agency,
+    p.agency_id,
+    p.assigned_fleet_name
+  FROM public.profiles p
+  WHERE
+    auth.uid() IS NOT NULL
+    AND public.is_same_agency(p.agency_id);
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_safe_team_members() TO authenticated;
+
 CREATE TABLE IF NOT EXISTS public.agency_data (
   id TEXT PRIMARY KEY DEFAULT 'morvello_main',
   agency_id TEXT DEFAULT 'agency_morvello',
+  assigned_manager_id TEXT,
+  created_by TEXT,
   data JSONB NOT NULL DEFAULT '{}'::jsonb,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
   updated_by TEXT DEFAULT 'system'
 );
 ALTER TABLE public.agency_data ADD COLUMN IF NOT EXISTS agency_id TEXT DEFAULT 'agency_morvello';
+ALTER TABLE public.agency_data ADD COLUMN IF NOT EXISTS assigned_manager_id TEXT;
+ALTER TABLE public.agency_data ADD COLUMN IF NOT EXISTS created_by TEXT;
+CREATE INDEX IF NOT EXISTS idx_agency_data_agency_id ON public.agency_data(agency_id);
+CREATE INDEX IF NOT EXISTS idx_agency_data_assigned_manager ON public.agency_data(assigned_manager_id);
+CREATE INDEX IF NOT EXISTS idx_agency_data_created_by ON public.agency_data(created_by);
+CREATE INDEX IF NOT EXISTS idx_agency_data_updated_at ON public.agency_data(updated_at);
 
 CREATE TABLE IF NOT EXISTS public.clients (
   id TEXT PRIMARY KEY,
@@ -369,7 +429,7 @@ AS $$
   SELECT public.can_access_record(row_assigned_manager_id, row_created_by, NULL);
 $$;
 
--- 5. PROTECTION CONTRE L'ÉLÉVATION DE PRIVILÈGES (PROFILES)
+-- 5. PROTECTION CONTRE L'ÉLÉVATION DE PRIVILÈGES (PROFILES - PROBLEM #4)
 CREATE OR REPLACE FUNCTION public.protect_profile_privilege_escalation()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -390,8 +450,14 @@ BEGIN
     IF NEW.agency_id IS DISTINCT FROM OLD.agency_id THEN
       RAISE EXCEPTION 'Agency modification rejected: cannot change agency_id.';
     END IF;
+    IF NEW.agency IS DISTINCT FROM OLD.agency THEN
+      RAISE EXCEPTION 'Agency modification rejected: cannot change agency.';
+    END IF;
     IF NEW.permissions IS DISTINCT FROM OLD.permissions THEN
       RAISE EXCEPTION 'Privilege escalation rejected: cannot alter permissions.';
+    END IF;
+    IF NEW.id IS DISTINCT FROM OLD.id THEN
+      RAISE EXCEPTION 'Identity modification rejected: cannot change primary id.';
     END IF;
   END IF;
 
@@ -400,6 +466,12 @@ BEGIN
     RAISE EXCEPTION 'Security violation: usr-1 identity is reserved.';
   END IF;
 
+  IF (OLD.local_id = 'usr-1' OR OLD.legacy_id = 'usr-1' OR OLD.id = 'usr-1') 
+     AND NEW.role <> 'admin' THEN
+    RAISE EXCEPTION 'Security violation: primary administrator usr-1 cannot be demoted.';
+  END IF;
+
+  NEW.updated_at = timezone('utc'::text, now());
   RETURN NEW;
 END;
 $$;
@@ -424,11 +496,17 @@ BEGIN
     IF NEW.local_id = 'usr-1' OR NEW.legacy_id = 'usr-1' THEN
       RAISE EXCEPTION 'Security violation: usr-1 identity is reserved.';
     END IF;
+    IF NEW.role IS NULL OR trim(NEW.role) = '' THEN
+      NEW.role := 'agent';
+    END IF;
   END IF;
 
   IF NEW.agency_id IS NULL OR trim(NEW.agency_id) = '' THEN
-    NEW.agency_id := COALESCE(NEW.agency, 'agency_morvello');
+    NEW.agency_id := COALESCE(NEW.agency, public.get_current_agency_id());
   END IF;
+
+  NEW.created_at := timezone('utc'::text, now());
+  NEW.updated_at := timezone('utc'::text, now());
 
   RETURN NEW;
 END;
@@ -439,6 +517,90 @@ CREATE TRIGGER trg_protect_profile_insert
   BEFORE INSERT ON public.profiles
   FOR EACH ROW
   EXECUTE FUNCTION public.protect_profile_insert();
+
+CREATE OR REPLACE FUNCTION public.protect_profile_deletion()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF NOT public.is_admin() THEN
+    RAISE EXCEPTION 'Profile deletion rejected: only administrators can delete user accounts.';
+  END IF;
+
+  IF OLD.local_id = 'usr-1' OR OLD.legacy_id = 'usr-1' OR OLD.id = 'usr-1' THEN
+    RAISE EXCEPTION 'Profile deletion rejected: primary administrator usr-1 cannot be deleted.';
+  END IF;
+
+  RETURN OLD;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_protect_profile_deletion ON public.profiles;
+CREATE TRIGGER trg_protect_profile_deletion
+  BEFORE DELETE ON public.profiles
+  FOR EACH ROW
+  EXECUTE FUNCTION public.protect_profile_deletion();
+
+-- Trigger de protection de mise à jour des véhicules (anti-usurpation & intégrité de périmètre)
+CREATE OR REPLACE FUNCTION public.protect_vehicle_update_security()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF NOT public.is_admin() THEN
+    IF NEW.agency_id IS DISTINCT FROM OLD.agency_id THEN
+      RAISE EXCEPTION 'Agency modification rejected: non-admin managers cannot change vehicle agency_id.';
+    END IF;
+    IF NEW.assigned_manager_id IS DISTINCT FROM OLD.assigned_manager_id 
+       AND NOT public.is_current_manager(NEW.assigned_manager_id) THEN
+      RAISE EXCEPTION 'Manager reassignment rejected: cannot assign a vehicle to another manager.';
+    END IF;
+  END IF;
+
+  NEW.updated_at = timezone('utc'::text, now());
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_protect_vehicle_update_security ON public.vehicles;
+CREATE TRIGGER trg_protect_vehicle_update_security
+  BEFORE UPDATE ON public.vehicles
+  FOR EACH ROW
+  EXECUTE FUNCTION public.protect_vehicle_update_security();
+
+-- Trigger de protection de suppression de véhicule lié à des contrats actifs
+CREATE OR REPLACE FUNCTION public.protect_vehicle_deletion_contracts()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_active_contract_count integer;
+BEGIN
+  SELECT COUNT(*) INTO v_active_contract_count
+  FROM public.contracts
+  WHERE vehicle_id = OLD.id
+  AND status IN ('active', 'draft');
+
+  IF v_active_contract_count > 0 THEN
+    RAISE EXCEPTION 'Suppression interdite : le véhicule "%" (immatriculation: %) est actuellement engagé dans % contrat(s) en cours ou actif(s). Veuillez clôturer ou annuler le contrat au préalable.',
+      OLD.id, OLD.plate, v_active_contract_count;
+  END IF;
+
+  RETURN OLD;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_protect_vehicle_deletion_contracts ON public.vehicles;
+CREATE TRIGGER trg_protect_vehicle_deletion_contracts
+  BEFORE DELETE ON public.vehicles
+  FOR EACH ROW
+  EXECUTE FUNCTION public.protect_vehicle_deletion_contracts();
 
 -- 6. PURGE DE TOUTES LES ANCIENNES POLICIES
 DROP POLICY IF EXISTS "profiles_select" ON public.profiles;
@@ -505,35 +667,66 @@ DROP POLICY IF EXISTS "morvello_audit_logs_policy" ON public.audit_logs;
 
 -- 7. POLICIES STRICTES PAR TABLE
 
--- 7.1 PROFILES
+-- 7.1 PROFILES (Isolation stricte et protection RBAC - PROBLEM #4)
 CREATE POLICY "profiles_select" ON public.profiles
   FOR SELECT TO authenticated
-  USING (public.is_same_agency(agency_id));
+  USING (
+    (public.is_admin() AND public.is_same_agency(agency_id))
+    OR (
+      auth.uid() IS NOT NULL
+      AND (
+        auth.uid()::text = id
+        OR public.is_current_manager(local_id)
+        OR public.is_current_manager(legacy_id)
+        OR (email IS NOT NULL AND lower(email) = lower(auth.jwt() ->> 'email'))
+      )
+    )
+  );
 
 CREATE POLICY "profiles_insert" ON public.profiles
   FOR INSERT TO authenticated
   WITH CHECK (
-    auth.uid()::text = id
-    AND (
-      public.is_admin()
-      OR (
-        role IN ('manager', 'agent')
-        AND COALESCE(local_id, '') <> 'usr-1'
-        AND COALESCE(legacy_id, '') <> 'usr-1'
-        AND (agency_id IS NULL OR agency_id = public.get_current_agency_id())
-      )
+    (public.is_admin() AND public.is_same_agency(agency_id))
+    OR (
+      auth.uid() IS NOT NULL
+      AND auth.uid()::text = id
+      AND role IN ('manager', 'agent')
+      AND role <> 'admin'
+      AND COALESCE(local_id, '') NOT IN ('usr-1', 'admin')
+      AND COALESCE(legacy_id, '') NOT IN ('usr-1', 'admin')
+      AND public.is_same_agency(agency_id)
     )
   );
 
 CREATE POLICY "profiles_update" ON public.profiles
   FOR UPDATE TO authenticated
   USING (
-    public.is_same_agency(agency_id)
-    AND (auth.uid()::text = id OR public.is_admin())
+    (public.is_admin() AND public.is_same_agency(agency_id))
+    OR (
+      auth.uid() IS NOT NULL
+      AND (
+        auth.uid()::text = id
+        OR public.is_current_manager(local_id)
+        OR public.is_current_manager(legacy_id)
+      )
+      AND public.is_same_agency(agency_id)
+    )
   )
   WITH CHECK (
-    public.is_same_agency(agency_id)
-    AND (auth.uid()::text = id OR public.is_admin())
+    (public.is_admin() AND public.is_same_agency(agency_id))
+    OR (
+      auth.uid() IS NOT NULL
+      AND (
+        auth.uid()::text = id
+        OR public.is_current_manager(local_id)
+        OR public.is_current_manager(legacy_id)
+      )
+      AND public.is_same_agency(agency_id)
+      AND role IN ('manager', 'agent')
+      AND role <> 'admin'
+      AND COALESCE(local_id, '') NOT IN ('usr-1', 'admin')
+      AND COALESCE(legacy_id, '') NOT IN ('usr-1', 'admin')
+    )
   );
 
 CREATE POLICY "profiles_delete" ON public.profiles
@@ -541,39 +734,79 @@ CREATE POLICY "profiles_delete" ON public.profiles
   USING (
     public.is_admin()
     AND public.is_same_agency(agency_id)
+    AND COALESCE(local_id, '') <> 'usr-1'
+    AND COALESCE(legacy_id, '') <> 'usr-1'
+    AND id <> 'usr-1'
   );
 
--- 7.2 AGENCY_DATA (Uniquement l'administrateur de l'agence)
+-- 7.2 AGENCY_DATA (Isolation stricte Agence et Périmètre Manager - Problem #2)
+-- SÉCURITÉ ARCHITECTURALE :
+-- 1. Un utilisateur non-authentifié n'a AUCUN accès.
+-- 2. Un administrateur de l'agence a un accès complet aux lignes de son agence (lignes globales et lignes managers).
+-- 3. Un manager authentifié n'a accès qu'aux lignes qui lui sont explicitement assignées (assigned_manager_id).
+-- 4. Un manager ne peut ni lire ni modifier la configuration globale de l'agence (assigned_manager_id IS NULL).
+-- 5. Un manager ne peut en aucun cas lire ou modifier la ligne d'un autre manager.
+-- 6. Les tables normalisées sont l'unique source de vérité pour les entités métier (véhicules, clients, contrats, cautions).
 CREATE POLICY "agency_data_select" ON public.agency_data
   FOR SELECT TO authenticated
   USING (
-    public.is_admin()
-    AND public.is_same_agency(agency_id)
+    public.is_same_agency(agency_id)
+    AND (
+      public.is_admin()
+      OR (
+        assigned_manager_id IS NOT NULL
+        AND public.can_access_manager_row(assigned_manager_id, COALESCE(created_by, updated_by))
+      )
+    )
   );
 
 CREATE POLICY "agency_data_insert" ON public.agency_data
   FOR INSERT TO authenticated
   WITH CHECK (
-    public.is_admin()
-    AND public.is_same_agency(agency_id)
+    public.is_same_agency(agency_id)
+    AND (
+      public.is_admin()
+      OR (
+        assigned_manager_id IS NOT NULL
+        AND public.can_assign_manager(assigned_manager_id)
+      )
+    )
   );
 
 CREATE POLICY "agency_data_update" ON public.agency_data
   FOR UPDATE TO authenticated
   USING (
-    public.is_admin()
-    AND public.is_same_agency(agency_id)
+    public.is_same_agency(agency_id)
+    AND (
+      public.is_admin()
+      OR (
+        assigned_manager_id IS NOT NULL
+        AND public.can_access_manager_row(assigned_manager_id, COALESCE(created_by, updated_by))
+      )
+    )
   )
   WITH CHECK (
-    public.is_admin()
-    AND public.is_same_agency(agency_id)
+    public.is_same_agency(agency_id)
+    AND (
+      public.is_admin()
+      OR (
+        assigned_manager_id IS NOT NULL
+        AND public.can_assign_manager(assigned_manager_id)
+      )
+    )
   );
 
 CREATE POLICY "agency_data_delete" ON public.agency_data
   FOR DELETE TO authenticated
   USING (
-    public.is_admin()
-    AND public.is_same_agency(agency_id)
+    public.is_same_agency(agency_id)
+    AND (
+      public.is_admin()
+      OR (
+        assigned_manager_id IS NOT NULL
+        AND public.can_access_manager_row(assigned_manager_id, COALESCE(created_by, updated_by))
+      )
+    )
   );
 
 -- 7.3 CLIENTS
@@ -805,6 +1038,12 @@ CREATE POLICY "audit_logs_delete" ON public.audit_logs
     public.is_admin()
     AND public.is_same_agency(agency_id)
   );
+
+-- Nettoyage de sécurité : Retrait strict des entités opérationnelles sensibles du JSONB agency_data
+-- Les tables normalisées (vehicles, clients, contracts, deposits) sont l'unique source de vérité.
+UPDATE public.agency_data
+SET data = data - 'clients' - 'contracts' - 'vehicles' - 'deposits' - 'drivers' - 'payments' - 'vehicleExpenses'
+WHERE id = 'morvello_main' AND data IS NOT NULL;
 
 -- 8. RECHARGEMENT IMMÉDIAT DU CACHE POSTGREST
 NOTIFY pgrst, 'reload schema';

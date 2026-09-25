@@ -7,11 +7,13 @@
       "properties": {
         "updatedAt": {
           "type": "string",
-          "description": "ISO timestamp of last update"
+          "description": "ISO timestamp of last update",
+          "maxLength": 100
         },
         "updatedBy": {
           "type": "string",
-          "description": "User or manager who updated the record"
+          "description": "User or manager who updated the record",
+          "maxLength": 128
         },
         "vehicles": {
           "type": "array",
@@ -44,6 +46,14 @@
         "users": {
           "type": "array",
           "description": "System users and managers"
+        },
+        "aiSettings": {
+          "type": "object",
+          "description": "AI assistant settings"
+        },
+        "auditLogs": {
+          "type": "array",
+          "description": "Security audit logs"
         }
       },
       "required": ["updatedAt"]
@@ -53,17 +63,74 @@
       "description": "Individual authenticated user RBAC profile",
       "type": "object",
       "properties": {
-        "uid": { "type": "string" },
-        "email": { "type": "string" },
-        "name": { "type": "string" },
-        "role": { "type": "string" },
-        "phone": { "type": "string" },
-        "agency": { "type": "string" },
-        "assignedFleetName": { "type": "string" },
-        "adminClaim": { "type": "boolean" },
-        "updatedAt": { "type": "string" }
+        "uid": {
+          "type": "string",
+          "description": "Firebase Auth UID matching document ID",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "maxLength": 128
+        },
+        "email": {
+          "type": "string",
+          "description": "Verified user email address",
+          "maxLength": 256
+        },
+        "name": {
+          "type": "string",
+          "description": "User display name",
+          "maxLength": 200
+        },
+        "role": {
+          "type": "string",
+          "description": "RBAC user role (admin, manager, agent)",
+          "enum": ["admin", "manager", "agent"]
+        },
+        "phone": {
+          "type": "string",
+          "description": "Contact phone number",
+          "maxLength": 50
+        },
+        "agency": {
+          "type": "string",
+          "description": "Assigned agency identifier or name",
+          "maxLength": 200
+        },
+        "assignedFleetName": {
+          "type": "string",
+          "description": "Fleet scope assigned to this manager",
+          "maxLength": 200
+        },
+        "adminClaim": {
+          "type": "boolean",
+          "description": "Flag indicating administrative privilege"
+        },
+        "permissions": {
+          "type": "object",
+          "description": "Granular user permissions object"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "ISO timestamp of last update",
+          "maxLength": 100
+        },
+        "updatedBy": {
+          "type": "string",
+          "description": "UID of administrator who updated the profile",
+          "maxLength": 128
+        }
       },
       "required": ["uid", "email", "role"]
+    },
+    "TestDoc": {
+      "title": "TestDoc",
+      "description": "Connection test probe document",
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "description": "Health status",
+          "maxLength": 50
+        }
+      }
     }
   },
   "firestore": {
@@ -74,6 +141,10 @@
     "/users/{userId}": {
       "schema": "UserProfile",
       "description": "Authenticated user RBAC record"
+    },
+    "/test/{docId}": {
+      "schema": "TestDoc",
+      "description": "Connection probe document"
     }
   }
 }

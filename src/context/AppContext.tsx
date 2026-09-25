@@ -738,7 +738,15 @@ const AppContextInner: React.FC<{ children: React.ReactNode }> = ({ children }) 
         approveVehicle: vehiclesCtx.approveVehicle,
         rejectVehicle: vehiclesCtx.rejectVehicle,
         assignVehicleManager: vehiclesCtx.assignVehicleManager,
-        deleteVehicle: (id) => vehiclesCtx.deleteVehicle(id, auth.currentUser, auth.hasPermission),
+        deleteVehicle: (id) =>
+          vehiclesCtx.deleteVehicle(
+            id,
+            auth.currentUser,
+            (vehicleId) =>
+              contractsCtx.contracts.some(
+                (c) => c.vehicleId === vehicleId && (c.status === 'active' || c.status === 'draft')
+              )
+          ),
         addVehicleExpense: (vehicleId, expenseData) =>
           vehiclesCtx.addVehicleExpense(vehicleId, expenseData, auth.currentUser),
         deleteVehicleExpense: (vehicleId, expenseId) =>
