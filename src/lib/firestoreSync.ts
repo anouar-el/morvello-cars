@@ -99,50 +99,57 @@ export function sanitizeForFirestore<T>(val: T): T {
 
 export async function fetchRemoteAgencyData(): Promise<MorvelloCloudData | null> {
   // 1. Primary: Fetch from Firebase Cloud Firestore (morvello_main + morvello_clients)
-  try {
-    const mainDocRef = doc(db, APP_DOC_PATH.collection, APP_DOC_PATH.docId);
-    const clientsDocRef = doc(db, CLIENTS_DOC_PATH.collection, CLIENTS_DOC_PATH.docId);
+  // Only execute when user is authenticated in Firebase Auth
+  if (auth.currentUser) {
+    try {
+      const mainDocRef = doc(db, APP_DOC_PATH.collection, APP_DOC_PATH.docId);
+      const clientsDocRef = doc(db, CLIENTS_DOC_PATH.collection, CLIENTS_DOC_PATH.docId);
 
-    const [mainSnapResult, clientsSnapResult] = await Promise.allSettled([
-      getDoc(mainDocRef),
-      getDoc(clientsDocRef),
-    ]);
+      const [mainSnapResult, clientsSnapResult] = await Promise.allSettled([
+        getDoc(mainDocRef),
+        getDoc(clientsDocRef),
+      ]);
 
-    let data: MorvelloCloudData | null = null;
+      let data: MorvelloCloudData | null = null;
 
-    if (mainSnapResult.status === 'fulfilled' && mainSnapResult.value.exists()) {
-      data = mainSnapResult.value.data() as MorvelloCloudData;
-    }
+      if (mainSnapResult.status === 'fulfilled' && mainSnapResult.value.exists()) {
+        data = mainSnapResult.value.data() as MorvelloCloudData;
+      }
 
-    if (clientsSnapResult.status === 'fulfilled' && clientsSnapResult.value.exists()) {
-      const clientsData = clientsSnapResult.value.data() as { clients?: Client[] };
-      if (clientsData?.clients && clientsData.clients.length > 0) {
-        if (!data) {
-          data = { clients: clientsData.clients };
-        } else {
-          // Merge clients seamlessly
-          const merged = [...(data.clients || [])];
-          for (const cli of clientsData.clients) {
-            const exists = merged.some(
-              (m) =>
-                m.id === cli.id ||
-                (m.docNumber && cli.docNumber && m.docNumber.trim().toUpperCase() === cli.docNumber.trim().toUpperCase())
-            );
-            if (!exists) {
-              merged.push(cli);
+      if (clientsSnapResult.status === 'fulfilled' && clientsSnapResult.value.exists()) {
+        const clientsData = clientsSnapResult.value.data() as { clients?: Client[] };
+        if (clientsData?.clients && clientsData.clients.length > 0) {
+          if (!data) {
+            data = { clients: clientsData.clients };
+          } else {
+            // Merge clients seamlessly
+            const merged = [...(data.clients || [])];
+            for (const cli of clientsData.clients) {
+              const exists = merged.some(
+                (m) =>
+                  m.id === cli.id ||
+                  (m.docNumber && cli.docNumber && m.docNumber.trim().toUpperCase() === cli.docNumber.trim().toUpperCase())
+              );
+              if (!exists) {
+                merged.push(cli);
+              }
             }
+            data.clients = merged;
           }
-          data.clients = merged;
         }
       }
-    }
 
-    if (data && (data.contracts?.length || data.clients?.length || data.vehicles?.length || data.companySettings)) {
-      return data;
-    }
-  } catch (error: any) {
-    if (!isAbortException(error)) {
-      console.warn('[Firestore] Fetch warning:', error?.message || error);
+      if (data && (data.contracts?.length || data.clients?.length || data.vehicles?.length || data.companySettings)) {
+        return data;
+      }
+    } catch (error: any) {
+      if (!isAbortException(error)) {
+        if (error?.code === 'permission-denied') {
+          handleFirestoreError(error, OperationType.GET, `${APP_DOC_PATH.collection}/${APP_DOC_PATH.docId}`);
+        } else {
+          console.warn('[Firestore] Fetch warning:', error?.message || error);
+        }
+      }
     }
   }
 
@@ -169,42 +176,46 @@ export async function saveRemoteAgencyData(data: Partial<MorvelloCloudData>): Pr
   const fullPath = `${APP_DOC_PATH.collection}/${APP_DOC_PATH.docId}`;
 
   // 1. Primary: Save to Firebase Cloud Firestore
-  try {
-    const mainDocRef = doc(db, APP_DOC_PATH.collection, APP_DOC_PATH.docId);
+  // Only attempt when authenticated in Firebase Auth to prevent unauthorized permission-denied errors
+  if (auth.currentUser) {
+    try {
+      const mainDocRef = doc(db, APP_DOC_PATH.collection, APP_DOC_PATH.docId);
 
-    // 1a. If clients are provided, also persist them to dedicated morvello_clients document
-    // to safeguard against Firestore's 1MB single-document limit
-    if (data.clients && data.clients.length > 0) {
-      try {
-        const clientsDocRef = doc(db, CLIENTS_DOC_PATH.collection, CLIENTS_DOC_PATH.docId);
-        await setDoc(
-          clientsDocRef,
-          sanitizeForFirestore({
-            clients: data.clients,
-            updatedAt: new Date().toISOString(),
-          }),
-          { merge: true }
-        );
-      } catch (cliErr) {
-        console.warn('[Firestore] Notice saving morvello_clients:', cliErr);
+      // 1a. If clients are provided, also persist them to dedicated morvello_clients document
+      // to safeguard against Firestore's 1MB single-document limit
+      if (data.clients && data.clients.length > 0) {
+        try {
+          const clientsDocRef = doc(db, CLIENTS_DOC_PATH.collection, CLIENTS_DOC_PATH.docId);
+          await setDoc(
+            clientsDocRef,
+            sanitizeForFirestore({
+              clients: data.clients,
+              updatedAt: new Date().toISOString(),
+            }),
+            { merge: true }
+          );
+        } catch (cliErr: any) {
+          console.warn('[Firestore] Notice saving morvello_clients:', cliErr?.message || cliErr);
+        }
       }
-    }
 
-    // 1b. Prepare payload for morvello_main with optimized contract snapshots
-    const optimizedPayload = {
-      ...data,
-      contracts: optimizeContractsForFirestore(data.contracts),
-      updatedAt: new Date().toISOString(),
-    };
+      // 1b. Prepare payload for morvello_main with optimized contract snapshots
+      const optimizedPayload = {
+        ...data,
+        contracts: optimizeContractsForFirestore(data.contracts),
+        updatedAt: new Date().toISOString(),
+      };
 
-    const sanitizedPayload = sanitizeForFirestore(optimizedPayload);
-    await setDoc(mainDocRef, sanitizedPayload, { merge: true });
-    firestoreSuccess = true;
-  } catch (error: any) {
-    if (!isAbortException(error)) {
-      console.error('[Firestore] Save error:', error);
-      if (error?.code === 'permission-denied' && auth.currentUser) {
-        handleFirestoreError(error, OperationType.WRITE, fullPath);
+      const sanitizedPayload = sanitizeForFirestore(optimizedPayload);
+      await setDoc(mainDocRef, sanitizedPayload, { merge: true });
+      firestoreSuccess = true;
+    } catch (error: any) {
+      if (!isAbortException(error)) {
+        if (error?.code === 'permission-denied') {
+          handleFirestoreError(error, OperationType.WRITE, fullPath);
+        } else {
+          console.warn('[Firestore] Save notice:', error?.message || error);
+        }
       }
     }
   }
@@ -230,55 +241,86 @@ export function subscribeToRemoteAgencyData(
   onError?: (err: any) => void
 ): Unsubscribe {
   let isDisposed = false;
-  const mainDocRef = doc(db, APP_DOC_PATH.collection, APP_DOC_PATH.docId);
-  const clientsDocRef = doc(db, CLIENTS_DOC_PATH.collection, CLIENTS_DOC_PATH.docId);
-
-  // 1. Direct Firestore Snapshot Subscription
   let mainUnsub: Unsubscribe | null = null;
   let clientsUnsub: Unsubscribe | null = null;
 
-  try {
-    mainUnsub = onSnapshot(
-      mainDocRef,
-      (snap) => {
-        if (isDisposed) return;
-        if (snap.exists()) {
-          const cloudData = snap.data() as MorvelloCloudData;
-          if (cloudData && (cloudData.contracts || cloudData.clients || cloudData.vehicles)) {
-            onData(cloudData);
+  const startFirestoreListeners = () => {
+    if (isDisposed || !auth.currentUser) return;
+    const mainDocRef = doc(db, APP_DOC_PATH.collection, APP_DOC_PATH.docId);
+    const clientsDocRef = doc(db, CLIENTS_DOC_PATH.collection, CLIENTS_DOC_PATH.docId);
+
+    try {
+      mainUnsub = onSnapshot(
+        mainDocRef,
+        (snap) => {
+          if (isDisposed) return;
+          if (snap.exists()) {
+            const cloudData = snap.data() as MorvelloCloudData;
+            if (cloudData && (cloudData.contracts || cloudData.clients || cloudData.vehicles)) {
+              onData(cloudData);
+            }
+          }
+        },
+        (error) => {
+          if (isDisposed || isAbortException(error)) return;
+          if (error?.code === 'permission-denied' && auth.currentUser) {
+            handleFirestoreError(error, OperationType.GET, `${APP_DOC_PATH.collection}/${APP_DOC_PATH.docId}`);
+          } else {
+            console.warn('[Firestore Realtime] notice:', error?.message || error);
+          }
+          if (onError) onError(error);
+        }
+      );
+    } catch (err: any) {
+      if (!isDisposed && !isAbortException(err) && onError) onError(err);
+    }
+
+    try {
+      clientsUnsub = onSnapshot(
+        clientsDocRef,
+        (snap) => {
+          if (isDisposed) return;
+          if (snap.exists()) {
+            const cData = snap.data() as { clients?: Client[] };
+            if (cData && cData.clients && cData.clients.length > 0) {
+              onData({ clients: cData.clients });
+            }
+          }
+        },
+        (error) => {
+          if (isDisposed || isAbortException(error)) return;
+          if (error?.code === 'permission-denied' && auth.currentUser) {
+            handleFirestoreError(error, OperationType.GET, `${CLIENTS_DOC_PATH.collection}/${CLIENTS_DOC_PATH.docId}`);
           }
         }
-      },
-      (error) => {
-        if (isDisposed || isAbortException(error)) return;
-        console.warn('[Firestore Realtime] notice:', error?.message || error);
-        if (onError) onError(error);
-      }
-    );
-  } catch (err: any) {
-    if (!isDisposed && !isAbortException(err) && onError) onError(err);
+      );
+    } catch (err: any) {
+      // Non-blocking
+    }
+  };
+
+  if (auth.currentUser) {
+    startFirestoreListeners();
   }
 
-  try {
-    clientsUnsub = onSnapshot(
-      clientsDocRef,
-      (snap) => {
-        if (isDisposed) return;
-        if (snap.exists()) {
-          const cData = snap.data() as { clients?: Client[] };
-          if (cData && cData.clients && cData.clients.length > 0) {
-            onData({ clients: cData.clients });
-          }
-        }
-      },
-      (error) => {
-        if (isDisposed || isAbortException(error)) return;
-        console.warn('[Firestore Realtime Clients] notice:', error?.message || error);
+  // Dynamic attachment on auth change
+  const authUnsub = onAuthStateChanged(auth, (user) => {
+    if (isDisposed) return;
+    if (user) {
+      if (!mainUnsub) {
+        startFirestoreListeners();
       }
-    );
-  } catch (err: any) {
-    // Non-blocking
-  }
+    } else {
+      if (mainUnsub) {
+        mainUnsub();
+        mainUnsub = null;
+      }
+      if (clientsUnsub) {
+        clientsUnsub();
+        clientsUnsub = null;
+      }
+    }
+  });
 
   // 2. Supabase Realtime Subscription (parallel sync)
   const unsubscribeSupabase = subscribeToRemoteAgencyDataFromSupabase(
@@ -294,6 +336,7 @@ export function subscribeToRemoteAgencyData(
 
   return () => {
     isDisposed = true;
+    authUnsub();
     if (mainUnsub) {
       mainUnsub();
       mainUnsub = null;
@@ -321,27 +364,30 @@ export async function saveUserProfile(
   }
 
   // 2. Firestore Users
-  const fullPath = `users/${uid}`;
-  try {
-    const docRef = doc(db, 'users', uid);
-    await setDoc(
-      docRef,
-      sanitizeForFirestore({
-        uid,
-        ...profile,
-        updatedAt: new Date().toISOString(),
-      }),
-      { merge: true }
-    );
-    return true;
-  } catch (err: any) {
-    if (isAbortException(err)) {
+  if (auth.currentUser) {
+    const fullPath = `users/${uid}`;
+    try {
+      const docRef = doc(db, 'users', uid);
+      await setDoc(
+        docRef,
+        sanitizeForFirestore({
+          uid,
+          ...profile,
+          updatedAt: new Date().toISOString(),
+        }),
+        { merge: true }
+      );
+      return true;
+    } catch (err: any) {
+      if (isAbortException(err)) {
+        return false;
+      }
+      if (err?.code === 'permission-denied') {
+        handleFirestoreError(err, OperationType.WRITE, fullPath);
+      }
       return false;
     }
-    if (err?.code === 'permission-denied' && auth.currentUser) {
-      handleFirestoreError(err, OperationType.WRITE, fullPath);
-    }
-    return false;
   }
+  return true;
 }
 

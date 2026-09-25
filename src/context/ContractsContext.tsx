@@ -242,11 +242,11 @@ export const ContractsProvider: React.FC<{
       const veh = vehicles.find((v) => v.id === contractData.vehicleId);
       if (veh?.assignedManagerId) {
         const mgr = users.find((u) => u.id === veh.assignedManagerId || u.legacyId === veh.assignedManagerId);
-        assignedManagerId = assignedManagerId || (mgr?.firebaseUid || (!mgr?.id?.startsWith('usr-') ? mgr?.id : undefined) || veh.assignedManagerId);
+        assignedManagerId = assignedManagerId || (mgr?.supabaseUid || (!mgr?.id?.startsWith('usr-') ? mgr?.id : undefined) || mgr?.legacyId || veh.assignedManagerId);
         assignedManagerName = assignedManagerName || veh.assignedManagerName || mgr?.name;
         managerPhone = managerPhone || mgr?.phone;
       } else if (currentUser?.role === 'manager') {
-        assignedManagerId = assignedManagerId || currentUser.firebaseUid || currentUser.id;
+        assignedManagerId = assignedManagerId || currentUser.supabaseUid || currentUser.id;
         assignedManagerName = assignedManagerName || currentUser.name;
         managerPhone = managerPhone || currentUser.phone;
       }
@@ -256,8 +256,8 @@ export const ContractsProvider: React.FC<{
     if (assignedManagerId) {
       const matchedMgr = users.find((u) => u.id === assignedManagerId || u.legacyId === assignedManagerId);
       if (matchedMgr) {
-        if (matchedMgr.firebaseUid) {
-          assignedManagerId = matchedMgr.firebaseUid;
+        if (matchedMgr.supabaseUid) {
+          assignedManagerId = matchedMgr.supabaseUid;
         } else if (matchedMgr.id && !matchedMgr.id.startsWith('usr-')) {
           assignedManagerId = matchedMgr.id;
         }
@@ -309,8 +309,8 @@ export const ContractsProvider: React.FC<{
     if (resolvedManagerId) {
       const matchedMgr = users.find((u) => u.id === resolvedManagerId || u.legacyId === resolvedManagerId);
       if (matchedMgr) {
-        if (matchedMgr.firebaseUid) {
-          resolvedManagerId = matchedMgr.firebaseUid;
+        if (matchedMgr.supabaseUid) {
+          resolvedManagerId = matchedMgr.supabaseUid;
         } else if (matchedMgr.id && !matchedMgr.id.startsWith('usr-')) {
           resolvedManagerId = matchedMgr.id;
         }

@@ -7,8 +7,15 @@ import {
 } from '../types';
 import { initialUsers } from '../data/mockData';
 import { saveUserProfileToSupabase } from '../lib/supabaseSync';
-import { saveRemoteAgencyData } from '../lib/firestoreSync';
+import { saveRemoteAgencyData, saveUserProfile } from '../lib/firestoreSync';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { auth as firebaseAuth, googleProvider } from '../lib/firebase';
+import { resolveLegacyUserId } from '../utils/identityMapping';
+import {
+  signInWithPopup,
+  signOut as firebaseSignOut,
+  onAuthStateChanged as onFirebaseAuthStateChanged,
+} from 'firebase/auth';
 
 export interface AuthContextType {
   currentUser: User | null;
@@ -132,11 +139,20 @@ export const AuthProvider: React.FC<{
         (u) =>
           (u.email || '').toLowerCase() === emailLower ||
           u.id === sbUser.id ||
-          u.firebaseUid === sbUser.id
+          u.supabaseUid === sbUser.id
       );
       const role: UserRole = (profileData?.role as UserRole) || (matched ? matched.role : 'agent');
       const name = profileData?.name || matched?.name || sbUser.user_metadata?.name || emailLower.split('@')[0];
-      const legacyId = matched?.legacyId || (matched?.id?.startsWith('usr-') ? matched.id : undefined);
+      const legacyId =
+        profileData?.legacy_id ||
+        profileData?.local_id ||
+        matched?.legacyId ||
+        resolveLegacyUserId(sbUser.id, currentUsers) ||
+        (matched?.id?.startsWith('usr-') ? matched.id : undefined);
+
+      // Preserves legitimate Firebase UID only if user previously linked to Firebase Auth
+      const existingFirebaseUid =
+        matched?.firebaseUid && matched.firebaseUid !== sbUser.id ? matched.firebaseUid : undefined;
 
       // Met à jour la liste des utilisateurs uniquement si un champ a réellement changé
       setUsers((prev) => {
@@ -145,24 +161,26 @@ export const AuthProvider: React.FC<{
           if (
             (u.email || '').toLowerCase() === emailLower ||
             u.id === sbUser.id ||
+            u.supabaseUid === sbUser.id ||
             (legacyId && u.id === legacyId)
           ) {
             const nextLegacyId = legacyId || u.legacyId || (u.id.startsWith('usr-') ? u.id : undefined);
             if (
               u.id !== sbUser.id ||
+              u.supabaseUid !== sbUser.id ||
               u.legacyId !== nextLegacyId ||
               u.role !== role ||
-              u.name !== name ||
-              u.firebaseUid !== sbUser.id
+              u.name !== name
             ) {
               hasChanges = true;
               return {
                 ...u,
                 id: sbUser.id,
+                supabaseUid: sbUser.id,
                 legacyId: nextLegacyId,
                 role,
                 name,
-                firebaseUid: sbUser.id,
+                firebaseUid: existingFirebaseUid,
               };
             }
           }
@@ -173,6 +191,7 @@ export const AuthProvider: React.FC<{
 
       return {
         id: sbUser.id, // TOUJOURS le véritable UUID Supabase Auth
+        supabaseUid: sbUser.id,
         legacyId,
         name,
         email: emailLower,
@@ -180,7 +199,7 @@ export const AuthProvider: React.FC<{
         agency: matched?.agency || 'Agence Morvello',
         permissions: matched?.permissions || { ...DEFAULT_PERMISSIONS_BY_ROLE[role] },
         mustChangePassword: false,
-        firebaseUid: sbUser.id,
+        firebaseUid: existingFirebaseUid,
       };
     };
 
@@ -259,6 +278,70 @@ export const AuthProvider: React.FC<{
 
     return () => {
       authListener.subscription.unsubscribe();
+    };
+  }, []);
+
+  // Listen to Firebase Auth state changes & sync user session
+  useEffect(() => {
+    const unsub = onFirebaseAuthStateChanged(firebaseAuth, (fbUser) => {
+      if (fbUser && fbUser.email) {
+        const emailLower = fbUser.email.toLowerCase();
+        const isBootstrappedAdmin = emailLower === 'anouar7fac@gmail.com';
+        const currentUsers = usersRef.current;
+        const matched = currentUsers.find(
+          (u) =>
+            (u.email || '').toLowerCase() === emailLower ||
+            u.id === fbUser.uid ||
+            u.firebaseUid === fbUser.uid
+        );
+        const role: UserRole = isBootstrappedAdmin ? 'admin' : (matched ? matched.role : 'agent');
+        const name = fbUser.displayName || matched?.name || emailLower.split('@')[0];
+        const canonicalId = matched?.supabaseUid || (matched?.id && !matched.id.startsWith('usr-') ? matched.id : fbUser.uid);
+        const legacyId = matched?.legacyId || resolveLegacyUserId(canonicalId, currentUsers) || (matched?.id?.startsWith('usr-') ? matched.id : undefined);
+
+        const userObj: User = {
+          id: canonicalId,
+          supabaseUid: matched?.supabaseUid || (canonicalId !== fbUser.uid ? canonicalId : undefined),
+          legacyId,
+          name,
+          email: emailLower,
+          role,
+          agency: matched?.agency || 'Agence Morvello',
+          permissions: matched?.permissions || { ...DEFAULT_PERMISSIONS_BY_ROLE[role] },
+          mustChangePassword: false,
+          firebaseUid: fbUser.uid,
+        };
+
+        setCurrentUser((prev) => {
+          if (prev && prev.id === userObj.id && prev.role === userObj.role && prev.name === userObj.name) {
+            return prev;
+          }
+          return userObj;
+        });
+
+        setUsers((prev) => {
+          if (!prev.some((u) => u.id === userObj.id || (u.email || '').toLowerCase() === emailLower)) {
+            return [userObj, ...prev];
+          }
+          return prev.map((u) => {
+            if (u.id === userObj.id || (u.email || '').toLowerCase() === emailLower) {
+              return { ...u, ...userObj, firebaseUid: fbUser.uid };
+            }
+            return u;
+          });
+        });
+
+        // Ensure user profile document exists in Firestore /users/{uid}
+        saveUserProfile(fbUser.uid, {
+          role,
+          email: emailLower,
+          name,
+        }).catch((e) => console.warn('[Firestore] Profile sync notice:', e));
+      }
+    });
+
+    return () => {
+      unsub();
     };
   }, []);
 
@@ -417,20 +500,29 @@ export const AuthProvider: React.FC<{
 
       const sbUser = sbData.user;
       const matchedUser = users.find(
-        (u) => (u.email || '').toLowerCase() === canonicalEmail || u.id === sbUser.id
+        (u) => (u.email || '').toLowerCase() === canonicalEmail || u.id === sbUser.id || u.supabaseUid === sbUser.id
       );
       const finalRole: UserRole = matchedUser ? matchedUser.role : 'agent';
-      const legacyId = matchedUser?.legacyId || (matchedUser?.id?.startsWith('usr-') ? matchedUser.id : undefined);
+      const legacyId =
+        matchedUser?.legacyId ||
+        resolveLegacyUserId(sbUser.id, users) ||
+        (matchedUser?.id?.startsWith('usr-') ? matchedUser.id : undefined);
+
+      const existingFirebaseUid =
+        matchedUser?.firebaseUid && matchedUser.firebaseUid !== sbUser.id
+          ? matchedUser.firebaseUid
+          : undefined;
 
       const finalUser: User = {
         id: sbUser.id, // TOUJOURS le véritable UUID Supabase Auth
+        supabaseUid: sbUser.id,
         legacyId,
         name: matchedUser?.name || sbUser.user_metadata?.name || canonicalEmail.split('@')[0],
         email: canonicalEmail,
         role: finalRole,
         agency: matchedUser?.agency || 'Agence Morvello',
         permissions: matchedUser?.permissions || { ...DEFAULT_PERMISSIONS_BY_ROLE[finalRole] },
-        firebaseUid: sbUser.id,
+        firebaseUid: existingFirebaseUid,
       };
 
       // Mettre à jour la liste des utilisateurs uniquement si nécessaire
@@ -440,24 +532,26 @@ export const AuthProvider: React.FC<{
           if (
             (u.email || '').toLowerCase() === canonicalEmail ||
             u.id === sbUser.id ||
+            u.supabaseUid === sbUser.id ||
             (legacyId && u.id === legacyId)
           ) {
             const nextLegacyId = legacyId || u.legacyId || (u.id.startsWith('usr-') ? u.id : undefined);
             if (
               u.id !== sbUser.id ||
+              u.supabaseUid !== sbUser.id ||
               u.legacyId !== nextLegacyId ||
               u.role !== finalRole ||
-              u.name !== finalUser.name ||
-              u.firebaseUid !== sbUser.id
+              u.name !== finalUser.name
             ) {
               hasChanges = true;
               return {
                 ...u,
                 id: sbUser.id,
+                supabaseUid: sbUser.id,
                 legacyId: nextLegacyId,
                 role: finalRole,
                 name: finalUser.name,
-                firebaseUid: sbUser.id,
+                firebaseUid: existingFirebaseUid,
               };
             }
           }
@@ -537,27 +631,86 @@ export const AuthProvider: React.FC<{
   };
 
   /**
-   * Google Sign-In via Supabase OAuth
+   * Google Sign-In via Firebase Auth & Supabase OAuth
    */
   const loginWithGoogle = async (): Promise<{ success: boolean; error?: string }> => {
-    if (!isSupabaseConfigured) {
-      return { success: false, error: 'Supabase n’est pas configuré.' };
-    }
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
-        },
+      // 1. Authenticate with Firebase Auth via Google popup
+      const result = await signInWithPopup(firebaseAuth, googleProvider);
+      const fbUser = result.user;
+      const emailLower = (fbUser.email || '').toLowerCase();
+      const isBootstrappedAdmin = emailLower === 'anouar7fac@gmail.com';
+      const role: UserRole = isBootstrappedAdmin ? 'admin' : 'agent';
+      const name = fbUser.displayName || emailLower.split('@')[0] || 'Utilisateur Google';
+
+      const currentUsers = usersRef.current;
+      const matched = currentUsers.find(
+        (u) =>
+          (u.email || '').toLowerCase() === emailLower ||
+          u.id === fbUser.uid ||
+          u.firebaseUid === fbUser.uid
+      );
+
+      const canonicalId = matched?.supabaseUid || (matched?.id && !matched.id.startsWith('usr-') ? matched.id : fbUser.uid);
+      const legacyId = matched?.legacyId || resolveLegacyUserId(canonicalId, currentUsers) || (matched?.id?.startsWith('usr-') ? matched.id : undefined);
+
+      const userObj: User = {
+        id: canonicalId,
+        supabaseUid: matched?.supabaseUid || (canonicalId !== fbUser.uid ? canonicalId : undefined),
+        legacyId,
+        name,
+        email: emailLower,
+        role: matched?.role || role,
+        agency: matched?.agency || 'Agence Morvello',
+        permissions: matched?.permissions || { ...DEFAULT_PERMISSIONS_BY_ROLE[matched?.role || role] },
+        firebaseUid: fbUser.uid, // REAL Firebase Auth UID
+        mustChangePassword: false,
+      };
+
+      setCurrentUser(userObj);
+      setUsers((prev) => {
+        if (!prev.some((u) => u.id === userObj.id || (u.email && u.email.toLowerCase() === emailLower))) {
+          return [userObj, ...prev];
+        }
+        return prev.map((u) =>
+          u.id === userObj.id || u.email?.toLowerCase() === emailLower ? { ...u, ...userObj, firebaseUid: fbUser.uid } : u
+        );
       });
-      if (error) {
-        return { success: false, error: error.message };
-      }
+
+      // Synchronize to Firestore /users/{uid}
+      saveUserProfile(fbUser.uid, {
+        role,
+        email: emailLower,
+        name,
+      }).catch((e) => console.warn('[Firestore] Profile sync notice:', e));
+
+      logAction(
+        'Connexion Google',
+        'user_permission',
+        fbUser.uid,
+        `Connexion de ${name} (${role.toUpperCase()}) avec Google Firebase Auth`
+      );
+
       return { success: true };
     } catch (err: any) {
+      console.warn('[Firebase Auth] Google sign-in notice:', err);
+      // Fallback to Supabase OAuth if available
+      if (isSupabaseConfigured) {
+        try {
+          const { error } = await supabase.auth.signInWithOAuth({
+            provider: 'google',
+            options: {
+              redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
+            },
+          });
+          if (!error) return { success: true };
+        } catch (sbErr) {
+          console.warn('[Supabase Auth] Google sign-in fallback notice:', sbErr);
+        }
+      }
       return {
         success: false,
-        error: err?.message || 'Échec de la connexion Google via Supabase.',
+        error: err?.message || 'Échec de la connexion Google.',
       };
     }
   };
@@ -565,6 +718,11 @@ export const AuthProvider: React.FC<{
   const logout = async () => {
     if (currentUser) {
       logAction('Déconnexion', 'user_permission', currentUser.id, `Déconnexion de ${currentUser.name}`);
+    }
+    try {
+      await firebaseSignOut(firebaseAuth);
+    } catch (fbSignOutErr) {
+      console.warn('Firebase sign-out notice:', fbSignOutErr);
     }
     if (isSupabaseConfigured) {
       try {
@@ -605,7 +763,7 @@ export const AuthProvider: React.FC<{
     setUsers((prev) => prev.map((u) => (u.id === currentUser.id ? updated : u)));
 
     try {
-      await saveUserProfileToSupabase(currentUser.firebaseUid || currentUser.id, {
+      await saveUserProfileToSupabase(currentUser.supabaseUid || currentUser.id, {
         role,
         email: currentUser.email,
         name: currentUser.name,
@@ -694,7 +852,7 @@ export const AuthProvider: React.FC<{
 
     const target = updatedList.find((u) => u.id === userId) || users.find((u) => u.id === userId);
     if (target) {
-      saveUserProfileToSupabase(target.firebaseUid || target.id, {
+      saveUserProfileToSupabase(target.supabaseUid || target.id, {
         role: target.role,
         email: target.email,
         name: target.name,
@@ -799,7 +957,7 @@ export const AuthProvider: React.FC<{
     });
     const target = updatedList.find((u) => u.id === userId) || users.find((u) => u.id === userId);
     if (target) {
-      saveUserProfileToSupabase(target.firebaseUid || target.id, {
+      saveUserProfileToSupabase(target.supabaseUid || target.id, {
         role: target.role,
         email: target.email,
         name: target.name,
@@ -837,7 +995,7 @@ export const AuthProvider: React.FC<{
 
     const target = updatedList.find((u) => u.id === userId) || users.find((u) => u.id === userId);
     try {
-      await saveUserProfileToSupabase(target?.firebaseUid || userId, {
+      await saveUserProfileToSupabase(target?.supabaseUid || target?.id || userId, {
         role,
         email: target?.email || '',
         name: target?.name,

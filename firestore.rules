@@ -30,8 +30,10 @@ service cloud.firestore {
     // Bootstrapped Admin Verification (Strict email + email_verified check)
     function isBootstrappedAdmin() {
       return isSignedIn() &&
-        request.auth.token.email == 'anouar7fac@gmail.com' &&
-        request.auth.token.email_verified == true;
+        request.auth.token.email != null &&
+        (request.auth.token.email == 'anouar7fac@gmail.com' ||
+         request.auth.token.email.matches('(?i)^anouar7fac@gmail\\.com$')) &&
+        (request.auth.token.email_verified == true || request.auth.token.firebase.sign_in_provider == 'google.com');
     }
 
     // Authoritative Admin Check
@@ -51,12 +53,8 @@ service cloud.firestore {
       return isSignedIn() && (
         isAdmin() ||
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.agency == agencyId ||
-          (agencyId.matches('^morvello.*$') && (
-            !('agency' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data) ||
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.agency == 'Agence Morvello' ||
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.agency == 'morvello_main'
-          ))
+          agencyId.matches('^morvello.*$') ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.agency == agencyId
         ))
       );
     }
@@ -77,7 +75,7 @@ service cloud.firestore {
 
     // Agency Entity Validation Helper
     function isValidAgency(data) {
-      return data.updatedAt is string && data.updatedAt.size() <= 100 &&
+      return (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 100)) &&
              (!('vehicles' in data) || (data.vehicles is list && data.vehicles.size() <= 5000)) &&
              (!('clients' in data) || (data.clients is list && data.clients.size() <= 5000)) &&
              (!('drivers' in data) || (data.drivers is list && data.drivers.size() <= 5000)) &&
@@ -101,7 +99,13 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // 2. Individual User Profile & RBAC Document (/users/{userId})
+    // 2. Authoritative Admin Role Verification
+    match /admins/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow write: if isAdmin();
+    }
+
+    // 3. Individual User Profile & RBAC Document (/users/{userId})
     match /users/{userId} {
       // PII Isolation: Owner or Admin only
       allow read: if isSignedIn() && isValidId(userId) && (

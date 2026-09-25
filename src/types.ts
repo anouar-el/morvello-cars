@@ -45,14 +45,15 @@ export interface UserPermissions {
 }
 
 export interface User {
-  id: string;
+  id: string; // Canonical User ID (Supabase Auth UUID in production)
   name: string;
   role: UserRole;
   email: string;
   phone?: string;
   password?: string;
-  legacyId?: string;
-  firebaseUid?: string;
+  legacyId?: string; // Explicit legacy Morvello ID ('usr-1', 'usr-2', etc.)
+  supabaseUid?: string; // Explicit Supabase Auth UUID (synonymous with canonical id)
+  firebaseUid?: string; // Firebase Auth UID (ONLY when authenticated via Firebase Auth or linked)
   authProvider?: 'password' | 'google' | 'agency' | 'local';
   agency?: string;
   assignedFleetName?: string;

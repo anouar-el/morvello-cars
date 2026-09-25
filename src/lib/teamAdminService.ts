@@ -2,6 +2,7 @@ import { httpsCallable } from 'firebase/functions';
 import { functions, auth } from './firebase';
 import { UserRole } from '../types';
 import { saveUserProfile } from './firestoreSync';
+import { getActiveAuthToken } from './authToken';
 
 export interface SetUserRoleResult {
   success: boolean;
@@ -66,49 +67,44 @@ export async function forceRefreshTokenClaims(): Promise<{
 
 /**
  * Updates a user's role and Custom Claims via Cloud Function or Backend API.
- * 1. Tries callable Cloud Function 'setUserRole'.
- * 2. Falls back to backend API '/api/admin/set-user-role' if Cloud Functions are not yet deployed.
- * 3. Forces token refresh if the target user is the current session user.
+ * 1. Retrieves active authorization token (Supabase JWT or Firebase ID Token).
+ * 2. Tries callable Cloud Function 'setUserRole' if Firebase auth is active.
+ * 3. Falls back to backend API '/api/admin/set-user-role'.
+ * 4. Never reports false success.
  */
 export async function callSetUserRole(uid: string, role: UserRole): Promise<SetUserRoleResult> {
   if (!uid) {
     return { success: false, error: 'Identifiant UID utilisateur manquant.' };
   }
 
-  let idToken = '';
+  const { token: authToken } = await getActiveAuthToken();
+
+  // 1. Try Firebase Callable Cloud Function if Firebase Auth is active
   if (auth.currentUser) {
     try {
-      idToken = await auth.currentUser.getIdToken();
-    } catch (e) {
-      console.warn('[teamAdminService] Could not retrieve ID token:', e);
-    }
-  }
-
-  // 1. Try Firebase Callable Cloud Function
-  try {
-    const setUserRoleFn = httpsCallable<{ uid: string; role: UserRole }, SetUserRoleResult>(
-      functions,
-      'setUserRole'
-    );
-    const result = await setUserRoleFn({ uid, role });
-    if (result.data && result.data.success) {
-      // If updating current user, refresh token immediately
-      if (auth.currentUser && auth.currentUser.uid === uid) {
-        await forceRefreshTokenClaims();
+      const setUserRoleFn = httpsCallable<{ uid: string; role: UserRole }, SetUserRoleResult>(
+        functions,
+        'setUserRole'
+      );
+      const result = await setUserRoleFn({ uid, role });
+      if (result.data && result.data.success) {
+        if (auth.currentUser.uid === uid) {
+          await forceRefreshTokenClaims();
+        }
+        return result.data;
       }
-      return result.data;
+    } catch (cloudFnError: any) {
+      console.info('[teamAdminService] Cloud Function call notice, trying backend API route:', cloudFnError?.message);
     }
-  } catch (cloudFnError: any) {
-    console.info('[teamAdminService] Cloud Function call notice, trying backend API route:', cloudFnError?.message);
   }
 
-  // 2. Fallback to Express backend API route
+  // 2. Call Express backend API route with active auth bearer token
   try {
     const res = await fetch('/api/admin/set-user-role', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
       },
       body: JSON.stringify({ uid, role }),
     });
@@ -121,86 +117,73 @@ export async function callSetUserRole(uid: string, role: UserRole): Promise<SetU
       return data;
     }
 
-    // If server returned an error message
     if (!res.ok) {
-      console.warn('[teamAdminService] Backend API set-user-role responded with error:', data);
+      return {
+        success: false,
+        error: data.error || `Erreur serveur HTTP ${res.status} lors de la modification du rôle.`,
+      };
     }
-  } catch (backendError) {
+  } catch (backendError: any) {
     console.warn('[teamAdminService] Backend API set-user-role unreachable:', backendError);
-  }
-
-  // 3. Fallback to client-side Firestore profile sync if server is in offline/mock mode
-  try {
-    await saveUserProfile(uid, {
-      role,
-      email: '',
-    });
-    if (auth.currentUser && auth.currentUser.uid === uid) {
-      await forceRefreshTokenClaims();
-    }
-    return {
-      success: true,
-      uid,
-      role,
-      admin: role === 'admin',
-    };
-  } catch (firestoreError: any) {
     return {
       success: false,
-      error: firestoreError?.message || 'Erreur lors de la mise à jour du rôle.',
+      error: backendError?.message || 'Serveur d’administration inaccessible.',
     };
   }
+
+  return {
+    success: false,
+    error: 'Impossible d’appliquer le rôle utilisateur : échec des services d’administration.',
+  };
 }
 
 /**
  * Server-side Provisioning of a Team Member:
- * Creates user in Firebase Auth without public client signup,
- * applies Custom Claims, generates activation link, and persists in Firestore.
+ * Authoritatively provisions the user in the authentication system without public client signup.
+ * CRITICAL: Never reports false success if backend provisioning failed or is unreachable.
  */
 export async function callProvisionTeamMember(
   payload: ProvisionMemberPayload
 ): Promise<ProvisionMemberResult> {
   const { email, name, role, agency, phone, assignedFleetName, password } = payload;
 
-  let idToken = '';
+  const { token: authToken } = await getActiveAuthToken();
+
+  // 1. Try Firebase Callable Cloud Function if Firebase Auth is active
   if (auth.currentUser) {
     try {
-      idToken = await auth.currentUser.getIdToken();
-    } catch (e) {
-      console.warn('[teamAdminService] Could not retrieve ID token:', e);
+      const provisionFn = httpsCallable<ProvisionMemberPayload, ProvisionMemberResult>(
+        functions,
+        'provisionTeamMember'
+      );
+      const result = await provisionFn({
+        email,
+        name,
+        role,
+        agency: agency || 'Agence Morvello',
+        phone: phone || '',
+        assignedFleetName: assignedFleetName || '',
+        password: password || '',
+      });
+
+      if (result.data && result.data.success) {
+        return result.data;
+      }
+      if (result.data && !result.data.success) {
+        return result.data;
+      }
+    } catch (cloudFnError: any) {
+      console.info('[teamAdminService] Cloud Function provisionTeamMember notice, trying backend API route:', cloudFnError?.message);
     }
   }
 
-  // 1. Try Firebase Callable Cloud Function
-  try {
-    const provisionFn = httpsCallable<ProvisionMemberPayload, ProvisionMemberResult>(
-      functions,
-      'provisionTeamMember'
-    );
-    const result = await provisionFn({
-      email,
-      name,
-      role,
-      agency: agency || 'Agence Morvello',
-      phone: phone || '',
-      assignedFleetName: assignedFleetName || '',
-      password: password || '',
-    });
-
-    if (result.data && result.data.success) {
-      return result.data;
-    }
-  } catch (cloudFnError: any) {
-    console.info('[teamAdminService] Cloud Function provisionTeamMember notice, trying backend API route:', cloudFnError?.message);
-  }
-
-  // 2. Fallback to Express backend API route
+  // 2. Call Express backend API route with active auth bearer token
   try {
     const res = await fetch('/api/admin/provision-team-member', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
       },
       body: JSON.stringify(payload),
     });
@@ -209,20 +192,26 @@ export async function callProvisionTeamMember(
     if (res.ok && data.success) {
       return data;
     }
-    if (!res.ok && data?.error) {
+    if (data?.error) {
       return { success: false, error: data.error };
+    }
+    if (!res.ok) {
+      return {
+        success: false,
+        error: `Erreur serveur HTTP ${res.status} lors du provisionnement.`,
+      };
     }
   } catch (backendError: any) {
     console.warn('[teamAdminService] Backend API provision-team-member error:', backendError);
+    return {
+      success: false,
+      error: backendError?.message || 'Erreur réseau : le serveur de provisionnement est indisponible.',
+    };
   }
 
-  // Fallback return with standard UUID for offline continuity
+  // Never return false success with a fake UUID!
   return {
-    success: true,
-    uid: crypto.randomUUID(),
-    email,
-    name,
-    role,
-    resetLink: null,
+    success: false,
+    error: 'Échec du provisionnement du compte collaborateur. Aucun service d’administration n’a pu valider la création.',
   };
 }
