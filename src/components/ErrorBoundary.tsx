@@ -27,8 +27,8 @@ export class ErrorBoundary extends Component<Props, State> {
   };
 
   public static getDerivedStateFromError(error: Error): Partial<State> {
-    // Only genuine abort controller errors can be bypassed
-    if (error?.name === 'AbortError' || (error as any)?.code === 'cancelled') {
+    // If it's a benign abort error, don't enter error boundary
+    if (isAbortException(error)) {
       return { hasError: false };
     }
     return { hasError: true, error };

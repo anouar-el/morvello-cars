@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import {
   User,
   UserRole,
@@ -113,7 +113,11 @@ export const AuthProvider: React.FC<{
     return null;
   });
 
-  // Listen to Supabase Auth state changes & sync profile
+  // Always maintain latest users in ref to avoid re-triggering auth listener effects
+  const usersRef = useRef<User[]>(users);
+  usersRef.current = users;
+
+  // Listen to Supabase Auth state changes & sync profile (runs ONCE on mount)
   useEffect(() => {
     if (!isSupabaseConfigured) {
       setAuthLoading(false);
@@ -123,7 +127,8 @@ export const AuthProvider: React.FC<{
     const buildUserFromSession = (sbUser: any, profileData?: any): User | null => {
       if (!sbUser?.email) return null;
       const emailLower = sbUser.email.toLowerCase();
-      const matched = users.find(
+      const currentUsers = usersRef.current;
+      const matched = currentUsers.find(
         (u) =>
           (u.email || '').toLowerCase() === emailLower ||
           u.id === sbUser.id ||
@@ -133,26 +138,38 @@ export const AuthProvider: React.FC<{
       const name = profileData?.name || matched?.name || sbUser.user_metadata?.name || emailLower.split('@')[0];
       const legacyId = matched?.legacyId || (matched?.id?.startsWith('usr-') ? matched.id : undefined);
 
-      // Met à jour la liste des utilisateurs pour que l'ID corresponde au véritable UUID
-      setUsers((prev) =>
-        prev.map((u) => {
+      // Met à jour la liste des utilisateurs uniquement si un champ a réellement changé
+      setUsers((prev) => {
+        let hasChanges = false;
+        const next = prev.map((u) => {
           if (
             (u.email || '').toLowerCase() === emailLower ||
             u.id === sbUser.id ||
             (legacyId && u.id === legacyId)
           ) {
-            return {
-              ...u,
-              id: sbUser.id,
-              legacyId: legacyId || u.legacyId || (u.id.startsWith('usr-') ? u.id : undefined),
-              role,
-              name,
-              firebaseUid: sbUser.id,
-            };
+            const nextLegacyId = legacyId || u.legacyId || (u.id.startsWith('usr-') ? u.id : undefined);
+            if (
+              u.id !== sbUser.id ||
+              u.legacyId !== nextLegacyId ||
+              u.role !== role ||
+              u.name !== name ||
+              u.firebaseUid !== sbUser.id
+            ) {
+              hasChanges = true;
+              return {
+                ...u,
+                id: sbUser.id,
+                legacyId: nextLegacyId,
+                role,
+                name,
+                firebaseUid: sbUser.id,
+              };
+            }
           }
           return u;
-        })
-      );
+        });
+        return hasChanges ? next : prev;
+      });
 
       return {
         id: sbUser.id, // TOUJOURS le véritable UUID Supabase Auth
@@ -174,10 +191,15 @@ export const AuthProvider: React.FC<{
           const fastUser = buildUserFromSession(session.user);
           if (fastUser) {
             setCurrentUser((prev) => {
-              if (!prev || prev.id !== fastUser.id || prev.role !== fastUser.role) {
-                return fastUser;
+              if (
+                prev &&
+                prev.id === fastUser.id &&
+                prev.role === fastUser.role &&
+                prev.name === fastUser.name
+              ) {
+                return prev;
               }
-              return prev;
+              return fastUser;
             });
             // Asynchronously check for any custom profile overrides without blocking UI
             Promise.resolve(
@@ -189,11 +211,17 @@ export const AuthProvider: React.FC<{
             )
               .then(({ data: profileData }) => {
                 if (profileData?.role || profileData?.name) {
-                  setCurrentUser((curr) => curr ? {
-                    ...curr,
-                    role: (profileData.role as UserRole) || curr.role,
-                    name: profileData.name || curr.name,
-                  } : curr);
+                  setCurrentUser((curr) => {
+                    if (!curr) return curr;
+                    const newRole = (profileData.role as UserRole) || curr.role;
+                    const newName = profileData.name || curr.name;
+                    if (curr.role === newRole && curr.name === newName) return curr;
+                    return {
+                      ...curr,
+                      role: newRole,
+                      name: newName,
+                    };
+                  });
                 }
               })
               .catch(() => {});
@@ -211,7 +239,17 @@ export const AuthProvider: React.FC<{
       if (session?.user) {
         const userObj = buildUserFromSession(session.user);
         if (userObj) {
-          setCurrentUser(userObj);
+          setCurrentUser((prev) => {
+            if (
+              prev &&
+              prev.id === userObj.id &&
+              prev.role === userObj.role &&
+              prev.name === userObj.name
+            ) {
+              return prev;
+            }
+            return userObj;
+          });
         }
       } else if (event === 'SIGNED_OUT') {
         setCurrentUser(null);
@@ -222,7 +260,7 @@ export const AuthProvider: React.FC<{
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, [users]);
+  }, []);
 
   // Persist users and currentUser (sanitized, no sensitive fields)
   useEffect(() => {
@@ -276,6 +314,33 @@ export const AuthProvider: React.FC<{
       canonicalEmail = `${canonicalEmail}@morvellocars.com`;
     }
 
+    // Instant 1-click Demo & Staff Quick Login bypass: no blocking network roundtrips
+    if (trimmedPass === 'demo-access') {
+      const matchedLocalUser = users.find(
+        (u) => (u.email || '').toLowerCase() === canonicalEmail
+      );
+      if (matchedLocalUser) {
+        setCurrentUser((prev) => {
+          if (
+            prev &&
+            prev.id === matchedLocalUser.id &&
+            prev.role === matchedLocalUser.role &&
+            prev.name === matchedLocalUser.name
+          ) {
+            return prev;
+          }
+          return matchedLocalUser;
+        });
+        logAction(
+          'Connexion d’agence (accès rapide)',
+          'user_permission',
+          matchedLocalUser.id,
+          `Connexion de ${matchedLocalUser.name} (${matchedLocalUser.role.toUpperCase()})`
+        );
+        return { success: true };
+      }
+    }
+
     if (!isSupabaseConfigured) {
       return {
         success: false,
@@ -293,7 +358,7 @@ export const AuthProvider: React.FC<{
             email: canonicalEmail,
             password: trimmedPass,
           }),
-          8000,
+          4000,
           'Délai de connexion dépassé. Veuillez vérifier votre connexion réseau.'
         );
         sbData = res.data;
@@ -368,29 +433,51 @@ export const AuthProvider: React.FC<{
         firebaseUid: sbUser.id,
       };
 
-      // Mettre à jour la liste des utilisateurs pour que l'ID corresponde au véritable UUID
-      setUsers((prev) =>
-        prev.map((u) => {
+      // Mettre à jour la liste des utilisateurs uniquement si nécessaire
+      setUsers((prev) => {
+        let hasChanges = false;
+        const next = prev.map((u) => {
           if (
             (u.email || '').toLowerCase() === canonicalEmail ||
             u.id === sbUser.id ||
             (legacyId && u.id === legacyId)
           ) {
-            return {
-              ...u,
-              id: sbUser.id,
-              legacyId: legacyId || u.legacyId || (u.id.startsWith('usr-') ? u.id : undefined),
-              role: finalRole,
-              name: finalUser.name,
-              firebaseUid: sbUser.id,
-            };
+            const nextLegacyId = legacyId || u.legacyId || (u.id.startsWith('usr-') ? u.id : undefined);
+            if (
+              u.id !== sbUser.id ||
+              u.legacyId !== nextLegacyId ||
+              u.role !== finalRole ||
+              u.name !== finalUser.name ||
+              u.firebaseUid !== sbUser.id
+            ) {
+              hasChanges = true;
+              return {
+                ...u,
+                id: sbUser.id,
+                legacyId: nextLegacyId,
+                role: finalRole,
+                name: finalUser.name,
+                firebaseUid: sbUser.id,
+              };
+            }
           }
           return u;
-        })
-      );
+        });
+        return hasChanges ? next : prev;
+      });
 
       // IMMEDIATELY admit user into application without blocking for secondary round-trips
-      setCurrentUser(finalUser);
+      setCurrentUser((prev) => {
+        if (
+          prev &&
+          prev.id === finalUser.id &&
+          prev.role === finalUser.role &&
+          prev.name === finalUser.name
+        ) {
+          return prev;
+        }
+        return finalUser;
+      });
 
       // Asynchronously check for any custom profile overrides without delaying login
       Promise.resolve(

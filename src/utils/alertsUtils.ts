@@ -63,8 +63,12 @@ export function computeOperationalAlerts(
     const ref = new Date(refDate);
     const diffDays = Math.ceil((targetDate.getTime() - ref.getTime()) / (1000 * 60 * 60 * 24));
 
-    const vehicleTitle = `${contract.vehicleSnapshot.brand} ${contract.vehicleSnapshot.model} (${contract.vehicleSnapshot.plate})`;
-    const clientTitle = `${contract.clientSnapshot.lastName} ${contract.clientSnapshot.firstName}`;
+    const vehicleTitle = contract.vehicleSnapshot
+      ? `${contract.vehicleSnapshot.brand || ''} ${contract.vehicleSnapshot.model || ''} (${contract.vehicleSnapshot.plate || ''})`.trim()
+      : 'Véhicule';
+    const clientTitle = contract.clientSnapshot
+      ? `${contract.clientSnapshot.lastName || ''} ${contract.clientSnapshot.firstName || ''}`.trim()
+      : 'Client';
 
     if (diffDays < 0) {
       // Retard de restitution (critique)

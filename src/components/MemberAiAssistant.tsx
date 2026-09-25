@@ -182,15 +182,10 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
       if (isAbortException(err)) {
         return;
       }
-      const rawMsg = (err?.message || '').toLowerCase();
-      const content = rawMsg.includes('failed to fetch')
-        ? 'Connexion au serveur temporairement indisponible. Veuillez vérifier votre réseau ou réessayer dans un instant.'
-        : `Désolé, une erreur est survenue : ${err.message || 'Service indisponible'}.`;
-
       const errorMsg: AgentChatMessage = {
         id: `err-${Date.now()}`,
         role: 'model',
-        content,
+        content: `Désolé, une erreur est survenue : ${err.message || 'Service indisponible'}.`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
       setMessages((prev) => [...prev, errorMsg]);

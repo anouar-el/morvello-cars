@@ -57,6 +57,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenNotifications }) => {
 
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
 
+  if (!currentUser) {
+    return null;
+  }
+
   // Données isolées selon le rôle
   const {
     scopedVehicles: managerScopedVehicles,
@@ -384,7 +388,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenNotifications }) => {
           <div className="flex items-center gap-2">
             {currentUser.role === 'admin' && pendingApprovalsCount > 0 && (
               <button
-                type="button"
                 onClick={() => setActiveTab('vehicles')}
                 className="bg-amber-500 text-slate-950 font-bold px-2 py-0.5 rounded text-[10px] flex items-center gap-1 hover:bg-amber-400 cursor-pointer"
               >
@@ -403,10 +406,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenNotifications }) => {
             return (
               <button
                 key={item.id}
-                type="button"
-                data-tab={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`flex items-center gap-2 px-3.5 py-2 rounded-md font-medium text-xs whitespace-nowrap transition-colors cursor-pointer select-none ${
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-md font-medium text-xs whitespace-nowrap transition-colors cursor-pointer ${
                   isActive
                     ? 'bg-amber-500/15 text-amber-400 border-b-2 border-amber-400'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'

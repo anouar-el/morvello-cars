@@ -82,6 +82,10 @@ export async function fetchRemoteAgencyDataFromSupabase(): Promise<MorvelloCloud
         }
         return null;
       }
+      // 42501 means RLS restricted access (expected for non-admin managers)
+      if (error.code === '42501' || error.message?.includes('row-level security')) {
+        return null;
+      }
       console.warn('[Supabase Sync] Error fetching agency data:', error.message);
       return null;
     }
@@ -122,12 +126,13 @@ export async function saveRemoteAgencyDataToSupabase(
       updatedBy: userId || 'morvello_user',
     };
 
-    // Upsert direct sur agency_data (soumis aux règles strictes RLS)
+    // Upsert direct sur agency_data (soumis aux règles strictes RLS réservées aux admins)
     const { error } = await supabase
       .from('agency_data')
       .upsert(
         {
           id: AGENCY_RECORD_ID,
+          agency_id: 'agency_morvello',
           data: cleanPayload,
           updated_at: nowIso,
           updated_by: userId || 'system',
@@ -146,25 +151,31 @@ export async function saveRemoteAgencyDataToSupabase(
         return false;
       }
 
-      const isNetworkErr =
-        error.message?.toLowerCase().includes('failed to fetch') ||
-        error.message?.toLowerCase().includes('network') ||
-        error.message?.toLowerCase().includes('load failed');
-
-      if (!isNetworkErr) {
-        console.warn(
-          `[Supabase Sync] Échec sauvegarde agency_data : Code ${error.code} - ${error.message} - ${error.details || ''}`
-        );
-        reportSyncError({
-          table: 'agency_data',
-          entityId: AGENCY_RECORD_ID,
-          code: error.code,
-          message: error.message,
-          details: error.details,
-          timestamp: nowIso,
-        });
+      // Code 42501 : La politique RLS stricte réserve agency_data aux administrateurs.
+      // Pour les managers, leurs modifications individuelles sont synchronisées via syncIndividualTables.
+      if (error.code === '42501' || error.message?.includes('row-level security')) {
+        // Expected under RLS v2: non-admin managers do not modify the global agency_data JSON blob.
       } else {
-        console.warn('[Supabase Sync] Serveur Supabase temporairement inaccessible (réseau/hors ligne):', error.message);
+        const isNetworkErr =
+          error.message?.toLowerCase().includes('failed to fetch') ||
+          error.message?.toLowerCase().includes('network') ||
+          error.message?.toLowerCase().includes('load failed');
+
+        if (!isNetworkErr) {
+          console.warn(
+            `[Supabase Sync] Échec sauvegarde agency_data : Code ${error.code} - ${error.message} - ${error.details || ''}`
+          );
+          reportSyncError({
+            table: 'agency_data',
+            entityId: AGENCY_RECORD_ID,
+            code: error.code,
+            message: error.message,
+            details: error.details,
+            timestamp: nowIso,
+          });
+        } else {
+          console.warn('[Supabase Sync] Serveur Supabase temporairement inaccessible (réseau/hors ligne):', error.message);
+        }
       }
     }
 

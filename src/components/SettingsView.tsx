@@ -84,11 +84,11 @@ DROP POLICY IF EXISTS "clients_insert" ON public.clients;
 DROP POLICY IF EXISTS "clients_update" ON public.clients;
 DROP POLICY IF EXISTS "clients_delete" ON public.clients;
 
--- Policies strictes pour clients (réservé aux utilisateurs authentifiés & isolées par manager)
-CREATE POLICY "clients_select" ON public.clients FOR SELECT TO authenticated USING (public.can_access_manager_row(assigned_manager_id, created_by));
-CREATE POLICY "clients_insert" ON public.clients FOR INSERT TO authenticated WITH CHECK (auth.uid() IS NOT NULL AND public.can_assign_manager(assigned_manager_id));
-CREATE POLICY "clients_update" ON public.clients FOR UPDATE TO authenticated USING (public.can_access_manager_row(assigned_manager_id, created_by)) WITH CHECK (auth.uid() IS NOT NULL AND public.can_assign_manager(assigned_manager_id));
-CREATE POLICY "clients_delete" ON public.clients FOR DELETE TO authenticated USING (public.is_admin());`;
+-- Policies strictes pour clients (réservé aux utilisateurs authentifiés & isolées par manager et agence)
+CREATE POLICY "clients_select" ON public.clients FOR SELECT TO authenticated USING (public.can_access_record(assigned_manager_id, created_by, agency_id));
+CREATE POLICY "clients_insert" ON public.clients FOR INSERT TO authenticated WITH CHECK (auth.uid() IS NOT NULL AND public.is_same_agency(agency_id) AND public.can_assign_manager(assigned_manager_id, created_by));
+CREATE POLICY "clients_update" ON public.clients FOR UPDATE TO authenticated USING (public.can_access_record(assigned_manager_id, created_by, agency_id)) WITH CHECK (auth.uid() IS NOT NULL AND public.is_same_agency(agency_id) AND public.can_assign_manager(assigned_manager_id, created_by));
+CREATE POLICY "clients_delete" ON public.clients FOR DELETE TO authenticated USING (public.can_access_record(assigned_manager_id, created_by, agency_id) AND (public.is_admin() OR public.is_current_manager(assigned_manager_id) OR public.is_current_manager(created_by)));`;
 
   const handleCopySql = () => {
     navigator.clipboard.writeText(SQL_FIX_SCRIPT);
