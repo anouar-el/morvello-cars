@@ -24,6 +24,8 @@ import {
   syncCompanySettings,
 } from '../lib/recordSync';
 import { formatPlateFrench } from '../utils/plateUtils';
+import { generateStableId } from '../utils/idUtils';
+import { isVehicleAvailableForPeriod } from '../utils/vehicleStatusUtils';
 import {
   getNextAvailableContractNumber,
   findDuplicateContractNumbers,
@@ -63,7 +65,7 @@ export interface ContractsContextType {
       onUpdateVehicles: (updater: (prev: Vehicle[]) => Vehicle[]) => void;
       onUpdateClients: (updater: (prev: Client[]) => Client[]) => void;
     }
-  ) => Contract;
+  ) => Promise<Contract>;
 
   repairDuplicateContracts: (
     deposits: DepositRecord[],
@@ -214,7 +216,7 @@ export const ContractsProvider: React.FC<{
     }
   };
 
-  const createContract = (
+  const createContract = async (
     contractData: Omit<Contract, 'id' | 'contractNumber' | 'createdAt' | 'createdBy'>,
     {
       currentUser,
@@ -237,7 +239,27 @@ export const ContractsProvider: React.FC<{
       onUpdateVehicles: (updater: (prev: Vehicle[]) => Vehicle[]) => void;
       onUpdateClients: (updater: (prev: Client[]) => Client[]) => void;
     }
-  ): Contract => {
+  ): Promise<Contract> => {
+    // 1. STEP 10: CONTRÔLE DE DISPONIBILITÉ ET CHEVAUCHEMENT DE DATES
+    const targetVeh = vehicles.find(
+      (v) => v.id === contractData.vehicleId || v.plate === contractData.vehicleSnapshot?.plate
+    );
+    if (!targetVeh) {
+      throw new Error(`Véhicule introuvable : le véhicule sélectionné n'existe pas dans le parc.`);
+    }
+
+    const availability = isVehicleAvailableForPeriod(
+      contractData.vehicleId,
+      contractData.startDate,
+      contractData.endDate,
+      contracts,
+      targetVeh
+    );
+    if (!availability.available) {
+      throw new Error(availability.conflictReason || 'Véhicule indisponible pour cette période.');
+    }
+
+    // 2. GÉNÉRATION SÉCURISÉE DU NUMÉRO DE CONTRAT
     const { formattedContractNumber, nextSequence } = getNextAvailableContractNumber(
       contracts,
       companySettings
@@ -249,11 +271,10 @@ export const ContractsProvider: React.FC<{
     let managerPhone = contractData.managerPhone;
 
     if (!assignedManagerId || !managerPhone) {
-      const veh = vehicles.find((v) => v.id === contractData.vehicleId);
-      if (veh?.assignedManagerId) {
-        const mgr = users.find((u) => u.id === veh.assignedManagerId || u.legacyId === veh.assignedManagerId);
-        assignedManagerId = assignedManagerId || (mgr?.supabaseUid || (!mgr?.id?.startsWith('usr-') ? mgr?.id : undefined) || mgr?.legacyId || veh.assignedManagerId);
-        assignedManagerName = assignedManagerName || veh.assignedManagerName || mgr?.name;
+      if (targetVeh.assignedManagerId) {
+        const mgr = users.find((u) => u.id === targetVeh.assignedManagerId || u.legacyId === targetVeh.assignedManagerId);
+        assignedManagerId = assignedManagerId || (mgr?.supabaseUid || (!mgr?.id?.startsWith('usr-') ? mgr?.id : undefined) || mgr?.legacyId || targetVeh.assignedManagerId);
+        assignedManagerName = assignedManagerName || targetVeh.assignedManagerName || mgr?.name;
         managerPhone = managerPhone || mgr?.phone;
       } else if (currentUser?.role === 'manager') {
         assignedManagerId = assignedManagerId || currentUser.supabaseUid || currentUser.id;
@@ -287,12 +308,17 @@ export const ContractsProvider: React.FC<{
       ? contractData.remainingAmount
       : Math.max(0, totalContractAmount - initialPaid);
 
+    // STEP 13: Identifiants stables sans risque de collision Date.now()
+    const contractId = generateStableId('cnt');
+    const clientId = contractData.clientId || (contractData.clientSnapshot?.id || generateStableId('cli'));
+
     const newContract: Contract = normalizeContractFinancials({
       ...contractData,
+      id: contractId,
+      clientId,
       assignedManagerId,
       assignedManagerName,
       managerPhone,
-      id: `cnt-${Date.now()}`,
       contractNumber,
       createdAt: new Date().toISOString(),
       createdBy: currentUser?.name || 'Système',
@@ -310,12 +336,8 @@ export const ContractsProvider: React.FC<{
       ...companySettings,
       nextContractNumber: nextSequence + 1,
     };
-    onUpdateCompanySettings(updatedCompanySettings);
 
-    const rentedVeh = vehicles.find(
-      (v) => v.id === newContract.vehicleId || v.plate === newContract.vehicleSnapshot?.plate
-    );
-    let resolvedManagerId = rentedVeh?.assignedManagerId || newContract.assignedManagerId;
+    let resolvedManagerId = targetVeh.assignedManagerId || newContract.assignedManagerId;
     if (resolvedManagerId) {
       const matchedMgr = users.find((u) => u.id === resolvedManagerId || u.legacyId === resolvedManagerId);
       if (matchedMgr) {
@@ -326,11 +348,12 @@ export const ContractsProvider: React.FC<{
         }
       }
     }
-    const resolvedManagerName = rentedVeh?.assignedManagerName || newContract.assignedManagerName;
+    const resolvedManagerName = targetVeh.assignedManagerName || newContract.assignedManagerName;
 
+    let newDeposit: DepositRecord | undefined = undefined;
     if (newContract.depositAmount && newContract.depositAmount > 0) {
-      const newDeposit: DepositRecord = {
-        id: `dep-${Date.now()}`,
+      newDeposit = {
+        id: generateStableId('dep'),
         contractId: newContract.id,
         contractNumber: newContract.contractNumber,
         clientId: newContract.clientId,
@@ -350,22 +373,73 @@ export const ContractsProvider: React.FC<{
         assignedManagerName: resolvedManagerName,
         createdBy: currentUser?.name || 'Direction',
       };
-      onAddDeposit(newDeposit);
       newContract.depositRecord = newDeposit;
+    }
+
+    // 3. STEP 5 & 8: PRÉPARATION DU CLIENT PARENT POUR GARANTIR L'INTÉGRITÉ AVANT LE CONTRAT
+    let targetClient: Client | undefined = undefined;
+    if (newContract.clientSnapshot) {
+      const snap = newContract.clientSnapshot;
+      targetClient = {
+        id: clientId,
+        firstName: snap.firstName || '',
+        lastName: snap.lastName || '',
+        birthDate: snap.birthDate || '',
+        drivingLicense: snap.drivingLicense || '',
+        docType: snap.docType || 'CIN',
+        docNumber: snap.docNumber || '',
+        phone: snap.phone || '',
+        email: snap.email || '',
+        country: snap.country || '',
+        address: snap.address || '',
+        cinDocUrl: snap.cinDocUrl,
+        cinDocName: snap.cinDocName,
+        cinDocVersoUrl: snap.cinDocVersoUrl,
+        cinDocVersoName: snap.cinDocVersoName,
+        licenseDocUrl: snap.licenseDocUrl,
+        licenseDocName: snap.licenseDocName,
+        licenseDocVersoUrl: snap.licenseDocVersoUrl,
+        licenseDocVersoName: snap.licenseDocVersoName,
+        documents: snap.documents || [],
+        notes: `Titulaire du contrat ${newContract.contractNumber}`,
+        createdAt: newContract.createdAt || new Date().toISOString(),
+        contractCount: 1,
+        lastContractDate: newContract.startDate,
+        lastContractNumber: newContract.contractNumber,
+        assignedManagerId: resolvedManagerId,
+        assignedManagerName: resolvedManagerName,
+        rentedVehicleBrand: newContract.vehicleSnapshot?.brand || targetVeh?.brand,
+        rentedVehicleModel: newContract.vehicleSnapshot?.model || targetVeh?.model,
+        rentedVehiclePlate: newContract.vehicleSnapshot?.plate || targetVeh?.plate,
+        createdBy: newContract.createdBy,
+      };
+    }
+
+    // 4. STEP 4, 6 & 7: SYNCHRONISATION DISTANTE TRANSACTIONNELLE AVANT VALIDATION LOCALE
+    const syncRes = await syncCreateContract(
+      newContract,
+      {
+        client: targetClient,
+        vehicle: targetVeh,
+        deposit: newDeposit,
+        nextContractNumber: updatedCompanySettings.nextContractNumber,
+        payments: newContract.payments,
+      },
+      currentUser
+    );
+
+    if (!syncRes.success) {
+      throw new Error(syncRes.error || `Échec de persistance du contrat en base de données.`);
+    }
+
+    // 5. APPLICATION LOCALE APRÈS CONFIRMATION DISTANTE
+    if (newDeposit) {
+      onAddDeposit(newDeposit);
     }
 
     const updatedContracts = sortContractsByNumber([newContract, ...contracts], 'desc');
     setContracts(updatedContracts);
-    syncCreateContract(
-      newContract,
-      {
-        deposit: newContract.depositRecord,
-        nextContractNumber: updatedCompanySettings.nextContractNumber,
-      },
-      currentUser
-    ).catch((err) =>
-      console.warn('Record-level sync createContract note:', err)
-    );
+    onUpdateCompanySettings(updatedCompanySettings);
 
     if (newContract.status === 'active') {
       onUpdateVehicles((prev) =>
@@ -396,67 +470,26 @@ export const ContractsProvider: React.FC<{
             c.docNumber.trim().toUpperCase() === newContract.clientSnapshot.docNumber.trim().toUpperCase())
       );
 
-      let updatedClients: Client[];
       if (existingIdx !== -1) {
-        updatedClients = prev.map((c, idx) =>
+        return prev.map((c, idx) =>
           idx === existingIdx
             ? {
                 ...c,
                 assignedManagerId: resolvedManagerId,
                 assignedManagerName: resolvedManagerName,
-                rentedVehicleBrand: newContract.vehicleSnapshot?.brand || rentedVeh?.brand,
-                rentedVehicleModel: newContract.vehicleSnapshot?.model || rentedVeh?.model,
-                rentedVehiclePlate: newContract.vehicleSnapshot?.plate || rentedVeh?.plate,
+                rentedVehicleBrand: newContract.vehicleSnapshot?.brand || targetVeh?.brand,
+                rentedVehicleModel: newContract.vehicleSnapshot?.model || targetVeh?.model,
+                rentedVehiclePlate: newContract.vehicleSnapshot?.plate || targetVeh?.plate,
                 contractCount: (c.contractCount || 0) + 1,
                 lastContractDate: newContract.startDate,
                 lastContractNumber: newContract.contractNumber,
               }
             : c
         );
-      } else if (newContract.clientSnapshot) {
-        const snap = newContract.clientSnapshot;
-        const newClient: Client = {
-          id: newContract.clientId || `cli-${Date.now()}`,
-          firstName: snap.firstName || '',
-          lastName: snap.lastName || '',
-          birthDate: snap.birthDate || '',
-          drivingLicense: snap.drivingLicense || '',
-          docType: snap.docType || 'CIN',
-          docNumber: snap.docNumber || '',
-          phone: snap.phone || '',
-          email: snap.email || '',
-          country: snap.country || '',
-          address: snap.address || '',
-          cinDocUrl: snap.cinDocUrl,
-          cinDocName: snap.cinDocName,
-          cinDocVersoUrl: snap.cinDocVersoUrl,
-          cinDocVersoName: snap.cinDocVersoName,
-          licenseDocUrl: snap.licenseDocUrl,
-          licenseDocName: snap.licenseDocName,
-          licenseDocVersoUrl: snap.licenseDocVersoUrl,
-          licenseDocVersoName: snap.licenseDocVersoName,
-          documents: snap.documents || [],
-          notes: `Titulaire du contrat ${newContract.contractNumber}`,
-          createdAt: newContract.createdAt || new Date().toISOString(),
-          contractCount: 1,
-          lastContractDate: newContract.startDate,
-          lastContractNumber: newContract.contractNumber,
-          assignedManagerId: resolvedManagerId,
-          assignedManagerName: resolvedManagerName,
-          rentedVehicleBrand: newContract.vehicleSnapshot?.brand || rentedVeh?.brand,
-          rentedVehicleModel: newContract.vehicleSnapshot?.model || rentedVeh?.model,
-          rentedVehiclePlate: newContract.vehicleSnapshot?.plate || rentedVeh?.plate,
-          createdBy: newContract.createdBy,
-        };
-        updatedClients = [newClient, ...prev];
-        syncCreateClient(newClient, currentUser).catch((err) =>
-          console.warn('Record-level sync createClient note:', err)
-        );
-      } else {
-        updatedClients = prev;
+      } else if (targetClient) {
+        return [targetClient, ...prev];
       }
-
-      return updatedClients;
+      return prev;
     });
 
     logAction(
@@ -550,7 +583,7 @@ export const ContractsProvider: React.FC<{
     ).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
     const newPaymentRecord: PaymentRecord = {
-      id: payment.id || `pay-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      id: payment.id || generateStableId('pay'),
       amount: Math.max(0, Number(payment.amount) || 0),
       method: payment.method,
       date: payment.date || formattedDate,

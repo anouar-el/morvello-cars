@@ -1,4 +1,5 @@
 import { Client, Contract, Vehicle, User } from '../types';
+import { generateStableId } from './idUtils';
 
 /**
  * Réconcilie automatiquement la liste des clients avec l'ensemble des contrats enregistrés.
@@ -41,7 +42,7 @@ export function reconcileClientsWithContracts(
     if (existingIdx === -1 && snap) {
       // Reconstitue le client manquant à partir du snapshot du contrat
       const newClient: Client = {
-        id: clientId || `cli-${Date.now()}`,
+        id: clientId || generateStableId('cli'),
         firstName: snap.firstName || '',
         lastName: snap.lastName || '',
         birthDate: snap.birthDate || '',

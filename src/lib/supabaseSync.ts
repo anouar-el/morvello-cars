@@ -984,6 +984,72 @@ export async function saveContractRecordToSupabase(
     const createdBy = existing?.created_by || contract.createdBy || currentAuthUid || 'system';
     const nowIso = new Date().toISOString();
 
+    // STEP 15 & 10: VÉRIFICATION INTÉGRITÉ RÉFÉRENTIELLE PARENT AVANT INSERTION
+    if (contract.vehicleId) {
+      const { data: vehRow } = await supabase
+        .from('vehicles')
+        .select('id, plate, status')
+        .eq('id', contract.vehicleId)
+        .maybeSingle();
+
+      if (!vehRow) {
+        const errorMsg = `Véhicule parent introuvable en base (${contract.vehicleId}). Opération annulée pour préserver l'intégrité référentielle.`;
+        reportSyncError({
+          table: 'contracts',
+          entityId: contract.contractNumber || contract.id,
+          code: '23503',
+          message: errorMsg,
+          timestamp: nowIso,
+        });
+        return { success: false, error: errorMsg };
+      }
+
+      // Détection des chevauchements de dates
+      if (contract.startDate && contract.endDate && (contract.status === 'active' || contract.status === 'draft')) {
+        const { data: overlapping } = await supabase
+          .from('contracts')
+          .select('id, contract_number, start_date, end_date')
+          .eq('vehicle_id', contract.vehicleId)
+          .in('status', ['active', 'draft'])
+          .lte('start_date', contract.endDate)
+          .gte('end_date', contract.startDate)
+          .neq('id', contract.id)
+          .limit(1);
+
+        if (overlapping && overlapping.length > 0) {
+          const errorMsg = `Double réservation rejetée : le véhicule est déjà engagé dans le contrat actif ${overlapping[0].contract_number} du ${overlapping[0].start_date} au ${overlapping[0].end_date}.`;
+          reportSyncError({
+            table: 'contracts',
+            entityId: contract.contractNumber || contract.id,
+            code: 'DOUBLE_BOOKING',
+            message: errorMsg,
+            timestamp: nowIso,
+          });
+          return { success: false, conflict: true, error: errorMsg };
+        }
+      }
+    }
+
+    if (contract.clientId) {
+      const { data: clientRow } = await supabase
+        .from('clients')
+        .select('id')
+        .eq('id', contract.clientId)
+        .maybeSingle();
+
+      if (!clientRow) {
+        const errorMsg = `Client parent introuvable en base (${contract.clientId}). Opération annulée pour préserver l'intégrité référentielle.`;
+        reportSyncError({
+          table: 'contracts',
+          entityId: contract.contractNumber || contract.id,
+          code: '23503',
+          message: errorMsg,
+          timestamp: nowIso,
+        });
+        return { success: false, error: errorMsg };
+      }
+    }
+
     const { error: contractErr } = await resilientUpsert('contracts', {
       id: contract.id,
       contract_number: contract.contractNumber,
@@ -1784,6 +1850,43 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
           payload.users
         );
         const createdBy = existing?.created_by || cnt.createdBy || currentAuthUid || 'system';
+
+        // VÉRIFICATION D'INTÉGRITÉ RÉFÉRENTIELLE SUR LES CONTRATS EN BATCH
+        if (cnt.clientId) {
+          const isClientInPayload = (payload.clients || []).some((c) => c.id === cnt.clientId);
+          if (!isClientInPayload) {
+            const { data: dbClient } = await supabase.from('clients').select('id').eq('id', cnt.clientId).maybeSingle();
+            if (!dbClient) {
+              contractHadError = true;
+              reportSyncError({
+                table: 'contracts',
+                entityId: cnt.contractNumber || cnt.id,
+                code: '23503',
+                message: `Client référencé introuvable en base (${cnt.clientId}). Upsert ignoré.`,
+                timestamp: new Date().toISOString(),
+              });
+              continue;
+            }
+          }
+        }
+
+        if (cnt.vehicleId) {
+          const isVehInPayload = (payload.vehicles || []).some((v) => v.id === cnt.vehicleId);
+          if (!isVehInPayload) {
+            const { data: dbVeh } = await supabase.from('vehicles').select('id').eq('id', cnt.vehicleId).maybeSingle();
+            if (!dbVeh) {
+              contractHadError = true;
+              reportSyncError({
+                table: 'contracts',
+                entityId: cnt.contractNumber || cnt.id,
+                code: '23503',
+                message: `Véhicule référencé introuvable en base (${cnt.vehicleId}). Upsert ignoré.`,
+                timestamp: new Date().toISOString(),
+              });
+              continue;
+            }
+          }
+        }
 
         const { error: contractErr } = await resilientUpsert('contracts', {
           id: cnt.id,

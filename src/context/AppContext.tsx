@@ -44,6 +44,7 @@ import {
 import { reconcileVehiclesWithContracts } from '../utils/vehicleStatusUtils';
 import { reconcileClientsWithContracts } from '../utils/clientSyncUtils';
 import { formatPlateFrench } from '../utils/plateUtils';
+import { generateStableId } from '../utils/idUtils';
 
 import { AuthProvider, useAuth } from './AuthContext';
 import { VehiclesProvider, useVehicles } from './VehiclesContext';
@@ -124,7 +125,7 @@ export interface AppContextType {
     expenseData: Omit<VehicleExpense, 'id' | 'createdAt' | 'vehicleId'>
   ) => VehicleExpense;
   deleteVehicleExpense: (vehicleId: string, expenseId: string) => void;
-  createContract: (contractData: Omit<Contract, 'id' | 'contractNumber' | 'createdAt' | 'createdBy'>) => Contract;
+  createContract: (contractData: Omit<Contract, 'id' | 'contractNumber' | 'createdAt' | 'createdBy'>) => Promise<Contract>;
   updateContract: (id: string, data: Partial<Contract>) => Contract | undefined;
   addPaymentToContract: (
     contractId: string,
@@ -520,9 +521,9 @@ const AppContextInner: React.FC<{ children: React.ReactNode }> = ({ children }) 
     };
   }, []);
 
-  const createContract = (
+  const createContract = async (
     contractData: Omit<Contract, 'id' | 'contractNumber' | 'createdAt' | 'createdBy'>
-  ): Contract => {
+  ): Promise<Contract> => {
     return contractsCtx.createContract(contractData, {
       currentUser: auth.currentUser,
       companySettings: company.companySettings,
@@ -570,7 +571,7 @@ const AppContextInner: React.FC<{ children: React.ReactNode }> = ({ children }) 
       });
     } else if (amount > 0) {
       const newDeposit: DepositRecord = {
-        id: `dep-${Date.now()}`,
+        id: generateStableId('dep'),
         contractId: contract.id,
         contractNumber: contract.contractNumber,
         clientId: contract.clientId,

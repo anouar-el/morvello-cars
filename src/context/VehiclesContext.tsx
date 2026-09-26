@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Vehicle, User, VehicleExpense } from '../types';
 import { initialVehicles, initialUsers } from '../data/mockData';
 import { formatPlateFrench } from '../utils/plateUtils';
+import { generateStableId } from '../utils/idUtils';
 import { isVehicleOwnedByManager } from '../utils/managerScopeUtils';
 import { resolveCanonicalUserId } from '../utils/identityMapping';
 import {
@@ -82,7 +83,7 @@ export const VehiclesProvider: React.FC<{
 
     const newVehicle: Vehicle = {
       ...vehicleData,
-      id: `veh-${Date.now()}`,
+      id: generateStableId('veh'),
       plate: formatPlateFrench(vehicleData.plate),
       approvalStatus: needsGerantApproval ? 'pending_approval' : (vehicleData.approvalStatus || 'approved'),
       proposedBy: needsGerantApproval ? (currentUser?.name || 'Agent') : (vehicleData.proposedBy || currentUser?.name || 'Gérant'),
@@ -290,7 +291,7 @@ export const VehiclesProvider: React.FC<{
   ): VehicleExpense => {
     const newExpense: VehicleExpense = {
       ...expenseData,
-      id: `exp-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      id: generateStableId('exp'),
       vehicleId,
       createdAt: new Date().toISOString(),
       recordedBy: currentUser?.name || 'Collaborateur',

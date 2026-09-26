@@ -8,6 +8,7 @@ import {
   syncCreateDriver,
 } from '../lib/recordSync';
 import { resolveClientManagerAndVehicle, ClientManagerAssignment } from '../utils/clientManagerUtils';
+import { generateStableId } from '../utils/idUtils';
 
 export interface ClientsDriversContextType {
   clients: Client[];
@@ -97,7 +98,7 @@ export const ClientsDriversProvider: React.FC<{
   const addClient = (clientData: Omit<Client, 'id' | 'createdAt' | 'contractCount'>): Client => {
     const newClient: Client = {
       ...clientData,
-      id: `cli-${Date.now()}`,
+      id: generateStableId('cli'),
       createdAt: new Date().toISOString(),
       contractCount: 0,
     };
@@ -184,7 +185,7 @@ export const ClientsDriversProvider: React.FC<{
   const addDriver = (driverData: Omit<Driver, 'id' | 'createdAt'>): Driver => {
     const newDriver: Driver = {
       ...driverData,
-      id: `drv-${Date.now()}`,
+      id: generateStableId('drv'),
       createdAt: new Date().toISOString(),
     };
     const updatedDrivers = [newDriver, ...drivers];

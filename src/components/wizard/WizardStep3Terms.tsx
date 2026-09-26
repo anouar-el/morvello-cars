@@ -1,6 +1,6 @@
 import React from 'react';
 import { User, CompanySettings } from '../../types';
-import { Calendar, Gauge, Fuel, Phone } from 'lucide-react';
+import { Calendar, Gauge, Fuel, Phone, AlertTriangle } from 'lucide-react';
 
 interface WizardStep3TermsProps {
   startDate: string;
@@ -33,6 +33,7 @@ interface WizardStep3TermsProps {
   companySettings: CompanySettings;
   totalDays: number;
   totalAmount: number;
+  vehicleAvailability?: { available: boolean; conflictReason?: string };
 }
 
 export const WizardStep3Terms: React.FC<WizardStep3TermsProps> = ({
@@ -66,6 +67,7 @@ export const WizardStep3Terms: React.FC<WizardStep3TermsProps> = ({
   companySettings,
   totalDays,
   totalAmount,
+  vehicleAvailability,
 }) => {
   return (
     <div className="space-y-4 animate-in fade-in duration-150">
@@ -78,6 +80,16 @@ export const WizardStep3Terms: React.FC<WizardStep3TermsProps> = ({
           Définissez les dates et heures de sortie/retour, le relevé compteur et les montants financiers.
         </p>
       </div>
+
+      {vehicleAvailability && !vehicleAvailability.available && (
+        <div className="p-3.5 bg-rose-950/50 border border-rose-500/50 rounded-xl text-rose-200 text-xs flex items-start gap-2.5">
+          <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-bold text-rose-300">Véhicule indisponible sur cette période :</p>
+            <p>{vehicleAvailability.conflictReason}</p>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
         {/* DÉPART */}

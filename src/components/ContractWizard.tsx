@@ -9,6 +9,8 @@ import {
   CheckCircle2,
   ChevronRight,
   ChevronLeft,
+  AlertTriangle,
+  Loader2,
 } from 'lucide-react';
 import { WizardSuccessView } from './wizard/WizardSuccessView';
 import {
@@ -20,6 +22,7 @@ import { WizardStep2Vehicle } from './wizard/WizardStep2Vehicle';
 import { WizardStep3Terms } from './wizard/WizardStep3Terms';
 import { WizardStep4Review } from './wizard/WizardStep4Review';
 import { getNextAvailableContractNumber } from '../utils/contractNumberUtils';
+import { isVehicleAvailableForPeriod } from '../utils/vehicleStatusUtils';
 
 export const ContractWizard: React.FC = () => {
   const {
@@ -61,6 +64,8 @@ export const ContractWizard: React.FC = () => {
 
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [createdContractResult, setCreatedContractResult] = useState<Contract | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const upcomingContractNumber = React.useMemo(() => {
     return getNextAvailableContractNumber(contracts, companySettings).formattedContractNumber;
@@ -391,6 +396,18 @@ export const ContractWizard: React.FC = () => {
     return currentVehicle?.status === 'available';
   };
 
+  const vehicleAvailability = React.useMemo(() => {
+    if (!currentVehicle || !startDate || !endDate) return { available: true };
+    return isVehicleAvailableForPeriod(
+      currentVehicle.id,
+      startDate,
+      endDate,
+      contracts,
+      currentVehicle,
+      isEditMode ? editingContractData?.id : undefined
+    );
+  }, [currentVehicle, startDate, endDate, contracts, isEditMode, editingContractData]);
+
   const isStep3Valid = () => {
     if (!startDate || !endDate || !startTime || !endTime) return false;
     if (departureKm < 0) return false;
@@ -401,162 +418,151 @@ export const ContractWizard: React.FC = () => {
       const prol = new Date(prolongationDate).getTime();
       if (prol < end) return false;
     }
+    if (!vehicleAvailability.available) return false;
     return true;
   };
 
   // Final submission
-  const handleFinalSubmit = () => {
-    // 1. Resolve client
-    let finalClient: Client;
-    if (clientMode === 'new') {
-      const resolvedMgrId =
-        assignedManagerId ||
-        currentVehicle?.assignedManagerId ||
-        (currentUser?.role === 'manager' ? currentUser.id : undefined);
-      const resolvedMgrName =
-        users.find((u) => u.id === resolvedMgrId)?.name ||
-        currentVehicle?.assignedManagerName ||
-        (currentUser?.role === 'manager' ? currentUser.name : undefined);
+  const handleFinalSubmit = async () => {
+    try {
+      setIsSubmitting(true);
+      setSubmitError(null);
 
-      finalClient = addClient({
-        ...newClientForm,
-        assignedManagerId: resolvedMgrId,
-        assignedManagerName: resolvedMgrName,
-        createdBy: currentUser?.name || currentUser?.id,
-      });
-    } else {
-      finalClient = currentClient!;
-    }
-
-    // 2. Prepare snapshots
-    const clientSnapshot = {
-      id: finalClient.id,
-      firstName: finalClient.firstName,
-      lastName: finalClient.lastName,
-      birthDate: finalClient.birthDate,
-      drivingLicense: finalClient.drivingLicense,
-      docType: finalClient.docType,
-      docNumber: finalClient.docNumber,
-      phone: finalClient.phone,
-      email: finalClient.email,
-      address: finalClient.address,
-      country: finalClient.country,
-      cinDocUrl: finalClient.cinDocUrl,
-      cinDocName: finalClient.cinDocName,
-      cinDocVersoUrl: finalClient.cinDocVersoUrl,
-      cinDocVersoName: finalClient.cinDocVersoName,
-      licenseDocUrl: finalClient.licenseDocUrl,
-      licenseDocName: finalClient.licenseDocName,
-      licenseDocVersoUrl: finalClient.licenseDocVersoUrl,
-      licenseDocVersoName: finalClient.licenseDocVersoName,
-      documents: finalClient.documents,
-    };
-
-    // 2.B Prepare Second Driver Snapshot if applicable
-    let secondDriverSnapshot: DriverSnapshot | undefined = undefined;
-    if (hasSecondDriver) {
-      if (secondDriverSource === 'driver') {
-        const drv = drivers.find((d) => d.id === selectedSecondDriverId);
-        if (drv) {
-          secondDriverSnapshot = {
-            firstName: drv.firstName,
-            lastName: drv.lastName,
-            birthDate: drv.birthDate,
-            drivingLicense: drv.drivingLicense,
-            docType: drv.docType,
-            docNumber: drv.docNumber,
-            phone: drv.phone,
-            email: drv.email,
-          };
+      // Verify availability again before submission
+      if (!isEditMode && currentVehicle) {
+        const avail = isVehicleAvailableForPeriod(
+          currentVehicle.id,
+          startDate,
+          endDate,
+          contracts,
+          currentVehicle
+        );
+        if (!avail.available) {
+          throw new Error(avail.conflictReason || 'Véhicule indisponible pour cette période.');
         }
-      } else if (secondDriverSource === 'client') {
-        const cl = clients.find((c) => c.id === selectedSecondDriverId);
-        if (cl) {
-          secondDriverSnapshot = {
-            firstName: cl.firstName,
-            lastName: cl.lastName,
-            birthDate: cl.birthDate,
-            drivingLicense: cl.drivingLicense,
-            docType: cl.docType,
-            docNumber: cl.docNumber,
-            phone: cl.phone,
-            email: cl.email,
-          };
-        }
-      } else {
-        secondDriverSnapshot = {
-          firstName: newSecondDriverForm.firstName.trim(),
-          lastName: newSecondDriverForm.lastName.trim(),
-          birthDate: newSecondDriverForm.birthDate,
-          drivingLicense: newSecondDriverForm.drivingLicense.trim(),
-          docType: newSecondDriverForm.docType,
-          docNumber: newSecondDriverForm.docNumber.trim(),
-          phone: newSecondDriverForm.phone.trim(),
-          email: newSecondDriverForm.email?.trim() || '',
-        };
-        addDriver({
-          firstName: newSecondDriverForm.firstName.trim(),
-          lastName: newSecondDriverForm.lastName.trim(),
-          birthDate: newSecondDriverForm.birthDate,
-          drivingLicense: newSecondDriverForm.drivingLicense.trim(),
-          docType: newSecondDriverForm.docType,
-          docNumber: newSecondDriverForm.docNumber.trim(),
-          phone: newSecondDriverForm.phone.trim(),
-          email: newSecondDriverForm.email?.trim() || '',
-          notes: 'Ajouté comme 2ème conducteur de contrat',
-        });
       }
-    }
 
-    const vehicleSnapshot = {
-      id: currentVehicle!.id,
-      brand: currentVehicle!.brand,
-      model: currentVehicle!.model,
-      plate: formatPlateFrench(currentVehicle!.plate),
-      fuelType: currentVehicle!.fuelType,
-    };
+      // 1. Resolve client
+      let finalClient: Client;
+      if (clientMode === 'new') {
+        const resolvedMgrId =
+          assignedManagerId ||
+          currentVehicle?.assignedManagerId ||
+          (currentUser?.role === 'manager' ? currentUser.id : undefined);
+        const resolvedMgrName =
+          users.find((u) => u.id === resolvedMgrId)?.name ||
+          currentVehicle?.assignedManagerName ||
+          (currentUser?.role === 'manager' ? currentUser.name : undefined);
 
-    // 3. Update or Create contract
-    const resolvedManagerObj =
-      users.find((u) => u.id === assignedManagerId) ||
-      (currentVehicle?.assignedManagerId
-        ? users.find((u) => u.id === currentVehicle.assignedManagerId)
-        : undefined);
-    const resolvedManagerPhone =
-      managerPhone.trim() || resolvedManagerObj?.phone || companySettings.phone1;
+        finalClient = addClient({
+          ...newClientForm,
+          assignedManagerId: resolvedMgrId,
+          assignedManagerName: resolvedMgrName,
+          createdBy: currentUser?.name || currentUser?.id,
+        });
+      } else {
+        finalClient = currentClient!;
+      }
 
-    if (isEditMode && editingContractData) {
-      const updated = updateContract(editingContractData.id, {
-        clientId: finalClient.id,
-        clientSnapshot,
-        hasSecondDriver,
-        secondDriverSnapshot,
-        vehicleId: currentVehicle!.id,
-        vehicleSnapshot,
-        assignedManagerId: assignedManagerId || currentVehicle?.assignedManagerId,
-        assignedManagerName: resolvedManagerObj?.name || currentVehicle?.assignedManagerName,
-        managerPhone: resolvedManagerPhone,
-        startDate,
-        startTime,
-        endDate,
-        endTime,
-        departureKm,
-        departureFuel,
-        prolongation: {
-          isActive: hasProlongation,
-          newEndDate: hasProlongation ? prolongationDate : '',
-          newEndTime: hasProlongation ? prolongationTime : '',
-        },
-        totalDays,
-        pricePerDay,
-        totalAmount,
-        depositAmount: Number(depositAmount),
-        notes: contractNotes,
-      });
+      // 2. Prepare snapshots
+      const clientSnapshot = {
+        id: finalClient.id,
+        firstName: finalClient.firstName,
+        lastName: finalClient.lastName,
+        birthDate: finalClient.birthDate,
+        drivingLicense: finalClient.drivingLicense,
+        docType: finalClient.docType,
+        docNumber: finalClient.docNumber,
+        phone: finalClient.phone,
+        email: finalClient.email,
+        address: finalClient.address,
+        country: finalClient.country,
+        cinDocUrl: finalClient.cinDocUrl,
+        cinDocName: finalClient.cinDocName,
+        cinDocVersoUrl: finalClient.cinDocVersoUrl,
+        cinDocVersoName: finalClient.cinDocVersoName,
+        licenseDocUrl: finalClient.licenseDocUrl,
+        licenseDocName: finalClient.licenseDocName,
+        licenseDocVersoUrl: finalClient.licenseDocVersoUrl,
+        licenseDocVersoName: finalClient.licenseDocVersoName,
+        documents: finalClient.documents,
+      };
 
-      setCreatedContractResult(
-        updated || {
-          ...editingContractData,
+      // 2.B Prepare Second Driver Snapshot if applicable
+      let secondDriverSnapshot: DriverSnapshot | undefined = undefined;
+      if (hasSecondDriver) {
+        if (secondDriverSource === 'driver') {
+          const drv = drivers.find((d) => d.id === selectedSecondDriverId);
+          if (drv) {
+            secondDriverSnapshot = {
+              firstName: drv.firstName,
+              lastName: drv.lastName,
+              birthDate: drv.birthDate,
+              drivingLicense: drv.drivingLicense,
+              docType: drv.docType,
+              docNumber: drv.docNumber,
+              phone: drv.phone,
+              email: drv.email,
+            };
+          }
+        } else if (secondDriverSource === 'client') {
+          const cl = clients.find((c) => c.id === selectedSecondDriverId);
+          if (cl) {
+            secondDriverSnapshot = {
+              firstName: cl.firstName,
+              lastName: cl.lastName,
+              birthDate: cl.birthDate,
+              drivingLicense: cl.drivingLicense,
+              docType: cl.docType,
+              docNumber: cl.docNumber,
+              phone: cl.phone,
+              email: cl.email,
+            };
+          }
+        } else {
+          secondDriverSnapshot = {
+            firstName: newSecondDriverForm.firstName.trim(),
+            lastName: newSecondDriverForm.lastName.trim(),
+            birthDate: newSecondDriverForm.birthDate,
+            drivingLicense: newSecondDriverForm.drivingLicense.trim(),
+            docType: newSecondDriverForm.docType,
+            docNumber: newSecondDriverForm.docNumber.trim(),
+            phone: newSecondDriverForm.phone.trim(),
+            email: newSecondDriverForm.email?.trim() || '',
+          };
+          addDriver({
+            firstName: newSecondDriverForm.firstName.trim(),
+            lastName: newSecondDriverForm.lastName.trim(),
+            birthDate: newSecondDriverForm.birthDate,
+            drivingLicense: newSecondDriverForm.drivingLicense.trim(),
+            docType: newSecondDriverForm.docType,
+            docNumber: newSecondDriverForm.docNumber.trim(),
+            phone: newSecondDriverForm.phone.trim(),
+            email: newSecondDriverForm.email?.trim() || '',
+            notes: 'Ajouté comme 2ème conducteur de contrat',
+          });
+        }
+      }
+
+      const vehicleSnapshot = {
+        id: currentVehicle!.id,
+        brand: currentVehicle!.brand,
+        model: currentVehicle!.model,
+        plate: formatPlateFrench(currentVehicle!.plate),
+        fuelType: currentVehicle!.fuelType,
+      };
+
+      // 3. Update or Create contract
+      const resolvedManagerObj =
+        users.find((u) => u.id === assignedManagerId) ||
+        (currentVehicle?.assignedManagerId
+          ? users.find((u) => u.id === currentVehicle.assignedManagerId)
+          : undefined);
+      const resolvedManagerPhone =
+        managerPhone.trim() || resolvedManagerObj?.phone || companySettings.phone1;
+
+      if (isEditMode && editingContractData) {
+        const updated = updateContract(editingContractData.id, {
           clientId: finalClient.id,
           clientSnapshot,
           hasSecondDriver,
@@ -580,47 +586,84 @@ export const ContractWizard: React.FC = () => {
           totalDays,
           pricePerDay,
           totalAmount,
-          depositAmount,
+          depositAmount: Number(depositAmount),
           notes: contractNotes,
-          templateId: selectedTemplateId,
-        }
-      );
-      clearEditingData();
-      return;
+        });
+
+        setCreatedContractResult(
+          updated || {
+            ...editingContractData,
+            clientId: finalClient.id,
+            clientSnapshot,
+            hasSecondDriver,
+            secondDriverSnapshot,
+            vehicleId: currentVehicle!.id,
+            vehicleSnapshot,
+            assignedManagerId: assignedManagerId || currentVehicle?.assignedManagerId,
+            assignedManagerName: resolvedManagerObj?.name || currentVehicle?.assignedManagerName,
+            managerPhone: resolvedManagerPhone,
+            startDate,
+            startTime,
+            endDate,
+            endTime,
+            departureKm,
+            departureFuel,
+            prolongation: {
+              isActive: hasProlongation,
+              newEndDate: hasProlongation ? prolongationDate : '',
+              newEndTime: hasProlongation ? prolongationTime : '',
+            },
+            totalDays,
+            pricePerDay,
+            totalAmount,
+            depositAmount,
+            notes: contractNotes,
+            templateId: selectedTemplateId,
+          }
+        );
+        clearEditingData();
+        return;
+      }
+
+      // STEP 4: Await remote persistence before reporting success
+      const newContract = await createContract({
+        status: 'active',
+        clientId: finalClient.id,
+        clientSnapshot,
+        hasSecondDriver,
+        secondDriverSnapshot,
+        vehicleId: currentVehicle!.id,
+        vehicleSnapshot,
+        assignedManagerId: assignedManagerId || currentVehicle?.assignedManagerId,
+        assignedManagerName: resolvedManagerObj?.name || currentVehicle?.assignedManagerName,
+        managerPhone: resolvedManagerPhone,
+        startDate,
+        startTime,
+        endDate,
+        endTime,
+        departureKm,
+        departureFuel,
+        prolongation: {
+          isActive: hasProlongation,
+          newEndDate: hasProlongation ? prolongationDate : '',
+          newEndTime: hasProlongation ? prolongationTime : '',
+        },
+        termsVersion: termsVersion.version,
+        templateId: selectedTemplateId,
+        totalDays,
+        pricePerDay,
+        totalAmount,
+        depositAmount,
+        notes: contractNotes,
+      });
+
+      setCreatedContractResult(newContract);
+    } catch (err: any) {
+      console.error('[ContractWizard] Erreur lors de la création du contrat:', err);
+      setSubmitError(err?.message || 'Erreur lors de la création et synchronisation du contrat.');
+    } finally {
+      setIsSubmitting(false);
     }
-
-    const newContract = createContract({
-      status: 'active',
-      clientId: finalClient.id,
-      clientSnapshot,
-      hasSecondDriver,
-      secondDriverSnapshot,
-      vehicleId: currentVehicle!.id,
-      vehicleSnapshot,
-      assignedManagerId: assignedManagerId || currentVehicle?.assignedManagerId,
-      assignedManagerName: resolvedManagerObj?.name || currentVehicle?.assignedManagerName,
-      managerPhone: resolvedManagerPhone,
-      startDate,
-      startTime,
-      endDate,
-      endTime,
-      departureKm,
-      departureFuel,
-      prolongation: {
-        isActive: hasProlongation,
-        newEndDate: hasProlongation ? prolongationDate : '',
-        newEndTime: hasProlongation ? prolongationTime : '',
-      },
-      termsVersion: termsVersion.version,
-      templateId: selectedTemplateId,
-      totalDays,
-      pricePerDay,
-      totalAmount,
-      depositAmount,
-      notes: contractNotes,
-    });
-
-    setCreatedContractResult(newContract);
   };
 
   // SUCCESS BANNER / MODAL STEP
@@ -834,6 +877,18 @@ export const ContractWizard: React.FC = () => {
           />
         )}
 
+        {/* SUBMISSION ERROR ALERT */}
+        {submitError && (
+          <div className="p-4 bg-rose-950/60 border border-rose-500/50 rounded-xl text-rose-200 text-xs sm:text-sm flex items-start gap-3 mt-4 animate-in fade-in duration-200">
+            <AlertTriangle className="w-5 h-5 shrink-0 text-rose-400 mt-0.5" />
+            <div className="space-y-1">
+              <p className="font-bold text-rose-300">Échec de validation ou synchronisation du contrat :</p>
+              <p>{submitError}</p>
+              <p className="text-[11px] text-rose-400">Veuillez corriger le problème ou vérifier la disponibilité du véhicule avant de réessayer.</p>
+            </div>
+          </div>
+        )}
+
         {/* BOTTOM NAVIGATION CONTROLS */}
         <div className="border-t border-slate-800 pt-4 mt-6 flex items-center justify-between gap-2">
           <div>
@@ -841,7 +896,8 @@ export const ContractWizard: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setCurrentStep((prev) => prev - 1)}
-                className="flex items-center gap-1 sm:gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold px-3 sm:px-4 py-2 rounded-lg transition-colors cursor-pointer"
+                disabled={isSubmitting}
+                className="flex items-center gap-1 sm:gap-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 hover:text-white text-xs font-semibold px-3 sm:px-4 py-2 rounded-lg transition-colors cursor-pointer"
               >
                 <ChevronLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 <span className="hidden sm:inline">Précédent</span>
@@ -854,6 +910,7 @@ export const ContractWizard: React.FC = () => {
                   if (isEditMode) clearEditingData();
                   setActiveTab(isEditMode ? 'contracts' : 'dashboard');
                 }}
+                disabled={isSubmitting}
                 className="text-xs text-slate-500 hover:text-slate-300 font-medium px-2 py-1 cursor-pointer"
               >
                 {isEditMode ? 'Annuler modif.' : 'Annuler'}
@@ -880,11 +937,21 @@ export const ContractWizard: React.FC = () => {
               <button
                 type="button"
                 onClick={handleFinalSubmit}
-                className="flex items-center gap-1.5 sm:gap-2 bg-gradient-to-r from-emerald-500 via-emerald-400 to-emerald-500 hover:from-emerald-400 hover:to-emerald-300 text-slate-950 font-extrabold text-xs sm:text-sm px-4 sm:px-6 py-2 sm:py-2.5 rounded-xl shadow-lg shadow-emerald-500/25 transition-transform active:scale-95 cursor-pointer"
+                disabled={isSubmitting}
+                className="flex items-center gap-1.5 sm:gap-2 bg-gradient-to-r from-emerald-500 via-emerald-400 to-emerald-500 hover:from-emerald-400 hover:to-emerald-300 disabled:opacity-50 disabled:pointer-events-none text-slate-950 font-extrabold text-xs sm:text-sm px-4 sm:px-6 py-2 sm:py-2.5 rounded-xl shadow-lg shadow-emerald-500/25 transition-transform active:scale-95 cursor-pointer"
               >
-                <CheckCircle2 className="w-4 h-4 shrink-0" />
-                <span className="hidden sm:inline">{isEditMode ? 'Enregistrer les modifications' : 'Générer le contrat 2 pages A4'}</span>
-                <span className="sm:hidden">{isEditMode ? 'Enregistrer' : 'Générer Contrat A4'}</span>
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                    <span>Synchronisation sécurisée...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    <span className="hidden sm:inline">{isEditMode ? 'Enregistrer les modifications' : 'Générer le contrat 2 pages A4'}</span>
+                    <span className="sm:hidden">{isEditMode ? 'Enregistrer' : 'Générer Contrat A4'}</span>
+                  </>
+                )}
               </button>
             )}
           </div>

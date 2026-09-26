@@ -13,7 +13,7 @@ import {
   ContractInspection,
   User,
 } from '../types';
-import { resolveAssignedManagerForSupabase } from './supabaseSync';
+import { resolveAssignedManagerForSupabase, reportSyncError, clearSyncError } from './supabaseSync';
 import { resolveCanonicalUserId } from '../utils/identityMapping';
 
 // ==============================================================================
@@ -691,6 +691,7 @@ export async function syncCreateContract(
     vehicle?: Vehicle;
     deposit?: DepositRecord;
     nextContractNumber?: number;
+    payments?: PaymentRecord[];
   },
   currentUser?: User | null
 ): Promise<SyncResult<Contract>> {
@@ -706,8 +707,137 @@ export async function syncCreateContract(
     const authUid = sessionRes.data?.session?.user?.id || null;
     const authEmail = sessionRes.data?.session?.user?.email || null;
 
-    // STEP 15: REFERENTIAL INTEGRITY PRESERVATION
-    // 1. Ensure parent client exists before inserting contract referencing client_id
+    // STEP 7: ATOMIC POSTGRESQL TRANSACTION (create_contract_transactional RPC)
+    let rpcSuccessful = false;
+    let rpcHardError: any = null;
+
+    try {
+      const { data: rpcData, error: rpcError } = await supabase.rpc(
+        'create_contract_transactional',
+        {
+          p_contract: contract,
+          p_client: related?.client || contract.clientSnapshot || null,
+          p_vehicle_id: contract.vehicleId || null,
+          p_deposit: related?.deposit || contract.depositRecord || null,
+          p_payments: (related?.payments || contract.payments || []) as any,
+          p_company_settings: related?.nextContractNumber ? { nextContractNumber: related.nextContractNumber } : null,
+        }
+      );
+
+      if (!rpcError && rpcData?.success) {
+        rpcSuccessful = true;
+      } else if (rpcError) {
+        const isRpcMissing =
+          rpcError.code === 'PGRST202' ||
+          rpcError.message?.toLowerCase().includes('could not find the function') ||
+          rpcError.message?.toLowerCase().includes('create_contract_transactional') ||
+          rpcError.message?.includes('schema cache');
+        if (!isRpcMissing) {
+          rpcHardError = rpcError;
+        }
+      }
+    } catch (rpcExc: any) {
+      console.warn('[RecordSync] Exception RPC create_contract_transactional:', rpcExc);
+    }
+
+    if (rpcHardError) {
+      const parsed = parsePostgrestError(rpcHardError);
+      const status: SyncStatus = parsed.code === '42501' ? 'DENIED' : 'SYNC_FAILED';
+      notifySyncEvent({
+        table: 'contracts',
+        entityId: contract.contractNumber || contract.id,
+        operation: 'create',
+        status,
+        error: parsed.message,
+        timestamp,
+      });
+      reportSyncError({
+        table: 'contracts',
+        entityId: contract.contractNumber || contract.id,
+        code: parsed.code,
+        message: parsed.message,
+        details: rpcHardError.details,
+        timestamp,
+      });
+      return { success: false, status, error: parsed.message, code: parsed.code, timestamp };
+    }
+
+    // Si la fonction RPC transactionnelle a réussi
+    if (rpcSuccessful) {
+      if (related?.nextContractNumber) {
+        syncUpdateNextContractSequence(related.nextContractNumber).catch(() => {});
+      }
+      mirrorRecordToFirestore('contracts', contract, false).catch(() => {});
+      if (related?.deposit) {
+        mirrorRecordToFirestore('deposits', related.deposit, false).catch(() => {});
+      }
+      clearSyncError();
+      notifySyncEvent({ table: 'contracts', entityId: contract.id, operation: 'create', status: 'SYNCED', timestamp });
+      return { success: true, status: 'SYNCED', data: contract, timestamp };
+    }
+
+    // STEP 5: SÉQUENCE D'ORDONNANCEMENT ET VÉRIFICATION D'INTÉGRITÉ RÉFÉRENTIELLE (FALLBACK CLIENT-SIDE)
+    // 1. VÉRIFICATION ET SÉCURISATION DU VÉHICULE (PARENT FK)
+    if (contract.vehicleId) {
+      const { data: existingVehicle } = await supabase
+        .from('vehicles')
+        .select('id, plate, status, current_km')
+        .eq('id', contract.vehicleId)
+        .maybeSingle();
+
+      if (!existingVehicle) {
+        if (related?.vehicle) {
+          const vehRes = await syncCreateVehicle(related.vehicle, currentUser);
+          if (!vehRes.success) {
+            const msg = `Véhicule parent introuvable et échec de création : ${vehRes.error || 'Erreur intégrité référentielle'}`;
+            notifySyncEvent({ table: 'contracts', entityId: contract.id, operation: 'create', status: 'SYNC_FAILED', error: msg, timestamp });
+            return { success: false, status: 'SYNC_FAILED', error: msg, timestamp };
+          }
+        } else {
+          const msg = `Véhicule introuvable en base de données (${contract.vehicleId}). Un contrat ne peut pas référencer un véhicule inexistant.`;
+          notifySyncEvent({ table: 'contracts', entityId: contract.id, operation: 'create', status: 'SYNC_FAILED', error: msg, timestamp });
+          return { success: false, status: 'SYNC_FAILED', error: msg, timestamp };
+        }
+      } else {
+        if (existingVehicle.status === 'maintenance' || existingVehicle.status === 'inactive') {
+          const msg = `Véhicule indisponible : le véhicule est actuellement en statut "${existingVehicle.status}".`;
+          notifySyncEvent({ table: 'contracts', entityId: contract.id, operation: 'create', status: 'SYNC_FAILED', error: msg, timestamp });
+          return { success: false, status: 'SYNC_FAILED', error: msg, timestamp };
+        }
+
+        // STEP 10 & 11: Détection des chevauchements de dates (Anti Double Booking)
+        if (contract.startDate && contract.endDate && (contract.status === 'active' || contract.status === 'draft')) {
+          const { data: overlapping } = await supabase
+            .from('contracts')
+            .select('id, contract_number, start_date, end_date')
+            .eq('vehicle_id', contract.vehicleId)
+            .in('status', ['active', 'draft'])
+            .lte('start_date', contract.endDate)
+            .gte('end_date', contract.startDate)
+            .neq('id', contract.id)
+            .limit(1);
+
+          if (overlapping && overlapping.length > 0) {
+            const msg = `Double réservation rejetée : le véhicule est déjà engagé dans le contrat actif ${overlapping[0].contract_number} du ${overlapping[0].start_date} au ${overlapping[0].end_date}.`;
+            notifySyncEvent({ table: 'contracts', entityId: contract.id, operation: 'create', status: 'SYNC_FAILED', error: msg, timestamp });
+            reportSyncError({
+              table: 'contracts',
+              entityId: contract.contractNumber || contract.id,
+              code: 'DOUBLE_BOOKING',
+              message: msg,
+              timestamp,
+            });
+            return { success: false, status: 'SYNC_FAILED', error: msg, code: 'DOUBLE_BOOKING', timestamp };
+          }
+        }
+      }
+    } else {
+      const msg = 'Véhicule obligatoire : un contrat doit obligatoirement être rattaché à un véhicule.';
+      notifySyncEvent({ table: 'contracts', entityId: contract.id, operation: 'create', status: 'SYNC_FAILED', error: msg, timestamp });
+      return { success: false, status: 'SYNC_FAILED', error: msg, timestamp };
+    }
+
+    // 2. VÉRIFICATION ET CRÉATION ATOMIQUE DU CLIENT (PARENT FK)
     if (contract.clientId) {
       const { data: existingClient } = await supabase
         .from('clients')
@@ -715,23 +845,24 @@ export async function syncCreateContract(
         .eq('id', contract.clientId)
         .maybeSingle();
 
-      if (!existingClient && related?.client) {
-        // Automatically create parent client first to satisfy foreign key
-        await syncCreateClient(related.client, currentUser);
+      if (!existingClient) {
+        if (related?.client) {
+          const clientRes = await syncCreateClient(related.client, currentUser);
+          if (!clientRes.success) {
+            const msg = `Échec de création du client parent : ${clientRes.error || 'Erreur intégrité référentielle'}`;
+            notifySyncEvent({ table: 'contracts', entityId: contract.id, operation: 'create', status: 'SYNC_FAILED', error: msg, timestamp });
+            return { success: false, status: 'SYNC_FAILED', error: msg, timestamp };
+          }
+        } else {
+          const msg = `Client introuvable en base de données (${contract.clientId}). Un contrat ne peut pas référencer un client inexistant.`;
+          notifySyncEvent({ table: 'contracts', entityId: contract.id, operation: 'create', status: 'SYNC_FAILED', error: msg, timestamp });
+          return { success: false, status: 'SYNC_FAILED', error: msg, timestamp };
+        }
       }
-    }
-
-    // 2. Ensure parent vehicle exists before inserting contract referencing vehicle_id
-    if (contract.vehicleId) {
-      const { data: existingVehicle } = await supabase
-        .from('vehicles')
-        .select('id')
-        .eq('id', contract.vehicleId)
-        .maybeSingle();
-
-      if (!existingVehicle && related?.vehicle) {
-        await syncCreateVehicle(related.vehicle, currentUser);
-      }
+    } else {
+      const msg = 'Client obligatoire : un contrat doit obligatoirement être rattaché à un client.';
+      notifySyncEvent({ table: 'contracts', entityId: contract.id, operation: 'create', status: 'SYNC_FAILED', error: msg, timestamp });
+      return { success: false, status: 'SYNC_FAILED', error: msg, timestamp };
     }
 
     const assignedMgrId = resolveAssignedManagerForSupabase(
@@ -762,38 +893,59 @@ export async function syncCreateContract(
       updated_at: timestamp,
     };
 
+    // 3. INSERTION DU CONTRAT EN BASE DE DONNÉES
     const { error: contractErr } = await supabase.from('contracts').insert(contractPayload);
     if (contractErr) {
       const parsed = parsePostgrestError(contractErr);
       const status: SyncStatus = parsed.code === '42501' ? 'DENIED' : 'SYNC_FAILED';
       notifySyncEvent({ table: 'contracts', entityId: contract.id, operation: 'create', status, error: parsed.message, timestamp });
+      reportSyncError({
+        table: 'contracts',
+        entityId: contract.contractNumber || contract.id,
+        code: parsed.code,
+        message: parsed.message,
+        details: contractErr.details,
+        timestamp,
+      });
       return { success: false, status, error: parsed.message, code: parsed.code, timestamp };
     }
 
-    // 3. Atomically sync associated deposit record if created with the contract
+    // 4. INSERTION DE LA CAUTION ASSOCIÉE (SI PRÉSENTE)
     if (related?.deposit) {
-      syncCreateDeposit(related.deposit, currentUser).catch((err) =>
-        console.warn('[RecordSync] Deposit auto-sync note:', err)
-      );
+      await syncCreateDeposit(related.deposit, currentUser);
     }
 
-    // 4. Update rented vehicle status record-level (NOT rewriting entire fleet!)
+    // 5. INSERTION DES PAIEMENTS INITIAUX (SI FOURNIS)
+    if (related?.payments || (contract.payments && contract.payments.length > 0)) {
+      const payList = related?.payments || contract.payments || [];
+      for (const p of payList) {
+        await syncCreatePayment(contract.id, p, currentUser);
+      }
+    }
+
+    // 6. MISE À JOUR DU STATUT DU VÉHICULE EN 'RENTED'
     if (contract.vehicleId && contract.status === 'active') {
-      syncUpdateVehicle(contract.vehicleId, { status: 'rented', currentKm: contract.departureKm }).catch(() => {});
+      await syncUpdateVehicle(contract.vehicleId, { status: 'rented', currentKm: contract.departureKm });
     }
 
-    // 5. Update agency settings next sequence if incremented
+    // 7. INCRÉMENTATION DU COMPTEUR DE SÉQUENCE D'AGENCE
     if (related?.nextContractNumber) {
-      syncUpdateNextContractSequence(related.nextContractNumber).catch(() => {});
+      await syncUpdateNextContractSequence(related.nextContractNumber);
     }
 
     mirrorRecordToFirestore('contracts', contract, false).catch(() => {});
-
+    clearSyncError();
     notifySyncEvent({ table: 'contracts', entityId: contract.id, operation: 'create', status: 'SYNCED', timestamp });
     return { success: true, status: 'SYNCED', data: contract, timestamp };
   } catch (err: any) {
     const message = err?.message || 'Erreur réseau lors de la création du contrat';
     notifySyncEvent({ table: 'contracts', entityId: contract.id, operation: 'create', status: 'SYNC_FAILED', error: message, timestamp });
+    reportSyncError({
+      table: 'contracts',
+      entityId: contract.contractNumber || contract.id,
+      message,
+      timestamp,
+    });
     return { success: false, status: 'SYNC_FAILED', error: message, timestamp };
   }
 }
