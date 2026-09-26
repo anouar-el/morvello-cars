@@ -55,58 +55,6 @@ CREATE INDEX IF NOT EXISTS idx_profiles_legacy_id ON public.profiles(legacy_id);
 CREATE INDEX IF NOT EXISTS idx_profiles_email ON public.profiles(lower(email));
 CREATE INDEX IF NOT EXISTS idx_profiles_role ON public.profiles(role);
 
--- VUE SÉCURISÉE PUBLIQUE (SÉPARATION DES DONNÉES D'AUTORISATION SENSIBLES - PROBLEM #4)
-CREATE OR REPLACE VIEW public.safe_profiles
-WITH (security_barrier = true)
-AS
-SELECT
-  p.id,
-  p.name,
-  p.email,
-  p.phone,
-  p.agency,
-  p.agency_id,
-  p.assigned_fleet_name,
-  p.created_at,
-  p.updated_at
-FROM public.profiles p
-WHERE
-  auth.uid() IS NOT NULL
-  AND public.is_same_agency(p.agency_id);
-
-GRANT SELECT ON public.safe_profiles TO authenticated;
-
-CREATE OR REPLACE FUNCTION public.get_safe_team_members()
-RETURNS TABLE (
-  id text,
-  name text,
-  email text,
-  phone text,
-  agency text,
-  agency_id text,
-  assigned_fleet_name text
-)
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT
-    p.id,
-    p.name,
-    p.email,
-    p.phone,
-    p.agency,
-    p.agency_id,
-    p.assigned_fleet_name
-  FROM public.profiles p
-  WHERE
-    auth.uid() IS NOT NULL
-    AND public.is_same_agency(p.agency_id);
-$$;
-
-GRANT EXECUTE ON FUNCTION public.get_safe_team_members() TO authenticated;
-
 -- 4. TABLE DES VÉHICULES
 CREATE TABLE IF NOT EXISTS public.vehicles (
   id TEXT PRIMARY KEY,
@@ -458,6 +406,58 @@ SET search_path = public
 AS $$
   SELECT public.can_access_record(row_assigned_manager_id, row_created_by, NULL);
 $$;
+
+-- VUE SÉCURISÉE PUBLIQUE : définie après les fonctions d'autorisation qu'elle appelle.
+CREATE OR REPLACE VIEW public.safe_profiles
+WITH (security_barrier = true)
+AS
+SELECT
+  p.id,
+  p.name,
+  p.email,
+  p.phone,
+  p.agency,
+  p.agency_id,
+  p.assigned_fleet_name,
+  p.created_at,
+  p.updated_at
+FROM public.profiles p
+WHERE
+  auth.uid() IS NOT NULL
+  AND public.is_same_agency(p.agency_id);
+
+GRANT SELECT ON public.safe_profiles TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.get_safe_team_members()
+RETURNS TABLE (
+  id text,
+  name text,
+  email text,
+  phone text,
+  agency text,
+  agency_id text,
+  assigned_fleet_name text
+)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT
+    p.id,
+    p.name,
+    p.email,
+    p.phone,
+    p.agency,
+    p.agency_id,
+    p.assigned_fleet_name
+  FROM public.profiles p
+  WHERE
+    auth.uid() IS NOT NULL
+    AND public.is_same_agency(p.agency_id);
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_safe_team_members() TO authenticated;
 
 -- Triggers de protection anti-usurpation / élévation de privilèges (PROBLEM #4)
 CREATE OR REPLACE FUNCTION public.protect_profile_privilege_escalation()
