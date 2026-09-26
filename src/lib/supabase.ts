@@ -1,8 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
 export function normalizeSupabaseUrl(raw?: string): string {
-  const fallback = 'https://uxswtmfrrxagkmewpwyd.supabase.co';
-  if (!raw || typeof raw !== 'string') return fallback;
+  if (!raw || typeof raw !== 'string') return '';
   let url = raw.trim();
   // Strip trailing slashes
   url = url.replace(/\/+$/, '');
@@ -10,7 +9,7 @@ export function normalizeSupabaseUrl(raw?: string): string {
   url = url.replace(/\/rest\/v1\/?$/i, '');
   url = url.replace(/\/auth\/v1\/?$/i, '');
   url = url.replace(/\/+$/, '');
-  return url.startsWith('http') ? url : fallback;
+  return url.startsWith('https://') ? url : '';
 }
 
 const rawUrl = typeof import.meta !== 'undefined' ? import.meta.env?.VITE_SUPABASE_URL : undefined;
@@ -20,8 +19,7 @@ const rawAnonKey = typeof import.meta !== 'undefined' ? import.meta.env?.VITE_SU
 export const SUPABASE_URL = normalizeSupabaseUrl(rawUrl);
 
 export const SUPABASE_ANON_KEY =
-  (rawAnonKey && rawAnonKey.trim()) ||
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV4c3d0bWZycnhhZ2ttZXdwd3lkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk0NzkwNTcsImV4cCI6MjEwNTA1NTA1N30.13FmqeiJWy7DRrFYton4PGtuZhyUnvKT3Kn_Rr16mlA';
+  (rawAnonKey && rawAnonKey.trim()) || '';
 
 export const isSupabaseConfigured = Boolean(
   SUPABASE_URL &&
@@ -30,15 +28,21 @@ export const isSupabaseConfigured = Boolean(
     SUPABASE_ANON_KEY.length > 20
 );
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true,
-  },
-  realtime: {
-    params: {
-      eventsPerSecond: 10,
+// Keep imports safe in unconfigured preview builds. Authentication is disabled
+// unless real environment variables are provided.
+export const supabase = createClient(
+  SUPABASE_URL || 'https://unconfigured.invalid',
+  SUPABASE_ANON_KEY || 'unconfigured-anon-key',
+  {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
     },
-  },
-});
+    realtime: {
+      params: {
+        eventsPerSecond: 10,
+      },
+    },
+  }
+);

@@ -103,22 +103,9 @@ export const AuthProvider: React.FC<{
     return initialUsers.map((u) => ({ ...u, mustChangePassword: false }));
   });
 
-  const [currentUser, setCurrentUser] = useState<User | null>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.USER);
-    if (saved) {
-      try {
-        const parsed: User = JSON.parse(saved);
-        const match = users.find((u) => u.id === parsed.id);
-        if (match) {
-          return { ...match, mustChangePassword: false };
-        }
-        return { ...parsed, mustChangePassword: false };
-      } catch (e) {
-        console.error('Failed to parse current user', e);
-      }
-    }
-    return null;
-  });
+  // A browser cache is never proof of identity. Sessions are restored only by
+  // Supabase/Firebase after their token has been verified.
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   // Always maintain latest users in ref to avoid re-triggering auth listener effects
   const usersRef = useRef<User[]>(users);
@@ -141,8 +128,10 @@ export const AuthProvider: React.FC<{
           u.id === sbUser.id ||
           u.supabaseUid === sbUser.id
       );
-      const role: UserRole = (profileData?.role as UserRole) || (matched ? matched.role : 'agent');
-      const name = profileData?.name || matched?.name || sbUser.user_metadata?.name || emailLower.split('@')[0];
+      const role: UserRole = profileData?.role === 'admin' || profileData?.role === 'manager' || profileData?.role === 'agent'
+        ? profileData.role
+        : 'agent';
+      const name = profileData?.name || sbUser.user_metadata?.name || emailLower.split('@')[0];
       const legacyId =
         profileData?.legacy_id ||
         profileData?.local_id ||
@@ -283,10 +272,11 @@ export const AuthProvider: React.FC<{
 
   // Listen to Firebase Auth state changes & sync user session
   useEffect(() => {
-    const unsub = onFirebaseAuthStateChanged(firebaseAuth, (fbUser) => {
+    const unsub = onFirebaseAuthStateChanged(firebaseAuth, async (fbUser) => {
       if (fbUser && fbUser.email) {
         const emailLower = fbUser.email.toLowerCase();
-        const isBootstrappedAdmin = emailLower === 'anouar7fac@gmail.com';
+        const tokenResult = await fbUser.getIdTokenResult();
+        const claimedRole = tokenResult.claims.role;
         const currentUsers = usersRef.current;
         const matched = currentUsers.find(
           (u) =>
@@ -294,8 +284,12 @@ export const AuthProvider: React.FC<{
             u.id === fbUser.uid ||
             u.firebaseUid === fbUser.uid
         );
-        const role: UserRole = isBootstrappedAdmin ? 'admin' : (matched ? matched.role : 'agent');
-        const name = fbUser.displayName || matched?.name || emailLower.split('@')[0];
+        const role: UserRole = tokenResult.claims.admin === true || claimedRole === 'admin'
+          ? 'admin'
+          : claimedRole === 'manager'
+            ? 'manager'
+            : 'agent';
+        const name = fbUser.displayName || emailLower.split('@')[0];
         const canonicalId = matched?.supabaseUid || (matched?.id && !matched.id.startsWith('usr-') ? matched.id : fbUser.uid);
         const legacyId = matched?.legacyId || resolveLegacyUserId(canonicalId, currentUsers) || (matched?.id?.startsWith('usr-') ? matched.id : undefined);
 
@@ -397,33 +391,6 @@ export const AuthProvider: React.FC<{
       canonicalEmail = `${canonicalEmail}@morvellocars.com`;
     }
 
-    // Instant 1-click Demo & Staff Quick Login bypass: no blocking network roundtrips
-    if (trimmedPass === 'demo-access') {
-      const matchedLocalUser = users.find(
-        (u) => (u.email || '').toLowerCase() === canonicalEmail
-      );
-      if (matchedLocalUser) {
-        setCurrentUser((prev) => {
-          if (
-            prev &&
-            prev.id === matchedLocalUser.id &&
-            prev.role === matchedLocalUser.role &&
-            prev.name === matchedLocalUser.name
-          ) {
-            return prev;
-          }
-          return matchedLocalUser;
-        });
-        logAction(
-          'Connexion d’agence (accès rapide)',
-          'user_permission',
-          matchedLocalUser.id,
-          `Connexion de ${matchedLocalUser.name} (${matchedLocalUser.role.toUpperCase()})`
-        );
-        return { success: true };
-      }
-    }
-
     if (!isSupabaseConfigured) {
       return {
         success: false,
@@ -459,25 +426,6 @@ export const AuthProvider: React.FC<{
           errorMsgLower.includes('load failed') ||
           errorMsgLower.includes('abort');
 
-        // Mode Résilience Équipe : si l'utilisateur est un collaborateur Morvello Cars connu
-        // et qu'une défaillance réseau ou d'identifiants Supabase Auth survient,
-        // on autorise l'accès pour garantir la continuité du travail et des tests
-        const matchedLocalUser = users.find(
-          (u) => (u.email || '').toLowerCase() === canonicalEmail
-        );
-
-        if (matchedLocalUser && (isNetworkFailure || errorMsgLower.includes('invalid') || errorMsgLower.includes('credentials'))) {
-          console.warn('[AuthContext] Connexion en mode résilience pour:', matchedLocalUser.name, sbErr.message);
-          setCurrentUser(matchedLocalUser);
-          logAction(
-            'Connexion d’agence (mode résilient)',
-            'user_permission',
-            matchedLocalUser.id,
-            `Connexion de ${matchedLocalUser.name} (${matchedLocalUser.role.toUpperCase()})`
-          );
-          return { success: true };
-        }
-
         let errorMsg = 'Adresse email ou mot de passe incorrect.';
         if (isNetworkFailure) {
           errorMsg = 'Impossible de joindre le serveur d’authentification. Veuillez vérifier votre réseau ou utiliser un accès rapide ci-dessous.';
@@ -488,13 +436,6 @@ export const AuthProvider: React.FC<{
       }
 
       if (!sbData?.user) {
-        const matchedLocalUser = users.find(
-          (u) => (u.email || '').toLowerCase() === canonicalEmail
-        );
-        if (matchedLocalUser) {
-          setCurrentUser(matchedLocalUser);
-          return { success: true };
-        }
         return { success: false, error: 'Identifiants invalides. Aucun utilisateur retourné.' };
       }
 
@@ -502,7 +443,7 @@ export const AuthProvider: React.FC<{
       const matchedUser = users.find(
         (u) => (u.email || '').toLowerCase() === canonicalEmail || u.id === sbUser.id || u.supabaseUid === sbUser.id
       );
-      const finalRole: UserRole = matchedUser ? matchedUser.role : 'agent';
+      const finalRole: UserRole = 'agent';
       const legacyId =
         matchedUser?.legacyId ||
         resolveLegacyUserId(sbUser.id, users) ||
@@ -615,14 +556,7 @@ export const AuthProvider: React.FC<{
       );
       return { success: true };
     } catch (err: any) {
-      console.warn('[Supabase Auth] Erreur de connexion (mode résilient):', err);
-      const matchedLocalUser = users.find(
-        (u) => (u.email || '').toLowerCase() === canonicalEmail
-      );
-      if (matchedLocalUser) {
-        setCurrentUser(matchedLocalUser);
-        return { success: true };
-      }
+      console.warn('[Supabase Auth] Login failed:', err);
       return {
         success: false,
         error: 'Impossible de joindre le serveur d’authentification. Veuillez vérifier votre connexion ou utiliser un accès rapide ci-dessous.',
@@ -639,8 +573,13 @@ export const AuthProvider: React.FC<{
       const result = await signInWithPopup(firebaseAuth, googleProvider);
       const fbUser = result.user;
       const emailLower = (fbUser.email || '').toLowerCase();
-      const isBootstrappedAdmin = emailLower === 'anouar7fac@gmail.com';
-      const role: UserRole = isBootstrappedAdmin ? 'admin' : 'agent';
+      const tokenResult = await fbUser.getIdTokenResult();
+      const claimedRole = tokenResult.claims.role;
+      const role: UserRole = tokenResult.claims.admin === true || claimedRole === 'admin'
+        ? 'admin'
+        : claimedRole === 'manager'
+          ? 'manager'
+          : 'agent';
       const name = fbUser.displayName || emailLower.split('@')[0] || 'Utilisateur Google';
 
       const currentUsers = usersRef.current;
@@ -660,9 +599,9 @@ export const AuthProvider: React.FC<{
         legacyId,
         name,
         email: emailLower,
-        role: matched?.role || role,
+        role,
         agency: matched?.agency || 'Agence Morvello',
-        permissions: matched?.permissions || { ...DEFAULT_PERMISSIONS_BY_ROLE[matched?.role || role] },
+        permissions: { ...DEFAULT_PERMISSIONS_BY_ROLE[role] },
         firebaseUid: fbUser.uid, // REAL Firebase Auth UID
         mustChangePassword: false,
       };

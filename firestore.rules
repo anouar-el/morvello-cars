@@ -27,19 +27,10 @@ service cloud.firestore {
       return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
-    // Bootstrapped Admin Verification (Strict email + email_verified check)
-    function isBootstrappedAdmin() {
-      return isSignedIn() &&
-        request.auth.token.email != null &&
-        (request.auth.token.email == 'anouar7fac@gmail.com' ||
-         request.auth.token.email.matches('(?i)^anouar7fac@gmail\\.com$')) &&
-        (request.auth.token.email_verified == true || request.auth.token.firebase.sign_in_provider == 'google.com');
-    }
-
-    // Authoritative Admin Check
+    // Authoritative Admin Check. Roles come exclusively from a Firebase custom
+    // claim or a server-managed admin/profile record; never from an email.
     function isAdmin() {
       return isSignedIn() && (
-        isBootstrappedAdmin() ||
         exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||

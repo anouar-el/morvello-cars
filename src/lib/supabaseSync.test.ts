@@ -6,7 +6,6 @@ import {
   clearMissingColumnsCache,
   resolveAssignedManagerForSupabase,
 } from './supabaseSync';
-import { initialContracts, initialVehicles } from '../data/mockData';
 import { isContractOwnedByManager } from '../utils/managerScopeUtils';
 
 describe('supabaseSync schema resilience', () => {
@@ -38,67 +37,65 @@ describe('supabaseSync schema resilience', () => {
 });
 
 describe('resolveAssignedManagerForSupabase manager attribution', () => {
-  const saidUid = '3eef50aa-c691-480d-a197-1736770f6f01';
-  const ouahibUid = '8ff123aa-c691-480d-a197-1736770f6f99';
+  const managerAUid = '3eef50aa-c691-480d-a197-1736770f6f01';
+  const managerBUid = '8ff123aa-c691-480d-a197-1736770f6f99';
 
-  it("does NOT reassign Ouahib's contract (usr-3) to Said's UID when Said is logged in", () => {
-    // Contract MC-2026-0050 has assignedManagerId: 'usr-3' and assignedManagerName: 'Abdelkader Ouahib'
+  it("does not reassign another manager's contract to the current manager", () => {
     const result = resolveAssignedManagerForSupabase(
       'usr-3',
-      'Abdelkader Ouahib',
+      'Manager B',
       null,
-      saidUid,
-      'said.khomri@morvellocars.com'
+      managerAUid,
+      'manager-a@example.test'
     );
-    // Must NOT be Said's UID! It must preserve usr-3
+    // It must preserve the existing legacy assignment.
     expect(result).toBe('usr-3');
   });
 
-  it("correctly assigns Ouahib's UID when Ouahib is logged in", () => {
+  it('assigns the authenticated manager UID to their own legacy record', () => {
     const result = resolveAssignedManagerForSupabase(
       'usr-3',
-      'Abdelkader Ouahib',
+      'Manager B',
       null,
-      ouahibUid,
-      'ouahib@morvellocars.com'
+      managerBUid,
+      'manager-b@example.test',
+      [{ id: managerBUid, legacyId: 'usr-3' }]
     );
-    expect(result).toBe(ouahibUid);
+    expect(result).toBe(managerBUid);
   });
 
-  it("correctly assigns Said's UID when Said is logged in and evaluating Said's resource", () => {
+  it('assigns the authenticated manager UID to their own resource', () => {
     const result = resolveAssignedManagerForSupabase(
       'usr-2',
-      'Said Khomri',
+      'Manager A',
       null,
-      saidUid,
-      'said.khomri@morvellocars.com'
+      managerAUid,
+      'manager-a@example.test',
+      [{ id: managerAUid, legacyId: 'usr-2' }]
     );
-    expect(result).toBe(saidUid);
+    expect(result).toBe(managerAUid);
   });
 
-  it('correctly segregates contract MC-2026-0050 between Ouahib and Said', () => {
-    const contract50 = initialContracts.find((c) => c.contractNumber === 'MC-2026-0050')!;
-    expect(contract50).toBeDefined();
-
-    // Ouahib owns MC-2026-0050
-    const ownedByOuahib = isContractOwnedByManager(
-      contract50,
+  it('segregates a contract between two managers', () => {
+    const contract = { assignedManagerId: 'usr-3', vehicleId: 'veh-demo' } as any;
+    const vehicles = [{ id: 'veh-demo', assignedManagerId: 'usr-3' }] as any;
+    const ownedByManagerB = isContractOwnedByManager(
+      contract,
       'usr-3',
-      initialVehicles,
-      'Abdelkader Ouahib',
-      ouahibUid
+      vehicles,
+      'Manager B',
+      managerBUid
     );
-    expect(ownedByOuahib).toBe(true);
+    expect(ownedByManagerB).toBe(true);
 
-    // Said does NOT own MC-2026-0050
-    const ownedBySaid = isContractOwnedByManager(
-      contract50,
+    const ownedByManagerA = isContractOwnedByManager(
+      contract,
       'usr-2',
-      initialVehicles,
-      'Said Khomri',
-      saidUid
+      vehicles,
+      'Manager A',
+      managerAUid
     );
-    expect(ownedBySaid).toBe(false);
+    expect(ownedByManagerA).toBe(false);
   });
 });
 

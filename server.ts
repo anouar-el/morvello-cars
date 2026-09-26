@@ -13,12 +13,15 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 dotenv.config();
 
 // Supabase Server-side Client Configuration
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://uxswtmfrrxagkmewpwyd.supabase.co';
-const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV4c3d0bWZycnhhZ2ttZXdwd3lkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk0NzkwNTcsImV4cCI6MjEwNTA1NTA1N30.13FmqeiJWy7DRrFYton4PGtuZhyUnvKT3Kn_Rr16mlA';
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY;
 
 let supabaseServerClient: SupabaseClient | null = null;
 function getSupabaseClient(): SupabaseClient {
   if (!supabaseServerClient) {
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+      throw new Error('Supabase server configuration is missing.');
+    }
     supabaseServerClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       auth: {
         persistSession: false,
@@ -73,19 +76,6 @@ const app = express();
 const PORT = process.env.AI_STUDIO === 'true' ? 3000 : parseInt(process.env.PORT || '3000', 10);
 
 app.use(express.json({ limit: '10mb' }));
-
-// Canonical legacy user registry mapping authoritative emails and roles
-const CANONICAL_LEGACY_USERS: Record<
-  string,
-  { role: 'admin' | 'manager' | 'agent'; legacyId: string; name: string; agency: string }
-> = {
-  'anouar@morvellocars.com': { role: 'admin', legacyId: 'usr-1', name: 'Anouar', agency: 'Siège & Direction Générale' },
-  'anouar7fac@gmail.com': { role: 'admin', legacyId: 'usr-1', name: 'Anouar', agency: 'Siège & Direction Générale' },
-  'said.khomri@morvellocars.com': { role: 'manager', legacyId: 'usr-2', name: 'Said Khomri', agency: 'Agence Casablanca Centre' },
-  'abdelkader.ouahib@morvellocars.com': { role: 'manager', legacyId: 'usr-3', name: 'Abdelkader Ouahib', agency: 'Agence Aéroport Nouaceur' },
-  'mohamed.ezzay@morvellocars.com': { role: 'manager', legacyId: 'usr-5', name: 'Mohamed Ezzay', agency: 'Agence Marrakech & Région' },
-  'larbi.khomri@morvellocars.com': { role: 'manager', legacyId: 'usr-6', name: 'Larbi Khomri', agency: 'Agence Casablanca Littoral' },
-};
 
 export interface AuthenticatedCaller {
   authenticated: true;
@@ -146,8 +136,6 @@ async function authenticateCaller(req: express.Request): Promise<AuthResult> {
     if (!sbErr && sbData?.user) {
       const sbUser = sbData.user;
       const emailLower = (sbUser.email || '').toLowerCase().trim();
-      const known = CANONICAL_LEGACY_USERS[emailLower];
-
       // Query trusted public.profiles record
       let dbProfile: any = null;
       try {
@@ -161,19 +149,15 @@ async function authenticateCaller(req: express.Request): Promise<AuthResult> {
         console.warn('[Server Auth] Supabase profile query note:', profErr);
       }
 
-      const isHardcodedAdmin =
-        emailLower === 'anouar7fac@gmail.com' ||
-        emailLower === 'anouar@morvellocars.com' ||
-        dbProfile?.role === 'admin';
-
-      const role: 'admin' | 'manager' | 'agent' = isHardcodedAdmin
-        ? 'admin'
-        : (dbProfile?.role as any) || known?.role || 'agent';
+      const role: 'admin' | 'manager' | 'agent' =
+        dbProfile?.role === 'admin' || dbProfile?.role === 'manager' || dbProfile?.role === 'agent'
+          ? dbProfile.role
+          : 'agent';
 
       const isAdmin = role === 'admin';
-      const name = dbProfile?.name || known?.name || sbUser.user_metadata?.name || emailLower.split('@')[0] || 'Collaborateur';
-      const agency = dbProfile?.agency || known?.agency || 'Agence Morvello';
-      const legacyId = dbProfile?.legacy_id || dbProfile?.local_id || known?.legacyId;
+      const name = dbProfile?.name || sbUser.user_metadata?.name || emailLower.split('@')[0] || 'Collaborateur';
+      const agency = dbProfile?.agency || 'Agence Morvello';
+      const legacyId = dbProfile?.legacy_id || dbProfile?.local_id;
 
       return {
         authenticated: true,
@@ -196,22 +180,17 @@ async function authenticateCaller(req: express.Request): Promise<AuthResult> {
     const auth = getAdminAuth();
     const decoded = await auth.verifyIdToken(token);
     const emailLower = (decoded.email || '').toLowerCase().trim();
-    const known = CANONICAL_LEGACY_USERS[emailLower];
-
-    const hasAdminClaim =
-      decoded.admin === true ||
-      decoded.role === 'admin' ||
-      emailLower === 'anouar7fac@gmail.com' ||
-      emailLower === 'anouar@morvellocars.com';
-
-    const role: 'admin' | 'manager' | 'agent' = hasAdminClaim
-      ? 'admin'
-      : (decoded.role as any) || known?.role || 'agent';
+    const role: 'admin' | 'manager' | 'agent' =
+      decoded.admin === true || decoded.role === 'admin'
+        ? 'admin'
+        : decoded.role === 'manager'
+          ? 'manager'
+          : 'agent';
 
     const isAdmin = role === 'admin';
-    const name = decoded.name || known?.name || emailLower.split('@')[0] || 'Collaborateur';
-    const agency = known?.agency || 'Agence Morvello';
-    const legacyId = known?.legacyId;
+    const name = decoded.name || emailLower.split('@')[0] || 'Collaborateur';
+    const agency = 'Agence Morvello';
+    const legacyId = undefined;
 
     return {
       authenticated: true,

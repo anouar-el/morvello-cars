@@ -719,52 +719,8 @@ export function resolveAssignedManagerForSupabase(
       }
     }
 
-    const isCurrentSaid =
-      currentAuthEmail?.includes('said') || currentAuthEmail?.includes('khomri');
-    const isCurrentOuahib = currentAuthEmail?.includes('ouahib');
-    const isCurrentBenali =
-      currentAuthEmail?.includes('benali') || currentAuthEmail?.includes('anouar');
-    const isCurrentEzzay =
-      currentAuthEmail?.includes('ezzay') || currentAuthEmail?.includes('mohamed');
-    const isCurrentLarbi = currentAuthEmail?.includes('larbi');
-
-    const resourceBelongsToSaid =
-      assignedId === 'usr-2' ||
-      existingDbId === 'usr-2' ||
-      (assignedName && (assignedName.toLowerCase().includes('said') || assignedName.toLowerCase().includes('khomri')));
-
-    const resourceBelongsToOuahib =
-      assignedId === 'usr-3' ||
-      existingDbId === 'usr-3' ||
-      (assignedName && assignedName.toLowerCase().includes('ouahib'));
-
-    const resourceBelongsToBenali =
-      assignedId === 'usr-1' ||
-      existingDbId === 'usr-1' ||
-      (assignedName && (assignedName.toLowerCase().includes('benali') || assignedName.toLowerCase().includes('anouar')));
-
-    const resourceBelongsToEzzay =
-      assignedId === 'usr-5' ||
-      existingDbId === 'usr-5' ||
-      (assignedName && (assignedName.toLowerCase().includes('ezzay') || assignedName.toLowerCase().includes('mohamed')));
-
-    const resourceBelongsToLarbi =
-      assignedId === 'usr-6' ||
-      existingDbId === 'usr-6' ||
-      (assignedName && assignedName.toLowerCase().includes('larbi'));
-
-    // Si la ressource appartient au gestionnaire actuellement connecté,
-    // transmettre son véritable UID Supabase garantit que auth.uid()::text = assigned_manager_id
-    // est immédiatement vrai dans PostgreSQL RLS.
-    if (
-      (resourceBelongsToSaid && isCurrentSaid) ||
-      (resourceBelongsToOuahib && isCurrentOuahib) ||
-      (resourceBelongsToBenali && isCurrentBenali) ||
-      (resourceBelongsToEzzay && isCurrentEzzay) ||
-      (resourceBelongsToLarbi && isCurrentLarbi)
-    ) {
-      return currentAuthUid;
-    }
+    // Never infer ownership from an email address or display name. Legacy IDs
+    // must be resolved through an authenticated profile mapping supplied above.
   }
 
   // Si la base contenait déjà une valeur non vide, la préserver
