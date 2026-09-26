@@ -792,7 +792,7 @@ CREATE POLICY "agency_data_insert" ON public.agency_data
       public.is_admin()
       OR (
         assigned_manager_id IS NOT NULL
-        AND public.can_assign_manager(assigned_manager_id)
+        AND public.can_assign_manager(assigned_manager_id, NULL::text)
       )
     )
   );
@@ -815,7 +815,7 @@ CREATE POLICY "agency_data_update" ON public.agency_data
       public.is_admin()
       OR (
         assigned_manager_id IS NOT NULL
-        AND public.can_assign_manager(assigned_manager_id)
+        AND public.can_assign_manager(assigned_manager_id, NULL::text)
       )
     )
   );
