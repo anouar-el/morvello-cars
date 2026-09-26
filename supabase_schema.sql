@@ -6,6 +6,7 @@
 
 -- 1. EXTENSIONS
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- 2. TABLE PRINCIPALE D'ÉTAT D'AGENCE (MULTI-POSTES EN TEMPS RÉEL)
 CREATE TABLE IF NOT EXISTS public.agency_data (
@@ -1086,32 +1087,8 @@ INSERT INTO public.agency_data (id, agency_id, data, updated_at, updated_by)
 VALUES ('morvello_main', 'agency_morvello', '{"initialized": true}'::jsonb, now(), 'morvello_setup')
 ON CONFLICT (id) DO NOTHING;
 
--- Nettoyage de sécurité : Retrait strict des entités opérationnelles sensibles du JSONB agency_data
--- Les tables normalisées (vehicles, clients, contracts, deposits) sont l'unique source de vérité.
-UPDATE public.agency_data
-SET data = data - 'clients' - 'contracts' - 'vehicles' - 'deposits' - 'drivers' - 'payments' - 'vehicleExpenses'
-WHERE id = 'morvello_main' AND data IS NOT NULL;
-
 -- ==============================================================================
--- 14. BOOTSTRAP DU PREMIER ADMINISTRATEUR
--- ==============================================================================
-INSERT INTO public.profiles (id, email, name, role, agency, agency_id, local_id, legacy_id)
-SELECT 
-  id::text, 
-  email, 
-  'Anouar', 
-  'admin', 
-  'Nouaceur Casablanca',
-  'agency_morvello',
-  'usr-1',
-  'usr-1'
-FROM auth.users 
-WHERE email = 'anouar7fac@gmail.com'
-ON CONFLICT (id) 
-DO UPDATE SET role = 'admin', name = 'Anouar', local_id = 'usr-1', legacy_id = 'usr-1';
-
--- ==============================================================================
--- 15. FONCTION TRANSACTIONNELLE DE CRÉATION DE CONTRAT (PROBLEM #8)
+-- 14. FONCTION TRANSACTIONNELLE DE CRÉATION DE CONTRAT (PROBLEM #8)
 -- ==============================================================================
 CREATE INDEX IF NOT EXISTS idx_contracts_vehicle_dates_status 
 ON public.contracts(vehicle_id, start_date, end_date, status);
