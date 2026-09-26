@@ -3,6 +3,7 @@ import { useApp } from '../context/AppContext';
 import { AgentChatMessage } from '../types';
 import { isAbortException } from '../initErrorHandling';
 import { getScopedDataForUser } from '../utils/managerScopeUtils';
+import { getActiveAuthToken } from '../lib/authToken';
 import Markdown from 'react-markdown';
 import {
   Send,
@@ -145,13 +146,20 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
         scopedClients,
       } = getScopedDataForUser(currentUser, vehicles, contracts, deposits, clients, users);
 
+      const { token } = await getActiveAuthToken();
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const res = await fetch('/api/agent-chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           memberId: currentUser.id,
           memberName: currentUser.name,
-          memberRole: currentUser.role,
           memberAgency: currentUser.agency || currentUser.assignedFleetName,
           message: finalPrompt,
           history: historyPayload,

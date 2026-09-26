@@ -2,8 +2,15 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Vehicle, User, VehicleExpense } from '../types';
 import { initialVehicles, initialUsers } from '../data/mockData';
 import { formatPlateFrench } from '../utils/plateUtils';
-import { saveRemoteAgencyData } from '../lib/firestoreSync';
 import { isVehicleOwnedByManager } from '../utils/managerScopeUtils';
+import { resolveCanonicalUserId } from '../utils/identityMapping';
+import {
+  syncCreateVehicle,
+  syncUpdateVehicle,
+  syncDeleteVehicle,
+  syncCreateVehicleExpense,
+  syncDeleteVehicleExpense,
+} from '../lib/recordSync';
 
 export interface VehiclesContextType {
   vehicles: Vehicle[];
@@ -62,12 +69,14 @@ export const VehiclesProvider: React.FC<{
 
     const assignedUser = initialUsers.find((u) => u.id === vehicleData.assignedManagerId);
 
-    const currentUserId = currentUser?.firebaseUid || currentUser?.id;
-    let resolvedManagerId = isManager && currentUserId ? currentUserId : vehicleData.assignedManagerId;
+    const canonicalUserId = currentUser?.supabaseUid || (currentUser?.id && !currentUser.id.startsWith('usr-') ? currentUser.id : undefined) || currentUser?.id;
+    let resolvedManagerId = isManager && canonicalUserId ? canonicalUserId : vehicleData.assignedManagerId;
     if (resolvedManagerId) {
       const matched = initialUsers.find((u) => u.id === resolvedManagerId || u.legacyId === resolvedManagerId);
-      if (matched?.firebaseUid) {
-        resolvedManagerId = matched.firebaseUid;
+      if (matched?.supabaseUid) {
+        resolvedManagerId = matched.supabaseUid;
+      } else if (matched?.id && !matched.id.startsWith('usr-')) {
+        resolvedManagerId = matched.id;
       }
     }
 
@@ -84,8 +93,8 @@ export const VehiclesProvider: React.FC<{
 
     const updatedVehicles = [newVehicle, ...vehicles];
     setVehicles(updatedVehicles);
-    saveRemoteAgencyData({ vehicles: updatedVehicles }).catch((err) =>
-      console.warn('Auto-save vehicle to Firestore note:', err)
+    syncCreateVehicle(newVehicle, currentUser).catch((err) =>
+      console.warn('Record-level sync addVehicle note:', err)
     );
 
     logAction(
@@ -101,6 +110,7 @@ export const VehiclesProvider: React.FC<{
   };
 
   const updateVehicle = (id: string, data: Partial<Vehicle>) => {
+    const existing = vehicles.find((v) => v.id === id);
     const updatedVehicles = vehicles.map((v) => {
       if (v.id === id) {
         const updated = { ...v, ...data };
@@ -110,31 +120,41 @@ export const VehiclesProvider: React.FC<{
       return v;
     });
     setVehicles(updatedVehicles);
-    saveRemoteAgencyData({ vehicles: updatedVehicles }).catch((err) =>
-      console.warn('Auto-save updateVehicle to Firestore note:', err)
+    const patch = { ...data };
+    if (data.plate) patch.plate = formatPlateFrench(data.plate);
+    syncUpdateVehicle(id, patch, (existing as any)?.updatedAt || (existing as any)?.updated_at).catch((err) =>
+      console.warn('Record-level sync updateVehicle note:', err)
     );
     logAction('Mise à jour véhicule', 'vehicle', id, `Modification données véhicule #${id}`);
   };
 
   const approveVehicle = (vehicleId: string, assignedManagerId?: string, actorName: string = 'Gérant') => {
+    let resolvedId = assignedManagerId;
+    let managerName: string | undefined = undefined;
+
     const updatedVehicles = vehicles.map((v) => {
       if (v.id === vehicleId) {
         const targetManager = assignedManagerId
           ? initialUsers.find((u) => u.id === assignedManagerId || u.legacyId === assignedManagerId)
           : initialUsers.find((u) => u.id === v.assignedManagerId || u.legacyId === v.assignedManagerId);
-        const resolvedId = targetManager?.firebaseUid || (targetManager?.id && !targetManager.id.startsWith('usr-') ? targetManager.id : undefined) || assignedManagerId || v.assignedManagerId;
+        resolvedId = targetManager?.supabaseUid || (targetManager?.id && !targetManager.id.startsWith('usr-') ? targetManager.id : undefined) || assignedManagerId || v.assignedManagerId;
+        managerName = targetManager ? targetManager.name : v.assignedManagerName;
         return {
           ...v,
           approvalStatus: 'approved' as const,
           assignedManagerId: resolvedId,
-          assignedManagerName: targetManager ? targetManager.name : v.assignedManagerName,
+          assignedManagerName: managerName,
         };
       }
       return v;
     });
     setVehicles(updatedVehicles);
-    saveRemoteAgencyData({ vehicles: updatedVehicles }).catch((err) =>
-      console.warn('Auto-save approveVehicle to Firestore note:', err)
+    syncUpdateVehicle(vehicleId, {
+      approvalStatus: 'approved',
+      assignedManagerId: resolvedId,
+      assignedManagerName: managerName,
+    }).catch((err) =>
+      console.warn('Record-level sync approveVehicle note:', err)
     );
     logAction(
       'Approbation véhicule',
@@ -145,18 +165,24 @@ export const VehiclesProvider: React.FC<{
   };
 
   const rejectVehicle = (vehicleId: string, reason?: string) => {
-    const updatedVehicles = vehicles.map((v) =>
-      v.id === vehicleId
-        ? {
-            ...v,
-            approvalStatus: 'rejected' as const,
-            notes: reason ? `${v.notes || ''} [Refus Gérant: ${reason}]` : v.notes,
-          }
-        : v
-    );
+    let newNotes: string | undefined = undefined;
+    const updatedVehicles = vehicles.map((v) => {
+      if (v.id === vehicleId) {
+        newNotes = reason ? `${v.notes || ''} [Refus Gérant: ${reason}]` : v.notes;
+        return {
+          ...v,
+          approvalStatus: 'rejected' as const,
+          notes: newNotes,
+        };
+      }
+      return v;
+    });
     setVehicles(updatedVehicles);
-    saveRemoteAgencyData({ vehicles: updatedVehicles }).catch((err) =>
-      console.warn('Auto-save rejectVehicle to Firestore note:', err)
+    syncUpdateVehicle(vehicleId, {
+      approvalStatus: 'rejected',
+      notes: newNotes,
+    }).catch((err) =>
+      console.warn('Record-level sync rejectVehicle note:', err)
     );
     logAction(
       'Refus ajout véhicule',
@@ -173,7 +199,7 @@ export const VehiclesProvider: React.FC<{
     actorName: string = 'Gérant'
   ) => {
     const matched = initialUsers.find((u) => u.id === managerId || u.legacyId === managerId);
-    const resolvedId = matched?.firebaseUid || (matched?.id && !matched.id.startsWith('usr-') ? matched.id : managerId);
+    const resolvedId = matched?.supabaseUid || (matched?.id && !matched.id.startsWith('usr-') ? matched.id : managerId);
     const updatedVehicles = vehicles.map((v) =>
       v.id === vehicleId
         ? {
@@ -184,8 +210,11 @@ export const VehiclesProvider: React.FC<{
         : v
     );
     setVehicles(updatedVehicles);
-    saveRemoteAgencyData({ vehicles: updatedVehicles }).catch((err) =>
-      console.warn('Auto-save assignVehicleManager to Firestore note:', err)
+    syncUpdateVehicle(vehicleId, {
+      assignedManagerId: resolvedId,
+      assignedManagerName: managerName,
+    }).catch((err) =>
+      console.warn('Record-level sync assignVehicleManager note:', err)
     );
     logAction(
       'Affectation responsable',
@@ -216,12 +245,12 @@ export const VehiclesProvider: React.FC<{
     }
 
     if (!isGerant) {
-      const currentUserId = currentUser?.firebaseUid || currentUser?.id;
+      const currentUserId = currentUser?.supabaseUid || (currentUser?.id && !currentUser.id.startsWith('usr-') ? currentUser.id : undefined) || currentUser?.id;
       const isOwned = isVehicleOwnedByManager(
         veh,
         currentUserId || '',
         currentUser?.name,
-        currentUser?.firebaseUid
+        currentUser?.supabaseUid || currentUser?.id
       );
       if (!isOwned) {
         return {
@@ -240,8 +269,8 @@ export const VehiclesProvider: React.FC<{
 
     const updatedVehicles = vehicles.filter((v) => v.id !== vehicleId);
     setVehicles(updatedVehicles);
-    saveRemoteAgencyData({ vehicles: updatedVehicles }).catch((err) =>
-      console.warn('Auto-save deleteVehicle to Firestore note:', err)
+    syncDeleteVehicle(vehicleId, currentUser).catch((err) =>
+      console.warn('Record-level sync deleteVehicle note:', err)
     );
 
     logAction(
@@ -295,9 +324,15 @@ export const VehiclesProvider: React.FC<{
     });
 
     setVehicles(updatedVehicles);
-    saveRemoteAgencyData({ vehicles: updatedVehicles }).catch((err) =>
-      console.warn('Auto-save addVehicleExpense to Firestore note:', err)
+    syncCreateVehicleExpense(vehicleId, newExpense, currentUser).catch((err) =>
+      console.warn('Record-level sync addVehicleExpense note:', err)
     );
+    syncUpdateVehicle(vehicleId, {
+      maintenanceExpenses: updatedExpenses,
+      ...(expenseData.nextOilChangeTargetKm && expenseData.nextOilChangeTargetKm > 0 ? { nextOilChangeKm: expenseData.nextOilChangeTargetKm } : {}),
+      ...(expenseData.kmAtExpense && targetVehicle && expenseData.kmAtExpense > targetVehicle.currentKm ? { currentKm: expenseData.kmAtExpense } : {}),
+      ...(expenseData.date ? { lastInspectionDate: expenseData.date } : {}),
+    }, undefined, currentUser).catch(() => {});
 
     logAction(
       'Enregistrement dépense entretien',
@@ -328,8 +363,8 @@ export const VehiclesProvider: React.FC<{
     });
 
     setVehicles(updatedVehicles);
-    saveRemoteAgencyData({ vehicles: updatedVehicles }).catch((err) =>
-      console.warn('Auto-save deleteVehicleExpense to Firestore note:', err)
+    syncDeleteVehicleExpense(vehicleId, expenseId, currentUser).catch((err) =>
+      console.warn('Record-level sync deleteVehicleExpense note:', err)
     );
 
     logAction(
@@ -352,11 +387,12 @@ export const VehiclesProvider: React.FC<{
         }
         return v;
       });
-      saveRemoteAgencyData({ vehicles: updated }).catch((err) =>
-        console.warn('Auto-save releaseVehicle to Firestore note:', err)
-      );
       return updated;
     });
+    syncUpdateVehicle(vehicleId, {
+      status: 'available',
+      ...(returnKm !== undefined ? { currentKm: returnKm } : {}),
+    }).catch(() => {});
   };
 
   const setVehiclesList = (newVehicles: Vehicle[]) => {
@@ -364,13 +400,7 @@ export const VehiclesProvider: React.FC<{
   };
 
   const setVehiclesListByUpdater = (updater: (prev: Vehicle[]) => Vehicle[]) => {
-    setVehicles((prev) => {
-      const updated = updater(prev);
-      saveRemoteAgencyData({ vehicles: updated }).catch((err) =>
-        console.warn('Auto-save setVehiclesListByUpdater to Firestore note:', err)
-      );
-      return updated;
-    });
+    setVehicles((prev) => updater(prev));
   };
 
   return (

@@ -1,8 +1,12 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Client, Driver, User, Contract, Vehicle } from '../types';
 import { initialClients, initialDrivers } from '../data/mockData';
-import { saveRemoteAgencyData } from '../lib/firestoreSync';
-import { syncAllClientsToSupabase } from '../lib/supabaseSync';
+import {
+  syncCreateClient,
+  syncUpdateClient,
+  syncDeleteClient,
+  syncCreateDriver,
+} from '../lib/recordSync';
 import { resolveClientManagerAndVehicle, ClientManagerAssignment } from '../utils/clientManagerUtils';
 
 export interface ClientsDriversContextType {
@@ -104,15 +108,15 @@ export const ClientsDriversProvider: React.FC<{
     } catch (err) {
       console.warn('Failed to cache new client to localStorage:', err);
     }
-    saveRemoteAgencyData({ clients: updatedClients }).catch((err) =>
-      console.warn('Auto-save addClient to Firestore note:', err)
+    syncCreateClient(newClient).catch((err) =>
+      console.warn('Record-level sync addClient note:', err)
     );
-    syncAllClientsToSupabase([newClient]).catch(() => {});
     logAction('Création client', 'client', newClient.id, `Nouveau client : ${newClient.firstName} ${newClient.lastName}`);
     return newClient;
   };
 
   const updateClient = (id: string, data: Partial<Client>) => {
+    const existing = clients.find((c) => c.id === id);
     const updated = clients.map((c) => (c.id === id ? { ...c, ...data, updatedAt: new Date().toISOString() } : c));
     setClients(updated);
     try {
@@ -120,13 +124,9 @@ export const ClientsDriversProvider: React.FC<{
     } catch (err) {
       console.warn('Failed to cache updated clients to localStorage:', err);
     }
-    saveRemoteAgencyData({ clients: updated }).catch((err) =>
-      console.warn('Auto-save updateClient to Firestore note:', err)
+    syncUpdateClient(id, data, (existing as any)?.updatedAt || (existing as any)?.updated_at).catch((err) =>
+      console.warn('Record-level sync updateClient note:', err)
     );
-    const target = updated.find((c) => c.id === id);
-    if (target) {
-      syncAllClientsToSupabase([target]).catch(() => {});
-    }
     logAction('Mise à jour client', 'client', id, `Modification fiche client #${id}`);
   };
 
@@ -167,8 +167,8 @@ export const ClientsDriversProvider: React.FC<{
       setSelectedClient(null);
     }
 
-    saveRemoteAgencyData({ clients: updatedClients }).catch((err) =>
-      console.warn('Auto-save deleteClient to Firestore note:', err)
+    syncDeleteClient(id, currentUser).catch((err) =>
+      console.warn('Record-level sync deleteClient note:', err)
     );
 
     logAction(
@@ -189,8 +189,8 @@ export const ClientsDriversProvider: React.FC<{
     };
     const updatedDrivers = [newDriver, ...drivers];
     setDrivers(updatedDrivers);
-    saveRemoteAgencyData({ drivers: updatedDrivers }).catch((err) =>
-      console.warn('Auto-save addDriver to Firestore note:', err)
+    syncCreateDriver(newDriver).catch((err) =>
+      console.warn('Record-level sync addDriver note:', err)
     );
     logAction('Création conducteur', 'driver', newDriver.id, `Nouveau conducteur : ${newDriver.firstName} ${newDriver.lastName}`);
     return newDriver;

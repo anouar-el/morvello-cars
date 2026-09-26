@@ -33,6 +33,7 @@ import {
 } from '../data/mockData';
 import { initialTermsVersion } from '../data/termsData';
 import { fetchRemoteAgencyData, saveRemoteAgencyData, subscribeToRemoteAgencyData } from '../lib/firestoreSync';
+import { syncUpdateDeposit } from '../lib/recordSync';
 import { isAbortException } from '../initErrorHandling';
 import { resolveClientManagerAndVehicle, ClientManagerAssignment } from '../utils/clientManagerUtils';
 import {
@@ -655,9 +656,14 @@ const AppContextInner: React.FC<{ children: React.ReactNode }> = ({ children }) 
 
     if (hasChanges) {
       depositsCtx.setDepositsList(updatedDeposits);
-      saveRemoteAgencyData({ deposits: updatedDeposits }).catch((err) =>
-        console.warn('Auto-save reconciled deposits to Firestore:', err)
-      );
+      for (const dep of updatedDeposits) {
+        const original = depositsCtx.deposits.find((d) => d.id === dep.id);
+        if (original && original.amount !== dep.amount) {
+          syncUpdateDeposit(dep.id, { amount: dep.amount }).catch((err) =>
+            console.warn('Record-level sync reconciled deposit note:', err)
+          );
+        }
+      }
     }
   }, [contractsCtx.contracts, depositsCtx.deposits, depositsCtx]);
 

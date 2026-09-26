@@ -1,4 +1,4 @@
-import { doc, getDoc, setDoc, onSnapshot, Unsubscribe } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot, runTransaction, Unsubscribe } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from './firebase';
 import { handleFirestoreError, OperationType } from './firestoreErrors';
@@ -12,17 +12,34 @@ import {
   saveRemoteAgencyDataToSupabase,
   subscribeToRemoteAgencyDataFromSupabase,
   saveUserProfileToSupabase,
+  saveVehicleRecordToSupabase,
+  deleteVehicleFromSupabase,
+  saveContractRecordToSupabase,
+  deleteContractFromSupabase,
+  saveClientRecordToSupabase,
+  deleteClientFromSupabase,
+  saveDriverRecordToSupabase,
+  deleteDriverFromSupabase,
+  saveDepositRecordToSupabase,
+  deleteDepositFromSupabase,
+  savePaymentRecordToSupabase,
+  deletePaymentFromSupabase,
+  saveVehicleExpenseRecordToSupabase,
+  deleteVehicleExpenseFromSupabase,
+  saveCompanySettingsToSupabase,
 } from './supabaseSync';
 import {
   Client,
   Driver,
   Vehicle,
+  VehicleExpense,
   Contract,
   CompanySettings,
   AuditLog,
   User,
   TermsVersion,
   DepositRecord,
+  PaymentRecord,
   AiAssistantSettings,
 } from '../types';
 
@@ -389,5 +406,447 @@ export async function saveUserProfile(
     }
   }
   return true;
+}
+
+// ==============================================================================
+// RECORD-LEVEL SYNCHRONIZATION HELPERS (PROBLEM #7 RESOLUTION)
+//
+// These functions operate exclusively on individual records without rewriting
+// entire global collections. They update the normalized PostgreSQL tables in Supabase
+// and perform atomic transactional updates in Cloud Firestore.
+// ==============================================================================
+
+/**
+ * Synchronizes a single vehicle record (insert, update, or delete)
+ */
+export async function syncVehicleRecord(
+  vehicle: Vehicle,
+  operation: 'save' | 'delete' = 'save',
+  currentUser?: User | null,
+  allUsers?: User[]
+): Promise<{ success: boolean; error?: any }> {
+  let supabaseResult: { success: boolean; error?: any; conflict?: boolean } = { success: false };
+  let firestoreSuccess = false;
+
+  // 1. Authoritative: Row-level PostgreSQL Supabase sync
+  if (isSupabaseConfigured) {
+    if (operation === 'delete') {
+      supabaseResult = await deleteVehicleFromSupabase(vehicle.id);
+    } else {
+      supabaseResult = await saveVehicleRecordToSupabase(vehicle, { currentUser, allUsers });
+    }
+  }
+
+  // 2. Firebase Cloud Firestore array transactional update
+  if (auth.currentUser) {
+    const mainDocRef = doc(db, APP_DOC_PATH.collection, APP_DOC_PATH.docId);
+    try {
+      await runTransaction(db, async (transaction) => {
+        const snap = await transaction.get(mainDocRef);
+        if (!snap.exists()) return;
+        const currentData = snap.data() as MorvelloCloudData;
+        const existingList = currentData.vehicles || [];
+        let updatedList: Vehicle[];
+        if (operation === 'delete') {
+          updatedList = existingList.filter((v) => v.id !== vehicle.id);
+        } else {
+          const idx = existingList.findIndex((v) => v.id === vehicle.id);
+          if (idx >= 0) {
+            updatedList = [...existingList];
+            updatedList[idx] = { ...updatedList[idx], ...vehicle };
+          } else {
+            updatedList = [vehicle, ...existingList];
+          }
+        }
+        transaction.update(mainDocRef, {
+          vehicles: sanitizeForFirestore(updatedList),
+          updatedAt: new Date().toISOString(),
+          updatedBy: auth.currentUser?.uid || 'morvello_user',
+        });
+      });
+      firestoreSuccess = true;
+    } catch (err: any) {
+      if (!isAbortException(err)) {
+        console.warn('[Firestore] Notice updating vehicle in agency doc:', err?.message || err);
+      }
+    }
+  }
+
+  return {
+    success: (isSupabaseConfigured ? supabaseResult.success : true) && (auth.currentUser ? firestoreSuccess : true),
+    error: supabaseResult.error,
+  };
+}
+
+/**
+ * Synchronizes a single contract record (insert, update, or delete)
+ */
+export async function syncContractRecord(
+  contract: Contract,
+  operation: 'save' | 'delete' = 'save',
+  currentUser?: User | null,
+  allUsers?: User[]
+): Promise<{ success: boolean; error?: any }> {
+  let supabaseResult: { success: boolean; error?: any; conflict?: boolean } = { success: false };
+  let firestoreSuccess = false;
+
+  // 1. Authoritative: Row-level PostgreSQL Supabase sync
+  if (isSupabaseConfigured) {
+    if (operation === 'delete') {
+      supabaseResult = await deleteContractFromSupabase(contract.id);
+    } else {
+      supabaseResult = await saveContractRecordToSupabase(contract, { currentUser, allUsers });
+    }
+  }
+
+  // 2. Firebase Cloud Firestore array transactional update
+  if (auth.currentUser) {
+    const mainDocRef = doc(db, APP_DOC_PATH.collection, APP_DOC_PATH.docId);
+    try {
+      await runTransaction(db, async (transaction) => {
+        const snap = await transaction.get(mainDocRef);
+        if (!snap.exists()) return;
+        const currentData = snap.data() as MorvelloCloudData;
+        const existingList = currentData.contracts || [];
+        let updatedList: Contract[];
+        if (operation === 'delete') {
+          updatedList = existingList.filter((c) => c.id !== contract.id);
+        } else {
+          const idx = existingList.findIndex((c) => c.id === contract.id);
+          if (idx >= 0) {
+            updatedList = [...existingList];
+            updatedList[idx] = { ...updatedList[idx], ...contract };
+          } else {
+            updatedList = [contract, ...existingList];
+          }
+        }
+        transaction.update(mainDocRef, {
+          contracts: sanitizeForFirestore(optimizeContractsForFirestore(updatedList)),
+          updatedAt: new Date().toISOString(),
+          updatedBy: auth.currentUser?.uid || 'morvello_user',
+        });
+      });
+      firestoreSuccess = true;
+    } catch (err: any) {
+      if (!isAbortException(err)) {
+        console.warn('[Firestore] Notice updating contract in agency doc:', err?.message || err);
+      }
+    }
+  }
+
+  return {
+    success: (isSupabaseConfigured ? supabaseResult.success : true) && (auth.currentUser ? firestoreSuccess : true),
+    error: supabaseResult.error,
+  };
+}
+
+/**
+ * Synchronizes a single client record (insert, update, or delete)
+ */
+export async function syncClientRecord(
+  client: Client,
+  operation: 'save' | 'delete' = 'save',
+  currentUser?: User | null,
+  allUsers?: User[]
+): Promise<{ success: boolean; error?: any }> {
+  let supabaseResult: { success: boolean; error?: any; conflict?: boolean } = { success: false };
+  let firestoreSuccess = false;
+
+  // 1. Authoritative: Row-level PostgreSQL Supabase sync
+  if (isSupabaseConfigured) {
+    if (operation === 'delete') {
+      supabaseResult = await deleteClientFromSupabase(client.id);
+    } else {
+      supabaseResult = await saveClientRecordToSupabase(client, { currentUser, allUsers });
+    }
+  }
+
+  // 2. Firebase Cloud Firestore update (both morvello_clients and morvello_main)
+  if (auth.currentUser) {
+    const clientsDocRef = doc(db, CLIENTS_DOC_PATH.collection, CLIENTS_DOC_PATH.docId);
+    const mainDocRef = doc(db, APP_DOC_PATH.collection, APP_DOC_PATH.docId);
+    try {
+      await runTransaction(db, async (transaction) => {
+        const snap = await transaction.get(clientsDocRef);
+        const existingList: Client[] = snap.exists() ? (snap.data().clients || []) : [];
+        let updatedList: Client[];
+        if (operation === 'delete') {
+          updatedList = existingList.filter((c) => c.id !== client.id);
+        } else {
+          const idx = existingList.findIndex((c) => c.id === client.id);
+          if (idx >= 0) {
+            updatedList = [...existingList];
+            updatedList[idx] = { ...updatedList[idx], ...client };
+          } else {
+            updatedList = [client, ...existingList];
+          }
+        }
+        transaction.set(
+          clientsDocRef,
+          {
+            clients: sanitizeForFirestore(updatedList),
+            updatedAt: new Date().toISOString(),
+          },
+          { merge: true }
+        );
+      });
+
+      // Also sync to main agency doc if present
+      await runTransaction(db, async (transaction) => {
+        const snap = await transaction.get(mainDocRef);
+        if (!snap.exists()) return;
+        const currentData = snap.data() as MorvelloCloudData;
+        const existingList = currentData.clients || [];
+        let updatedList: Client[];
+        if (operation === 'delete') {
+          updatedList = existingList.filter((c) => c.id !== client.id);
+        } else {
+          const idx = existingList.findIndex((c) => c.id === client.id);
+          if (idx >= 0) {
+            updatedList = [...existingList];
+            updatedList[idx] = { ...updatedList[idx], ...client };
+          } else {
+            updatedList = [client, ...existingList];
+          }
+        }
+        transaction.update(mainDocRef, {
+          clients: sanitizeForFirestore(updatedList),
+          updatedAt: new Date().toISOString(),
+          updatedBy: auth.currentUser?.uid || 'morvello_user',
+        });
+      });
+      firestoreSuccess = true;
+    } catch (err: any) {
+      if (!isAbortException(err)) {
+        console.warn('[Firestore] Notice updating client:', err?.message || err);
+      }
+    }
+  }
+
+  return {
+    success: (isSupabaseConfigured ? supabaseResult.success : true) && (auth.currentUser ? firestoreSuccess : true),
+    error: supabaseResult.error,
+  };
+}
+
+/**
+ * Synchronizes a single driver record (insert, update, or delete)
+ */
+export async function syncDriverRecord(
+  driver: Driver,
+  operation: 'save' | 'delete' = 'save',
+  currentUser?: User | null,
+  allUsers?: User[]
+): Promise<{ success: boolean; error?: any }> {
+  let supabaseResult: { success: boolean; error?: any; conflict?: boolean } = { success: false };
+  let firestoreSuccess = false;
+
+  if (isSupabaseConfigured) {
+    if (operation === 'delete') {
+      supabaseResult = await deleteDriverFromSupabase(driver.id);
+    } else {
+      supabaseResult = await saveDriverRecordToSupabase(driver, { currentUser, allUsers });
+    }
+  }
+
+  if (auth.currentUser) {
+    const mainDocRef = doc(db, APP_DOC_PATH.collection, APP_DOC_PATH.docId);
+    try {
+      await runTransaction(db, async (transaction) => {
+        const snap = await transaction.get(mainDocRef);
+        if (!snap.exists()) return;
+        const currentData = snap.data() as MorvelloCloudData;
+        const existingList = currentData.drivers || [];
+        let updatedList: Driver[];
+        if (operation === 'delete') {
+          updatedList = existingList.filter((d) => d.id !== driver.id);
+        } else {
+          const idx = existingList.findIndex((d) => d.id === driver.id);
+          if (idx >= 0) {
+            updatedList = [...existingList];
+            updatedList[idx] = { ...updatedList[idx], ...driver };
+          } else {
+            updatedList = [driver, ...existingList];
+          }
+        }
+        transaction.update(mainDocRef, {
+          drivers: sanitizeForFirestore(updatedList),
+          updatedAt: new Date().toISOString(),
+          updatedBy: auth.currentUser?.uid || 'morvello_user',
+        });
+      });
+      firestoreSuccess = true;
+    } catch (err: any) {
+      if (!isAbortException(err)) {
+        console.warn('[Firestore] Notice updating driver:', err?.message || err);
+      }
+    }
+  }
+
+  return {
+    success: (isSupabaseConfigured ? supabaseResult.success : true) && (auth.currentUser ? firestoreSuccess : true),
+    error: supabaseResult.error,
+  };
+}
+
+/**
+ * Synchronizes a single deposit record (insert, update, or delete)
+ */
+export async function syncDepositRecord(
+  deposit: DepositRecord,
+  operation: 'save' | 'delete' = 'save',
+  currentUser?: User | null,
+  allUsers?: User[]
+): Promise<{ success: boolean; error?: any }> {
+  let supabaseResult: { success: boolean; error?: any; conflict?: boolean } = { success: false };
+  let firestoreSuccess = false;
+
+  if (isSupabaseConfigured) {
+    if (operation === 'delete') {
+      supabaseResult = await deleteDepositFromSupabase(deposit.id);
+    } else {
+      supabaseResult = await saveDepositRecordToSupabase(deposit, { currentUser, allUsers });
+    }
+  }
+
+  if (auth.currentUser) {
+    const mainDocRef = doc(db, APP_DOC_PATH.collection, APP_DOC_PATH.docId);
+    try {
+      await runTransaction(db, async (transaction) => {
+        const snap = await transaction.get(mainDocRef);
+        if (!snap.exists()) return;
+        const currentData = snap.data() as MorvelloCloudData;
+        const existingList = currentData.deposits || [];
+        let updatedList: DepositRecord[];
+        if (operation === 'delete') {
+          updatedList = existingList.filter((d) => d.id !== deposit.id);
+        } else {
+          const idx = existingList.findIndex((d) => d.id === deposit.id);
+          if (idx >= 0) {
+            updatedList = [...existingList];
+            updatedList[idx] = { ...updatedList[idx], ...deposit };
+          } else {
+            updatedList = [deposit, ...existingList];
+          }
+        }
+        transaction.update(mainDocRef, {
+          deposits: sanitizeForFirestore(updatedList),
+          updatedAt: new Date().toISOString(),
+          updatedBy: auth.currentUser?.uid || 'morvello_user',
+        });
+      });
+      firestoreSuccess = true;
+    } catch (err: any) {
+      if (!isAbortException(err)) {
+        console.warn('[Firestore] Notice updating deposit:', err?.message || err);
+      }
+    }
+  }
+
+  return {
+    success: (isSupabaseConfigured ? supabaseResult.success : true) && (auth.currentUser ? firestoreSuccess : true),
+    error: supabaseResult.error,
+  };
+}
+
+/**
+ * Synchronizes a single vehicle maintenance expense to PostgreSQL vehicle_expenses
+ */
+export async function syncVehicleExpenseRecord(
+  expense: VehicleExpense,
+  vehicleId: string,
+  operation: 'save' | 'delete' = 'save',
+  currentUser?: User | null
+): Promise<{ success: boolean; error?: any }> {
+  let supabaseResult: { success: boolean; error?: any; conflict?: boolean } = { success: false };
+
+  if (isSupabaseConfigured) {
+    if (operation === 'delete') {
+      supabaseResult = await deleteVehicleExpenseFromSupabase(expense.id);
+    } else {
+      supabaseResult = await saveVehicleExpenseRecordToSupabase(expense, vehicleId, { currentUser });
+    }
+  }
+
+  return {
+    success: isSupabaseConfigured ? supabaseResult.success : true,
+    error: supabaseResult.error,
+  };
+}
+
+/**
+ * Synchronizes a single contract payment record to PostgreSQL payments
+ */
+export async function syncContractPaymentRecord(
+  payment: PaymentRecord,
+  contractId: string,
+  operation: 'save' | 'delete' = 'save',
+  currentUser?: User | null
+): Promise<{ success: boolean; error?: any }> {
+  let supabaseResult: { success: boolean; error?: any; conflict?: boolean } = { success: false };
+
+  if (isSupabaseConfigured) {
+    if (operation === 'delete') {
+      supabaseResult = await deletePaymentFromSupabase(payment.id);
+    } else {
+      supabaseResult = await savePaymentRecordToSupabase(payment, contractId, { currentUser });
+    }
+  }
+
+  return {
+    success: isSupabaseConfigured ? supabaseResult.success : true,
+    error: supabaseResult.error,
+  };
+}
+
+/**
+ * Persists ONLY company settings to agency_data / Firestore without sending unrelated collections
+ */
+export async function syncCompanySettings(
+  settings: CompanySettings,
+  userId?: string
+): Promise<{ success: boolean; error?: any }> {
+  let supabaseResult: { success: boolean; error?: any; conflict?: boolean } = { success: false };
+  let firestoreSuccess = false;
+
+  if (isSupabaseConfigured) {
+    supabaseResult = await saveCompanySettingsToSupabase(settings, userId);
+  }
+
+  if (auth.currentUser) {
+    const mainDocRef = doc(db, APP_DOC_PATH.collection, APP_DOC_PATH.docId);
+    try {
+      await setDoc(
+        mainDocRef,
+        sanitizeForFirestore({
+          companySettings: settings,
+          updatedAt: new Date().toISOString(),
+          updatedBy: userId || auth.currentUser?.uid || 'morvello_user',
+        }),
+        { merge: true }
+      );
+      firestoreSuccess = true;
+    } catch (err: any) {
+      if (!isAbortException(err)) {
+        console.warn('[Firestore] Notice updating companySettings:', err?.message || err);
+      }
+    }
+  }
+
+  return {
+    success: (isSupabaseConfigured ? supabaseResult.success : true) && (auth.currentUser ? firestoreSuccess : true),
+    error: supabaseResult.error,
+  };
+}
+
+/**
+ * Persists a single user profile without sending all users
+ */
+export async function syncUserProfile(
+  userId: string,
+  profile: Partial<User>
+): Promise<{ success: boolean; error?: any }> {
+  const success = await saveUserProfile(userId, profile as any);
+  return { success };
 }
 

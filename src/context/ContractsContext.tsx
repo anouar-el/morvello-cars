@@ -12,7 +12,17 @@ import {
   PaymentMethod,
 } from '../types';
 import { initialContracts } from '../data/mockData';
-import { saveRemoteAgencyData } from '../lib/firestoreSync';
+import {
+  syncCreateContract,
+  syncUpdateContract,
+  syncDeleteContract,
+  syncUpdateContractInspection,
+  syncCreateClient,
+  syncUpdateClient,
+  syncCreatePayment,
+  syncDeletePayment,
+  syncCompanySettings,
+} from '../lib/recordSync';
 import { formatPlateFrench } from '../utils/plateUtils';
 import {
   getNextAvailableContractNumber,
@@ -346,11 +356,15 @@ export const ContractsProvider: React.FC<{
 
     const updatedContracts = sortContractsByNumber([newContract, ...contracts], 'desc');
     setContracts(updatedContracts);
-    saveRemoteAgencyData({
-      contracts: updatedContracts,
-      companySettings: updatedCompanySettings,
-    }).catch((err) =>
-      console.warn('Auto-save createContract to Firestore note:', err)
+    syncCreateContract(
+      newContract,
+      {
+        deposit: newContract.depositRecord,
+        nextContractNumber: updatedCompanySettings.nextContractNumber,
+      },
+      currentUser
+    ).catch((err) =>
+      console.warn('Record-level sync createContract note:', err)
     );
 
     if (newContract.status === 'active') {
@@ -435,13 +449,13 @@ export const ContractsProvider: React.FC<{
           createdBy: newContract.createdBy,
         };
         updatedClients = [newClient, ...prev];
+        syncCreateClient(newClient, currentUser).catch((err) =>
+          console.warn('Record-level sync createClient note:', err)
+        );
       } else {
         updatedClients = prev;
       }
 
-      saveRemoteAgencyData({ clients: updatedClients }).catch((err) =>
-        console.warn('Auto-save updated clients to Firestore notice:', err)
-      );
       return updatedClients;
     });
 
@@ -488,8 +502,8 @@ export const ContractsProvider: React.FC<{
     if (pdfModalContract?.id === id && updatedContract) {
       setPdfModalContract(updatedContract);
     }
-    saveRemoteAgencyData({ contracts: updatedContracts }).catch((err) =>
-      console.warn('Auto-save updateContract to Firestore note:', err)
+    syncUpdateContract(id, data, (existing as any)?.updatedAt || (existing as any)?.updated_at).catch((err) =>
+      console.warn('Record-level sync updateContract note:', err)
     );
 
     if (onUpdateVehicles) {
@@ -562,6 +576,10 @@ export const ContractsProvider: React.FC<{
       remainingAmount: newRemaining,
       paymentStatus: newPaymentStatus,
     });
+
+    syncCreatePayment(contractId, newPaymentRecord).catch((err) =>
+      console.warn('Record-level sync createPayment note:', err)
+    );
 
     logAction(
       'Paiement reçu',
@@ -642,6 +660,10 @@ export const ContractsProvider: React.FC<{
       remainingAmount: newRemaining,
       paymentStatus: newPaymentStatus,
     });
+
+    syncDeletePayment(paymentId).catch((err) =>
+      console.warn('Record-level sync deletePayment note:', err)
+    );
 
     logAction(
       'Suppression paiement',
@@ -749,9 +771,10 @@ export const ContractsProvider: React.FC<{
         }
         return normalizeContractFinancials(c);
       });
-      saveRemoteAgencyData({ contracts: updated }).catch((err) =>
-        console.warn('[Contracts] Remote sync warning:', err)
-      );
+      const target = updated.find((c) => c.id === 'cnt-1789166132353');
+      if (target) {
+        syncUpdateContract(target.id, target).catch(() => {});
+      }
       return updated;
     });
     logAction(
@@ -803,8 +826,18 @@ export const ContractsProvider: React.FC<{
     );
 
     setContracts(updatedContracts);
-    saveRemoteAgencyData({ contracts: updatedContracts }).catch((err) =>
-      console.warn('Auto-save completeContract to Firestore note:', err)
+    syncUpdateContract(
+      id,
+      {
+        status: 'completed',
+        returnKm,
+        returnDate,
+        returnTime,
+        notes: notes ? (target.notes ? `${target.notes}\n[Clôture]: ${notes}` : notes) : target.notes,
+      },
+      (target as any)?.updatedAt || (target as any)?.updated_at
+    ).catch((err) =>
+      console.warn('Record-level sync completeContract note:', err)
     );
 
     if (onReleaseVehicle) {
@@ -838,8 +871,15 @@ export const ContractsProvider: React.FC<{
     );
 
     setContracts(updatedContracts);
-    saveRemoteAgencyData({ contracts: updatedContracts }).catch((err) =>
-      console.warn('Auto-save cancelContract to Firestore note:', err)
+    syncUpdateContract(
+      id,
+      {
+        status: 'cancelled',
+        notes: reason ? (target.notes ? `${target.notes}\n[Annulation]: ${reason}` : reason) : target.notes,
+      },
+      (target as any)?.updatedAt || (target as any)?.updated_at
+    ).catch((err) =>
+      console.warn('Record-level sync cancelContract note:', err)
     );
 
     if (target.status === 'active' && onReleaseVehicle) {
@@ -881,8 +921,8 @@ export const ContractsProvider: React.FC<{
 
     const updatedContracts = contracts.filter((c) => c.id !== id);
     setContracts(updatedContracts);
-    saveRemoteAgencyData({ contracts: updatedContracts }).catch((err) =>
-      console.warn('Auto-save deleteContract to Firestore note:', err)
+    syncDeleteContract(id, currentUser).catch((err) =>
+      console.warn('Record-level sync deleteContract note:', err)
     );
 
     logAction(
@@ -946,8 +986,8 @@ export const ContractsProvider: React.FC<{
     });
 
     setContracts(updatedContracts);
-    saveRemoteAgencyData({ contracts: updatedContracts }).catch((err) =>
-      console.warn('Auto-save updateContractInspection to Firestore note:', err)
+    syncUpdateContractInspection(contractId, inspection).catch((err) =>
+      console.warn('Record-level sync updateContractInspection note:', err)
     );
 
     logAction(
@@ -969,11 +1009,13 @@ export const ContractsProvider: React.FC<{
       setContracts(result.repairedContracts);
       onUpdateDeposits(result.repairedDeposits);
       onUpdateCompanySettings(result.updatedCompanySettings);
-      saveRemoteAgencyData({
-        contracts: result.repairedContracts,
-        deposits: result.repairedDeposits,
-        companySettings: result.updatedCompanySettings,
-      }).catch((err) => console.warn('Auto-save repaired contracts note:', err));
+      syncCompanySettings(result.updatedCompanySettings).catch(() => {});
+      for (const repaired of result.repairedContracts) {
+        const original = contracts.find((c) => c.id === repaired.id);
+        if (original && original.contractNumber !== repaired.contractNumber) {
+          syncUpdateContract(repaired.id, { contractNumber: repaired.contractNumber }).catch(() => {});
+        }
+      }
       logAction(
         'Réparation numérotation contrats',
         'contract',

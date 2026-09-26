@@ -11,7 +11,7 @@ import {
 } from '../types';
 import { initialCompanySettings, initialAuditLogs } from '../data/mockData';
 import { initialTermsVersion } from '../data/termsData';
-import { saveRemoteAgencyData } from '../lib/firestoreSync';
+import { syncCompanySettings } from '../lib/recordSync';
 
 export type CloudSyncStatus = 'idle' | 'syncing' | 'synced' | 'error';
 
@@ -162,8 +162,8 @@ export const CompanyProvider: React.FC<{
   const updateCompanySettings = (settings: Partial<CompanySettings>) => {
     setCompanySettings((prev) => {
       const updated = { ...prev, ...settings };
-      saveRemoteAgencyData({ companySettings: updated }).catch((err) =>
-        console.warn('Auto-save companySettings to cloud note:', err)
+      syncCompanySettings(updated).catch((err) =>
+        console.warn('Record-level sync companySettings note:', err)
       );
       return updated;
     });

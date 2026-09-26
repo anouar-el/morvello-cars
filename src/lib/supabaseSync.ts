@@ -3,10 +3,13 @@ import { isAbortException } from '../initErrorHandling';
 import { MorvelloCloudData } from './firestoreSync';
 import {
   Vehicle,
+  VehicleExpense,
   Client,
   Driver,
   Contract,
   DepositRecord,
+  PaymentRecord,
+  CompanySettings,
   User,
   UserRole,
   UserPermissions,
@@ -685,7 +688,7 @@ export function resolveAssignedManagerForSupabase(
   existingDbId: string | null | undefined,
   currentAuthUid: string | null,
   currentAuthEmail: string | null,
-  users?: Array<{ id: string; legacyId?: string; email?: string; firebaseUid?: string }>
+  users?: Array<{ id: string; legacyId?: string; email?: string; firebaseUid?: string; supabaseUid?: string }>
 ): string | null {
   if (currentAuthUid) {
     // 1. Déjà assigné directement à l'UID Supabase connecté
@@ -696,7 +699,7 @@ export function resolveAssignedManagerForSupabase(
     // 2. Si l'utilisateur connecté correspond à la ressource par mapping legacyId
     if (users && users.length > 0) {
       const currentLoggedInUser = users.find(
-        (u) => u.id === currentAuthUid || u.firebaseUid === currentAuthUid
+        (u) => u.id === currentAuthUid || u.supabaseUid === currentAuthUid || u.firebaseUid === currentAuthUid
       );
       if (
         currentLoggedInUser &&
@@ -706,10 +709,10 @@ export function resolveAssignedManagerForSupabase(
         return currentAuthUid;
       }
 
-      // Si assignedId pointe vers un utilisateur connu dans users, résoudre son véritable UUID
-      const targetUser = users.find((u) => u.legacyId === assignedId || u.id === assignedId);
-      if (targetUser?.firebaseUid) {
-        return targetUser.firebaseUid;
+      // Si assignedId pointe vers un utilisateur connu dans users, résoudre son véritable UUID Supabase
+      const targetUser = users.find((u) => u.legacyId === assignedId || u.id === assignedId || u.supabaseUid === assignedId);
+      if (targetUser?.supabaseUid) {
+        return targetUser.supabaseUid;
       }
       if (targetUser?.id && !targetUser.id.startsWith('usr-')) {
         return targetUser.id;
@@ -771,6 +774,777 @@ export function resolveAssignedManagerForSupabase(
 
   // Valeur locale ou repli sur l'utilisateur connecté
   return assignedId && assignedId.trim() !== '' ? assignedId : currentAuthUid || null;
+}
+
+// ==============================================================================
+// RECORD-LEVEL SYNCHRONIZATION ARCHITECTURE (PROBLEM #7 RESOLUTION)
+//
+// 1. Modifies and sends ONLY the intended record.
+// 2. Never rewrites unrelated global collections.
+// 3. Implements atomic CREATE, READ, UPDATE, DELETE directly at row level.
+// 4. Protects against last-write-wins with optimistic concurrency checking (updated_at).
+// 5. Enforces PostgreSQL RLS authorization on every single operation.
+// ==============================================================================
+
+/**
+ * Persists a single vehicle record to Supabase PostgreSQL at the row level.
+ */
+export async function saveVehicleRecordToSupabase(
+  vehicle: Vehicle,
+  options?: { expectedUpdatedAt?: string; currentUser?: User | null; allUsers?: User[] }
+): Promise<{ success: boolean; error?: any; conflict?: boolean }> {
+  if (!isSupabaseConfigured) return { success: false, error: 'Supabase not configured' };
+  try {
+    const { data: authSessionData } = await supabase.auth.getSession();
+    const sessionUser = authSessionData?.session?.user;
+    const currentAuthUid = sessionUser?.id || null;
+    const currentAuthEmail = (sessionUser?.email || '').toLowerCase().trim();
+
+    const existingMap = await fetchExistingRows('vehicles', [vehicle.id]);
+    const existing = existingMap.get(vehicle.id);
+
+    // Optimistic Concurrency Check: verify remote updated_at against expectedUpdatedAt
+    if (options?.expectedUpdatedAt && existing) {
+      const { data: remoteData } = await supabase
+        .from('vehicles')
+        .select('updated_at')
+        .eq('id', vehicle.id)
+        .maybeSingle();
+
+      if (remoteData?.updated_at) {
+        const remoteTime = new Date(remoteData.updated_at).getTime();
+        const expectedTime = new Date(options.expectedUpdatedAt).getTime();
+        // If remote row was modified more than 1 second after expected timestamp
+        if (remoteTime > expectedTime + 1000) {
+          const conflictMsg = `Conflit de modification sur le véhicule ${vehicle.plate || vehicle.id}: modifié par un autre utilisateur.`;
+          reportSyncError({
+            table: 'vehicles',
+            entityId: vehicle.plate || vehicle.id,
+            code: 'CONCURRENCY_CONFLICT',
+            message: conflictMsg,
+            timestamp: new Date().toISOString(),
+          });
+          return { success: false, conflict: true, error: conflictMsg };
+        }
+      }
+    }
+
+    const assignedMgrId = resolveAssignedManagerForSupabase(
+      vehicle.assignedManagerId,
+      vehicle.assignedManagerName,
+      existing?.assigned_manager_id,
+      currentAuthUid,
+      currentAuthEmail,
+      options?.allUsers
+    );
+
+    const createdBy =
+      existing?.created_by ||
+      (vehicle as any).createdBy ||
+      (vehicle as any).proposedBy ||
+      currentAuthUid ||
+      'system';
+
+    const nowIso = new Date().toISOString();
+    const { error: vehicleErr } = await resilientUpsert('vehicles', {
+      id: vehicle.id,
+      brand: vehicle.brand,
+      model: vehicle.model,
+      plate: vehicle.plate,
+      fuel_type: vehicle.fuelType,
+      status: vehicle.status,
+      current_km: vehicle.currentKm,
+      daily_rate: vehicle.dailyRate,
+      assigned_manager_id: assignedMgrId,
+      created_by: createdBy,
+      approval_status: vehicle.approvalStatus || 'approved',
+      data: {
+        ...vehicle,
+        assignedManagerId: assignedMgrId,
+        createdBy: createdBy,
+      },
+      updated_at: nowIso,
+    });
+
+    if (vehicleErr) {
+      const isNet =
+        vehicleErr.message?.toLowerCase().includes('failed to fetch') ||
+        vehicleErr.message?.toLowerCase().includes('network') ||
+        vehicleErr.message?.toLowerCase().includes('load failed');
+      if (!isNet) {
+        reportSyncError({
+          table: 'vehicles',
+          entityId: vehicle.plate || vehicle.id,
+          code: vehicleErr.code,
+          message: vehicleErr.message,
+          details: vehicleErr.details,
+          timestamp: nowIso,
+        });
+      }
+      return { success: false, error: vehicleErr };
+    }
+
+    // Sync child maintenance expenses if present
+    if (vehicle.maintenanceExpenses && vehicle.maintenanceExpenses.length > 0) {
+      for (const exp of vehicle.maintenanceExpenses) {
+        await saveVehicleExpenseRecordToSupabase(exp, vehicle.id, { currentUser: options?.currentUser });
+      }
+    }
+
+    if (lastSyncErrorState?.table === 'vehicles') {
+      clearSyncError();
+    }
+    return { success: true };
+  } catch (err: any) {
+    if (isAbortException(err)) return { success: false, error: err };
+    return { success: false, error: err };
+  }
+}
+
+/**
+ * Deletes a single vehicle from Supabase PostgreSQL by primary key.
+ */
+export async function deleteVehicleFromSupabase(
+  vehicleId: string
+): Promise<{ success: boolean; error?: any }> {
+  if (!isSupabaseConfigured) return { success: false, error: 'Supabase not configured' };
+  try {
+    const { error } = await supabase.from('vehicles').delete().eq('id', vehicleId);
+    if (error) {
+      reportSyncError({
+        table: 'vehicles',
+        entityId: vehicleId,
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        timestamp: new Date().toISOString(),
+      });
+      return { success: false, error };
+    }
+    if (lastSyncErrorState?.table === 'vehicles') {
+      clearSyncError();
+    }
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err };
+  }
+}
+
+/**
+ * Persists a single contract record to Supabase PostgreSQL at the row level.
+ */
+export async function saveContractRecordToSupabase(
+  contract: Contract,
+  options?: { expectedUpdatedAt?: string; currentUser?: User | null; allUsers?: User[] }
+): Promise<{ success: boolean; error?: any; conflict?: boolean }> {
+  if (!isSupabaseConfigured) return { success: false, error: 'Supabase not configured' };
+  try {
+    const { data: authSessionData } = await supabase.auth.getSession();
+    const sessionUser = authSessionData?.session?.user;
+    const currentAuthUid = sessionUser?.id || null;
+    const currentAuthEmail = (sessionUser?.email || '').toLowerCase().trim();
+
+    const existingMap = await fetchExistingRows('contracts', [contract.id]);
+    const existing = existingMap.get(contract.id);
+
+    // Optimistic Concurrency Check
+    if (options?.expectedUpdatedAt && existing) {
+      const { data: remoteData } = await supabase
+        .from('contracts')
+        .select('updated_at')
+        .eq('id', contract.id)
+        .maybeSingle();
+
+      if (remoteData?.updated_at) {
+        const remoteTime = new Date(remoteData.updated_at).getTime();
+        const expectedTime = new Date(options.expectedUpdatedAt).getTime();
+        if (remoteTime > expectedTime + 1000) {
+          const conflictMsg = `Conflit de modification sur le contrat ${contract.contractNumber || contract.id}: modifié par un autre utilisateur.`;
+          reportSyncError({
+            table: 'contracts',
+            entityId: contract.contractNumber || contract.id,
+            code: 'CONCURRENCY_CONFLICT',
+            message: conflictMsg,
+            timestamp: new Date().toISOString(),
+          });
+          return { success: false, conflict: true, error: conflictMsg };
+        }
+      }
+    }
+
+    const assignedMgrId = resolveAssignedManagerForSupabase(
+      contract.assignedManagerId,
+      contract.assignedManagerName,
+      existing?.assigned_manager_id,
+      currentAuthUid,
+      currentAuthEmail,
+      options?.allUsers
+    );
+
+    const createdBy = existing?.created_by || contract.createdBy || currentAuthUid || 'system';
+    const nowIso = new Date().toISOString();
+
+    const { error: contractErr } = await resilientUpsert('contracts', {
+      id: contract.id,
+      contract_number: contract.contractNumber,
+      status: contract.status,
+      client_id: contract.clientId,
+      vehicle_id: contract.vehicleId,
+      start_date: contract.startDate,
+      end_date: contract.endDate,
+      total_amount: contract.totalAmount,
+      deposit_amount: contract.depositAmount,
+      assigned_manager_id: assignedMgrId,
+      created_by: createdBy,
+      data: {
+        ...contract,
+        assignedManagerId: assignedMgrId,
+        createdBy: createdBy,
+      },
+      updated_at: nowIso,
+    });
+
+    if (contractErr) {
+      const isNet =
+        contractErr.message?.toLowerCase().includes('failed to fetch') ||
+        contractErr.message?.toLowerCase().includes('network') ||
+        contractErr.message?.toLowerCase().includes('load failed');
+      if (!isNet) {
+        reportSyncError({
+          table: 'contracts',
+          entityId: contract.contractNumber || contract.id,
+          code: contractErr.code,
+          message: contractErr.message,
+          details: contractErr.details,
+          timestamp: nowIso,
+        });
+      }
+      return { success: false, error: contractErr };
+    }
+
+    // Record-level payments sync to normalized payments table
+    if (contract.payments && contract.payments.length > 0) {
+      for (const p of contract.payments) {
+        await savePaymentRecordToSupabase(p, contract.id, { currentUser: options?.currentUser });
+      }
+    }
+
+    if (lastSyncErrorState?.table === 'contracts') {
+      clearSyncError();
+    }
+    return { success: true };
+  } catch (err: any) {
+    if (isAbortException(err)) return { success: false, error: err };
+    return { success: false, error: err };
+  }
+}
+
+/**
+ * Deletes a single contract from Supabase PostgreSQL by primary key.
+ */
+export async function deleteContractFromSupabase(
+  contractId: string
+): Promise<{ success: boolean; error?: any }> {
+  if (!isSupabaseConfigured) return { success: false, error: 'Supabase not configured' };
+  try {
+    const { error } = await supabase.from('contracts').delete().eq('id', contractId);
+    if (error) {
+      reportSyncError({
+        table: 'contracts',
+        entityId: contractId,
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        timestamp: new Date().toISOString(),
+      });
+      return { success: false, error };
+    }
+    if (lastSyncErrorState?.table === 'contracts') {
+      clearSyncError();
+    }
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err };
+  }
+}
+
+/**
+ * Persists a single client record to Supabase PostgreSQL at the row level.
+ */
+export async function saveClientRecordToSupabase(
+  client: Client,
+  options?: { expectedUpdatedAt?: string; currentUser?: User | null; allUsers?: User[] }
+): Promise<{ success: boolean; error?: any; conflict?: boolean }> {
+  if (!isSupabaseConfigured) return { success: false, error: 'Supabase not configured' };
+  try {
+    const { data: authSessionData } = await supabase.auth.getSession();
+    const sessionUser = authSessionData?.session?.user;
+    const currentAuthUid = sessionUser?.id || null;
+    const currentAuthEmail = (sessionUser?.email || '').toLowerCase().trim();
+
+    const existingMap = await fetchExistingRows('clients', [client.id]);
+    const existing = existingMap.get(client.id);
+
+    // Optimistic Concurrency Check
+    if (options?.expectedUpdatedAt && existing) {
+      const { data: remoteData } = await supabase
+        .from('clients')
+        .select('updated_at')
+        .eq('id', client.id)
+        .maybeSingle();
+
+      if (remoteData?.updated_at) {
+        const remoteTime = new Date(remoteData.updated_at).getTime();
+        const expectedTime = new Date(options.expectedUpdatedAt).getTime();
+        if (remoteTime > expectedTime + 1000) {
+          const conflictMsg = `Conflit de modification sur le client ${client.firstName} ${client.lastName} (${client.id}): modifié par un autre utilisateur.`;
+          reportSyncError({
+            table: 'clients',
+            entityId: `${client.firstName} ${client.lastName}`.trim() || client.id,
+            code: 'CONCURRENCY_CONFLICT',
+            message: conflictMsg,
+            timestamp: new Date().toISOString(),
+          });
+          return { success: false, conflict: true, error: conflictMsg };
+        }
+      }
+    }
+
+    const assignedMgrId = resolveAssignedManagerForSupabase(
+      client.assignedManagerId,
+      client.assignedManagerName,
+      existing?.assigned_manager_id,
+      currentAuthUid,
+      currentAuthEmail,
+      options?.allUsers
+    );
+
+    const createdBy = existing?.created_by || (client as any).createdBy || currentAuthUid || 'system';
+    const nowIso = new Date().toISOString();
+
+    const { error: clientUpsertErr } = await resilientUpsert('clients', {
+      id: client.id,
+      first_name: client.firstName,
+      last_name: client.lastName,
+      doc_type: client.docType,
+      doc_number: client.docNumber,
+      phone: client.phone,
+      email: client.email,
+      contract_count: client.contractCount || 0,
+      assigned_manager_id: assignedMgrId,
+      created_by: createdBy,
+      data: {
+        ...client,
+        assignedManagerId: assignedMgrId,
+        createdBy: createdBy,
+      },
+      updated_at: nowIso,
+    });
+
+    if (clientUpsertErr) {
+      const isNet =
+        clientUpsertErr.message?.toLowerCase().includes('failed to fetch') ||
+        clientUpsertErr.message?.toLowerCase().includes('network') ||
+        clientUpsertErr.message?.toLowerCase().includes('load failed');
+      if (!isNet) {
+        reportSyncError({
+          table: 'clients',
+          entityId: `${client.firstName} ${client.lastName}`.trim() || client.id,
+          code: clientUpsertErr.code,
+          message: clientUpsertErr.message,
+          details: clientUpsertErr.details,
+          timestamp: nowIso,
+        });
+      }
+      return { success: false, error: clientUpsertErr };
+    }
+
+    if (lastSyncErrorState?.table === 'clients') {
+      clearSyncError();
+    }
+    return { success: true };
+  } catch (err: any) {
+    if (isAbortException(err)) return { success: false, error: err };
+    return { success: false, error: err };
+  }
+}
+
+/**
+ * Deletes a single client from Supabase PostgreSQL by primary key.
+ */
+export async function deleteClientFromSupabase(
+  clientId: string
+): Promise<{ success: boolean; error?: any }> {
+  if (!isSupabaseConfigured) return { success: false, error: 'Supabase not configured' };
+  try {
+    const { error } = await supabase.from('clients').delete().eq('id', clientId);
+    if (error) {
+      reportSyncError({
+        table: 'clients',
+        entityId: clientId,
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        timestamp: new Date().toISOString(),
+      });
+      return { success: false, error };
+    }
+    if (lastSyncErrorState?.table === 'clients') {
+      clearSyncError();
+    }
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err };
+  }
+}
+
+/**
+ * Persists a single driver record to Supabase PostgreSQL at the row level.
+ */
+export async function saveDriverRecordToSupabase(
+  driver: Driver,
+  options?: { expectedUpdatedAt?: string; currentUser?: User | null; allUsers?: User[] }
+): Promise<{ success: boolean; error?: any; conflict?: boolean }> {
+  if (!isSupabaseConfigured) return { success: false, error: 'Supabase not configured' };
+  try {
+    const { data: authSessionData } = await supabase.auth.getSession();
+    const currentAuthUid = authSessionData?.session?.user?.id || null;
+
+    const { error } = await resilientUpsert('drivers', {
+      id: driver.id,
+      first_name: driver.firstName,
+      last_name: driver.lastName,
+      birth_date: driver.birthDate,
+      doc_type: driver.docType,
+      doc_number: driver.docNumber,
+      driving_license: driver.drivingLicense,
+      phone: driver.phone,
+      email: driver.email,
+      created_by: currentAuthUid || 'system',
+      data: driver,
+      updated_at: new Date().toISOString(),
+    });
+
+    if (error) {
+      reportSyncError({
+        table: 'drivers',
+        entityId: driver.id,
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        timestamp: new Date().toISOString(),
+      });
+      return { success: false, error };
+    }
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err };
+  }
+}
+
+/**
+ * Deletes a single driver from Supabase PostgreSQL by primary key.
+ */
+export async function deleteDriverFromSupabase(
+  driverId: string
+): Promise<{ success: boolean; error?: any }> {
+  if (!isSupabaseConfigured) return { success: false, error: 'Supabase not configured' };
+  try {
+    const { error } = await supabase.from('drivers').delete().eq('id', driverId);
+    if (error) {
+      reportSyncError({
+        table: 'drivers',
+        entityId: driverId,
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        timestamp: new Date().toISOString(),
+      });
+      return { success: false, error };
+    }
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err };
+  }
+}
+
+/**
+ * Persists a single deposit record to Supabase PostgreSQL at the row level.
+ */
+export async function saveDepositRecordToSupabase(
+  deposit: DepositRecord,
+  options?: { expectedUpdatedAt?: string; currentUser?: User | null; allUsers?: User[] }
+): Promise<{ success: boolean; error?: any; conflict?: boolean }> {
+  if (!isSupabaseConfigured) return { success: false, error: 'Supabase not configured' };
+  try {
+    const { data: authSessionData } = await supabase.auth.getSession();
+    const sessionUser = authSessionData?.session?.user;
+    const currentAuthUid = sessionUser?.id || null;
+    const currentAuthEmail = (sessionUser?.email || '').toLowerCase().trim();
+
+    const existingMap = await fetchExistingRows('deposits', [deposit.id]);
+    const existing = existingMap.get(deposit.id);
+
+    const assignedMgrId = resolveAssignedManagerForSupabase(
+      deposit.assignedManagerId,
+      deposit.assignedManagerName,
+      existing?.assigned_manager_id,
+      currentAuthUid,
+      currentAuthEmail,
+      options?.allUsers
+    );
+
+    const createdBy = existing?.created_by || deposit.createdBy || (deposit as any).receivedBy || currentAuthUid || 'system';
+
+    const { error } = await resilientUpsert('deposits', {
+      id: deposit.id,
+      contract_id: deposit.contractId,
+      client_name: deposit.clientName,
+      amount: deposit.amount,
+      status: deposit.status === 'held' ? 'pending' : deposit.status,
+      method: deposit.method,
+      assigned_manager_id: assignedMgrId,
+      created_by: createdBy,
+      data: {
+        ...deposit,
+        assignedManagerId: assignedMgrId,
+        createdBy: createdBy,
+      },
+      updated_at: new Date().toISOString(),
+    });
+
+    if (error) {
+      reportSyncError({
+        table: 'deposits',
+        entityId: deposit.id,
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        timestamp: new Date().toISOString(),
+      });
+      return { success: false, error };
+    }
+    if (lastSyncErrorState?.table === 'deposits') {
+      clearSyncError();
+    }
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err };
+  }
+}
+
+/**
+ * Deletes a single deposit from Supabase PostgreSQL by primary key.
+ */
+export async function deleteDepositFromSupabase(
+  depositId: string
+): Promise<{ success: boolean; error?: any }> {
+  if (!isSupabaseConfigured) return { success: false, error: 'Supabase not configured' };
+  try {
+    const { error } = await supabase.from('deposits').delete().eq('id', depositId);
+    if (error) {
+      reportSyncError({
+        table: 'deposits',
+        entityId: depositId,
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        timestamp: new Date().toISOString(),
+      });
+      return { success: false, error };
+    }
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err };
+  }
+}
+
+/**
+ * Persists a single payment record into the normalized payments table.
+ */
+export async function savePaymentRecordToSupabase(
+  payment: PaymentRecord,
+  contractId: string,
+  options?: { currentUser?: User | null }
+): Promise<{ success: boolean; error?: any }> {
+  if (!isSupabaseConfigured) return { success: false, error: 'Supabase not configured' };
+  try {
+    const { data: authSessionData } = await supabase.auth.getSession();
+    const currentAuthUid = authSessionData?.session?.user?.id || null;
+
+    const { error } = await resilientUpsert('payments', {
+      id: payment.id,
+      contract_id: contractId,
+      amount: payment.amount,
+      method: payment.method,
+      date: payment.date,
+      receipt_number: payment.receiptNumber || null,
+      notes: payment.notes || null,
+      recorded_by: payment.recordedBy || options?.currentUser?.name || 'system',
+      created_by: currentAuthUid || 'system',
+      data: payment,
+      updated_at: new Date().toISOString(),
+    });
+
+    if (error) {
+      reportSyncError({
+        table: 'payments',
+        entityId: payment.id,
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        timestamp: new Date().toISOString(),
+      });
+      return { success: false, error };
+    }
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err };
+  }
+}
+
+/**
+ * Deletes a single payment from the normalized payments table.
+ */
+export async function deletePaymentFromSupabase(
+  paymentId: string
+): Promise<{ success: boolean; error?: any }> {
+  if (!isSupabaseConfigured) return { success: false, error: 'Supabase not configured' };
+  try {
+    const { error } = await supabase.from('payments').delete().eq('id', paymentId);
+    if (error) {
+      reportSyncError({
+        table: 'payments',
+        entityId: paymentId,
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        timestamp: new Date().toISOString(),
+      });
+      return { success: false, error };
+    }
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err };
+  }
+}
+
+/**
+ * Persists a single vehicle maintenance expense to the normalized vehicle_expenses table.
+ */
+export async function saveVehicleExpenseRecordToSupabase(
+  expense: VehicleExpense,
+  vehicleId: string,
+  options?: { currentUser?: User | null }
+): Promise<{ success: boolean; error?: any }> {
+  if (!isSupabaseConfigured) return { success: false, error: 'Supabase not configured' };
+  try {
+    const { data: authSessionData } = await supabase.auth.getSession();
+    const currentAuthUid = authSessionData?.session?.user?.id || null;
+
+    const { error } = await resilientUpsert('vehicle_expenses', {
+      id: expense.id,
+      vehicle_id: vehicleId,
+      category: expense.category,
+      title: expense.title,
+      cost_mad: expense.costMAD,
+      date: expense.date,
+      km_at_expense: expense.kmAtExpense,
+      provider: expense.provider || null,
+      invoice_number: expense.invoiceNumber || null,
+      notes: expense.notes || null,
+      recorded_by: expense.recordedBy || options?.currentUser?.name || 'system',
+      created_by: currentAuthUid || 'system',
+      data: expense,
+      updated_at: new Date().toISOString(),
+    });
+
+    if (error) {
+      reportSyncError({
+        table: 'vehicle_expenses',
+        entityId: expense.id,
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        timestamp: new Date().toISOString(),
+      });
+      return { success: false, error };
+    }
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err };
+  }
+}
+
+/**
+ * Deletes a single vehicle maintenance expense from vehicle_expenses table.
+ */
+export async function deleteVehicleExpenseFromSupabase(
+  expenseId: string
+): Promise<{ success: boolean; error?: any }> {
+  if (!isSupabaseConfigured) return { success: false, error: 'Supabase not configured' };
+  try {
+    const { error } = await supabase.from('vehicle_expenses').delete().eq('id', expenseId);
+    if (error) {
+      reportSyncError({
+        table: 'vehicle_expenses',
+        entityId: expenseId,
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        timestamp: new Date().toISOString(),
+      });
+      return { success: false, error };
+    }
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err };
+  }
+}
+
+/**
+ * Persists ONLY company settings to agency_data without sending unrelated operational collections.
+ */
+export async function saveCompanySettingsToSupabase(
+  settings: CompanySettings,
+  userId?: string
+): Promise<{ success: boolean; error?: any }> {
+  if (!isSupabaseConfigured) return { success: false, error: 'Supabase not configured' };
+  try {
+    const nowIso = new Date().toISOString();
+    const { error } = await supabase
+      .from('agency_data')
+      .upsert(
+        {
+          id: AGENCY_RECORD_ID,
+          agency_id: 'agency_morvello',
+          data: {
+            companySettings: settings,
+            updatedAt: nowIso,
+            updatedBy: userId || 'morvello_user',
+            authoritativeSource: 'normalized_tables',
+          },
+          updated_at: nowIso,
+          updated_by: userId || 'system',
+        },
+        { onConflict: 'id' }
+      );
+
+    if (error && error.code !== 'PGRST205' && !error.message?.includes('does not exist') && error.code !== '42501') {
+      reportSyncError({
+        table: 'agency_data',
+        entityId: AGENCY_RECORD_ID,
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        timestamp: nowIso,
+      });
+      return { success: false, error };
+    }
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err };
+  }
 }
 
 /**
@@ -1171,7 +1945,9 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
       let profileHadError = false;
       for (const u of targetUsers) {
         const profileId =
-          !isCurrentAdmin && currentAuthUid ? currentAuthUid : u.firebaseUid || u.id;
+          !isCurrentAdmin && currentAuthUid
+            ? currentAuthUid
+            : (u as any).supabaseUid || (u.id && !u.id.startsWith('usr-') ? u.id : currentAuthUid || u.id);
 
         const profilePayload: Record<string, any> = {
           id: profileId,

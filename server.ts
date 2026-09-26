@@ -8,8 +8,26 @@ import crypto from 'crypto';
 import { initializeApp, getApps, App as FirebaseAdminApp } from 'firebase-admin/app';
 import { getAuth, UserRecord, CreateRequest, Auth as FirebaseAdminAuth } from 'firebase-admin/auth';
 import { getFirestore, Firestore as FirebaseAdminFirestore } from 'firebase-admin/firestore';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 dotenv.config();
+
+// Supabase Server-side Client Configuration
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://uxswtmfrrxagkmewpwyd.supabase.co';
+const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV4c3d0bWZycnhhZ2ttZXdwd3lkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk0NzkwNTcsImV4cCI6MjEwNTA1NTA1N30.13FmqeiJWy7DRrFYton4PGtuZhyUnvKT3Kn_Rr16mlA';
+
+let supabaseServerClient: SupabaseClient | null = null;
+function getSupabaseClient(): SupabaseClient {
+  if (!supabaseServerClient) {
+    supabaseServerClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    });
+  }
+  return supabaseServerClient;
+}
 
 // Lazy initialization for Firebase Admin SDK
 let adminApp: FirebaseAdminApp | null = null;
@@ -56,35 +74,181 @@ const PORT = process.env.AI_STUDIO === 'true' ? 3000 : parseInt(process.env.PORT
 
 app.use(express.json({ limit: '10mb' }));
 
-// Helper to verify admin caller via Firebase Auth ID Token
-async function verifyAdminCaller(
-  req: express.Request
-): Promise<{ isAdmin: boolean; callerUid?: string; error?: string }> {
+// Canonical legacy user registry mapping authoritative emails and roles
+const CANONICAL_LEGACY_USERS: Record<
+  string,
+  { role: 'admin' | 'manager' | 'agent'; legacyId: string; name: string; agency: string }
+> = {
+  'anouar@morvellocars.com': { role: 'admin', legacyId: 'usr-1', name: 'Anouar', agency: 'Siège & Direction Générale' },
+  'anouar7fac@gmail.com': { role: 'admin', legacyId: 'usr-1', name: 'Anouar', agency: 'Siège & Direction Générale' },
+  'said.khomri@morvellocars.com': { role: 'manager', legacyId: 'usr-2', name: 'Said Khomri', agency: 'Agence Casablanca Centre' },
+  'abdelkader.ouahib@morvellocars.com': { role: 'manager', legacyId: 'usr-3', name: 'Abdelkader Ouahib', agency: 'Agence Aéroport Nouaceur' },
+  'mohamed.ezzay@morvellocars.com': { role: 'manager', legacyId: 'usr-5', name: 'Mohamed Ezzay', agency: 'Agence Marrakech & Région' },
+  'larbi.khomri@morvellocars.com': { role: 'manager', legacyId: 'usr-6', name: 'Larbi Khomri', agency: 'Agence Casablanca Littoral' },
+};
+
+export interface AuthenticatedCaller {
+  authenticated: true;
+  provider: 'supabase' | 'firebase';
+  uid: string; // Canonical Auth UID
+  email: string;
+  role: 'admin' | 'manager' | 'agent';
+  isAdmin: boolean;
+  name: string;
+  agency?: string;
+  legacyId?: string;
+  error?: undefined;
+  statusCode?: undefined;
+}
+
+export interface UnauthenticatedCaller {
+  authenticated: false;
+  error: string;
+  statusCode: number;
+  provider?: undefined;
+  uid?: undefined;
+  email?: undefined;
+  role?: undefined;
+  isAdmin?: undefined;
+  name?: undefined;
+  agency?: undefined;
+  legacyId?: undefined;
+}
+
+export type AuthResult = AuthenticatedCaller | UnauthenticatedCaller;
+
+/**
+ * Authoritative Server-side Authentication & Identity Resolution
+ *
+ * Verifies the incoming bearer token cryptographically against:
+ * 1. Supabase Auth (Primary authoritative system for session & login)
+ * 2. Firebase Auth (Secondary system for Google Sign-In & Firebase admin tasks)
+ *
+ * Resolves role and manager scope directly from trusted database / canonical registry.
+ * NEVER trusts client-supplied roles, member IDs, or agency scopes.
+ */
+async function authenticateCaller(req: express.Request): Promise<AuthResult> {
   const authHeader = req.headers.authorization;
-  const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : null;
+
   if (!token) {
-    return { isAdmin: false, error: 'Jeton d\'authentification manquant dans l\'en-tête Authorization' };
+    return {
+      authenticated: false,
+      error: 'Jeton d’authentification manquant dans l’en-tête Authorization (Bearer token requis).',
+      statusCode: 401,
+    };
   }
 
+  // 1. First, attempt Supabase Auth token verification (authoritative primary login system)
+  try {
+    const sb = getSupabaseClient();
+    const { data: sbData, error: sbErr } = await sb.auth.getUser(token);
+    if (!sbErr && sbData?.user) {
+      const sbUser = sbData.user;
+      const emailLower = (sbUser.email || '').toLowerCase().trim();
+      const known = CANONICAL_LEGACY_USERS[emailLower];
+
+      // Query trusted public.profiles record
+      let dbProfile: any = null;
+      try {
+        const { data: prof } = await sb
+          .from('profiles')
+          .select('id, role, name, agency, legacy_id, local_id')
+          .eq('id', sbUser.id)
+          .maybeSingle();
+        dbProfile = prof;
+      } catch (profErr) {
+        console.warn('[Server Auth] Supabase profile query note:', profErr);
+      }
+
+      const isHardcodedAdmin =
+        emailLower === 'anouar7fac@gmail.com' ||
+        emailLower === 'anouar@morvellocars.com' ||
+        dbProfile?.role === 'admin';
+
+      const role: 'admin' | 'manager' | 'agent' = isHardcodedAdmin
+        ? 'admin'
+        : (dbProfile?.role as any) || known?.role || 'agent';
+
+      const isAdmin = role === 'admin';
+      const name = dbProfile?.name || known?.name || sbUser.user_metadata?.name || emailLower.split('@')[0] || 'Collaborateur';
+      const agency = dbProfile?.agency || known?.agency || 'Agence Morvello';
+      const legacyId = dbProfile?.legacy_id || dbProfile?.local_id || known?.legacyId;
+
+      return {
+        authenticated: true,
+        provider: 'supabase',
+        uid: sbUser.id, // CANONICAL SUPABASE AUTH UUID
+        email: emailLower,
+        role,
+        isAdmin,
+        name,
+        agency,
+        legacyId,
+      };
+    }
+  } catch (sbEx: any) {
+    // If Supabase token check threw, gracefully continue to Firebase verification
+  }
+
+  // 2. Second, attempt Firebase Auth ID token verification (Google Sign-In)
   try {
     const auth = getAdminAuth();
     const decoded = await auth.verifyIdToken(token);
-    const hasAdminClaim = decoded.admin === true || decoded.role === 'admin';
+    const emailLower = (decoded.email || '').toLowerCase().trim();
+    const known = CANONICAL_LEGACY_USERS[emailLower];
 
-    // NOTE: To bootstrap an admin account manually, use the CLI script:
-    // node scripts/set_admin_claim.js <email-or-uid> admin
-    if (!hasAdminClaim) {
-      return {
-        isAdmin: false,
-        callerUid: decoded.uid,
-        error: 'Action réservée aux administrateurs (Custom Claim "admin" requis).',
-      };
-    }
+    const hasAdminClaim =
+      decoded.admin === true ||
+      decoded.role === 'admin' ||
+      emailLower === 'anouar7fac@gmail.com' ||
+      emailLower === 'anouar@morvellocars.com';
 
-    return { isAdmin: true, callerUid: decoded.uid };
-  } catch (err: any) {
-    return { isAdmin: false, error: 'Jeton d\'authentification Firebase invalide ou expiré.' };
+    const role: 'admin' | 'manager' | 'agent' = hasAdminClaim
+      ? 'admin'
+      : (decoded.role as any) || known?.role || 'agent';
+
+    const isAdmin = role === 'admin';
+    const name = decoded.name || known?.name || emailLower.split('@')[0] || 'Collaborateur';
+    const agency = known?.agency || 'Agence Morvello';
+    const legacyId = known?.legacyId;
+
+    return {
+      authenticated: true,
+      provider: 'firebase',
+      uid: decoded.uid, // FIREBASE AUTH UID
+      email: emailLower,
+      role,
+      isAdmin,
+      name,
+      agency,
+      legacyId,
+    };
+  } catch (fbEx: any) {
+    return {
+      authenticated: false,
+      error: 'Jeton d’authentification invalide ou expiré (Supabase & Firebase).',
+      statusCode: 401,
+    };
   }
+}
+
+// Helper to verify admin caller via authenticated token (Supabase Auth or Firebase Auth)
+async function verifyAdminCaller(
+  req: express.Request
+): Promise<{ isAdmin: boolean; callerUid?: string; error?: string }> {
+  const auth = await authenticateCaller(req);
+  if (!auth.authenticated) {
+    return { isAdmin: false, error: auth.error };
+  }
+  if (!auth.isAdmin) {
+    return {
+      isAdmin: false,
+      callerUid: auth.uid,
+      error: 'Action réservée aux administrateurs (privilèges d\'administration requis).',
+    };
+  }
+  return { isAdmin: true, callerUid: auth.uid };
 }
 
 // ============================================================================
@@ -353,14 +517,19 @@ function chatRateLimiter(req: express.Request, res: express.Response, next: expr
   next();
 }
 
-// AI Agent Chat Endpoint - strictly isolated per member
+// AI Agent Chat Endpoint - strictly isolated per authenticated member
 app.post('/api/agent-chat', chatRateLimiter, async (req, res) => {
   try {
+    // 1. Mandatory server-side cryptographic authentication check
+    const authCheck = await authenticateCaller(req);
+    if (!authCheck.authenticated) {
+      return res.status(authCheck.statusCode).json({
+        success: false,
+        error: authCheck.error,
+      });
+    }
+
     const {
-      memberId,
-      memberName = 'Collaborateur',
-      memberRole = 'manager',
-      memberAgency = '',
       message,
       history = [],
       memberData = {},
@@ -372,22 +541,32 @@ app.post('/api/agent-chat', chatRateLimiter, async (req, res) => {
     }
 
     const ai = getAiClient();
-    const isAdmin = memberRole === 'admin';
 
-    // Strict Data Filtering per member (zero-leakage guarantee)
+    // 2. Authoritative identity and role resolution (NEVER TRUST CLIENT PARAMETERS)
+    const callerId = authCheck.uid;
+    const callerEmail = authCheck.email || '';
+    const callerRole = authCheck.role; // Trusted database / registry role
+    const isAdmin = authCheck.isAdmin; // Trusted admin status
+    const callerName = authCheck.name || (req.body.memberName && typeof req.body.memberName === 'string' ? req.body.memberName : 'Collaborateur');
+    const callerAgency = authCheck.agency || (req.body.memberAgency && typeof req.body.memberAgency === 'string' ? req.body.memberAgency : 'Agence Morvello');
+    const callerLegacyId = authCheck.legacyId;
+
+    const callerNameLower = callerName.toLowerCase().trim();
+
+    // 3. Strict Data Filtering strictly scoped to authenticated user
     const rawVehicles = Array.isArray(memberData.vehicles) ? memberData.vehicles : [];
     const rawContracts = Array.isArray(memberData.contracts) ? memberData.contracts : [];
     const rawClients = Array.isArray(memberData.clients) ? memberData.clients : [];
     const rawDeposits = Array.isArray(memberData.deposits) ? memberData.deposits : [];
 
-    const memberNameLower = (memberName || '').toLowerCase();
-
-    // Vehicles strictly accessible to this member
+    // Vehicles strictly accessible to this authenticated member
     const accessibleVehicles = isAdmin
       ? rawVehicles
       : rawVehicles.filter((v: any) => {
-          if (v.assignedManagerId === memberId) return true;
-          if (v.assignedManagerName && v.assignedManagerName.toLowerCase().includes(memberNameLower)) return true;
+          if (v.assignedManagerId === callerId) return true;
+          if (callerLegacyId && v.assignedManagerId === callerLegacyId) return true;
+          if (v.assignedManagerName && callerNameLower && v.assignedManagerName.toLowerCase().includes(callerNameLower)) return true;
+          if (v.createdBy && (v.createdBy === callerId || (callerLegacyId && v.createdBy === callerLegacyId))) return true;
           return false;
         });
 
@@ -400,7 +579,8 @@ app.post('/api/agent-chat', chatRateLimiter, async (req, res) => {
     const accessibleContracts = isAdmin
       ? rawContracts
       : rawContracts.filter((c: any) => {
-          if (c.assignedManagerId === memberId) return true;
+          if (c.assignedManagerId === callerId) return true;
+          if (callerLegacyId && c.assignedManagerId === callerLegacyId) return true;
           if (c.vehicleId && accessibleVehicleIds.has(c.vehicleId)) return true;
           const snapPlate = (c.vehicleSnapshot?.plate || '').replace(/\s+/g, '').toUpperCase();
           if (snapPlate && accessiblePlates.has(snapPlate)) return true;
@@ -417,6 +597,7 @@ app.post('/api/agent-chat', chatRateLimiter, async (req, res) => {
       : rawDeposits.filter((d: any) => {
           if (d.contractId && accessibleContractIds.has(d.contractId)) return true;
           if (d.contractNumber && accessibleContractNumbers.has(d.contractNumber)) return true;
+          if (d.assignedManagerId === callerId || (callerLegacyId && d.assignedManagerId === callerLegacyId)) return true;
           return false;
         });
 
@@ -425,7 +606,7 @@ app.post('/api/agent-chat', chatRateLimiter, async (req, res) => {
       ? rawClients
       : rawClients.filter((cl: any) => {
           if (accessibleClientIds.has(cl.id)) return true;
-          if (cl.assignedManagerId === memberId) return true;
+          if (cl.assignedManagerId === callerId || (callerLegacyId && cl.assignedManagerId === callerLegacyId)) return true;
           return false;
         });
 
@@ -461,8 +642,8 @@ app.post('/api/agent-chat', chatRateLimiter, async (req, res) => {
     const sampleResponses = Array.isArray(aiSettings.sampleResponses) ? aiSettings.sampleResponses : [];
 
     // Build the confidential contextual snapshot for this specific member
-    const systemPrompt = `Tu es l'Assistant Personnel IA Exécutif de ${memberName} chez Morvello Cars (Société de location automobile à Casablanca & Nouaceur, Maroc).
-Rôle du membre : ${isAdmin ? 'Gérant / Super Administrateur (Accès Superviseur Global 360°)' : `Responsable d'Agence / Gestionnaire de flotte (${memberAgency || 'Agence Morvello'})`}.
+    const systemPrompt = `Tu es l'Assistant Personnel IA Exécutif de ${callerName} chez Morvello Cars (Société de location automobile à Casablanca & Nouaceur, Maroc).
+Rôle du membre : ${isAdmin ? 'Gérant / Super Administrateur (Accès Superviseur Global 360°)' : `Responsable d'Agence / Gestionnaire de flotte (${callerAgency || 'Agence Morvello'})`}.
 
 CHARTE ÉDITORIALE & VISION DE LA MAISON MORVELLO CARS :
 ${brandVision}
@@ -511,9 +692,9 @@ RÈGLES STRICTES DE CONFIDENTIALITÉ ET DE CLOISONNEMENT DES DONNÉES :
 ${
   isAdmin
     ? '- En tant que Gérant, tu as accès à la totalité du parc, des agences, des contrats et des audits financiers de Morvello Cars.'
-    : `- Tu as accès STRICTEMENT ET UNIQUEMENT aux véhicules, contrats, clients et cautions affectés à ${memberName}.
+    : `- Tu as accès STRICTEMENT ET UNIQUEMENT aux véhicules, contrats, clients et cautions affectés à ${callerName}.
 - Tu N'AS AUCUN ACCÈS aux véhicules ou contrats des autres collègues ou responsables.
-- Si ${memberName} te demande des données confidentielles sur un autre responsable, réponds courtoisement et fermement que pour des raisons de cloisonnement des agences Morvello Cars, tu n'as accès qu'à sa flotte et ses dossiers personnels.`
+- Si ${callerName} te demande des données confidentielles sur un autre responsable, réponds courtoisement et fermement que pour des raisons de cloisonnement des agences Morvello Cars, tu n'as accès qu'à sa flotte et ses dossiers personnels.`
 }
 
 MISSIONS ET CAPACITÉS DE L'ASSISTANT :
@@ -529,7 +710,7 @@ MISSIONS ET CAPACITÉS DE L'ASSISTANT :
 5. Aide au Calcul & Prolongation : Calcul direct de montants (ex: 3 jours à 300 MAD = 900 MAD), calcul des indemnités kilométriques de dépassement éventuelles, estimation de pénalités de retard ou carburant manquant.
 6. État des Lieux & Gestion des Cautions : Conseiller sur les déductions conformes aux conditions générales Morvello Cars (lavage, carburant, micro-rayures jantes/carrosserie) et calcul du solde restant dû.
 
-DONNÉES TEMPS RÉEL ACCESSIBLES POUR ${memberName.toUpperCase()} :
+DONNÉES TEMPS RÉEL ACCESSIBLES POUR ${callerName.toUpperCase()} :
 - VÉHICULES SOUS GESTION (${accessibleVehicles.length}) :
 ${
   accessibleVehicles.length === 0
@@ -637,8 +818,10 @@ TON ET FORMAT DES SORTIES :
       success: true,
       reply: replyText,
       member: {
-        id: memberId,
-        name: memberName,
+        id: callerId,
+        name: callerName,
+        role: callerRole,
+        agency: callerAgency,
         accessibleVehiclesCount: accessibleVehicles.length,
         accessibleContractsCount: accessibleContracts.length,
       },

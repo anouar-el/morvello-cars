@@ -7,7 +7,7 @@ import {
 } from '../types';
 import { initialUsers } from '../data/mockData';
 import { saveUserProfileToSupabase } from '../lib/supabaseSync';
-import { saveRemoteAgencyData, saveUserProfile } from '../lib/firestoreSync';
+import { saveUserProfile } from '../lib/firestoreSync';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { auth as firebaseAuth, googleProvider } from '../lib/firebase';
 import { resolveLegacyUserId } from '../utils/identityMapping';
@@ -781,7 +781,7 @@ export const AuthProvider: React.FC<{
     );
   };
 
-  const persistUsersLocallyAndCloud = (updatedUsers: User[]) => {
+  const persistUsersLocallyAndCloud = (updatedUsers: User[], targetUserId?: string) => {
     try {
       const sanitized = updatedUsers.map((u) => {
         const { password: _p, ...rest } = u as any;
@@ -792,10 +792,19 @@ export const AuthProvider: React.FC<{
       console.warn('Failed to cache users to localStorage:', err);
     }
 
-    // Persist to Cloud Firestore and Supabase agency_data
-    saveRemoteAgencyData({
-      users: updatedUsers,
-    }).catch((err) => console.warn('[Cloud Sync] Failed to sync users to cloud:', err));
+    // STEP 10: Never send whole users collection from client browser
+    if (targetUserId) {
+      const targetUser = updatedUsers.find((u) => u.id === targetUserId);
+      if (targetUser) {
+        saveUserProfile(targetUser.supabaseUid || targetUser.id, {
+          role: targetUser.role,
+          email: targetUser.email,
+          name: targetUser.name,
+          phone: targetUser.phone,
+          permissions: targetUser.permissions,
+        }).catch((err) => console.warn('[Cloud Sync] Failed to sync profile to cloud:', err));
+      }
+    }
   };
 
   const addUser = async (userData: Omit<User, 'id'> & { password?: string }): Promise<User> => {
@@ -846,7 +855,7 @@ export const AuthProvider: React.FC<{
         }
         return u;
       });
-      persistUsersLocallyAndCloud(updatedList);
+      persistUsersLocallyAndCloud(updatedList, userId);
       return updatedList;
     });
 

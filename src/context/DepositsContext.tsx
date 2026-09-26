@@ -1,7 +1,10 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { DepositRecord, DepositDeduction } from '../types';
 import { initialDeposits } from '../data/mockData';
-import { saveRemoteAgencyData } from '../lib/firestoreSync';
+import {
+  syncCreateDeposit,
+  syncUpdateDeposit,
+} from '../lib/recordSync';
 
 export interface DepositsContextType {
   deposits: DepositRecord[];
@@ -43,8 +46,8 @@ export const DepositsProvider: React.FC<{
   const updateDeposit = (id: string, data: Partial<DepositRecord>) => {
     const updated = deposits.map((d) => (d.id === id ? { ...d, ...data } : d));
     setDeposits(updated);
-    saveRemoteAgencyData({ deposits: updated }).catch((err) =>
-      console.warn('Auto-save updateDeposit to Firestore note:', err)
+    syncUpdateDeposit(id, data).catch((err) =>
+      console.warn('Record-level sync updateDeposit note:', err)
     );
     logAction('Mise à jour caution', 'contract', id, `Modification des données de caution #${id}`);
   };
@@ -60,24 +63,31 @@ export const DepositsProvider: React.FC<{
       now.getDate()
     ).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
+    let releasePatch: Partial<DepositRecord> | null = null;
     const updated = deposits.map((d) => {
       if (d.id === depositId) {
-        return {
-          ...d,
+        const mergedNotes = notes ? (d.notes ? `${d.notes}\n[Restitution]: ${notes}` : notes) : d.notes;
+        releasePatch = {
           status: 'released' as const,
           releasedAt: formatted,
           releasedBy: actorName,
           refundedAmount,
-          notes: notes ? (d.notes ? `${d.notes}\n[Restitution]: ${notes}` : notes) : d.notes,
+          notes: mergedNotes,
+        };
+        return {
+          ...d,
+          ...releasePatch,
         };
       }
       return d;
     });
 
     setDeposits(updated);
-    saveRemoteAgencyData({ deposits: updated }).catch((err) =>
-      console.warn('Auto-save releaseDeposit to Firestore note:', err)
-    );
+    if (releasePatch) {
+      syncUpdateDeposit(depositId, releasePatch).catch((err) =>
+        console.warn('Record-level sync releaseDeposit note:', err)
+      );
+    }
 
     logAction(
       'Restitution de caution',
@@ -103,6 +113,7 @@ export const DepositsProvider: React.FC<{
       date: dateStr,
     };
 
+    let deductPatch: Partial<DepositRecord> | null = null;
     const updated = deposits.map((d) => {
       if (d.id === depositId) {
         const updatedDeductions = [...d.deductions, newDeduction];
@@ -111,8 +122,7 @@ export const DepositsProvider: React.FC<{
         const isFull = totalDeducted >= d.amount;
         const status = isFull ? ('fully_retained' as const) : ('partially_deducted' as const);
 
-        return {
-          ...d,
+        deductPatch = {
           deductions: updatedDeductions,
           status,
           refundedAmount: refundedRemaining ? remaining : d.refundedAmount || remaining,
@@ -121,14 +131,21 @@ export const DepositsProvider: React.FC<{
             : d.releasedAt,
           releasedBy: refundedRemaining ? actorName : d.releasedBy,
         };
+
+        return {
+          ...d,
+          ...deductPatch,
+        };
       }
       return d;
     });
 
     setDeposits(updated);
-    saveRemoteAgencyData({ deposits: updated }).catch((err) =>
-      console.warn('Auto-save deductDeposit to Firestore note:', err)
-    );
+    if (deductPatch) {
+      syncUpdateDeposit(depositId, deductPatch).catch((err) =>
+        console.warn('Record-level sync deductDeposit note:', err)
+      );
+    }
 
     logAction(
       'Déduction sur caution',
@@ -141,8 +158,8 @@ export const DepositsProvider: React.FC<{
   const addDepositRecord = (deposit: DepositRecord) => {
     const updated = [deposit, ...deposits];
     setDeposits(updated);
-    saveRemoteAgencyData({ deposits: updated }).catch((err) =>
-      console.warn('Auto-save addDepositRecord to Firestore note:', err)
+    syncCreateDeposit(deposit).catch((err) =>
+      console.warn('Record-level sync addDepositRecord note:', err)
     );
   };
 
