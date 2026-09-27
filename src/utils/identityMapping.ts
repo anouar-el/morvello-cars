@@ -129,12 +129,28 @@ export function resolveCanonicalUserId(
  */
 export function resolveLegacyUserId(
   userIdOrUuid: string | null | undefined,
-  users: User[] = []
+  users: User[] = [],
+  verifiedEmail?: string | null
 ): string | undefined {
   if (!userIdOrUuid || typeof userIdOrUuid !== 'string') return undefined;
   const cleanId = userIdOrUuid.trim();
+  const emailLower = verifiedEmail?.trim().toLowerCase();
 
-  if (isLegacyUserId(cleanId)) return cleanId;
+  // A verified email is stronger than browser-cached identity data. This prevents
+  // one user from inheriting another user's historical `usr-N` identifier.
+  if (emailLower) {
+    const registryMatch = Object.entries(CANONICAL_LEGACY_REGISTRY).find(
+      ([, reg]) => reg.canonicalEmail.toLowerCase() === emailLower
+    );
+    if (registryMatch) return registryMatch[0];
+  }
+
+  if (isLegacyUserId(cleanId)) {
+    const registryEntry = CANONICAL_LEGACY_REGISTRY[cleanId];
+    return registryEntry && emailLower && registryEntry.canonicalEmail.toLowerCase() !== emailLower
+      ? undefined
+      : cleanId;
+  }
 
   const matched = users.find(
     (u) =>
@@ -143,8 +159,12 @@ export function resolveLegacyUserId(
       u.legacyId === cleanId
   );
 
-  if (matched?.legacyId) {
-    return matched.legacyId;
+  const matchedLegacyId = matched?.legacyId || (matched?.id && isLegacyUserId(matched.id) ? matched.id : undefined);
+  if (matchedLegacyId) {
+    const registryEntry = CANONICAL_LEGACY_REGISTRY[matchedLegacyId];
+    if (!registryEntry || !emailLower || registryEntry.canonicalEmail.toLowerCase() === emailLower) {
+      return matchedLegacyId;
+    }
   }
 
   // Check email matching against known registry

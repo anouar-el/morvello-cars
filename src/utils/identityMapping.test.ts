@@ -137,6 +137,13 @@ describe('Canonical Identity and Legacy Mapping Architecture (Problem #6)', () =
       ];
       expect(resolveLegacyUserId('test-uuid-999', usersWithoutLegacyId)).toBe('usr-2');
     });
+
+    it('does not trust a cached legacy ID that conflicts with the verified email', () => {
+      const corruptedCache = [{ ...mockUsers[3], legacyId: 'usr-1' }];
+      expect(
+        resolveLegacyUserId(mockUsers[3].id, corruptedCache, 'mohamed.ezzay@morvellocars.com')
+      ).toBe('usr-5');
+    });
   });
 
   describe('matchUserIdentity', () => {

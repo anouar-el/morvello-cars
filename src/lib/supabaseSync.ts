@@ -2019,10 +2019,6 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
           updated_at: new Date().toISOString(),
         };
 
-        if (u.id) {
-          profilePayload.local_id = u.id;
-        }
-
         let { error: profileErr } = await supabase.from('profiles').upsert(
           profilePayload,
           { onConflict: 'id' }

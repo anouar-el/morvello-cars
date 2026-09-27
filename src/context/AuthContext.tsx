@@ -132,12 +132,7 @@ export const AuthProvider: React.FC<{
         ? profileData.role
         : 'agent';
       const name = profileData?.name || sbUser.user_metadata?.name || emailLower.split('@')[0];
-      const legacyId =
-        profileData?.legacy_id ||
-        profileData?.local_id ||
-        matched?.legacyId ||
-        resolveLegacyUserId(sbUser.id, currentUsers) ||
-        (matched?.id?.startsWith('usr-') ? matched.id : undefined);
+      const legacyId = resolveLegacyUserId(sbUser.id, currentUsers, emailLower);
 
       // Preserves legitimate Firebase UID only if user previously linked to Firebase Auth
       const existingFirebaseUid =
@@ -291,7 +286,7 @@ export const AuthProvider: React.FC<{
             : 'agent';
         const name = fbUser.displayName || emailLower.split('@')[0];
         const canonicalId = matched?.supabaseUid || (matched?.id && !matched.id.startsWith('usr-') ? matched.id : fbUser.uid);
-        const legacyId = matched?.legacyId || resolveLegacyUserId(canonicalId, currentUsers) || (matched?.id?.startsWith('usr-') ? matched.id : undefined);
+        const legacyId = resolveLegacyUserId(canonicalId, currentUsers, emailLower);
 
         const userObj: User = {
           id: canonicalId,
@@ -444,10 +439,7 @@ export const AuthProvider: React.FC<{
         (u) => (u.email || '').toLowerCase() === canonicalEmail || u.id === sbUser.id || u.supabaseUid === sbUser.id
       );
       const finalRole: UserRole = 'agent';
-      const legacyId =
-        matchedUser?.legacyId ||
-        resolveLegacyUserId(sbUser.id, users) ||
-        (matchedUser?.id?.startsWith('usr-') ? matchedUser.id : undefined);
+      const legacyId = resolveLegacyUserId(sbUser.id, users, canonicalEmail);
 
       const existingFirebaseUid =
         matchedUser?.firebaseUid && matchedUser.firebaseUid !== sbUser.id
@@ -591,7 +583,7 @@ export const AuthProvider: React.FC<{
       );
 
       const canonicalId = matched?.supabaseUid || (matched?.id && !matched.id.startsWith('usr-') ? matched.id : fbUser.uid);
-      const legacyId = matched?.legacyId || resolveLegacyUserId(canonicalId, currentUsers) || (matched?.id?.startsWith('usr-') ? matched.id : undefined);
+      const legacyId = resolveLegacyUserId(canonicalId, currentUsers, emailLower);
 
       const userObj: User = {
         id: canonicalId,
