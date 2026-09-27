@@ -53,8 +53,8 @@ describe('Canonical Identity and Legacy Mapping Architecture (Problem #6)', () =
       permissions: {} as any,
     },
     {
-      id: 'usr-6', // Unmigrated legacy format in memory
-      legacyId: 'usr-6',
+      id: 'usr-5', // Unmigrated legacy format in memory
+      legacyId: 'usr-5',
       name: 'Larbi Khomri',
       email: 'larbi.khomri@morvellocars.com',
       role: 'manager',
@@ -67,7 +67,7 @@ describe('Canonical Identity and Legacy Mapping Architecture (Problem #6)', () =
     it('correctly detects usr-N formats', () => {
       expect(isLegacyUserId('usr-1')).toBe(true);
       expect(isLegacyUserId('usr-4')).toBe(true);
-      expect(isLegacyUserId('USR-6')).toBe(true);
+      expect(isLegacyUserId('USR-5')).toBe(true);
       expect(isLegacyUserId('usr-42')).toBe(true);
     });
 
@@ -206,7 +206,7 @@ describe('Canonical Identity and Legacy Mapping Architecture (Problem #6)', () =
       expect(CANONICAL_LEGACY_REGISTRY['usr-2'].role).toBe('manager');
       expect(CANONICAL_LEGACY_REGISTRY['usr-3'].role).toBe('manager');
       expect(CANONICAL_LEGACY_REGISTRY['usr-4'].role).toBe('manager');
-      expect(CANONICAL_LEGACY_REGISTRY['usr-6'].role).toBe('manager');
+      expect(CANONICAL_LEGACY_REGISTRY['usr-5'].role).toBe('manager');
 
     });
   });

@@ -38,8 +38,8 @@ export function isVehicleOwnedByManager(
     return true;
   }
   if (
-    (managerId === 'usr-6' || (managerName && managerName.toLowerCase().includes('larbi'))) &&
-    (vehicle.assignedManagerId === 'usr-6' ||
+    (managerId === 'usr-5' || (managerName && managerName.toLowerCase().includes('larbi'))) &&
+    (vehicle.assignedManagerId === 'usr-5' ||
       (vehicle.assignedManagerName && vehicle.assignedManagerName.toLowerCase().includes('larbi')))
   ) {
     return true;

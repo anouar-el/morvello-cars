@@ -11,7 +11,7 @@ import { User, UserRole } from '../types';
  *    - Supabase Auth UUID (auth.users.id) is the primary authoritative identity.
  *    - Persisted in public.profiles.id.
  *
- * 2. Legacy User ID (usr-1, usr-2, usr-3, usr-4, usr-6):
+ * 2. Legacy User ID (usr-1, usr-2, usr-3, usr-4, usr-5):
  *    - Historical identifiers used in legacy mock data, contracts, and agency assignments.
  *    - Explicitly mapped to canonical identities via public.profiles.legacy_id / local_id.
  *    - Legacy IDs cannot be forged or arbitrarily claimed by non-admin users.
@@ -64,8 +64,8 @@ export const CANONICAL_LEGACY_REGISTRY: Record<string, LegacyUserMapping> = {
     role: 'manager',
     agency: 'Agence Marrakech & Région',
   },
-  'usr-6': {
-    legacyId: 'usr-6',
+  'usr-5': {
+    legacyId: 'usr-5',
     canonicalEmail: 'larbi.khomri@morvellocars.com',
     name: 'Larbi Khomri',
     role: 'manager',
