@@ -66,14 +66,8 @@ function getAdminDb(): FirebaseAdminFirestore {
 }
 
 const app = express();
-// PORT Configuration:
-// In the AI Studio / Cloud Run preview container, Nginx reverse proxy runs on port 8080 (the container's ingress port)
-// and routes all incoming HTTP traffic exclusively to localhost:3000.
-// Binding directly to process.env.PORT in this container would cause an immediate EADDRINUSE crash (port 8080 collision with Nginx).
-// Hence, AI_STUDIO='true' forces the fixed port 3000.
-// On any standard external hosting platform (Hostinger, Render, Railway, etc.), the platform-assigned process.env.PORT
-// is respected by default, with a fallback to 3000 if absent.
-const PORT = process.env.AI_STUDIO === 'true' ? 3000 : parseInt(process.env.PORT || '3000', 10);
+// Port 3000 is required by the AI Studio preview environment (Nginx routes ingress 8080 -> 3000)
+const PORT = 3000;
 
 app.use(express.json({ limit: '10mb' }));
 
