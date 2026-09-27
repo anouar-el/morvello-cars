@@ -419,12 +419,16 @@ export function subscribeToRemoteAgencyDataFromSupabase(
 
   try {
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    let disposed = false;
+    let sessionRevision = 0;
     const triggerRefetch = () => {
+      if (disposed) return;
       if (debounceTimer) clearTimeout(debounceTimer);
+      const revision = sessionRevision;
       debounceTimer = setTimeout(async () => {
         try {
           const freshData = await fetchRemoteAgencyDataFromSupabase();
-          if (freshData) {
+          if (freshData && !disposed && revision === sessionRevision) {
             onData(freshData);
           }
         } catch (fetchErr) {
@@ -432,6 +436,14 @@ export function subscribeToRemoteAgencyDataFromSupabase(
         }
       }, 300);
     };
+
+    // RLS reads before login are empty. Re-fetch after authentication even if
+    // no database row changes. Defer the request outside the auth callback.
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      sessionRevision += 1;
+      if (debounceTimer) clearTimeout(debounceTimer);
+      if (session?.user) triggerRefetch();
+    });
 
     const channel = supabase
       .channel('public:morvello_realtime_sync')
@@ -467,6 +479,9 @@ export function subscribeToRemoteAgencyDataFromSupabase(
       });
 
     return () => {
+      disposed = true;
+      sessionRevision += 1;
+      authListener.subscription.unsubscribe();
       if (debounceTimer) clearTimeout(debounceTimer);
       try {
         supabase.removeChannel(channel);
