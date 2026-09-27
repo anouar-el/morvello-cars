@@ -168,8 +168,12 @@ export class PostgresRlsEngine {
 
   /**
    * CREATE OR REPLACE FUNCTION public.is_current_manager(target_manager_id text)
-   * Résout dynamiquement l'identité du manager (UUID, local_id 'usr-N', legacy_id, email)
-   * SANS aucun codage en dur d'identifiants individuels dans les politiques.
+   * Strict manager role authorization:
+   * 1. Requires authenticated user
+   * 2. Requires valid non-empty agency context (fail-closed)
+   * 3. Requires existing profile with authorized role ('manager' or admin)
+   * 4. Enforces agency boundary (rejects target manager belonging to another agency)
+   * 5. Strictly matches target identifier with caller's verified profile identifiers
    */
   static isCurrentManager(
     targetManagerId: string | null | undefined,
@@ -179,18 +183,42 @@ export class PostgresRlsEngine {
     if (!authUid) return false;
     if (!targetManagerId || targetManagerId.trim() === '') return false;
 
-    // 1. Correspondance directe avec l'UID Supabase Auth
-    if (targetManagerId === authUid) return true;
+    // 1. Fail-closed agency resolution
+    const currentAgency = this.getCurrentAgencyId(authUid, profiles);
+    if (!currentAgency || currentAgency.trim() === '') return false;
 
-    // 2. Correspondance avec le profil résolu dans profiles
+    // 2. Caller profile lookup
     const profile = profiles.get(authUid);
     if (!profile) return false;
 
-    return Boolean(
-      (profile.local_id && profile.local_id === targetManagerId) ||
-      (profile.legacy_id && profile.legacy_id === targetManagerId) ||
-      (profile.email && profile.email.toLowerCase() === targetManagerId.toLowerCase())
-    );
+    // 3. Strict role check: caller MUST be an authorized manager or admin
+    const isAdmin = this.isAdmin(authUid, profiles);
+    const isManager = profile.role === 'manager';
+    if (!isManager && !isAdmin) return false;
+
+    // 4. Agency isolation: reject if target manager profile belongs to another agency
+    const trimmedTarget = targetManagerId.trim();
+    for (const p of profiles.values()) {
+      if (
+        (p.id === trimmedTarget ||
+          (p.local_id && p.local_id === trimmedTarget) ||
+          (p.legacy_id && p.legacy_id === trimmedTarget) ||
+          (p.email && p.email.toLowerCase() === trimmedTarget.toLowerCase())) &&
+        p.agency_id &&
+        p.agency_id.trim() !== '' &&
+        p.agency_id.trim() !== currentAgency
+      ) {
+        return false;
+      }
+    }
+
+    // 5. Strict matching of target identifier with authenticated profile
+    const matchesUid = trimmedTarget === profile.id || trimmedTarget === authUid;
+    const matchesLocalId = Boolean(profile.local_id && profile.local_id === trimmedTarget);
+    const matchesLegacyId = Boolean(profile.legacy_id && profile.legacy_id === trimmedTarget);
+    const matchesEmail = Boolean(profile.email && profile.email.toLowerCase() === trimmedTarget.toLowerCase());
+
+    return matchesUid || matchesLocalId || matchesLegacyId || matchesEmail;
   }
 
   /**
@@ -990,6 +1018,184 @@ describe('Morvello Cars — Supabase Row Level Security Architecture (12 Verific
 
       const emptyContract: BusinessRow = { id: 'c3', agency_id: '' };
       expect(PostgresRlsEngine.logContractDeletionAudit(emptyContract).recordedAgencyId).toBeNull();
+    });
+  });
+
+  // ==============================================================================
+  // P0.3 SECURITY AUDIT SUITE: STRICT MANAGER ROLE AUTHORIZATION
+  // ==============================================================================
+  describe('P0.3 Strict Manager Role Authorization Verification', () => {
+    const managerAUid = '550e8400-e29b-41d4-a716-446655440005'; // Mohamed Ezzay (Manager, usr-5, agency_morvello)
+    const foreignManagerUid = '550e8400-e29b-41d4-a716-446655440098'; // Foreign Manager (agency_rabat, usr-98)
+    const adminUid = '550e8400-e29b-41d4-a716-446655440001'; // Anouar (Admin, usr-1, agency_morvello)
+
+    const employeeUid = '550e8400-e29b-41d4-a716-446655441111'; // Agent/Employee with matching local_id/legacy_id/email
+    const userRoleUid = '550e8400-e29b-41d4-a716-446655442222'; // User role (arbitrary non-manager role)
+    const noAgencyManagerUid = '550e8400-e29b-41d4-a716-446655443333'; // Manager role but NULL agency
+    const blankAgencyManagerUid = '550e8400-e29b-41d4-a716-446655444444'; // Manager role but whitespace agency
+    const unknownUid = '550e8400-e29b-41d4-a716-446655449999'; // Authenticated user with no profile row
+
+    const managerTestProfiles = new Map<string, ProfileRow>([
+      ...profilesMap.entries(),
+      [
+        employeeUid,
+        {
+          id: employeeUid,
+          email: 'employee@morvellocars.ma',
+          name: 'Regular Employee',
+          role: 'agent', // Not a manager!
+          agency_id: 'agency_morvello',
+          local_id: 'emp-10',
+          legacy_id: 'legacy-emp-10',
+        },
+      ],
+      [
+        userRoleUid,
+        {
+          id: userRoleUid,
+          email: 'user@morvellocars.ma',
+          name: 'Regular Customer / User',
+          role: 'agent',
+          agency_id: 'agency_morvello',
+          local_id: 'usr-regular',
+        },
+      ],
+      [
+        noAgencyManagerUid,
+        {
+          id: noAgencyManagerUid,
+          email: 'noagency.mgr@morvellocars.ma',
+          name: 'No Agency Manager',
+          role: 'manager',
+          agency_id: null, // Missing agency context
+        },
+      ],
+      [
+        blankAgencyManagerUid,
+        {
+          id: blankAgencyManagerUid,
+          email: 'blankagency.mgr@morvellocars.ma',
+          name: 'Blank Agency Manager',
+          role: 'manager',
+          agency_id: '   ', // Blank agency context
+        },
+      ],
+    ]);
+
+    // 1. anonymous -> not manager
+    it('P0.3 - Test 1: Anonymous / unauthenticated user is NEVER a manager', () => {
+      expect(PostgresRlsEngine.isCurrentManager('usr-5', null, managerTestProfiles)).toBe(false);
+      expect(PostgresRlsEngine.isCurrentManager(managerAUid, null, managerTestProfiles)).toBe(false);
+    });
+
+    // 2. no profile -> not manager
+    it('P0.3 - Test 2: Authenticated user with no profile is NEVER a manager', () => {
+      expect(PostgresRlsEngine.isCurrentManager(unknownUid, unknownUid, managerTestProfiles)).toBe(false);
+      expect(PostgresRlsEngine.isCurrentManager('usr-5', unknownUid, managerTestProfiles)).toBe(false);
+    });
+
+    // 3. NULL agency -> not manager
+    it('P0.3 - Test 3: Manager with NULL agency context fails closed and is NOT a manager', () => {
+      expect(PostgresRlsEngine.isCurrentManager(noAgencyManagerUid, noAgencyManagerUid, managerTestProfiles)).toBe(false);
+    });
+
+    // 4. blank agency -> not manager
+    it('P0.3 - Test 4: Manager with blank agency context fails closed and is NOT a manager', () => {
+      expect(PostgresRlsEngine.isCurrentManager(blankAgencyManagerUid, blankAgencyManagerUid, managerTestProfiles)).toBe(false);
+      expect(PostgresRlsEngine.isCurrentManager('   ', managerAUid, managerTestProfiles)).toBe(false);
+    });
+
+    // 5. employee -> not manager
+    it('P0.3 - Test 5: Employee / agent is NOT a manager even when target_manager_id matches their UID', () => {
+      expect(PostgresRlsEngine.isCurrentManager(employeeUid, employeeUid, managerTestProfiles)).toBe(false);
+    });
+
+    // 6. regular user -> not manager
+    it('P0.3 - Test 6: User with regular role is NOT a manager', () => {
+      expect(PostgresRlsEngine.isCurrentManager(userRoleUid, userRoleUid, managerTestProfiles)).toBe(false);
+      expect(PostgresRlsEngine.isCurrentManager('usr-regular', userRoleUid, managerTestProfiles)).toBe(false);
+    });
+
+    // 7. valid manager -> manager
+    it('P0.3 - Test 7: Valid manager in valid agency matching their identifier is authorized', () => {
+      expect(PostgresRlsEngine.isCurrentManager('usr-5', managerAUid, managerTestProfiles)).toBe(true);
+      expect(PostgresRlsEngine.isCurrentManager(managerAUid, managerAUid, managerTestProfiles)).toBe(true);
+      expect(PostgresRlsEngine.isCurrentManager('mohamed.ezzay@morvellocars.com', managerAUid, managerTestProfiles)).toBe(true);
+    });
+
+    // 8. manager from another agency -> not manager
+    it('P0.3 - Test 8: Manager from another agency cannot match records in current agency', () => {
+      // Manager A (Morvello) cannot act as Manager from Rabat
+      expect(PostgresRlsEngine.isCurrentManager('usr-98', managerAUid, managerTestProfiles)).toBe(false);
+      // Foreign Manager (Rabat) cannot act as Manager in Morvello
+      expect(PostgresRlsEngine.isCurrentManager('usr-5', foreignManagerUid, managerTestProfiles)).toBe(false);
+    });
+
+    // 9. employee with matching local_id -> not manager
+    it('P0.3 - Test 9: Employee whose local_id matches target_manager_id is NOT authorized as manager', () => {
+      expect(PostgresRlsEngine.isCurrentManager('emp-10', employeeUid, managerTestProfiles)).toBe(false);
+    });
+
+    // 10. employee with matching legacy_id -> not manager
+    it('P0.3 - Test 10: Employee whose legacy_id matches target_manager_id is NOT authorized as manager', () => {
+      expect(PostgresRlsEngine.isCurrentManager('legacy-emp-10', employeeUid, managerTestProfiles)).toBe(false);
+    });
+
+    // 11. employee with matching email -> not manager
+    it('P0.3 - Test 11: Employee whose email matches target_manager_id is NOT authorized as manager', () => {
+      expect(PostgresRlsEngine.isCurrentManager('employee@morvellocars.ma', employeeUid, managerTestProfiles)).toBe(false);
+    });
+
+    // 12. manager with mismatching agency -> not manager
+    it('P0.3 - Test 12: Manager cannot match an identifier if the target profile belongs to a foreign agency', () => {
+      // Suppose target identifier is 'usr-98' (Rabat). Manager A (Morvello) is rejected:
+      expect(PostgresRlsEngine.isCurrentManager('usr-98', managerAUid, managerTestProfiles)).toBe(false);
+    });
+
+    // 13. role changed from manager to employee -> no manager authorization
+    it('P0.3 - Test 13: Demoting profile role from manager to agent immediately removes manager authorization', () => {
+      const dynamicProfiles = new Map<string, ProfileRow>(managerTestProfiles);
+      // Initially Manager A is manager
+      expect(PostgresRlsEngine.isCurrentManager('usr-5', managerAUid, dynamicProfiles)).toBe(true);
+
+      // Admin demotes Manager A to agent
+      const demotedProfile: ProfileRow = {
+        ...dynamicProfiles.get(managerAUid)!,
+        role: 'agent',
+      };
+      dynamicProfiles.set(managerAUid, demotedProfile);
+
+      // Immediate fail-closed rejection:
+      expect(PostgresRlsEngine.isCurrentManager('usr-5', managerAUid, dynamicProfiles)).toBe(false);
+      expect(PostgresRlsEngine.isCurrentManager(managerAUid, managerAUid, dynamicProfiles)).toBe(false);
+    });
+
+    // 14. valid manager with matching canonical ID -> authorized
+    it('P0.3 - Test 14: Valid manager with canonical UUID matching target is authorized', () => {
+      expect(PostgresRlsEngine.isCurrentManager(managerAUid, managerAUid, managerTestProfiles)).toBe(true);
+    });
+
+    // 15. admin behavior remains consistent with existing intended authorization model
+    it('P0.3 - Test 15: Admin behavior remains consistent with existing authorization model', () => {
+      // Admin matching own ID is authorized
+      expect(PostgresRlsEngine.isCurrentManager('usr-1', adminUid, managerTestProfiles)).toBe(true);
+      expect(PostgresRlsEngine.isCurrentManager(adminUid, adminUid, managerTestProfiles)).toBe(true);
+
+      // Admin has full agency-wide supervisory access through canAccessRecord regardless of assigned manager
+      const recordAssignedToA: BusinessRow = {
+        id: 'rec-1',
+        agency_id: 'agency_morvello',
+        assigned_manager_id: 'usr-5',
+      };
+      expect(PostgresRlsEngine.canAccessRecord(recordAssignedToA, adminUid, managerTestProfiles)).toBe(true);
+
+      // Employee cannot access record even if employee tries to pass own ID
+      const recordAssignedToEmp: BusinessRow = {
+        id: 'rec-2',
+        agency_id: 'agency_morvello',
+        assigned_manager_id: 'emp-10',
+      };
+      expect(PostgresRlsEngine.canAccessRecord(recordAssignedToEmp, employeeUid, managerTestProfiles)).toBe(false);
     });
   });
 });
