@@ -438,8 +438,23 @@ export const AuthProvider: React.FC<{
       const matchedUser = users.find(
         (u) => (u.email || '').toLowerCase() === canonicalEmail || u.id === sbUser.id || u.supabaseUid === sbUser.id
       );
-      const finalRole: UserRole = 'agent';
-      const legacyId = resolveLegacyUserId(sbUser.id, users, canonicalEmail);
+      // Login reads the authoritative profile; it must never write a fallback
+      // role or browser-cached identity back to the database.
+      const { data: profileData, error: profileError } = await withTimeout(
+        supabase.from('profiles')
+          .select('role, name, agency, legacy_id, local_id, permissions')
+          .eq('id', sbUser.id)
+          .maybeSingle(),
+        10000,
+        'Délai de chargement du profil Supabase'
+      );
+      if (profileError) throw profileError;
+      if (!profileData) {
+        return { success: false, error: 'Votre compte ne possède pas de profil agence. Contactez l’administrateur.' };
+      }
+      const finalRole: UserRole = profileData.role === 'admin' || profileData.role === 'manager'
+        ? profileData.role : 'agent';
+      const legacyId = profileData.legacy_id || profileData.local_id || undefined;
 
       const existingFirebaseUid =
         matchedUser?.firebaseUid && matchedUser.firebaseUid !== sbUser.id
@@ -450,11 +465,11 @@ export const AuthProvider: React.FC<{
         id: sbUser.id, // TOUJOURS le véritable UUID Supabase Auth
         supabaseUid: sbUser.id,
         legacyId,
-        name: matchedUser?.name || sbUser.user_metadata?.name || canonicalEmail.split('@')[0],
+        name: profileData.name || sbUser.user_metadata?.name || canonicalEmail.split('@')[0],
         email: canonicalEmail,
         role: finalRole,
-        agency: matchedUser?.agency || 'Agence Morvello',
-        permissions: matchedUser?.permissions || { ...DEFAULT_PERMISSIONS_BY_ROLE[finalRole] },
+        agency: profileData.agency || 'Agence Morvello',
+        permissions: { ...DEFAULT_PERMISSIONS_BY_ROLE[finalRole], ...profileData.permissions },
         firebaseUid: existingFirebaseUid,
       };
 
@@ -493,7 +508,7 @@ export const AuthProvider: React.FC<{
         return hasChanges ? next : prev;
       });
 
-      // IMMEDIATELY admit user into application without blocking for secondary round-trips
+      // Publish the verified profile after reading it successfully.
       setCurrentUser((prev) => {
         if (
           prev &&
@@ -505,40 +520,6 @@ export const AuthProvider: React.FC<{
         }
         return finalUser;
       });
-
-      // Asynchronously check for any custom profile overrides without delaying login
-      Promise.resolve(
-        supabase
-          .from('profiles')
-          .select('role, name')
-          .eq('id', sbUser.id)
-          .maybeSingle()
-      )
-        .then(({ data: profileData }) => {
-          if (profileData?.role || profileData?.name) {
-            setCurrentUser((prev) => {
-              if (!prev) return prev;
-              const newRole = (profileData.role as UserRole) || prev.role;
-              return {
-                ...prev,
-                role: newRole,
-                name: profileData.name || prev.name,
-                permissions: { ...DEFAULT_PERMISSIONS_BY_ROLE[newRole] },
-              };
-            });
-          }
-        })
-        .catch(() => {});
-
-      // Asynchronously synchronize profile to Supabase profiles table
-      saveUserProfileToSupabase(sbUser.id, {
-        role: finalUser.role,
-        email: finalUser.email,
-        name: finalUser.name,
-        localId: legacyId,
-        legacyId: legacyId,
-        permissions: finalUser.permissions,
-      }).catch(() => {});
 
       logAction(
         'Connexion Supabase Auth',
