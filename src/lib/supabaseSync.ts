@@ -2014,7 +2014,6 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
           name: u.name,
           role: u.role,
           phone: u.phone || null,
-          agency: u.agency || 'Nouaceur Casablanca',
           assigned_fleet_name: u.assignedFleetName || null,
           permissions: u.permissions || {},
           updated_at: new Date().toISOString(),
