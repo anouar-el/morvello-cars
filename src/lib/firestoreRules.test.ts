@@ -66,14 +66,7 @@ export class FirestoreRulesSimulator {
       if (isAdmin()) return true;
       const userDoc = dbState.users ? dbState.users[auth!.uid] : undefined;
       if (!userDoc) return false;
-      if (userDoc.agency === agencyId) return true;
-      if (
-        agencyId.startsWith('morvello') &&
-        (!userDoc.agency || userDoc.agency === 'Agence Morvello' || userDoc.agency === 'morvello_main')
-      ) {
-        return true;
-      }
-      return false;
+      return userDoc.agency === agencyId;
     };
 
     const isValidUserProfile = (data: any) => {
@@ -428,6 +421,16 @@ describe('Problem #5: Firestore Security Rules & RBAC Hardening', () => {
       });
       expect(res.allowed).toBe(false);
       expect(res.reason).toContain('PERMISSION_DENIED');
+    });
+
+    it('D9.1 (P0.4): Blocks cross-agency access even when both agencies share the morvello_ prefix', () => {
+      // Bob is in 'morvello_main', attempts to access 'morvello_branch_casablanca'
+      const crossAgencyRes = FirestoreRulesSimulator.evaluate('get', 'agencies/morvello_branch_casablanca', {
+        auth: managerAuth, // uid: 'mgr_bob', in dbState has agency: 'morvello_main'
+        dbState: mockDbState,
+      });
+      expect(crossAgencyRes.allowed).toBe(false);
+      expect(crossAgencyRes.reason).toContain('PERMISSION_DENIED');
     });
 
     it('D10: Blocks manager from modifying companySettings or termsVersion', () => {

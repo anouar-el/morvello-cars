@@ -39,14 +39,12 @@ service cloud.firestore {
       );
     }
 
-    // Agency Member Verification
+    // Agency Member Verification (Strict fail-closed: no permissive regex bypass)
     function isAgencyMember(agencyId) {
       return isSignedIn() && (
         isAdmin() ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && (
-          agencyId.matches('^morvello.*$') ||
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.agency == agencyId
-        ))
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.agency == agencyId)
       );
     }
 

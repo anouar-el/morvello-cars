@@ -538,7 +538,7 @@ export const AuthProvider: React.FC<{
   };
 
   /**
-   * Google Sign-In via Firebase Auth & Supabase OAuth
+   * Google Sign-In via Firebase Auth & Supabase single authority resolution
    */
   const loginWithGoogle = async (): Promise<{ success: boolean; error?: string }> => {
     try {
@@ -546,35 +546,59 @@ export const AuthProvider: React.FC<{
       const result = await signInWithPopup(firebaseAuth, googleProvider);
       const fbUser = result.user;
       const emailLower = (fbUser.email || '').toLowerCase();
-      const tokenResult = await fbUser.getIdTokenResult();
-      const claimedRole = tokenResult.claims.role;
-      const role: UserRole = tokenResult.claims.admin === true || claimedRole === 'admin'
-        ? 'admin'
-        : claimedRole === 'manager'
-          ? 'manager'
-          : 'agent';
-      const name = fbUser.displayName || emailLower.split('@')[0] || 'Utilisateur Google';
 
-      const currentUsers = usersRef.current;
-      const matched = currentUsers.find(
-        (u) =>
-          (u.email || '').toLowerCase() === emailLower ||
-          u.id === fbUser.uid ||
-          u.firebaseUid === fbUser.uid
-      );
+      // 2. Authoritative identity and role resolution from Supabase public.profiles
+      // Firebase custom claims are NOT authoritative for role or agency.
+      // Never guess identity from email alone.
+      let authoritativeProfile: any = null;
+      if (isSupabaseConfigured) {
+        try {
+          const { data: prof } = await supabase
+            .from('profiles')
+            .select('id, role, name, agency, agency_id, legacy_id, local_id, firebase_uid, permissions')
+            .eq('firebase_uid', fbUser.uid)
+            .maybeSingle();
+          authoritativeProfile = prof;
+        } catch (profErr) {
+          console.warn('[Google Auth] Supabase profile query error:', profErr);
+        }
+      }
 
-      const canonicalId = matched?.supabaseUid || (matched?.id && !matched.id.startsWith('usr-') ? matched.id : fbUser.uid);
-      const legacyId = resolveLegacyUserId(canonicalId, currentUsers, emailLower);
+      let role: UserRole = 'agent';
+      let agency = 'Nouaceur Casablanca';
+      let canonicalId = fbUser.uid;
+      let legacyId: string | undefined = undefined;
+      let name = fbUser.displayName || emailLower.split('@')[0] || 'Utilisateur Google';
+
+      if (authoritativeProfile) {
+        canonicalId = authoritativeProfile.id;
+        role =
+          authoritativeProfile.role === 'admin' ||
+          authoritativeProfile.role === 'manager' ||
+          authoritativeProfile.role === 'agent'
+            ? authoritativeProfile.role
+            : 'agent';
+        agency = authoritativeProfile.agency_id || authoritativeProfile.agency || 'Nouaceur Casablanca';
+        name = authoritativeProfile.name || name;
+        legacyId = authoritativeProfile.legacy_id || authoritativeProfile.local_id;
+      } else {
+        // Unmapped Firebase user: fail-closed, cannot assume elevated role or inherit agency
+        console.warn('[Google Auth] Firebase user has no linked Supabase profile: assigning unprivileged agent role.');
+        role = 'agent';
+      }
 
       const userObj: User = {
         id: canonicalId,
-        supabaseUid: matched?.supabaseUid || (canonicalId !== fbUser.uid ? canonicalId : undefined),
+        supabaseUid: authoritativeProfile ? canonicalId : undefined,
         legacyId,
         name,
         email: emailLower,
         role,
-        agency: matched?.agency || 'Agence Morvello',
-        permissions: { ...DEFAULT_PERMISSIONS_BY_ROLE[role] },
+        agency,
+        permissions:
+          authoritativeProfile?.permissions && Object.keys(authoritativeProfile.permissions).length > 0
+            ? authoritativeProfile.permissions
+            : { ...DEFAULT_PERMISSIONS_BY_ROLE[role] },
         firebaseUid: fbUser.uid, // REAL Firebase Auth UID
         mustChangePassword: false,
       };

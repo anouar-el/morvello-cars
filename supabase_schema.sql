@@ -48,10 +48,12 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS agency_id TEXT;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS local_id TEXT;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS legacy_id TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS firebase_uid TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_profiles_agency_id ON public.profiles(agency_id);
 CREATE INDEX IF NOT EXISTS idx_profiles_local_id ON public.profiles(local_id);
 CREATE INDEX IF NOT EXISTS idx_profiles_legacy_id ON public.profiles(legacy_id);
+CREATE INDEX IF NOT EXISTS idx_profiles_firebase_uid ON public.profiles(firebase_uid);
 CREATE INDEX IF NOT EXISTS idx_profiles_email ON public.profiles(lower(email));
 CREATE INDEX IF NOT EXISTS idx_profiles_role ON public.profiles(role);
 
@@ -594,6 +596,9 @@ BEGIN
     END IF;
     IF NEW.permissions IS DISTINCT FROM OLD.permissions THEN
       RAISE EXCEPTION 'Privilege escalation rejected: cannot alter permissions.';
+    END IF;
+    IF NEW.firebase_uid IS DISTINCT FROM OLD.firebase_uid THEN
+      RAISE EXCEPTION 'Identity modification rejected: cannot modify firebase_uid.';
     END IF;
     IF NEW.id IS DISTINCT FROM OLD.id THEN
       RAISE EXCEPTION 'Identity modification rejected: cannot change primary id.';

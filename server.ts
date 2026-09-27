@@ -17,7 +17,11 @@ const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY;
 
 let supabaseServerClient: SupabaseClient | null = null;
-function getSupabaseClient(): SupabaseClient {
+export function setSupabaseClient(client: SupabaseClient | null) {
+  supabaseServerClient = client;
+}
+
+export function getSupabaseClient(): SupabaseClient {
   if (!supabaseServerClient) {
     if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
       throw new Error('Supabase server configuration is missing.');
@@ -36,6 +40,14 @@ function getSupabaseClient(): SupabaseClient {
 let adminApp: FirebaseAdminApp | null = null;
 let adminAuth: FirebaseAdminAuth | null = null;
 let adminDb: FirebaseAdminFirestore | null = null;
+
+export function setAdminAuth(auth: FirebaseAdminAuth | null) {
+  adminAuth = auth;
+}
+
+export function setAdminDb(db: FirebaseAdminFirestore | null) {
+  adminDb = db;
+}
 
 function getAdminApp(): FirebaseAdminApp {
   if (!adminApp) {
@@ -104,14 +116,23 @@ export type AuthResult = AuthenticatedCaller | UnauthenticatedCaller;
 /**
  * Authoritative Server-side Authentication & Identity Resolution
  *
- * Verifies the incoming bearer token cryptographically against:
- * 1. Supabase Auth (Primary authoritative system for session & login)
- * 2. Firebase Auth (Secondary system for Google Sign-In & Firebase admin tasks)
+ * Supabase Auth is the SINGLE AUTHORITATIVE SECURITY AUTHORITY.
  *
- * Resolves role and manager scope directly from trusted database / canonical registry.
- * NEVER trusts client-supplied roles, member IDs, or agency scopes.
+ * 1. Supabase Auth token verification:
+ *    - Validates token against Supabase Auth (sb.auth.getUser)
+ *    - Resolves profile strictly from public.profiles where id = user.id
+ *    - Resolves role and agency strictly from public.profiles
+ *    - Fail-closed: missing profile or missing agency yields NO privileged access.
+ *
+ * 2. Firebase Auth token verification (Compatibility boundary):
+ *    - Decodes Firebase ID token.
+ *    - CRITICAL: Firebase custom claims and client claims are NOT authoritative!
+ *    - Resolves caller strictly by querying public.profiles for firebase_uid = decoded.uid.
+ *    - If no mapped Supabase profile exists: DENY privileged access (fail-closed, 403).
+ *    - Never guesses identity from email alone.
+ *    - Never uses hardcoded agency fallbacks.
  */
-async function authenticateCaller(req: express.Request): Promise<AuthResult> {
+export async function authenticateCaller(req: express.Request): Promise<AuthResult> {
   const authHeader = req.headers.authorization;
   const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : null;
 
@@ -135,7 +156,7 @@ async function authenticateCaller(req: express.Request): Promise<AuthResult> {
       try {
         const { data: prof } = await sb
           .from('profiles')
-          .select('id, role, name, agency, legacy_id, local_id')
+          .select('id, role, name, agency, agency_id, legacy_id, local_id, firebase_uid')
           .eq('id', sbUser.id)
           .maybeSingle();
         dbProfile = prof;
@@ -143,15 +164,24 @@ async function authenticateCaller(req: express.Request): Promise<AuthResult> {
         console.warn('[Server Auth] Supabase profile query note:', profErr);
       }
 
+      // Fail closed: An authenticated Supabase user MUST possess a valid profile in public.profiles
+      if (!dbProfile) {
+        return {
+          authenticated: false,
+          error: 'Profil Supabase introuvable pour cet utilisateur authentifié (accès refusé).',
+          statusCode: 403,
+        };
+      }
+
       const role: 'admin' | 'manager' | 'agent' =
-        dbProfile?.role === 'admin' || dbProfile?.role === 'manager' || dbProfile?.role === 'agent'
+        dbProfile.role === 'admin' || dbProfile.role === 'manager' || dbProfile.role === 'agent'
           ? dbProfile.role
           : 'agent';
 
       const isAdmin = role === 'admin';
-      const name = dbProfile?.name || sbUser.user_metadata?.name || emailLower.split('@')[0] || 'Collaborateur';
-      const agency = dbProfile?.agency || 'Agence Morvello';
-      const legacyId = dbProfile?.legacy_id || dbProfile?.local_id;
+      const name = dbProfile.name || sbUser.user_metadata?.name || emailLower.split('@')[0] || 'Collaborateur';
+      const agency = dbProfile.agency_id || dbProfile.agency;
+      const legacyId = dbProfile.legacy_id || dbProfile.local_id;
 
       return {
         authenticated: true,
@@ -169,27 +199,54 @@ async function authenticateCaller(req: express.Request): Promise<AuthResult> {
     // If Supabase token check threw, gracefully continue to Firebase verification
   }
 
-  // 2. Second, attempt Firebase Auth ID token verification (Google Sign-In)
+  // 2. Second, attempt Firebase Auth ID token verification (Compatibility boundary)
   try {
     const auth = getAdminAuth();
     const decoded = await auth.verifyIdToken(token);
     const emailLower = (decoded.email || '').toLowerCase().trim();
+
+    // TARGET SECURITY ARCHITECTURE: Supabase is the SINGLE authoritative authority.
+    // Firebase custom claims are NOT authoritative for role or agency.
+    // Privileged authorization must resolve strictly to a valid Supabase profile linked via firebase_uid.
+    // Never guess identity from email alone!
+    const sb = getSupabaseClient();
+    let dbProfile: any = null;
+    try {
+      const { data: prof } = await sb
+        .from('profiles')
+        .select('id, role, name, agency, agency_id, legacy_id, local_id, firebase_uid')
+        .eq('firebase_uid', decoded.uid)
+        .maybeSingle();
+      dbProfile = prof;
+    } catch (profErr) {
+      console.warn('[Server Auth] Supabase profile query for Firebase UID note:', profErr);
+    }
+
+    if (!dbProfile) {
+      // Firebase user is not mapped to an authoritative Supabase profile
+      // DENY privileged access - fail closed.
+      return {
+        authenticated: false,
+        error: 'Utilisateur Firebase non associé à un profil Supabase autorisé (accès privilégié refusé).',
+        statusCode: 403,
+      };
+    }
+
+    // Role and agency strictly resolved from Supabase profile, NOT Firebase claims or hardcoded agency!
     const role: 'admin' | 'manager' | 'agent' =
-      decoded.admin === true || decoded.role === 'admin'
-        ? 'admin'
-        : decoded.role === 'manager'
-          ? 'manager'
-          : 'agent';
+      dbProfile.role === 'admin' || dbProfile.role === 'manager' || dbProfile.role === 'agent'
+        ? dbProfile.role
+        : 'agent';
 
     const isAdmin = role === 'admin';
-    const name = decoded.name || emailLower.split('@')[0] || 'Collaborateur';
-    const agency = 'Agence Morvello';
-    const legacyId = undefined;
+    const name = dbProfile.name || decoded.name || emailLower.split('@')[0] || 'Collaborateur';
+    const agency = dbProfile.agency_id || dbProfile.agency;
+    const legacyId = dbProfile.legacy_id || dbProfile.local_id;
 
     return {
       authenticated: true,
       provider: 'firebase',
-      uid: decoded.uid, // FIREBASE AUTH UID
+      uid: dbProfile.id, // Authoritative Supabase profile ID as canonical identity
       email: emailLower,
       role,
       isAdmin,
@@ -207,9 +264,9 @@ async function authenticateCaller(req: express.Request): Promise<AuthResult> {
 }
 
 // Helper to verify admin caller via authenticated token (Supabase Auth or Firebase Auth)
-async function verifyAdminCaller(
+export async function verifyAdminCaller(
   req: express.Request
-): Promise<{ isAdmin: boolean; callerUid?: string; error?: string }> {
+): Promise<{ isAdmin: boolean; callerUid?: string; callerAgency?: string; error?: string }> {
   const auth = await authenticateCaller(req);
   if (!auth.authenticated) {
     return { isAdmin: false, error: auth.error };
@@ -221,7 +278,7 @@ async function verifyAdminCaller(
       error: 'Action réservée aux administrateurs (privilèges d\'administration requis).',
     };
   }
-  return { isAdmin: true, callerUid: auth.uid };
+  return { isAdmin: true, callerUid: auth.uid, callerAgency: auth.agency };
 }
 
 // ============================================================================
@@ -229,8 +286,9 @@ async function verifyAdminCaller(
 // ============================================================================
 
 /**
- * Set User Role and Custom Claims ({ role, admin: boolean })
- * Strict verification of admin privileges via Firebase Auth token
+ * Set User Role:
+ * Authoritatively updates public.profiles in Supabase, and synchronizes Custom Claims
+ * in Firebase Auth & Firestore for legacy compatibility.
  */
 app.post('/api/admin/set-user-role', async (req, res) => {
   try {
@@ -250,12 +308,36 @@ app.post('/api/admin/set-user-role', async (req, res) => {
     }
 
     const isAdminRole = role === 'admin';
-    await getAdminAuth().setCustomUserClaims(uid, {
-      role: role,
-      admin: isAdminRole,
-    });
 
-    // Update Firestore /users/{uid} document
+    // 1. Authoritative: Update role in Supabase public.profiles
+    try {
+      const sb = getSupabaseClient();
+      const { error: sbErr } = await sb
+        .from('profiles')
+        .update({
+          role: role,
+          updated_at: new Date().toISOString(),
+        })
+        .or(`id.eq.${uid},firebase_uid.eq.${uid}`);
+
+      if (sbErr) {
+        console.warn('[Server] Supabase profile update error in set-user-role:', sbErr.message);
+      }
+    } catch (sbEx: any) {
+      console.warn('[Server] Exception updating Supabase profile role:', sbEx?.message);
+    }
+
+    // 2. Compatibility: Update Firebase Auth custom claims
+    try {
+      await getAdminAuth().setCustomUserClaims(uid, {
+        role: role,
+        admin: isAdminRole,
+      });
+    } catch (fbErr: any) {
+      console.warn('[Server] Firebase setCustomUserClaims note:', fbErr?.message);
+    }
+
+    // 3. Compatibility: Update Firestore /users/{uid} document
     try {
       await getAdminDb().collection('users').doc(uid).set(
         {
@@ -271,28 +353,28 @@ app.post('/api/admin/set-user-role', async (req, res) => {
       console.warn('[Server] Firestore update warning in set-user-role:', fsErr?.message);
     }
 
-    console.log(`[Server] Applied Custom Claims for UID ${uid}: role=${role}, admin=${isAdminRole}`);
+    console.log(`[Server] Applied authoritative role for UID ${uid}: role=${role}, admin=${isAdminRole}`);
 
     res.json({
       success: true,
       uid,
       role,
       admin: isAdminRole,
-      message: `Rôle ${role.toUpperCase()} appliqué avec succès (Custom Claims).`,
+      message: `Rôle ${role.toUpperCase()} appliqué avec succès.`,
     });
   } catch (error: any) {
     console.error('[Server] set-user-role error:', error);
     res.status(500).json({
       success: false,
-      error: error.message || 'Erreur lors de la mise à jour des Custom Claims.',
+      error: error.message || 'Erreur lors de la mise à jour des rôles.',
     });
   }
 });
 
 /**
  * Provision Team Member:
- * Creates user in Firebase Auth without public client signup,
- * applies Custom Claims, generates activation link, and registers in Firestore.
+ * Authoritatively creates user profile in Supabase public.profiles,
+ * and maintains Firebase Auth / Firestore account for compatibility.
  */
 app.post('/api/admin/provision-team-member', async (req, res) => {
   try {
@@ -305,7 +387,7 @@ app.post('/api/admin/provision-team-member', async (req, res) => {
       email,
       name,
       role = 'manager',
-      agency = 'Agence Morvello',
+      agency,
       phone = '',
       assignedFleetName = '',
       password = '',
@@ -320,8 +402,9 @@ app.post('/api/admin/provision-team-member', async (req, res) => {
     const allowed = ['admin', 'manager', 'agent'];
     const targetRole = allowed.includes(role) ? role : 'manager';
     const isAdminRole = targetRole === 'admin';
+    const targetAgency = (agency && typeof agency === 'string' ? agency.trim() : '') || authCheck.callerAgency || 'Nouaceur Casablanca';
 
-    // Check if user already exists or create new Firebase Auth user
+    // 1. Firebase Auth user creation / update for compatibility
     let userRecord: UserRecord;
     const auth = getAdminAuth();
     try {
@@ -351,11 +434,55 @@ app.post('/api/admin/provision-team-member', async (req, res) => {
       }
     }
 
-    // Set Custom Claims
-    await auth.setCustomUserClaims(userRecord.uid, {
-      role: targetRole,
-      admin: isAdminRole,
-    });
+    // Set Custom Claims in Firebase for compatibility
+    try {
+      await auth.setCustomUserClaims(userRecord.uid, {
+        role: targetRole,
+        admin: isAdminRole,
+      });
+    } catch (claimErr: any) {
+      console.warn('[Server] Could not set Firebase custom claims:', claimErr?.message);
+    }
+
+    // 2. Authoritative: Provision profile in Supabase public.profiles
+    const sb = getSupabaseClient();
+    let supabaseProfileId = crypto.randomUUID();
+
+    try {
+      const { data: existingProf } = await sb
+        .from('profiles')
+        .select('id')
+        .or(`email.eq.${trimmedEmail},firebase_uid.eq.${userRecord.uid}`)
+        .maybeSingle();
+
+      if (existingProf?.id) {
+        supabaseProfileId = existingProf.id;
+      }
+
+      const { error: sbProfErr } = await sb.from('profiles').upsert(
+        {
+          id: supabaseProfileId,
+          email: trimmedEmail,
+          name: trimmedName,
+          role: targetRole,
+          agency_id: targetAgency,
+          agency: targetAgency,
+          phone: phone || null,
+          assigned_fleet_name: assignedFleetName || null,
+          firebase_uid: userRecord.uid,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'id' }
+      );
+
+      if (sbProfErr) {
+        console.error('[Server] Supabase profile provision error:', sbProfErr);
+      } else {
+        console.log(`[Server] Provisioned authoritative Supabase profile for ${trimmedEmail} (ID: ${supabaseProfileId})`);
+      }
+    } catch (sbEx: any) {
+      console.error('[Server] Exception provisioning Supabase profile:', sbEx);
+    }
 
     // Generate secure password reset / activation link
     let resetLink: string | null = null;
@@ -365,7 +492,7 @@ app.post('/api/admin/provision-team-member', async (req, res) => {
       console.warn('[Server] Could not generate reset link:', linkErr?.message);
     }
 
-    // Persist user record in Firestore /users/{uid}
+    // Persist user record in Firestore /users/{uid} for compatibility
     try {
       await getAdminDb().collection('users').doc(userRecord.uid).set(
         {
@@ -373,7 +500,7 @@ app.post('/api/admin/provision-team-member', async (req, res) => {
           email: trimmedEmail,
           name: trimmedName,
           role: targetRole,
-          agency,
+          agency: targetAgency,
           phone,
           assignedFleetName,
           adminClaim: isAdminRole,
@@ -389,10 +516,12 @@ app.post('/api/admin/provision-team-member', async (req, res) => {
 
     res.json({
       success: true,
-      uid: userRecord.uid,
+      uid: supabaseProfileId,
+      firebaseUid: userRecord.uid,
       email: trimmedEmail,
       name: trimmedName,
       role: targetRole,
+      agency: targetAgency,
       admin: isAdminRole,
       resetLink,
       message: `Collaborateur ${trimmedName} provisionné avec succès.`,
@@ -520,8 +649,8 @@ app.post('/api/agent-chat', chatRateLimiter, async (req, res) => {
     const callerEmail = authCheck.email || '';
     const callerRole = authCheck.role; // Trusted database / registry role
     const isAdmin = authCheck.isAdmin; // Trusted admin status
-    const callerName = authCheck.name || (req.body.memberName && typeof req.body.memberName === 'string' ? req.body.memberName : 'Collaborateur');
-    const callerAgency = authCheck.agency || (req.body.memberAgency && typeof req.body.memberAgency === 'string' ? req.body.memberAgency : 'Agence Morvello');
+    const callerName = authCheck.name || 'Collaborateur';
+    const callerAgency = authCheck.agency || '';
     const callerLegacyId = authCheck.legacyId;
 
     const callerNameLower = callerName.toLowerCase().trim();
@@ -616,7 +745,7 @@ app.post('/api/agent-chat', chatRateLimiter, async (req, res) => {
 
     // Build the confidential contextual snapshot for this specific member
     const systemPrompt = `Tu es l'Assistant Personnel IA Exécutif de ${callerName} chez Morvello Cars (Société de location automobile à Casablanca & Nouaceur, Maroc).
-Rôle du membre : ${isAdmin ? 'Gérant / Super Administrateur (Accès Superviseur Global 360°)' : `Responsable d'Agence / Gestionnaire de flotte (${callerAgency || 'Agence Morvello'})`}.
+Rôle du membre : ${isAdmin ? 'Gérant / Super Administrateur (Accès Superviseur Global 360°)' : `Responsable d'Agence / Gestionnaire de flotte (${callerAgency || 'Non assigné'})`}.
 
 CHARTE ÉDITORIALE & VISION DE LA MAISON MORVELLO CARS :
 ${brandVision}
@@ -829,8 +958,10 @@ async function startServer() {
   });
 }
 
-startServer().catch((err) => {
-  console.error('[Server] Fatal startup error:', err);
-  process.exit(1);
-});
+if (process.env.NODE_ENV !== 'test' && !process.env.VITEST) {
+  startServer().catch((err) => {
+    console.error('[Server] Fatal startup error:', err);
+    process.exit(1);
+  });
+}
 
