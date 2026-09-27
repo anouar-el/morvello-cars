@@ -1,6 +1,4 @@
 import { supabase, isSupabaseConfigured } from './supabase';
-import { auth, db } from './firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
 import {
   Vehicle,
   Contract,
@@ -152,44 +150,6 @@ function parsePostgrestError(err: any): { message: string; code: string } {
 }
 
 // Mirror single record write to Firestore if authenticated in Firebase
-async function mirrorRecordToFirestore(
-  fieldArrayName: string,
-  record: any,
-  isDelete: boolean = false
-): Promise<void> {
-  if (!auth.currentUser) return;
-  try {
-    const mainDocRef = doc(db, 'agencies', 'morvello_main');
-    const snap = await getDoc(mainDocRef);
-    if (!snap.exists()) return;
-    const data = snap.data();
-    const existingList: any[] = Array.isArray(data[fieldArrayName]) ? data[fieldArrayName] : [];
-
-    let updatedList: any[];
-    if (isDelete) {
-      updatedList = existingList.filter((item: any) => item.id !== record.id);
-    } else {
-      const idx = existingList.findIndex((item: any) => item.id === record.id);
-      if (idx !== -1) {
-        updatedList = existingList.map((item: any, i: number) => (i === idx ? { ...item, ...record } : item));
-      } else {
-        updatedList = [record, ...existingList];
-      }
-    }
-
-    await setDoc(
-      mainDocRef,
-      {
-        [fieldArrayName]: updatedList,
-        updatedAt: new Date().toISOString(),
-      },
-      { merge: true }
-    );
-  } catch (fsErr) {
-    console.warn('[RecordSync] Firestore mirror notice:', fsErr);
-  }
-}
-
 // ==============================================================================
 // 1. RECORD-LEVEL VEHICLES (STEP 5)
 // ==============================================================================
@@ -247,7 +207,6 @@ export async function syncCreateVehicle(
     }
 
     // Mirror to Firestore without sending entire array from client
-    mirrorRecordToFirestore('vehicles', vehicle, false).catch(() => {});
 
     notifySyncEvent({ table: 'vehicles', entityId: vehicle.id, operation: 'create', status: 'SYNCED', timestamp });
     return { success: true, status: 'SYNCED', data: vehicle, timestamp };
@@ -336,8 +295,6 @@ export async function syncUpdateVehicle(
       return { success: false, status, error: parsed.message, code: parsed.code, timestamp };
     }
 
-    mirrorRecordToFirestore('vehicles', { id: vehicleId, ...patch, updatedAt: timestamp }, false).catch(() => {});
-
     notifySyncEvent({ table: 'vehicles', entityId: vehicleId, operation: 'update', status: 'SYNCED', timestamp });
     return { success: true, status: 'SYNCED', timestamp };
   } catch (err: any) {
@@ -369,8 +326,6 @@ export async function syncDeleteVehicle(
       notifySyncEvent({ table: 'vehicles', entityId: vehicleId, operation: 'delete', status, error: parsed.message, timestamp });
       return { success: false, status, error: parsed.message, code: parsed.code, timestamp };
     }
-
-    mirrorRecordToFirestore('vehicles', { id: vehicleId }, true).catch(() => {});
 
     notifySyncEvent({ table: 'vehicles', entityId: vehicleId, operation: 'delete', status: 'SYNCED', timestamp });
     return { success: true, status: 'SYNCED', data: vehicleId, timestamp };
@@ -501,8 +456,6 @@ export async function syncCreateClient(
       return { success: false, status, error: parsed.message, code: parsed.code, timestamp };
     }
 
-    mirrorRecordToFirestore('clients', client, false).catch(() => {});
-
     notifySyncEvent({ table: 'clients', entityId: client.id, operation: 'create', status: 'SYNCED', timestamp });
     return { success: true, status: 'SYNCED', data: client, timestamp };
   } catch (err: any) {
@@ -573,8 +526,6 @@ export async function syncUpdateClient(
       return { success: false, status, error: parsed.message, code: parsed.code, timestamp };
     }
 
-    mirrorRecordToFirestore('clients', { id: clientId, ...patch, updatedAt: timestamp }, false).catch(() => {});
-
     notifySyncEvent({ table: 'clients', entityId: clientId, operation: 'update', status: 'SYNCED', timestamp });
     return { success: true, status: 'SYNCED', timestamp };
   } catch (err: any) {
@@ -605,8 +556,6 @@ export async function syncDeleteClient(
       notifySyncEvent({ table: 'clients', entityId: clientId, operation: 'delete', status, error: parsed.message, timestamp });
       return { success: false, status, error: parsed.message, code: parsed.code, timestamp };
     }
-
-    mirrorRecordToFirestore('clients', { id: clientId }, true).catch(() => {});
 
     notifySyncEvent({ table: 'clients', entityId: clientId, operation: 'delete', status: 'SYNCED', timestamp });
     return { success: true, status: 'SYNCED', data: clientId, timestamp };
@@ -651,7 +600,6 @@ export async function syncCreateDriver(
       const parsed = parsePostgrestError(error);
       return { success: false, status: 'SYNC_FAILED', error: parsed.message, code: parsed.code, timestamp };
     }
-    mirrorRecordToFirestore('drivers', driver, false).catch(() => {});
     return { success: true, status: 'SYNCED', data: driver, timestamp };
   } catch (err: any) {
     return { success: false, status: 'SYNC_FAILED', error: err?.message, timestamp };
@@ -673,7 +621,6 @@ export async function syncDeleteDriver(
       const parsed = parsePostgrestError(error);
       return { success: false, status: 'SYNC_FAILED', error: parsed.message, code: parsed.code, timestamp };
     }
-    mirrorRecordToFirestore('drivers', { id: driverId }, true).catch(() => {});
     return { success: true, status: 'SYNCED', data: driverId, timestamp };
   } catch (err: any) {
     return { success: false, status: 'SYNC_FAILED', error: err?.message, timestamp };
@@ -766,10 +713,6 @@ export async function syncCreateContract(
     if (rpcSuccessful) {
       if (related?.nextContractNumber) {
         syncUpdateNextContractSequence(related.nextContractNumber).catch(() => {});
-      }
-      mirrorRecordToFirestore('contracts', contract, false).catch(() => {});
-      if (related?.deposit) {
-        mirrorRecordToFirestore('deposits', related.deposit, false).catch(() => {});
       }
       clearSyncError();
       notifySyncEvent({ table: 'contracts', entityId: contract.id, operation: 'create', status: 'SYNCED', timestamp });
@@ -933,7 +876,6 @@ export async function syncCreateContract(
       await syncUpdateNextContractSequence(related.nextContractNumber);
     }
 
-    mirrorRecordToFirestore('contracts', contract, false).catch(() => {});
     clearSyncError();
     notifySyncEvent({ table: 'contracts', entityId: contract.id, operation: 'create', status: 'SYNCED', timestamp });
     return { success: true, status: 'SYNCED', data: contract, timestamp };
@@ -1009,8 +951,6 @@ export async function syncUpdateContract(
       return { success: false, status, error: parsed.message, code: parsed.code, timestamp };
     }
 
-    mirrorRecordToFirestore('contracts', { id: contractId, ...patch, updatedAt: timestamp }, false).catch(() => {});
-
     notifySyncEvent({ table: 'contracts', entityId: contractId, operation: 'update', status: 'SYNCED', timestamp });
     return { success: true, status: 'SYNCED', timestamp };
   } catch (err: any) {
@@ -1041,8 +981,6 @@ export async function syncDeleteContract(
       notifySyncEvent({ table: 'contracts', entityId: contractId, operation: 'delete', status, error: parsed.message, timestamp });
       return { success: false, status, error: parsed.message, code: parsed.code, timestamp };
     }
-
-    mirrorRecordToFirestore('contracts', { id: contractId }, true).catch(() => {});
 
     notifySyncEvent({ table: 'contracts', entityId: contractId, operation: 'delete', status: 'SYNCED', timestamp });
     return { success: true, status: 'SYNCED', data: contractId, timestamp };
@@ -1079,7 +1017,6 @@ export async function syncUpdateContractInspection(
       return { success: false, status: 'SYNC_FAILED', error: parsed.message, code: parsed.code, timestamp };
     }
 
-    mirrorRecordToFirestore('contracts', { id: contractId, inspection, updatedAt: timestamp }, false).catch(() => {});
     return { success: true, status: 'SYNCED', data: inspection, timestamp };
   } catch (err: any) {
     return { success: false, status: 'SYNC_FAILED', error: err?.message, timestamp };
@@ -1121,7 +1058,6 @@ export async function syncCreateDeposit(
       return { success: false, status: 'SYNC_FAILED', error: parsed.message, code: parsed.code, timestamp };
     }
 
-    mirrorRecordToFirestore('deposits', deposit, false).catch(() => {});
     return { success: true, status: 'SYNCED', data: deposit, timestamp };
   } catch (err: any) {
     return { success: false, status: 'SYNC_FAILED', error: err?.message, timestamp };
@@ -1161,7 +1097,6 @@ export async function syncUpdateDeposit(
       return { success: false, status: 'SYNC_FAILED', error: parsed.message, code: parsed.code, timestamp };
     }
 
-    mirrorRecordToFirestore('deposits', { id: depositId, ...patch, updatedAt: timestamp }, false).catch(() => {});
     return { success: true, status: 'SYNCED', timestamp };
   } catch (err: any) {
     return { success: false, status: 'SYNC_FAILED', error: err?.message, timestamp };
@@ -1184,7 +1119,6 @@ export async function syncDeleteDeposit(
       return { success: false, status: 'SYNC_FAILED', error: parsed.message, code: parsed.code, timestamp };
     }
 
-    mirrorRecordToFirestore('deposits', { id: depositId }, true).catch(() => {});
     return { success: true, status: 'SYNCED', data: depositId, timestamp };
   } catch (err: any) {
     return { success: false, status: 'SYNC_FAILED', error: err?.message, timestamp };
