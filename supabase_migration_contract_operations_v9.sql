@@ -216,7 +216,7 @@ BEGIN
     COALESCE(auth.uid()::text, 'system'),
     COALESCE(v_caller.name, 'Direction'),
     'Contrat ' || OLD.contract_number || ' supprimé définitivement de la base de données.',
-    COALESCE(OLD.agency_id, 'agency_morvello'),
+    OLD.agency_id,
     timezone('utc'::text, now())
   );
 

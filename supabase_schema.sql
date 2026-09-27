@@ -11,7 +11,7 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 -- 2. TABLE PRINCIPALE D'ÉTAT D'AGENCE (MULTI-POSTES EN TEMPS RÉEL)
 CREATE TABLE IF NOT EXISTS public.agency_data (
   id TEXT PRIMARY KEY DEFAULT 'morvello_main',
-  agency_id TEXT DEFAULT 'agency_morvello',
+  agency_id TEXT,
   assigned_manager_id TEXT,
   created_by TEXT,
   data JSONB NOT NULL DEFAULT '{}'::jsonb,
@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS public.agency_data (
   updated_by TEXT DEFAULT 'system'
 );
 
-ALTER TABLE public.agency_data ADD COLUMN IF NOT EXISTS agency_id TEXT DEFAULT 'agency_morvello';
+ALTER TABLE public.agency_data ADD COLUMN IF NOT EXISTS agency_id TEXT;
 ALTER TABLE public.agency_data ADD COLUMN IF NOT EXISTS assigned_manager_id TEXT;
 ALTER TABLE public.agency_data ADD COLUMN IF NOT EXISTS created_by TEXT;
 CREATE INDEX IF NOT EXISTS idx_agency_data_agency_id ON public.agency_data(agency_id);
@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   permissions JSONB DEFAULT '{}'::jsonb,
   phone TEXT,
   agency TEXT DEFAULT 'Nouaceur Casablanca',
-  agency_id TEXT DEFAULT 'agency_morvello',
+  agency_id TEXT,
   assigned_fleet_name TEXT,
   local_id TEXT,
   legacy_id TEXT,
@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
 
-ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS agency_id TEXT DEFAULT 'agency_morvello';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS agency_id TEXT;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS local_id TEXT;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS legacy_id TEXT;
 
@@ -65,7 +65,7 @@ CREATE TABLE IF NOT EXISTS public.vehicles (
   status TEXT NOT NULL DEFAULT 'available' CHECK (status IN ('available', 'rented', 'maintenance', 'inactive')),
   current_km NUMERIC NOT NULL DEFAULT 0,
   daily_rate NUMERIC DEFAULT 0,
-  agency_id TEXT DEFAULT 'agency_morvello',
+  agency_id TEXT,
   assigned_manager_id TEXT,
   created_by TEXT,
   approval_status TEXT DEFAULT 'approved',
@@ -74,7 +74,7 @@ CREATE TABLE IF NOT EXISTS public.vehicles (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
 
-ALTER TABLE public.vehicles ADD COLUMN IF NOT EXISTS agency_id TEXT DEFAULT 'agency_morvello';
+ALTER TABLE public.vehicles ADD COLUMN IF NOT EXISTS agency_id TEXT;
 ALTER TABLE public.vehicles ADD COLUMN IF NOT EXISTS assigned_manager_id TEXT;
 ALTER TABLE public.vehicles ADD COLUMN IF NOT EXISTS created_by TEXT;
 CREATE INDEX IF NOT EXISTS idx_vehicles_agency_id ON public.vehicles(agency_id);
@@ -91,7 +91,7 @@ CREATE TABLE IF NOT EXISTS public.clients (
   phone TEXT,
   email TEXT,
   contract_count INTEGER DEFAULT 0,
-  agency_id TEXT DEFAULT 'agency_morvello',
+  agency_id TEXT,
   assigned_manager_id TEXT,
   created_by TEXT,
   data JSONB DEFAULT '{}'::jsonb,
@@ -99,7 +99,7 @@ CREATE TABLE IF NOT EXISTS public.clients (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
 
-ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS agency_id TEXT DEFAULT 'agency_morvello';
+ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS agency_id TEXT;
 ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS assigned_manager_id TEXT;
 ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS created_by TEXT;
 CREATE INDEX IF NOT EXISTS idx_clients_agency_id ON public.clients(agency_id);
@@ -117,7 +117,7 @@ CREATE TABLE IF NOT EXISTS public.drivers (
   driving_license TEXT,
   phone TEXT,
   email TEXT,
-  agency_id TEXT DEFAULT 'agency_morvello',
+  agency_id TEXT,
   assigned_manager_id TEXT,
   created_by TEXT,
   data JSONB DEFAULT '{}'::jsonb,
@@ -125,7 +125,7 @@ CREATE TABLE IF NOT EXISTS public.drivers (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
 
-ALTER TABLE public.drivers ADD COLUMN IF NOT EXISTS agency_id TEXT DEFAULT 'agency_morvello';
+ALTER TABLE public.drivers ADD COLUMN IF NOT EXISTS agency_id TEXT;
 ALTER TABLE public.drivers ADD COLUMN IF NOT EXISTS assigned_manager_id TEXT;
 ALTER TABLE public.drivers ADD COLUMN IF NOT EXISTS created_by TEXT;
 CREATE INDEX IF NOT EXISTS idx_drivers_agency_id ON public.drivers(agency_id);
@@ -143,7 +143,7 @@ CREATE TABLE IF NOT EXISTS public.contracts (
   end_date DATE,
   total_amount NUMERIC DEFAULT 0,
   deposit_amount NUMERIC DEFAULT 0,
-  agency_id TEXT DEFAULT 'agency_morvello',
+  agency_id TEXT,
   assigned_manager_id TEXT,
   created_by TEXT,
   data JSONB DEFAULT '{}'::jsonb,
@@ -151,7 +151,7 @@ CREATE TABLE IF NOT EXISTS public.contracts (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
 
-ALTER TABLE public.contracts ADD COLUMN IF NOT EXISTS agency_id TEXT DEFAULT 'agency_morvello';
+ALTER TABLE public.contracts ADD COLUMN IF NOT EXISTS agency_id TEXT;
 ALTER TABLE public.contracts ADD COLUMN IF NOT EXISTS assigned_manager_id TEXT;
 ALTER TABLE public.contracts ADD COLUMN IF NOT EXISTS created_by TEXT;
 CREATE INDEX IF NOT EXISTS idx_contracts_agency_id ON public.contracts(agency_id);
@@ -166,7 +166,7 @@ CREATE TABLE IF NOT EXISTS public.deposits (
   amount NUMERIC NOT NULL DEFAULT 0,
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'collected', 'partially_returned', 'returned', 'deducted')),
   method TEXT DEFAULT 'carte',
-  agency_id TEXT DEFAULT 'agency_morvello',
+  agency_id TEXT,
   assigned_manager_id TEXT,
   created_by TEXT,
   data JSONB DEFAULT '{}'::jsonb,
@@ -174,7 +174,7 @@ CREATE TABLE IF NOT EXISTS public.deposits (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
 
-ALTER TABLE public.deposits ADD COLUMN IF NOT EXISTS agency_id TEXT DEFAULT 'agency_morvello';
+ALTER TABLE public.deposits ADD COLUMN IF NOT EXISTS agency_id TEXT;
 ALTER TABLE public.deposits ADD COLUMN IF NOT EXISTS assigned_manager_id TEXT;
 ALTER TABLE public.deposits ADD COLUMN IF NOT EXISTS created_by TEXT;
 CREATE INDEX IF NOT EXISTS idx_deposits_agency_id ON public.deposits(agency_id);
@@ -191,7 +191,7 @@ CREATE TABLE IF NOT EXISTS public.payments (
   receipt_number TEXT,
   notes TEXT,
   recorded_by TEXT,
-  agency_id TEXT DEFAULT 'agency_morvello',
+  agency_id TEXT,
   assigned_manager_id TEXT,
   created_by TEXT,
   data JSONB DEFAULT '{}'::jsonb,
@@ -199,7 +199,7 @@ CREATE TABLE IF NOT EXISTS public.payments (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
 
-ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS agency_id TEXT DEFAULT 'agency_morvello';
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS agency_id TEXT;
 ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS assigned_manager_id TEXT;
 ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS created_by TEXT;
 CREATE INDEX IF NOT EXISTS idx_payments_agency_id ON public.payments(agency_id);
@@ -220,7 +220,7 @@ CREATE TABLE IF NOT EXISTS public.vehicle_expenses (
   invoice_number TEXT,
   notes TEXT,
   recorded_by TEXT,
-  agency_id TEXT DEFAULT 'agency_morvello',
+  agency_id TEXT,
   assigned_manager_id TEXT,
   created_by TEXT,
   data JSONB DEFAULT '{}'::jsonb,
@@ -228,7 +228,7 @@ CREATE TABLE IF NOT EXISTS public.vehicle_expenses (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
 
-ALTER TABLE public.vehicle_expenses ADD COLUMN IF NOT EXISTS agency_id TEXT DEFAULT 'agency_morvello';
+ALTER TABLE public.vehicle_expenses ADD COLUMN IF NOT EXISTS agency_id TEXT;
 ALTER TABLE public.vehicle_expenses ADD COLUMN IF NOT EXISTS assigned_manager_id TEXT;
 ALTER TABLE public.vehicle_expenses ADD COLUMN IF NOT EXISTS created_by TEXT;
 CREATE INDEX IF NOT EXISTS idx_vehicle_expenses_agency_id ON public.vehicle_expenses(agency_id);
@@ -245,11 +245,11 @@ CREATE TABLE IF NOT EXISTS public.audit_logs (
   user_id TEXT NOT NULL,
   user_name TEXT NOT NULL,
   details TEXT,
-  agency_id TEXT DEFAULT 'agency_morvello',
+  agency_id TEXT,
   timestamp TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
 
-ALTER TABLE public.audit_logs ADD COLUMN IF NOT EXISTS agency_id TEXT DEFAULT 'agency_morvello';
+ALTER TABLE public.audit_logs ADD COLUMN IF NOT EXISTS agency_id TEXT;
 CREATE INDEX IF NOT EXISTS idx_audit_logs_agency_id ON public.audit_logs(agency_id);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON public.audit_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_timestamp ON public.audit_logs(timestamp);
@@ -296,34 +296,83 @@ $$;
 
 CREATE OR REPLACE FUNCTION public.get_current_agency_id()
 RETURNS text
-LANGUAGE sql
+LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
-  SELECT COALESCE(
-    (SELECT COALESCE(agency_id, agency, 'agency_morvello')
-     FROM public.profiles
-     WHERE id = auth.uid()::text),
-    'agency_morvello'
-  );
+DECLARE
+  v_uid uuid;
+  v_agency_id text;
+  v_agency text;
+BEGIN
+  v_uid := auth.uid();
+  IF v_uid IS NULL THEN
+    RETURN NULL;
+  END IF;
+
+  SELECT p.agency_id, p.agency
+  INTO v_agency_id, v_agency
+  FROM public.profiles p
+  WHERE p.id = v_uid::text;
+
+  IF NOT FOUND THEN
+    RETURN NULL;
+  END IF;
+
+  IF v_agency_id IS NULL OR trim(v_agency_id) = '' THEN
+    RETURN NULL;
+  END IF;
+
+  v_agency_id := trim(v_agency_id);
+
+  IF v_agency IS NOT NULL AND trim(v_agency) <> '' THEN
+    IF trim(v_agency) LIKE 'agency_%' AND trim(v_agency) <> v_agency_id THEN
+      RETURN NULL;
+    END IF;
+  END IF;
+
+  RETURN v_agency_id;
+END;
 $$;
 
 CREATE OR REPLACE FUNCTION public.is_same_agency(row_agency_id text)
 RETURNS boolean
-LANGUAGE sql
+LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
-  SELECT 
-    auth.uid() IS NOT NULL
-    AND (
-      row_agency_id IS NULL
-      OR trim(row_agency_id) = ''
-      OR row_agency_id = public.get_current_agency_id()
-    );
+DECLARE
+  v_current_agency text;
+  v_cleaned_row_agency text;
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RETURN FALSE;
+  END IF;
+
+  IF row_agency_id IS NULL OR trim(row_agency_id) = '' THEN
+    RETURN FALSE;
+  END IF;
+
+  v_cleaned_row_agency := trim(row_agency_id);
+  v_current_agency := public.get_current_agency_id();
+
+  IF v_current_agency IS NULL OR trim(v_current_agency) = '' THEN
+    RETURN FALSE;
+  END IF;
+
+  RETURN v_cleaned_row_agency = v_current_agency;
+END;
 $$;
+
+REVOKE ALL ON FUNCTION public.get_current_agency_id() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.get_current_agency_id() FROM anon;
+GRANT EXECUTE ON FUNCTION public.get_current_agency_id() TO authenticated;
+
+REVOKE ALL ON FUNCTION public.is_same_agency(text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.is_same_agency(text) FROM anon;
+GRANT EXECUTE ON FUNCTION public.is_same_agency(text) TO authenticated;
 
 -- Résolution dynamique de l'identité du manager (supporte UID, local_id, legacy_id, email)
 CREATE OR REPLACE FUNCTION public.is_current_manager(target_manager_id text)
@@ -518,6 +567,8 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
+DECLARE
+  v_caller_agency text;
 BEGIN
   IF NOT public.is_admin() THEN
     IF NEW.role = 'admin' THEN
@@ -529,12 +580,21 @@ BEGIN
     IF NEW.role IS NULL OR trim(NEW.role) = '' THEN
       NEW.role := 'agent';
     END IF;
+
+    IF NEW.agency_id IS NULL OR trim(NEW.agency_id) = '' THEN
+      RAISE EXCEPTION 'Agency required: profile creation must specify an authorized agency.';
+    END IF;
+  ELSE
+    IF NEW.agency_id IS NULL OR trim(NEW.agency_id) = '' THEN
+      v_caller_agency := public.get_current_agency_id();
+      IF v_caller_agency IS NULL OR trim(v_caller_agency) = '' THEN
+        RAISE EXCEPTION 'Agency required: active admin profile must have an assigned agency.';
+      END IF;
+      NEW.agency_id := v_caller_agency;
+    END IF;
   END IF;
 
-  IF NEW.agency_id IS NULL OR trim(NEW.agency_id) = '' THEN
-    NEW.agency_id := COALESCE(NEW.agency, public.get_current_agency_id());
-  END IF;
-
+  NEW.agency_id := trim(NEW.agency_id);
   NEW.created_at := timezone('utc'::text, now());
   NEW.updated_at := timezone('utc'::text, now());
 
@@ -1151,7 +1211,10 @@ BEGIN
     RAISE EXCEPTION 'Profil utilisateur introuvable pour l''identifiant %', v_auth_uid;
   END IF;
 
-  v_agency_id := COALESCE(v_caller.agency_id, v_caller.agency, 'agency_morvello');
+  v_agency_id := public.get_current_agency_id();
+  IF v_agency_id IS NULL OR trim(v_agency_id) = '' THEN
+    RAISE EXCEPTION 'Accès refusé : aucun identifiant d''agence valide associé à votre profil utilisateur.';
+  END IF;
   v_is_admin := (v_caller.role = 'admin' OR v_caller.legacy_id = 'usr-1' OR v_caller.local_id = 'usr-1');
 
   -- 2. VÉRIFICATION ET VERROUILLAGE DU VÉHICULE (ANTI DOUBLE-RÉSERVATION)

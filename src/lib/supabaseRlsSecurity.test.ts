@@ -28,7 +28,8 @@ export interface ProfileRow {
   email: string;
   name: string;
   role: 'admin' | 'manager' | 'agent';
-  agency_id: string;
+  agency_id?: string | null;
+  agency?: string | null;
   local_id?: string; // ex: 'usr-5'
   legacy_id?: string; // ex: 'usr-5'
   permissions?: Record<string, any>;
@@ -37,7 +38,7 @@ export interface ProfileRow {
 // Représentation d'une ligne métier (contract, client, vehicle, deposit, etc.)
 export interface BusinessRow {
   id: string;
-  agency_id: string;
+  agency_id?: string | null;
   assigned_manager_id?: string | null;
   created_by?: string | null;
   [key: string]: any;
@@ -70,15 +71,29 @@ export class PostgresRlsEngine {
 
   /**
    * CREATE OR REPLACE FUNCTION public.get_current_agency_id()
+   * Fail-closed: NULL UID, no profile, NULL/empty/whitespace agency_id, or conflicting
+   * legacy agency all return NULL. Zero fallback to 'agency_morvello'.
    */
-  static getCurrentAgencyId(authUid: string | null, profiles: Map<string, ProfileRow>): string {
-    if (!authUid) return 'agency_morvello';
+  static getCurrentAgencyId(authUid: string | null, profiles: Map<string, ProfileRow>): string | null {
+    if (!authUid) return null;
     const profile = profiles.get(authUid);
-    return profile?.agency_id || 'agency_morvello';
+    if (!profile) return null;
+    const agencyId = profile.agency_id ? profile.agency_id.trim() : '';
+    if (!agencyId) return null;
+
+    // Strict conflict check if legacy agency string indicates a conflicting tenant
+    const legacyAgency = profile.agency ? profile.agency.trim() : '';
+    if (legacyAgency && legacyAgency.startsWith('agency_') && legacyAgency !== agencyId) {
+      return null;
+    }
+
+    return agencyId;
   }
 
   /**
    * CREATE OR REPLACE FUNCTION public.is_same_agency(row_agency_id text)
+   * Fail-closed: Unauthenticated, missing caller agency, NULL/empty/whitespace row agency
+   * MUST evaluate to FALSE. Only strict non-empty equality returns TRUE.
    */
   static isSameAgency(
     rowAgencyId: string | null | undefined,
@@ -86,8 +101,69 @@ export class PostgresRlsEngine {
     profiles: Map<string, ProfileRow>
   ): boolean {
     if (!authUid) return false;
-    if (!rowAgencyId || rowAgencyId.trim() === '') return true;
-    return rowAgencyId === this.getCurrentAgencyId(authUid, profiles);
+    if (!rowAgencyId || rowAgencyId.trim() === '') return false;
+    const currentAgency = this.getCurrentAgencyId(authUid, profiles);
+    if (!currentAgency || currentAgency.trim() === '') return false;
+    return rowAgencyId.trim() === currentAgency;
+  }
+
+  /**
+   * TRIGGER public.protect_profile_insert()
+   * Fail-closed: Non-admin cannot create profile without explicit authorized agency.
+   * Admin profile creation without agency must inherit active admin agency or fail.
+   */
+  static validateProfileInsert(
+    newRow: Partial<ProfileRow>,
+    authUid: string | null,
+    profiles: Map<string, ProfileRow>
+  ): { allowed: boolean; error?: string } {
+    if (!authUid) return { allowed: false, error: 'Unauthenticated' };
+    const callerIsAdmin = this.isAdmin(authUid, profiles);
+    if (!callerIsAdmin) {
+      if (newRow.role === 'admin') {
+        return { allowed: false, error: 'Privilege escalation rejected: cannot create an admin profile.' };
+      }
+      if (newRow.local_id === 'usr-1' || newRow.legacy_id === 'usr-1') {
+        return { allowed: false, error: 'Security violation: usr-1 identity is reserved.' };
+      }
+      if (!newRow.agency_id || newRow.agency_id.trim() === '') {
+        return { allowed: false, error: 'Agency required: profile creation must specify an authorized agency.' };
+      }
+    } else {
+      const adminAgency = this.getCurrentAgencyId(authUid, profiles);
+      if ((!newRow.agency_id || newRow.agency_id.trim() === '') && (!adminAgency || adminAgency.trim() === '')) {
+        return { allowed: false, error: 'Agency required: active admin profile must have an assigned agency.' };
+      }
+    }
+    return { allowed: true };
+  }
+
+  /**
+   * RPC Authorization Validation (e.g., create_contract_transactional)
+   * Fail-closed: Caller must be authenticated and have a valid non-empty agency.
+   */
+  static validateContractRpcAuthorization(
+    authUid: string | null,
+    profiles: Map<string, ProfileRow>
+  ): { allowed: boolean; agencyId: string | null; error?: string } {
+    if (!authUid) return { allowed: false, agencyId: null, error: 'Authentification requise : session utilisateur inexistante.' };
+    const callerProfile = profiles.get(authUid);
+    if (!callerProfile) return { allowed: false, agencyId: null, error: 'Profil utilisateur introuvable.' };
+    const agencyId = this.getCurrentAgencyId(authUid, profiles);
+    if (!agencyId || agencyId.trim() === '') {
+      return { allowed: false, agencyId: null, error: 'Accès refusé : aucun identifiant d\'agence valide associé à votre profil utilisateur.' };
+    }
+    return { allowed: true, agencyId };
+  }
+
+  /**
+   * Contract Deletion Audit Logger
+   * Fail-closed: Preserves actual OLD.agency_id; never fabricates 'agency_morvello'.
+   */
+  static logContractDeletionAudit(oldRow: BusinessRow): { recordedAgencyId: string | null } {
+    return {
+      recordedAgencyId: oldRow.agency_id && oldRow.agency_id.trim() !== '' ? oldRow.agency_id.trim() : null,
+    };
   }
 
   /**
@@ -717,5 +793,203 @@ describe('Morvello Cars — Supabase Row Level Security Architecture (12 Verific
 
     // La requête est rejetée au niveau du moteur de base de données (0 row updated / code 42501)
     expect(isDirectApiCallPermitted).toBe(false);
+  });
+
+  // ==============================================================================
+  // P0 SECURITY AUDIT SUITE: FAIL-CLOSED MULTI-TENANT AGENCY ISOLATION
+  // ==============================================================================
+  describe('P0 Fail-Closed Multi-Tenant Isolation Verification', () => {
+    const unknownUid = '550e8400-e29b-41d4-a716-446655449999';
+    const nullAgencyUid = '550e8400-e29b-41d4-a716-446655448888';
+    const emptyAgencyUid = '550e8400-e29b-41d4-a716-446655447777';
+    const whitespaceAgencyUid = '550e8400-e29b-41d4-a716-446655446666';
+    const conflictingAgencyUid = '550e8400-e29b-41d4-a716-446655445555';
+
+    const testProfilesMap = new Map<string, ProfileRow>([
+      ...profilesMap.entries(),
+      [
+        nullAgencyUid,
+        {
+          id: nullAgencyUid,
+          email: 'nullagency@morvellocars.ma',
+          name: 'Null Agency User',
+          role: 'agent',
+          agency_id: null,
+          agency: null,
+        },
+      ],
+      [
+        emptyAgencyUid,
+        {
+          id: emptyAgencyUid,
+          email: 'emptyagency@morvellocars.ma',
+          name: 'Empty Agency User',
+          role: 'agent',
+          agency_id: '',
+          agency: '',
+        },
+      ],
+      [
+        whitespaceAgencyUid,
+        {
+          id: whitespaceAgencyUid,
+          email: 'spaces@morvellocars.ma',
+          name: 'Whitespace Agency User',
+          role: 'agent',
+          agency_id: '   ',
+          agency: '   ',
+        },
+      ],
+      [
+        conflictingAgencyUid,
+        {
+          id: conflictingAgencyUid,
+          email: 'conflict@morvellocars.ma',
+          name: 'Conflicting Agency User',
+          role: 'agent',
+          agency_id: 'agency_morvello',
+          agency: 'agency_rabat', // Contradictory tenant designation
+        },
+      ],
+    ]);
+
+    // 1. Unauthenticated user
+    it('Scenario 1: Unauthenticated user gets NULL agency and is DENIED everywhere', () => {
+      expect(PostgresRlsEngine.getCurrentAgencyId(null, testProfilesMap)).toBeNull();
+      expect(PostgresRlsEngine.isSameAgency('agency_morvello', null, testProfilesMap)).toBe(false);
+      expect(PostgresRlsEngine.isSameAgency(null, null, testProfilesMap)).toBe(false);
+      expect(PostgresRlsEngine.isSameAgency('', null, testProfilesMap)).toBe(false);
+    });
+
+    // 2. Authenticated user without profile
+    it('Scenario 2: Authenticated user without profile gets NULL agency and is DENIED', () => {
+      expect(PostgresRlsEngine.getCurrentAgencyId(unknownUid, testProfilesMap)).toBeNull();
+      expect(PostgresRlsEngine.isSameAgency('agency_morvello', unknownUid, testProfilesMap)).toBe(false);
+      expect(PostgresRlsEngine.evaluateSelect('vehicles', recordOfManagerA, unknownUid, testProfilesMap)).toBe(false);
+    });
+
+    // 3. Profile with NULL agency
+    it('Scenario 3: Authenticated user with NULL agency gets NULL agency and is DENIED', () => {
+      expect(PostgresRlsEngine.getCurrentAgencyId(nullAgencyUid, testProfilesMap)).toBeNull();
+      expect(PostgresRlsEngine.isSameAgency('agency_morvello', nullAgencyUid, testProfilesMap)).toBe(false);
+      expect(PostgresRlsEngine.evaluateSelect('contracts', recordOfManagerA, nullAgencyUid, testProfilesMap)).toBe(false);
+    });
+
+    // 4. Profile with ''
+    it('Scenario 4: Authenticated user with empty string agency gets NULL agency and is DENIED', () => {
+      expect(PostgresRlsEngine.getCurrentAgencyId(emptyAgencyUid, testProfilesMap)).toBeNull();
+      expect(PostgresRlsEngine.isSameAgency('agency_morvello', emptyAgencyUid, testProfilesMap)).toBe(false);
+      expect(PostgresRlsEngine.evaluateSelect('clients', recordOfManagerA, emptyAgencyUid, testProfilesMap)).toBe(false);
+    });
+
+    // 5. Profile with whitespace
+    it('Scenario 5: Authenticated user with whitespace agency gets NULL agency and is DENIED', () => {
+      expect(PostgresRlsEngine.getCurrentAgencyId(whitespaceAgencyUid, testProfilesMap)).toBeNull();
+      expect(PostgresRlsEngine.isSameAgency('agency_morvello', whitespaceAgencyUid, testProfilesMap)).toBe(false);
+      expect(PostgresRlsEngine.evaluateSelect('deposits', recordOfManagerA, whitespaceAgencyUid, testProfilesMap)).toBe(false);
+    });
+
+    // 6. Agency A -> Agency A
+    it('Scenario 6: Agency A user accessing Agency A row is ALLOWED when manager/admin checks pass', () => {
+      expect(PostgresRlsEngine.isSameAgency('agency_morvello', managerAUid, testProfilesMap)).toBe(true);
+      expect(PostgresRlsEngine.evaluateSelect('contracts', recordOfManagerA, managerAUid, testProfilesMap)).toBe(true);
+    });
+
+    // 7. Agency A -> Agency B
+    it('Scenario 7: Agency A user accessing Agency B row is strictly DENIED', () => {
+      expect(PostgresRlsEngine.isSameAgency('agency_rabat', managerAUid, testProfilesMap)).toBe(false);
+      expect(PostgresRlsEngine.evaluateSelect('contracts', foreignAgencyRecord, managerAUid, testProfilesMap)).toBe(false);
+      expect(PostgresRlsEngine.evaluateSelect('contracts', foreignAgencyRecord, adminUid, testProfilesMap)).toBe(false);
+    });
+
+    // 8. Agency A -> NULL row
+    it('Scenario 8: Agency A user accessing NULL row agency is strictly DENIED (no fail-open)', () => {
+      expect(PostgresRlsEngine.isSameAgency(null, managerAUid, testProfilesMap)).toBe(false);
+      expect(PostgresRlsEngine.isSameAgency(undefined, managerAUid, testProfilesMap)).toBe(false);
+      const nullRow: BusinessRow = { ...recordOfManagerA, agency_id: null };
+      expect(PostgresRlsEngine.evaluateSelect('contracts', nullRow, managerAUid, testProfilesMap)).toBe(false);
+    });
+
+    // 9. Agency A -> blank row
+    it('Scenario 9: Agency A user accessing blank/whitespace row agency is strictly DENIED', () => {
+      expect(PostgresRlsEngine.isSameAgency('', managerAUid, testProfilesMap)).toBe(false);
+      expect(PostgresRlsEngine.isSameAgency('   ', managerAUid, testProfilesMap)).toBe(false);
+      const emptyRow: BusinessRow = { ...recordOfManagerA, agency_id: '' };
+      const wsRow: BusinessRow = { ...recordOfManagerA, agency_id: '   ' };
+      expect(PostgresRlsEngine.evaluateSelect('contracts', emptyRow, managerAUid, testProfilesMap)).toBe(false);
+      expect(PostgresRlsEngine.evaluateSelect('contracts', wsRow, managerAUid, testProfilesMap)).toBe(false);
+    });
+
+    // 10. No profile must NOT become agency_morvello
+    it('Scenario 10: Authenticated user without profile NEVER defaults to agency_morvello', () => {
+      const resolved = PostgresRlsEngine.getCurrentAgencyId(unknownUid, testProfilesMap);
+      expect(resolved).not.toBe('agency_morvello');
+      expect(resolved).toBeNull();
+    });
+
+    // 11. Missing agency must NOT become agency_morvello
+    it('Scenario 11: Missing agency on profile NEVER defaults to agency_morvello', () => {
+      expect(PostgresRlsEngine.getCurrentAgencyId(nullAgencyUid, testProfilesMap)).not.toBe('agency_morvello');
+      expect(PostgresRlsEngine.getCurrentAgencyId(emptyAgencyUid, testProfilesMap)).not.toBe('agency_morvello');
+      expect(PostgresRlsEngine.getCurrentAgencyId(whitespaceAgencyUid, testProfilesMap)).not.toBe('agency_morvello');
+      expect(PostgresRlsEngine.getCurrentAgencyId(conflictingAgencyUid, testProfilesMap)).not.toBe('agency_morvello');
+      expect(PostgresRlsEngine.getCurrentAgencyId(conflictingAgencyUid, testProfilesMap)).toBeNull();
+    });
+
+    // 12. RPC without agency must be rejected
+    it('Scenario 12: Contract RPC invocation by caller without valid agency is REJECTED', () => {
+      const authNull = PostgresRlsEngine.validateContractRpcAuthorization(null, testProfilesMap);
+      expect(authNull.allowed).toBe(false);
+      expect(authNull.agencyId).toBeNull();
+
+      const authUnknown = PostgresRlsEngine.validateContractRpcAuthorization(unknownUid, testProfilesMap);
+      expect(authUnknown.allowed).toBe(false);
+      expect(authUnknown.agencyId).toBeNull();
+
+      const authNoAgency = PostgresRlsEngine.validateContractRpcAuthorization(nullAgencyUid, testProfilesMap);
+      expect(authNoAgency.allowed).toBe(false);
+      expect(authNoAgency.agencyId).toBeNull();
+
+      const authValid = PostgresRlsEngine.validateContractRpcAuthorization(managerAUid, testProfilesMap);
+      expect(authValid.allowed).toBe(true);
+      expect(authValid.agencyId).toBe('agency_morvello');
+    });
+
+    // 13. Profile creation without authorized agency must be rejected
+    it('Scenario 13: Profile creation without explicit authorized agency is REJECTED', () => {
+      const nonAdminNoAgency = PostgresRlsEngine.validateProfileInsert(
+        { role: 'agent', agency_id: null },
+        managerAUid,
+        testProfilesMap
+      );
+      expect(nonAdminNoAgency.allowed).toBe(false);
+      expect(nonAdminNoAgency.error).toContain('Agency required');
+
+      const nonAdminBlankAgency = PostgresRlsEngine.validateProfileInsert(
+        { role: 'agent', agency_id: '   ' },
+        managerAUid,
+        testProfilesMap
+      );
+      expect(nonAdminBlankAgency.allowed).toBe(false);
+
+      const nonAdminValid = PostgresRlsEngine.validateProfileInsert(
+        { role: 'agent', agency_id: 'agency_morvello' },
+        managerAUid,
+        testProfilesMap
+      );
+      expect(nonAdminValid.allowed).toBe(true);
+    });
+
+    // 14. Audit logs must not fabricate agency_morvello
+    it('Scenario 14: Contract deletion audit log preserves real row agency and NEVER fabricates agency_morvello', () => {
+      const rabatContract: BusinessRow = { id: 'c1', agency_id: 'agency_rabat' };
+      expect(PostgresRlsEngine.logContractDeletionAudit(rabatContract).recordedAgencyId).toBe('agency_rabat');
+
+      const nullContract: BusinessRow = { id: 'c2', agency_id: null };
+      expect(PostgresRlsEngine.logContractDeletionAudit(nullContract).recordedAgencyId).toBeNull();
+
+      const emptyContract: BusinessRow = { id: 'c3', agency_id: '' };
+      expect(PostgresRlsEngine.logContractDeletionAudit(emptyContract).recordedAgencyId).toBeNull();
+    });
   });
 });
