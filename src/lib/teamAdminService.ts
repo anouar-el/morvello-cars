@@ -66,11 +66,10 @@ export async function forceRefreshTokenClaims(): Promise<{
 }
 
 /**
- * Updates a user's role and Custom Claims via Cloud Function or Backend API.
+ * Updates a user's role authoritatively via the single-authority Express Backend API.
  * 1. Retrieves active authorization token (Supabase JWT or Firebase ID Token).
- * 2. Tries callable Cloud Function 'setUserRole' if Firebase auth is active.
- * 3. Falls back to backend API '/api/admin/set-user-role'.
- * 4. Never reports false success.
+ * 2. Authenticates through verifyAdminCaller() -> public.profiles on server.
+ * 3. Never allows unverified Cloud Functions to independently alter roles.
  */
 export async function callSetUserRole(uid: string, role: UserRole): Promise<SetUserRoleResult> {
   if (!uid) {
@@ -79,26 +78,7 @@ export async function callSetUserRole(uid: string, role: UserRole): Promise<SetU
 
   const { token: authToken } = await getActiveAuthToken();
 
-  // 1. Try Firebase Callable Cloud Function if Firebase Auth is active
-  if (auth.currentUser) {
-    try {
-      const setUserRoleFn = httpsCallable<{ uid: string; role: UserRole }, SetUserRoleResult>(
-        functions,
-        'setUserRole'
-      );
-      const result = await setUserRoleFn({ uid, role });
-      if (result.data && result.data.success) {
-        if (auth.currentUser.uid === uid) {
-          await forceRefreshTokenClaims();
-        }
-        return result.data;
-      }
-    } catch (cloudFnError: any) {
-      console.info('[teamAdminService] Cloud Function call notice, trying backend API route:', cloudFnError?.message);
-    }
-  }
-
-  // 2. Call Express backend API route with active auth bearer token
+  // Route strictly to Express backend API route with active auth bearer token
   try {
     const res = await fetch('/api/admin/set-user-role', {
       method: 'POST',
@@ -139,45 +119,15 @@ export async function callSetUserRole(uid: string, role: UserRole): Promise<SetU
 
 /**
  * Server-side Provisioning of a Team Member:
- * Authoritatively provisions the user in the authentication system without public client signup.
- * CRITICAL: Never reports false success if backend provisioning failed or is unreachable.
+ * Authoritatively provisions the user via the Express Backend API.
+ * CRITICAL: Never uses unverified Cloud Functions that bypass Supabase single authority.
  */
 export async function callProvisionTeamMember(
   payload: ProvisionMemberPayload
 ): Promise<ProvisionMemberResult> {
-  const { email, name, role, agency, phone, assignedFleetName, password } = payload;
-
   const { token: authToken } = await getActiveAuthToken();
 
-  // 1. Try Firebase Callable Cloud Function if Firebase Auth is active
-  if (auth.currentUser) {
-    try {
-      const provisionFn = httpsCallable<ProvisionMemberPayload, ProvisionMemberResult>(
-        functions,
-        'provisionTeamMember'
-      );
-      const result = await provisionFn({
-        email,
-        name,
-        role,
-        agency: agency || 'Agence Morvello',
-        phone: phone || '',
-        assignedFleetName: assignedFleetName || '',
-        password: password || '',
-      });
-
-      if (result.data && result.data.success) {
-        return result.data;
-      }
-      if (result.data && !result.data.success) {
-        return result.data;
-      }
-    } catch (cloudFnError: any) {
-      console.info('[teamAdminService] Cloud Function provisionTeamMember notice, trying backend API route:', cloudFnError?.message);
-    }
-  }
-
-  // 2. Call Express backend API route with active auth bearer token
+  // Route strictly through Express backend API route with active auth bearer token
   try {
     const res = await fetch('/api/admin/provision-team-member', {
       method: 'POST',
@@ -209,7 +159,6 @@ export async function callProvisionTeamMember(
     };
   }
 
-  // Never return false success with a fake UUID!
   return {
     success: false,
     error: 'Échec du provisionnement du compte collaborateur. Aucun service d’administration n’a pu valider la création.',

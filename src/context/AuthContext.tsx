@@ -265,62 +265,96 @@ export const AuthProvider: React.FC<{
     };
   }, []);
 
-  // Listen to Firebase Auth state changes & sync user session
+  // Listen to Firebase Auth state changes & sync user session via authoritative Supabase profile
   useEffect(() => {
     const unsub = onFirebaseAuthStateChanged(firebaseAuth, async (fbUser) => {
       if (fbUser && fbUser.email) {
         const emailLower = fbUser.email.toLowerCase();
-        const tokenResult = await fbUser.getIdTokenResult();
-        const claimedRole = tokenResult.claims.role;
-        const currentUsers = usersRef.current;
-        const matched = currentUsers.find(
-          (u) =>
-            (u.email || '').toLowerCase() === emailLower ||
-            u.id === fbUser.uid ||
-            u.firebaseUid === fbUser.uid
-        );
-        const role: UserRole = tokenResult.claims.admin === true || claimedRole === 'admin'
-          ? 'admin'
-          : claimedRole === 'manager'
-            ? 'manager'
-            : 'agent';
-        const name = fbUser.displayName || emailLower.split('@')[0];
-        const canonicalId = matched?.supabaseUid || (matched?.id && !matched.id.startsWith('usr-') ? matched.id : fbUser.uid);
-        const legacyId = resolveLegacyUserId(canonicalId, currentUsers, emailLower);
+
+        // 1. Authoritative resolution: Query Supabase public.profiles strictly by firebase_uid
+        let authoritativeProfile: any = null;
+        if (isSupabaseConfigured) {
+          try {
+            const { data: prof } = await supabase
+              .from('profiles')
+              .select('id, role, name, agency, agency_id, legacy_id, local_id, firebase_uid, permissions')
+              .eq('firebase_uid', fbUser.uid)
+              .maybeSingle();
+            authoritativeProfile = prof;
+          } catch (profErr) {
+            console.warn('[Firebase Auth State] Supabase profile query error:', profErr);
+          }
+        }
+
+        // 2. Resolve role, agency, and identity strictly from Supabase profile
+        // Never derive role from Firebase custom claims or email matching!
+        let role: UserRole = 'agent';
+        let agency: string | undefined = undefined;
+        let canonicalId = fbUser.uid;
+        let legacyId: string | undefined = undefined;
+        let name = fbUser.displayName || emailLower.split('@')[0];
+
+        if (authoritativeProfile) {
+          canonicalId = authoritativeProfile.id;
+          role =
+            authoritativeProfile.role === 'admin' ||
+            authoritativeProfile.role === 'manager' ||
+            authoritativeProfile.role === 'agent'
+              ? authoritativeProfile.role
+              : 'agent';
+          agency = authoritativeProfile.agency_id || authoritativeProfile.agency || undefined;
+          name = authoritativeProfile.name || name;
+          legacyId = authoritativeProfile.legacy_id || authoritativeProfile.local_id;
+        } else {
+          // Unmapped Firebase user: fail-closed, strictly unprivileged agent with no agency scope
+          console.warn('[Firebase Auth State] Firebase user has no linked Supabase profile: assigning unprivileged agent role with null agency.');
+          role = 'agent';
+          agency = undefined;
+        }
 
         const userObj: User = {
           id: canonicalId,
-          supabaseUid: matched?.supabaseUid || (canonicalId !== fbUser.uid ? canonicalId : undefined),
+          supabaseUid: authoritativeProfile ? canonicalId : undefined,
           legacyId,
           name,
           email: emailLower,
           role,
-          agency: matched?.agency || 'Agence Morvello',
-          permissions: matched?.permissions || { ...DEFAULT_PERMISSIONS_BY_ROLE[role] },
+          agency: agency || '',
+          permissions:
+            authoritativeProfile?.permissions && Object.keys(authoritativeProfile.permissions).length > 0
+              ? authoritativeProfile.permissions
+              : { ...DEFAULT_PERMISSIONS_BY_ROLE[role] },
           mustChangePassword: false,
           firebaseUid: fbUser.uid,
         };
 
         setCurrentUser((prev) => {
-          if (prev && prev.id === userObj.id && prev.role === userObj.role && prev.name === userObj.name) {
+          if (
+            prev &&
+            prev.id === userObj.id &&
+            prev.role === userObj.role &&
+            prev.name === userObj.name &&
+            prev.agency === userObj.agency &&
+            prev.firebaseUid === userObj.firebaseUid
+          ) {
             return prev;
           }
           return userObj;
         });
 
         setUsers((prev) => {
-          if (!prev.some((u) => u.id === userObj.id || (u.email || '').toLowerCase() === emailLower)) {
+          if (!prev.some((u) => u.id === userObj.id || (u.firebaseUid && u.firebaseUid === fbUser.uid))) {
             return [userObj, ...prev];
           }
           return prev.map((u) => {
-            if (u.id === userObj.id || (u.email || '').toLowerCase() === emailLower) {
+            if (u.id === userObj.id || (u.firebaseUid && u.firebaseUid === fbUser.uid)) {
               return { ...u, ...userObj, firebaseUid: fbUser.uid };
             }
             return u;
           });
         });
 
-        // Ensure user profile document exists in Firestore /users/{uid}
+        // Ensure user profile document exists in Firestore /users/{uid} (for compatibility only)
         saveUserProfile(fbUser.uid, {
           role,
           email: emailLower,

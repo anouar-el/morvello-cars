@@ -27,31 +27,19 @@ service cloud.firestore {
       return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
-    // Bootstrapped Admin Verification (Strict email + email_verified check)
-    function isBootstrappedAdmin() {
-      return isSignedIn() &&
-        request.auth.token.email == 'anouar7fac@gmail.com' &&
-        request.auth.token.email_verified == true;
-    }
-
-    // Authoritative Admin Check
+    // Strict Single Authority Architecture:
+    // Firebase custom claims, /admins/{uid}, and /users/{uid}.data.role DO NOT grant
+    // application administrative authority. All privileged operations must route through
+    // the authoritative Express backend verified by Supabase Auth and public.profiles.
     function isAdmin() {
-      return isSignedIn() && (
-        isBootstrappedAdmin() ||
-        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
-        ('admin' in request.auth.token && request.auth.token.admin == true) ||
-        ('role' in request.auth.token && request.auth.token.role == 'admin')
-      );
+      return false;
     }
 
-    // Agency Member Verification (Strict fail-closed: no permissive regex bypass)
+    // Agency Member Verification (Strict fail-closed tenant isolation)
     function isAgencyMember(agencyId) {
       return isSignedIn() && (
-        isAdmin() ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.agency == agencyId)
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.agency == agencyId
       );
     }
 
