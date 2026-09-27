@@ -11,7 +11,7 @@ import { User, UserRole } from '../types';
  *    - Supabase Auth UUID (auth.users.id) is the primary authoritative identity.
  *    - Persisted in public.profiles.id.
  *
- * 2. Legacy User ID (usr-1, usr-2, usr-3, usr-5, usr-6):
+ * 2. Legacy User ID (usr-1, usr-2, usr-3, usr-4, usr-6):
  *    - Historical identifiers used in legacy mock data, contracts, and agency assignments.
  *    - Explicitly mapped to canonical identities via public.profiles.legacy_id / local_id.
  *    - Legacy IDs cannot be forged or arbitrarily claimed by non-admin users.
@@ -57,8 +57,8 @@ export const CANONICAL_LEGACY_REGISTRY: Record<string, LegacyUserMapping> = {
     role: 'manager',
     agency: 'Agence Aéroport Nouaceur',
   },
-  'usr-5': {
-    legacyId: 'usr-5',
+  'usr-4': {
+    legacyId: 'usr-4',
     canonicalEmail: 'mohamed.ezzay@morvellocars.com',
     name: 'Mohamed Ezzay',
     role: 'manager',
@@ -74,7 +74,7 @@ export const CANONICAL_LEGACY_REGISTRY: Record<string, LegacyUserMapping> = {
 };
 
 /**
- * Checks whether an ID string is a legacy Morvello ID (e.g., 'usr-1', 'usr-5').
+ * Checks whether an ID string is a legacy Morvello ID (e.g., 'usr-1', 'usr-4').
  */
 export function isLegacyUserId(id: string | null | undefined): boolean {
   if (!id || typeof id !== 'string') return false;
@@ -203,7 +203,7 @@ export function matchUserIdentity(
   // 2. Match with explicit Supabase Auth UUID
   if (user.supabaseUid && cleanResId === user.supabaseUid) return true;
 
-  // 3. Match with legacy ID (e.g. 'usr-5')
+  // 3. Match with legacy ID (e.g. 'usr-4')
   if (user.legacyId && cleanResId === user.legacyId) return true;
 
   // 4. Match with legacy ID if user.id is itself a legacy ID

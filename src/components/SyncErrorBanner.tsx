@@ -45,7 +45,7 @@ CREATE INDEX IF NOT EXISTS idx_profiles_local_id ON public.profiles(local_id);
 UPDATE public.profiles SET legacy_id = 'usr-1', local_id = 'usr-1' WHERE email ILIKE '%anouar%' OR name ILIKE '%anouar%';
 UPDATE public.profiles SET legacy_id = 'usr-2', local_id = 'usr-2' WHERE email ILIKE '%said%' OR email ILIKE '%khomri%' OR name ILIKE '%said%';
 UPDATE public.profiles SET legacy_id = 'usr-3', local_id = 'usr-3' WHERE email ILIKE '%ouahib%' OR name ILIKE '%ouahib%';
-UPDATE public.profiles SET legacy_id = 'usr-5', local_id = 'usr-5' WHERE email ILIKE '%ezzay%' OR name ILIKE '%ezzay%';
+UPDATE public.profiles SET legacy_id = 'usr-4', local_id = 'usr-4' WHERE email ILIKE '%ezzay%' OR name ILIKE '%ezzay%';
 UPDATE public.profiles SET legacy_id = 'usr-6', local_id = 'usr-6' WHERE email ILIKE '%larbi%' OR name ILIKE '%larbi%';
 
 -- 2. Étape 2 : Migration des données existantes par jointure stricte sur legacy_id (usr-N -> UUID)

@@ -45,7 +45,7 @@ describe('Canonical Identity and Legacy Mapping Architecture (Problem #6)', () =
     {
       id: 'c3333333-4444-4555-8666-777777777777',
       supabaseUid: 'c3333333-4444-4555-8666-777777777777',
-      legacyId: 'usr-5',
+      legacyId: 'usr-4',
       name: 'Mohamed Ezzay',
       email: 'mohamed.ezzay@morvellocars.com',
       role: 'manager',
@@ -66,7 +66,7 @@ describe('Canonical Identity and Legacy Mapping Architecture (Problem #6)', () =
   describe('isLegacyUserId', () => {
     it('correctly detects usr-N formats', () => {
       expect(isLegacyUserId('usr-1')).toBe(true);
-      expect(isLegacyUserId('usr-5')).toBe(true);
+      expect(isLegacyUserId('usr-4')).toBe(true);
       expect(isLegacyUserId('USR-6')).toBe(true);
       expect(isLegacyUserId('usr-42')).toBe(true);
     });
@@ -103,8 +103,8 @@ describe('Canonical Identity and Legacy Mapping Architecture (Problem #6)', () =
       expect(canonical).toBe('a1111111-2222-4333-8444-555555555555');
     });
 
-    it('translates legacy usr-5 to Mohamed Ezzay UUID', () => {
-      const canonical = resolveCanonicalUserId('usr-5', mockUsers);
+    it('translates legacy usr-4 to Mohamed Ezzay UUID', () => {
+      const canonical = resolveCanonicalUserId('usr-4', mockUsers);
       expect(canonical).toBe('c3333333-4444-4555-8666-777777777777');
     });
 
@@ -142,7 +142,7 @@ describe('Canonical Identity and Legacy Mapping Architecture (Problem #6)', () =
       const corruptedCache = [{ ...mockUsers[3], legacyId: 'usr-1' }];
       expect(
         resolveLegacyUserId(mockUsers[3].id, corruptedCache, 'mohamed.ezzay@morvellocars.com')
-      ).toBe('usr-5');
+      ).toBe('usr-4');
     });
   });
 
@@ -176,7 +176,7 @@ describe('Canonical Identity and Legacy Mapping Architecture (Problem #6)', () =
         email: 'anouar@morvellocars.com',
       };
       expect(validateLegacyIdClaim('usr-2', adminCaller)).toBe(true);
-      expect(validateLegacyIdClaim('usr-5', adminCaller)).toBe(true);
+      expect(validateLegacyIdClaim('usr-4', adminCaller)).toBe(true);
     });
 
     it('allows a manager to claim their own corresponding legacy ID', () => {
@@ -194,9 +194,9 @@ describe('Canonical Identity and Legacy Mapping Architecture (Problem #6)', () =
         role: 'manager' as const,
         email: 'said.khomri@morvellocars.com',
       };
-      // Said tries to claim usr-3 (Abdelkader) or usr-5 (Mohamed)
+      // Said tries to claim usr-3 (Abdelkader) or usr-4 (Mohamed)
       expect(validateLegacyIdClaim('usr-3', saidCaller)).toBe(false);
-      expect(validateLegacyIdClaim('usr-5', saidCaller)).toBe(false);
+      expect(validateLegacyIdClaim('usr-4', saidCaller)).toBe(false);
     });
   });
 
@@ -205,11 +205,9 @@ describe('Canonical Identity and Legacy Mapping Architecture (Problem #6)', () =
       expect(CANONICAL_LEGACY_REGISTRY['usr-1'].role).toBe('admin');
       expect(CANONICAL_LEGACY_REGISTRY['usr-2'].role).toBe('manager');
       expect(CANONICAL_LEGACY_REGISTRY['usr-3'].role).toBe('manager');
-      expect(CANONICAL_LEGACY_REGISTRY['usr-5'].role).toBe('manager');
+      expect(CANONICAL_LEGACY_REGISTRY['usr-4'].role).toBe('manager');
       expect(CANONICAL_LEGACY_REGISTRY['usr-6'].role).toBe('manager');
 
-      // Verify that no invalid legacy usr-4 exists in registry (Kenza Tazi removed)
-      expect(CANONICAL_LEGACY_REGISTRY['usr-4']).toBeUndefined();
     });
   });
 });

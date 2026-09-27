@@ -74,7 +74,7 @@ export const AuthProvider: React.FC<{
         const parsed: User[] = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
           const mapped: User[] = parsed
-            .filter((u) => u.id !== 'usr-4' && u.name !== 'Kenza Tazi')
+            .filter((u) => u.name !== 'Kenza Tazi')
             .map((u) => {
               const initialMatch = initialUsers.find((iu) => iu.id === u.id);
               return {
