@@ -1,6 +1,6 @@
 import express from 'express';
 import path from 'path';
-import { createServer as createViteServer } from 'vite';
+import fs from 'fs';
 import { GoogleGenAI } from '@google/genai';
 import dotenv from 'dotenv';
 
@@ -87,6 +87,9 @@ export function getSupabaseClient(): SupabaseClient {
 export function getSupabaseAdminServiceClient(): SupabaseClient {
   if (supabaseAdminServiceClient) {
     return supabaseAdminServiceClient;
+  }
+  if (supabaseClientInjected && supabaseServerClient) {
+    return supabaseServerClient;
   }
 
   if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
@@ -921,11 +924,13 @@ function getAiClient(): GoogleGenAI {
   return aiClient;
 }
 
-// Health check endpoint
-app.get('/api/health', (req, res) => {
+// Health check endpoints
+app.get(['/api/health', '/health'], (req, res) => {
   res.json({
     status: 'ok',
     service: 'Morvello Cars Agent AI API',
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
     hasGeminiKey: Boolean(process.env.GEMINI_API_KEY),
     hasSupabaseConfig: Boolean(SUPABASE_URL && SUPABASE_ANON_KEY),
   });
@@ -1254,24 +1259,117 @@ TON ET FORMAT DES SORTIES :
   }
 });
 
+export function resolveDistPath(): string {
+  // 1. If running as compiled bundle directly inside dist (e.g. dist/server.cjs)
+  if (typeof __dirname !== 'undefined') {
+    const directIndex = path.join(__dirname, 'index.html');
+    if (fs.existsSync(directIndex)) {
+      return __dirname;
+    }
+    const subDistIndex = path.join(__dirname, 'dist', 'index.html');
+    if (fs.existsSync(subDistIndex)) {
+      return path.join(__dirname, 'dist');
+    }
+  }
+
+  // 2. Standard project root dist path
+  const cwdDist = path.join(process.cwd(), 'dist');
+  if (fs.existsSync(path.join(cwdDist, 'index.html'))) {
+    return cwdDist;
+  }
+  if (fs.existsSync(path.join(process.cwd(), 'index.html'))) {
+    return process.cwd();
+  }
+
+  // 3. Fallback defaults
+  if (typeof __dirname !== 'undefined' && path.basename(__dirname) === 'dist') {
+    return __dirname;
+  }
+  return path.join(process.cwd(), 'dist');
+}
+
+export function isProductionMode(distPath: string): boolean {
+  const nodeEnv = (process.env.NODE_ENV || '').toLowerCase().trim();
+  if (nodeEnv === 'production') {
+    return true;
+  }
+
+  // Detect execution from compiled bundle (e.g. dist/server.cjs or root server.js wrapper)
+  const currentFile = typeof __filename !== 'undefined' ? __filename : (process.argv[1] || '');
+  const isRunningFromBundle = currentFile.endsWith('server.cjs') ||
+                              currentFile.endsWith('server.js') ||
+                              (typeof __dirname !== 'undefined' && path.basename(__dirname) === 'dist');
+
+  const hasBuiltDist = fs.existsSync(path.join(distPath, 'index.html'));
+
+  // If executing from the production bundle and dist/index.html exists, always production
+  if (isRunningFromBundle && hasBuiltDist) {
+    return true;
+  }
+
+  if (nodeEnv === 'development') {
+    return false;
+  }
+
+  // If dist/index.html exists and process is not executing TypeScript directly via tsx/ts-node
+  const isRunningViaTsx = Boolean(process.env.TSX_TRACE || process.env.TS_NODE_DEV || currentFile.endsWith('.ts'));
+  if (hasBuiltDist && !isRunningViaTsx) {
+    return true;
+  }
+
+  return false;
+}
+
+function serveStaticBuild(serverApp: express.Express, distPath: string) {
+  console.log(`[Server] Serving static production build from: ${distPath}`);
+  serverApp.use(express.static(distPath));
+  serverApp.get('*', (req, res) => {
+    const indexPath = path.join(distPath, 'index.html');
+    if (fs.existsSync(indexPath)) {
+      res.sendFile(indexPath);
+    } else {
+      res.status(503).send('Application build not found. Please run "npm run build".');
+    }
+  });
+}
+
 // Configure Vite middleware or static serving
-async function startServer() {
-  if (process.env.NODE_ENV !== 'production') {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
-    });
-    app.use(vite.middlewares);
+export async function startServer() {
+  console.log('[SERVER_BOOT_START] Starting Morvello Cars server process...');
+  console.log(`[CONFIG_LOADED] Environment configuration loaded (PORT: ${PORT}, Host: 0.0.0.0, AI_STUDIO: ${process.env.AI_STUDIO || 'false'})`);
+  console.log(`[AUTH_INITIALIZED] Auth providers configured (Supabase: ${Boolean(SUPABASE_URL && SUPABASE_ANON_KEY)}, Firebase: ${Boolean(getApps().length)})`);
+  console.log('[ROUTES_REGISTERED] Express API routes and middleware mounted');
+
+  const distPath = resolveDistPath();
+  const isProd = isProductionMode(distPath);
+
+  if (!isProd) {
+    try {
+      // Dynamic import ensures Vite is never loaded at top level or required when running production bundle
+      const viteModule = await import('vite');
+      const vite = await viteModule.createServer({
+        server: { middlewareMode: true },
+        appType: 'spa',
+      });
+      app.use(vite.middlewares);
+      console.log('[Server] Vite dev middleware loaded successfully');
+    } catch (viteErr: any) {
+      console.warn('[Server] Vite could not be initialized in non-production mode:', viteErr?.message || viteErr);
+      const indexPath = path.join(distPath, 'index.html');
+      if (fs.existsSync(indexPath)) {
+        console.log(`[Server] Production build detected at ${distPath}. Falling back to static serving.`);
+        serveStaticBuild(app, distPath);
+      } else {
+        console.error('[Server] Critical: Neither Vite nor dist/index.html are available.');
+        throw viteErr;
+      }
+    }
   } else {
-    const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
+    serveStaticBuild(app, distPath);
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Morvello Cars Server running on http://0.0.0.0:${PORT}`);
+    console.log(`[SERVER_LISTENING] Morvello Cars Server running on http://0.0.0.0:${PORT} (mode: ${isProd ? 'production' : 'development'})`);
   });
 }
 

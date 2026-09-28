@@ -5,7 +5,7 @@ import {
   verifyAdminCaller,
   setSupabaseClient,
   setAdminAuth,
-} from '../../server';
+} from '../../server.ts';
 import type { Request } from 'express';
 
 describe('Server Authentication & Authorization Zero-Trust Architecture (Problem #6 & P0.4)', () => {

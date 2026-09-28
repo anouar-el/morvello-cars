@@ -12,7 +12,7 @@ import {
   verifyAdminCaller,
   setSupabaseClient,
   setAdminAuth,
-} from '../../server';
+} from '../../server.ts';
 import type { Request } from 'express';
 
 const mockSupabaseState = vi.hoisted(() => ({
