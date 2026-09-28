@@ -115,6 +115,7 @@ describe('Team Admin Service Security & Cloud Function Bypass Remediation (P0.4 
         // Functions onCall wraps or throws
         expect(e.message || e.code).toBeDefined();
       }
-    });
+      // Cold require of firebase-admin/firebase-functions can exceed the 5s default under parallel load
+    }, 30000);
   });
 });
