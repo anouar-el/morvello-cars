@@ -63,7 +63,7 @@ export interface User {
   passwordResetLink?: string;
 }
 
-export type ContractTemplateId = 'standard' | 'prestige' | 'corporate';
+export type ContractTemplateId = 'standard' | 'prestige' | 'corporate' | 'signature';
 
 export interface ContractTemplateInfo {
   id: ContractTemplateId;

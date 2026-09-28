@@ -576,9 +576,11 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                             ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
                             : cnt.templateId === 'corporate'
                             ? 'bg-blue-500/15 text-blue-300 border-blue-500/30'
+                            : cnt.templateId === 'signature'
+                            ? 'bg-violet-500/15 text-violet-300 border-violet-500/30'
                             : 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
                         }`}>
-                          {cnt.templateId === 'prestige' ? '★ VIP Prestige' : cnt.templateId === 'corporate' ? '🏢 Corporate B2B' : '📄 Standard'}
+                          {cnt.templateId === 'prestige' ? '★ VIP Prestige' : cnt.templateId === 'corporate' ? '🏢 Corporate B2B' : cnt.templateId === 'signature' ? '✒ Signature' : '📄 Standard'}
                         </span>
                         {cnt.clientSignature ? (
                           <span

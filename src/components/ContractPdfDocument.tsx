@@ -7,6 +7,7 @@ import { formatPlateFrench } from '../utils/plateUtils';
 import { useApp } from '../context/AppContext';
 import { PrestigeContractPdfLayout } from './templates/PrestigeContractPdfLayout';
 import { CorporateContractPdfLayout } from './templates/CorporateContractPdfLayout';
+import { SignatureContractPdfLayout } from './templates/SignatureContractPdfLayout';
 
 interface ContractPdfDocumentProps {
   contract: Contract;
@@ -148,6 +149,24 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
   if (activeTemplateId === 'prestige') {
     return (
       <PrestigeContractPdfLayout
+        contract={contract}
+        companySettings={companySettings}
+        termsVersion={termsVersion}
+        layout={layout}
+        page1Id={page1Id}
+        page2Id={page2Id}
+        activePhone={activePhone}
+        displayManagerName={displayManagerName}
+        formattedStartDate={formattedStartDate}
+        formattedEndDate={formattedEndDate}
+        formattedCreatedAt={formattedCreatedAt}
+      />
+    );
+  }
+
+  if (activeTemplateId === 'signature') {
+    return (
+      <SignatureContractPdfLayout
         contract={contract}
         companySettings={companySettings}
         termsVersion={termsVersion}

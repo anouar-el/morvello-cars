@@ -7,6 +7,7 @@ import {
   FileText,
   Crown,
   Briefcase,
+  PenLine,
   CheckCircle2,
   Eye,
   Star,
@@ -165,7 +166,7 @@ export const ContractTemplatesManager: React.FC = () => {
             }`}
           >
             <Layers className="w-4 h-4" />
-            <span>Les 3 Modèles de Contrat</span>
+            <span>Les {CONTRACT_TEMPLATES.length} Modèles de Contrat</span>
           </button>
           <button
             onClick={() => setActiveTab('assignments')}
@@ -192,10 +193,10 @@ export const ContractTemplatesManager: React.FC = () => {
         </div>
       </div>
 
-      {/* VIEW 1: LES 3 MODÈLES */}
+      {/* VIEW 1: LES MODÈLES */}
       {activeTab === 'templates' && (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-4 gap-6">
             {CONTRACT_TEMPLATES.map((tmpl, idx) => {
               const isGlobalDefault = defaultTemplateId === tmpl.id;
               const assignedCount = getAssignedUsersCount(tmpl.id);
@@ -236,6 +237,8 @@ export const ContractTemplatesManager: React.FC = () => {
                             ? 'bg-amber-500/15 border-amber-500/40 text-amber-400'
                             : tmpl.id === 'corporate'
                             ? 'bg-blue-500/15 border-blue-500/40 text-blue-400'
+                            : tmpl.id === 'signature'
+                            ? 'bg-violet-500/15 border-violet-500/40 text-violet-400'
                             : 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400'
                         }`}
                       >
@@ -243,6 +246,8 @@ export const ContractTemplatesManager: React.FC = () => {
                           <Crown className="w-5 h-5" />
                         ) : tmpl.id === 'corporate' ? (
                           <Briefcase className="w-5 h-5" />
+                        ) : tmpl.id === 'signature' ? (
+                          <PenLine className="w-5 h-5" />
                         ) : (
                           <FileText className="w-5 h-5" />
                         )}
@@ -268,6 +273,8 @@ export const ContractTemplatesManager: React.FC = () => {
                                   ? 'text-amber-400'
                                   : tmpl.id === 'corporate'
                                   ? 'text-blue-400'
+                                  : tmpl.id === 'signature'
+                                  ? 'text-violet-400'
                                   : 'text-emerald-400'
                               }`}
                             />
@@ -470,6 +477,8 @@ export const ContractTemplatesManager: React.FC = () => {
                                 ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
                                 : assignedTmplId === 'corporate'
                                 ? 'bg-blue-500/20 text-blue-300 border-blue-500/40'
+                                : assignedTmplId === 'signature'
+                                ? 'bg-violet-500/20 text-violet-300 border-violet-500/40'
                                 : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
                             }`}
                           >
@@ -477,6 +486,8 @@ export const ContractTemplatesManager: React.FC = () => {
                               <Crown className="w-3.5 h-3.5" />
                             ) : assignedTmplId === 'corporate' ? (
                               <Briefcase className="w-3.5 h-3.5" />
+                            ) : assignedTmplId === 'signature' ? (
+                              <PenLine className="w-3.5 h-3.5" />
                             ) : (
                               <FileText className="w-3.5 h-3.5" />
                             )}
@@ -501,13 +512,15 @@ export const ContractTemplatesManager: React.FC = () => {
                                       ? 'bg-amber-500 text-slate-950 border-amber-400 font-bold shadow-sm'
                                       : tmpl.id === 'corporate'
                                       ? 'bg-blue-600 text-white border-blue-400 font-bold shadow-sm'
+                                      : tmpl.id === 'signature'
+                                      ? 'bg-violet-600 text-white border-violet-400 font-bold shadow-sm'
                                       : 'bg-emerald-600 text-white border-emerald-400 font-bold shadow-sm'
                                     : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700 hover:text-white'
                                 }`}
                                 title={`Affecter ${tmpl.name} à ${user.name}`}
                               >
                                 {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
-                                <span>{tmpl.id === 'standard' ? 'Standard' : tmpl.id === 'prestige' ? 'Prestige VIP' : 'Corporate'}</span>
+                                <span>{tmpl.id === 'standard' ? 'Standard' : tmpl.id === 'prestige' ? 'Prestige VIP' : tmpl.id === 'signature' ? 'Signature' : 'Corporate'}</span>
                               </button>
                             );
                           })}
@@ -533,7 +546,7 @@ export const ContractTemplatesManager: React.FC = () => {
                 <span>Studio de Visualisation Haute Définition A4</span>
               </h2>
               <p className="text-xs text-slate-400">
-                Prévisualisez le rendu exact d'impression et testez les 3 modèles avec un contrat échantillon.
+                Prévisualisez le rendu exact d'impression et testez les {CONTRACT_TEMPLATES.length} modèles avec un contrat échantillon.
               </p>
             </div>
 
@@ -553,6 +566,8 @@ export const ContractTemplatesManager: React.FC = () => {
                             ? 'bg-amber-500 text-slate-950 shadow-md'
                             : tmpl.id === 'corporate'
                             ? 'bg-blue-600 text-white shadow-md'
+                            : tmpl.id === 'signature'
+                            ? 'bg-violet-600 text-white shadow-md'
                             : 'bg-emerald-600 text-white shadow-md'
                           : 'text-slate-400 hover:text-white hover:bg-slate-800'
                       }`}
@@ -561,10 +576,12 @@ export const ContractTemplatesManager: React.FC = () => {
                         <Crown className="w-3.5 h-3.5" />
                       ) : tmpl.id === 'corporate' ? (
                         <Briefcase className="w-3.5 h-3.5" />
+                      ) : tmpl.id === 'signature' ? (
+                        <PenLine className="w-3.5 h-3.5" />
                       ) : (
                         <FileText className="w-3.5 h-3.5" />
                       )}
-                      <span>{tmpl.id === 'standard' ? 'Standard Morvello' : tmpl.id === 'prestige' ? 'Prestige VIP' : 'Corporate B2B'}</span>
+                      <span>{tmpl.id === 'standard' ? 'Standard Morvello' : tmpl.id === 'prestige' ? 'Prestige VIP' : tmpl.id === 'signature' ? 'Signature Moderne' : 'Corporate B2B'}</span>
                     </button>
                   );
                 })}

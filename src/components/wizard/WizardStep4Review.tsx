@@ -18,6 +18,7 @@ import {
   Crown,
   Briefcase,
   FileText,
+  PenLine,
 } from 'lucide-react';
 
 interface WizardStep4ReviewProps {
@@ -294,7 +295,7 @@ export const WizardStep4Review: React.FC<WizardStep4ReviewProps> = ({
           Sélectionnez la maquette contractuelle haute définition à utiliser pour la génération du document A4 (Recto / Verso) :
         </p>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
           {CONTRACT_TEMPLATES.map((tmpl) => {
             const isSelected = selectedTemplateId === tmpl.id;
             return (
@@ -308,6 +309,8 @@ export const WizardStep4Review: React.FC<WizardStep4ReviewProps> = ({
                       ? 'bg-amber-500/15 border-amber-400 ring-1 ring-amber-400 text-white'
                       : tmpl.id === 'corporate'
                       ? 'bg-blue-500/15 border-blue-400 ring-1 ring-blue-400 text-white'
+                      : tmpl.id === 'signature'
+                      ? 'bg-violet-500/15 border-violet-400 ring-1 ring-violet-400 text-white'
                       : 'bg-emerald-500/15 border-emerald-400 ring-1 ring-emerald-400 text-white'
                     : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
                 }`}
@@ -319,6 +322,8 @@ export const WizardStep4Review: React.FC<WizardStep4ReviewProps> = ({
                         <Crown className="w-4 h-4 text-amber-400" />
                       ) : tmpl.id === 'corporate' ? (
                         <Briefcase className="w-4 h-4 text-blue-400" />
+                      ) : tmpl.id === 'signature' ? (
+                        <PenLine className="w-4 h-4 text-violet-400" />
                       ) : (
                         <FileText className="w-4 h-4 text-emerald-400" />
                       )}
@@ -327,6 +332,8 @@ export const WizardStep4Review: React.FC<WizardStep4ReviewProps> = ({
                           ? 'Standard Morvello'
                           : tmpl.id === 'prestige'
                           ? 'Prestige VIP'
+                          : tmpl.id === 'signature'
+                          ? 'Signature Moderne'
                           : 'Corporate B2B'}
                       </span>
                     </div>
@@ -337,6 +344,8 @@ export const WizardStep4Review: React.FC<WizardStep4ReviewProps> = ({
                             ? 'text-amber-400'
                             : tmpl.id === 'corporate'
                             ? 'text-blue-400'
+                            : tmpl.id === 'signature'
+                            ? 'text-violet-400'
                             : 'text-emerald-400'
                         }`}
                       />

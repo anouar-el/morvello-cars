@@ -63,6 +63,27 @@ export const CONTRACT_TEMPLATES: ContractTemplateInfo[] = [
     recommendedFor: 'Recommandé pour les comptes entreprises, PME/PMI, contrats cadres mensuels et flottes commerciales.',
     isDefault: false,
   },
+  {
+    id: 'signature',
+    name: 'Modèle Signature Morvello (Moderne)',
+    subtitle: 'Design épuré, lisible & professionnel',
+    badge: 'Nouveau • Recommandé',
+    badgeColor: 'bg-violet-500/25 text-violet-300 border-violet-400/60',
+    accentColor: '#0b1b33',
+    borderColor: 'border-violet-500',
+    description:
+      'Le modèle de nouvelle génération de la Sté Morvello Cars : une mise en page sobre et aérée, organisée en 6 rubriques numérotées, qui reprend fidèlement les données réelles du contrat. Aucun tarif n’est imprimé : les prix restent internes à l’agence.',
+    features: [
+      'En-tête exécutif bilingue FR / AR avec numéro de contrat mis en valeur',
+      'Fiche locataire au format formulaire, conducteur additionnel intégré',
+      'Jauge carburant 8 segments et chronologie visuelle départ → retour',
+      'Check-list d’état au départ issue de l’inspection réelle (cases vierges si non renseignée)',
+      'Signatures agence, locataire et 2ème conducteur avec certification électronique',
+      'Verso A4 avec conditions générales, frais particuliers et paraphes',
+    ],
+    recommendedFor: 'Recommandé comme modèle par défaut pour toutes les locations : particuliers, agences urbaines et aéroport.',
+    isDefault: false,
+  },
 ];
 
 export function getContractTemplate(id?: ContractTemplateId): ContractTemplateInfo {
