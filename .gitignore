@@ -6,3 +6,5 @@ coverage/
 *.log
 .env*
 !.env.example
+# Un seul lockfile pour ce projet : package-lock.json. Ne jamais commiter bun.lock.
+bun.lock

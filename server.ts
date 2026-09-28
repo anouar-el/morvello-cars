@@ -78,8 +78,10 @@ function getAdminDb(): FirebaseAdminFirestore {
 }
 
 const app = express();
-// Port 3000 is required by the AI Studio preview environment (Nginx routes ingress 8080 -> 3000)
-const PORT = 3000;
+// AI Studio's preview environment requires the fixed port 3000 (Nginx routes ingress 8080 -> 3000).
+// On external hosting (Hostinger, Render, Railway, etc.), the platform-assigned process.env.PORT
+// must be respected, with a fallback to 3000 if it is absent.
+const PORT = process.env.AI_STUDIO === 'true' ? 3000 : parseInt(process.env.PORT || '3000', 10);
 
 app.use(express.json({ limit: '10mb' }));
 

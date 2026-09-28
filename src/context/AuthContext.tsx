@@ -7,7 +7,6 @@ import {
 } from '../types';
 import { initialUsers } from '../data/mockData';
 import { saveUserProfileToSupabase } from '../lib/supabaseSync';
-import { saveUserProfile } from '../lib/firestoreSync';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { auth as firebaseAuth, googleProvider } from '../lib/firebase';
 import { resolveLegacyUserId } from '../utils/identityMapping';
@@ -354,12 +353,6 @@ export const AuthProvider: React.FC<{
           });
         });
 
-        // Ensure user profile document exists in Firestore /users/{uid} (for compatibility only)
-        saveUserProfile(fbUser.uid, {
-          role,
-          email: emailLower,
-          name,
-        }).catch((e) => console.warn('[Firestore] Profile sync notice:', e));
       }
     });
 
@@ -647,13 +640,6 @@ export const AuthProvider: React.FC<{
         );
       });
 
-      // Synchronize to Firestore /users/{uid}
-      saveUserProfile(fbUser.uid, {
-        role,
-        email: emailLower,
-        name,
-      }).catch((e) => console.warn('[Firestore] Profile sync notice:', e));
-
       logAction(
         'Connexion Google',
         'user_permission',
@@ -762,19 +748,6 @@ export const AuthProvider: React.FC<{
       console.warn('Failed to cache users to localStorage:', err);
     }
 
-    // STEP 10: Never send whole users collection from client browser
-    if (targetUserId) {
-      const targetUser = updatedUsers.find((u) => u.id === targetUserId);
-      if (targetUser) {
-        saveUserProfile(targetUser.supabaseUid || targetUser.id, {
-          role: targetUser.role,
-          email: targetUser.email,
-          name: targetUser.name,
-          phone: targetUser.phone,
-          permissions: targetUser.permissions,
-        }).catch((err) => console.warn('[Cloud Sync] Failed to sync profile to cloud:', err));
-      }
-    }
   };
 
   const addUser = async (userData: Omit<User, 'id'> & { password?: string }): Promise<User> => {
