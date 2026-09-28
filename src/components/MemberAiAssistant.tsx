@@ -156,31 +156,37 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
         scopedDeposits,
       } = getScopedDataForUser(currentUser, vehicles, contracts, deposits, clients, users);
 
-      const { token } = await getActiveAuthToken();
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-
-      const res = await fetch('/api/agent-chat', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          memberId: currentUser.id,
-          memberName: currentUser.name,
-          memberAgency: currentUser.agency || currentUser.assignedFleetName,
-          message: finalPrompt,
-          history: historyPayload,
-          memberData: {
-            vehicles: scopedVehicles,
-            contracts: scopedContracts,
-            deposits: scopedDeposits,
-          },
-          aiSettings,
-        }),
+      const body = JSON.stringify({
+        memberId: currentUser.id,
+        memberName: currentUser.name,
+        memberAgency: currentUser.agency || currentUser.assignedFleetName,
+        message: finalPrompt,
+        history: historyPayload,
+        memberData: {
+          vehicles: scopedVehicles,
+          contracts: scopedContracts,
+          deposits: scopedDeposits,
+        },
+        aiSettings,
       });
+
+      const postChat = async (forceRefresh: boolean) => {
+        const { token } = await getActiveAuthToken({ forceRefresh });
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+        return fetch('/api/agent-chat', { method: 'POST', headers, body });
+      };
+
+      let res = await postChat(false);
+      // Rejected token (expired session): refresh it once and retry transparently
+      if (res.status === 401) {
+        res = await postChat(true);
+      }
+      if (res.status === 401) {
+        throw new Error('votre session a expiré. Déconnectez-vous puis reconnectez-vous');
+      }
 
       let data: any = null;
       try {

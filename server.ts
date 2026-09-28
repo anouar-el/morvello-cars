@@ -15,8 +15,10 @@ import { FRANCHISE_DAMAGE_RATE_PERCENT } from './src/data/insurancePacks';
 dotenv.config();
 
 // Supabase Server-side Client Configuration
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
-const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY;
+// The browser gets VITE_* values baked in at build time, but the server reads them at runtime:
+// on a host where they are only build variables they are missing here, so SUPABASE_* is accepted too.
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 let supabaseServerClient: SupabaseClient | null = null;
@@ -182,10 +184,24 @@ export async function authenticateCaller(req: express.Request): Promise<AuthResu
     };
   }
 
+  // A missing server configuration must not be reported to the user as an invalid token
+  if (!supabaseServerClient && (!SUPABASE_URL || !SUPABASE_ANON_KEY)) {
+    console.error('[Server Auth] VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY are not set in the server runtime environment.');
+    return {
+      authenticated: false,
+      error:
+        'Configuration Supabase absente sur le serveur (VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY). Contactez l’administrateur.',
+      statusCode: 500,
+    };
+  }
+
   // 1. First, attempt Supabase Auth token verification (authoritative primary login system)
   try {
     const sb = getSupabaseClient();
     const { data: sbData, error: sbErr } = await sb.auth.getUser(token);
+    if (sbErr) {
+      console.warn('[Server Auth] Supabase token rejected:', sbErr.message);
+    }
     if (!sbErr && sbData?.user) {
       const sbUser = sbData.user;
       const emailLower = (sbUser.email || '').toLowerCase().trim();
@@ -235,6 +251,7 @@ export async function authenticateCaller(req: express.Request): Promise<AuthResu
     }
   } catch (sbEx: any) {
     // If Supabase token check threw, gracefully continue to Firebase verification
+    console.warn('[Server Auth] Supabase token verification error:', sbEx?.message || sbEx);
   }
 
   // 2. Second, attempt Firebase Auth ID token verification (Compatibility boundary)
@@ -721,6 +738,7 @@ app.get('/api/health', (req, res) => {
     status: 'ok',
     service: 'Morvello Cars Agent AI API',
     hasGeminiKey: Boolean(process.env.GEMINI_API_KEY),
+    hasSupabaseConfig: Boolean(SUPABASE_URL && SUPABASE_ANON_KEY),
   });
 });
 
