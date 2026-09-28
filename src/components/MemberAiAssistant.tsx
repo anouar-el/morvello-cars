@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { AgentChatMessage } from '../types';
 import { isAbortException } from '../initErrorHandling';
@@ -9,8 +9,7 @@ import {
   Send,
   Copy,
   Check,
-  Share2,
-  Trash2,
+  CheckCheck,
   X,
   Maximize2,
   Minimize2,
@@ -18,6 +17,9 @@ import {
   Sparkles,
   RotateCcw,
   Sliders,
+  ChevronDown,
+  MessageCircle,
+  Zap,
 } from 'lucide-react';
 
 interface MemberAiAssistantProps {
@@ -25,6 +27,44 @@ interface MemberAiAssistantProps {
   onClose?: () => void;
   isExpanded?: boolean;
   onToggleExpand?: () => void;
+}
+
+// WhatsApp-style dark palette (solid colours: they are not affected by the app's light-theme overrides)
+const WA = {
+  bg: 'bg-[#0b141a]',
+  bar: 'bg-[#202c33]',
+  field: 'bg-[#2a3942]',
+  incoming: 'bg-[#202c33]',
+  outgoing: 'bg-[#005c4b]',
+  accent: 'bg-[#00a884]',
+  muted: 'text-[#8696a0]',
+};
+
+// Subtle doodle wallpaper, inlined so the page needs no extra asset
+const WALLPAPER =
+  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='0.035' stroke-width='1.2'%3E%3Ccircle cx='14' cy='14' r='5'/%3E%3Cpath d='M50 10h14v9H50zM8 52l8-8 8 8-8 8zM52 50c4-6 12-6 16 0M30 30h6v6h-6zM64 68l4 4M26 70c3 0 3-4 6-4s3 4 6 4'/%3E%3C/g%3E%3C/svg%3E\")";
+
+const nowTime = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+/** Plain text of rendered markdown children (used to copy a drafted message block). */
+function nodeText(node: React.ReactNode): string {
+  if (node === null || node === undefined || typeof node === 'boolean') return '';
+  if (typeof node === 'string' || typeof node === 'number') return String(node);
+  if (Array.isArray(node)) return node.map(nodeText).join('');
+  if (React.isValidElement(node)) return nodeText((node.props as { children?: React.ReactNode }).children);
+  return '';
+}
+
+function dayLabel(iso?: string): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+  if (d.toDateString() === today.toDateString()) return "Aujourd'hui";
+  if (d.toDateString() === yesterday.toDateString()) return 'Hier';
+  return d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
 }
 
 export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
@@ -42,6 +82,8 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
   const [showSearch, setShowSearch] = useState(false);
   const [preferredLang, setPreferredLang] = useState<'fr' | 'darija'>('fr');
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [showQuickReplies, setShowQuickReplies] = useState(false);
+  const [showScrollDown, setShowScrollDown] = useState(false);
 
   const [messages, setMessages] = useState<AgentChatMessage[]>(() => {
     const saved = localStorage.getItem(`morvello_ai_chat_${currentUser.id}`);
@@ -56,12 +98,14 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
       {
         id: 'welcome',
         role: 'model',
-        content: `Bonjour **${currentUser.name}**.\n\nJe suis à votre disposition pour la gestion de votre flotte, vos contrats, vos calculs de prolongation et la rédaction de messages clients.\n\nQue souhaitez-vous traiter ?`,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        content: `Bonjour **${currentUser.name}** 👋\n\nJe suis votre assistant Morvello. Je peux vous faire le briefing du jour, suivre vos retours et vos cautions, calculer une prolongation ou rédiger un message pour un client.\n\nQue souhaitez-vous traiter ?`,
+        timestamp: nowTime(),
+        createdAt: new Date().toISOString(),
       },
     ];
   });
 
+  const scrollRef = useRef<HTMLDivElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -72,6 +116,14 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
+
+  // Auto-grow the input like a messaging app (up to ~6 lines)
+  useLayoutEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 140)}px`;
+  }, [input]);
 
   // Scoped metrics (same scope as the data sent to the assistant)
   const isAdmin = currentUser.role === 'admin';
@@ -84,31 +136,31 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
   // Quick prompts, answered from the server-computed dashboard (dates, alerts, deposits)
   const quickChips = [
     {
-      label: 'Briefing du jour',
+      label: '📋 Briefing du jour',
       prompt: 'Fais-moi le briefing du jour : départs et retours d’aujourd’hui et de demain, retards, cautions non prises, soldes à encaisser et alertes véhicules. Termine par les 3 actions prioritaires.',
     },
     {
-      label: 'Retours & retards',
+      label: '🔁 Retours & retards',
       prompt: 'Quels véhicules doivent revenir aujourd’hui et demain, et lesquels sont en retard ? Donne le client, le téléphone et l’heure prévue.',
     },
     {
-      label: 'Cautions & soldes',
+      label: '💰 Cautions & soldes',
       prompt: 'Liste les cautions non prises et les soldes restant à encaisser sur mes contrats en cours, avec le montant et le client.',
     },
     {
-      label: 'Alertes flotte',
+      label: '⚠️ Alertes flotte',
       prompt: 'Quelles sont les échéances à traiter sur ma flotte : assurances, visites techniques, vidanges et vignettes ?',
     },
     {
-      label: 'Véhicules dispo',
+      label: '🚗 Véhicules dispo',
       prompt: 'Liste mes véhicules disponibles, groupés par gamme (citadine, SUV, premium), avec immatriculation et tarif journalier.',
     },
     {
-      label: 'Accueil WhatsApp',
+      label: '👋 Accueil client',
       prompt: 'Rédige un court message WhatsApp d’accueil pour la remise des clés au client de mon prochain départ, avec les documents à présenter.',
     },
     {
-      label: 'Rappel restitution',
+      label: '⏰ Rappel restitution',
       prompt: 'Rédige un rappel WhatsApp courtois pour le client qui doit restituer son véhicule aujourd’hui (heure, carburant à l’identique).',
     },
   ];
@@ -125,11 +177,13 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
       id: `user-${Date.now()}`,
       role: 'user',
       content: userPrompt.trim(),
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      timestamp: nowTime(),
+      createdAt: new Date().toISOString(),
     };
 
     setMessages((prev) => [...prev, userMsg]);
     setInput('');
+    setShowQuickReplies(false);
     setLoading(true);
     setLastFailedPrompt(null);
 
@@ -150,11 +204,14 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
         }));
 
       // Cloisonnement strict des données transmises à l'IA selon le rôle
-      const {
-        scopedVehicles,
-        scopedContracts,
-        scopedDeposits,
-      } = getScopedDataForUser(currentUser, vehicles, contracts, deposits, clients, users);
+      const { scopedVehicles, scopedContracts, scopedDeposits } = getScopedDataForUser(
+        currentUser,
+        vehicles,
+        contracts,
+        deposits,
+        clients,
+        users
+      );
 
       const body = JSON.stringify({
         memberId: currentUser.id,
@@ -208,9 +265,7 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
         data = null;
       }
       if (res.status === 429) {
-        throw new Error(
-          `trop de demandes en peu de temps. Réessayez dans ${data?.retryAfterSeconds || 60} secondes`
-        );
+        throw new Error(`trop de demandes en peu de temps. Réessayez dans ${data?.retryAfterSeconds || 60} secondes`);
       }
       if (res.status === 403) {
         throw new Error(
@@ -227,7 +282,8 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
           id: `model-${Date.now()}`,
           role: 'model',
           content: data.reply,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          timestamp: nowTime(),
+          createdAt: new Date().toISOString(),
         };
         setMessages((prev) => [...prev, assistantMsg]);
       } else {
@@ -242,11 +298,13 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
         id: `err-${Date.now()}`,
         role: 'model',
         content: `Désolé, une erreur est survenue : ${err.message || 'Service indisponible'}.`,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        timestamp: nowTime(),
+        createdAt: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, errorMsg]);
     } finally {
       setLoading(false);
+      inputRef.current?.focus();
     }
   };
 
@@ -256,96 +314,116 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
     setTimeout(() => setCopiedId(null), 1800);
   };
 
-  /** Client message drafts are returned in a ``` block: copy/share only that text, not the assistant's comments. */
-  const extractDraft = (content: string): string => {
-    const match = content.match(/```(?:[a-z]*)\n?([\s\S]*?)```/i);
-    return (match ? match[1] : content).trim();
-  };
-
   const shareViaWhatsApp = (text: string) => {
-    const cleanText = extractDraft(text)
+    const cleanText = text
+      .trim()
       .replace(/\*\*(.*?)\*\*/g, '*$1*')
       .replace(/### (.*?)\n/g, '*$1*\n')
       .replace(/## (.*?)\n/g, '*$1*\n')
       .replace(/# (.*?)\n/g, '*$1*\n');
-
-    const encoded = encodeURIComponent(cleanText);
-    window.open(`https://api.whatsapp.com/send?text=${encoded}`, '_blank');
+    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(cleanText)}`, '_blank');
   };
 
   const handleClearHistory = () => {
-    const resetMsg: AgentChatMessage[] = [
+    setMessages([
       {
         id: 'welcome-reset',
         role: 'model',
         content: `Historique effacé. Comment puis-je vous aider, **${currentUser.name}** ?`,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        timestamp: nowTime(),
+        createdAt: new Date().toISOString(),
       },
-    ];
-    setMessages(resetMsg);
+    ]);
     localStorage.removeItem(`morvello_ai_chat_${currentUser.id}`);
     setShowClearConfirm(false);
+    setLastFailedPrompt(null);
   };
 
   const filteredMessages = searchQuery.trim()
     ? messages.filter((m) => m.content.toLowerCase().includes(searchQuery.toLowerCase()))
     : messages;
 
-  const isClientMessageDraft = (content: string) => {
-    const l = content.toLowerCase();
-    return (
-      /```[\s\S]+```/.test(content) ||
-      l.includes('whatsapp') ||
-      l.includes('sms') ||
-      l.includes('salam') ||
-      l.includes('cher client') ||
-      l.includes('chère cliente') ||
-      l.includes('bienvenue chez morvello')
-    );
-  };
+  const onlyWelcome = messages.length <= 1;
+
+  // Drafted client messages (``` blocks) become a WhatsApp-style card with their own actions
+  const markdownComponents = (msgId: string) => ({
+    pre: ({ children }: { children?: React.ReactNode }) => {
+      const text = nodeText(children).trim();
+      const blockId = `${msgId}-${text.length}-${text.slice(0, 12)}`;
+      return (
+        <div className="not-prose my-2 rounded-lg overflow-hidden border border-white/10 bg-[#111b21]">
+          <div className="flex items-center justify-between px-3 py-1.5 bg-black/20 text-[10.5px] text-[#8696a0]">
+            <span className="flex items-center gap-1.5 font-medium">
+              <MessageCircle className="w-3 h-3 text-[#00a884]" />
+              Message client
+            </span>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => copyToClipboard(text, blockId)}
+                className="inline-flex items-center gap-1 hover:text-white transition-colors cursor-pointer"
+              >
+                {copiedId === blockId ? <Check className="w-3 h-3 text-[#00a884]" /> : <Copy className="w-3 h-3" />}
+                {copiedId === blockId ? 'Copié' : 'Copier'}
+              </button>
+              <button
+                type="button"
+                onClick={() => shareViaWhatsApp(text)}
+                className="inline-flex items-center gap-1 text-[#00a884] hover:text-[#25d366] font-semibold transition-colors cursor-pointer"
+              >
+                <Send className="w-3 h-3" />
+                WhatsApp
+              </button>
+            </div>
+          </div>
+          <div className="px-3 py-2.5 whitespace-pre-wrap text-[13px] leading-relaxed text-[#e9edef] font-sans">{text}</div>
+        </div>
+      );
+    },
+  });
+
+  let previousDay: string | null = null;
 
   return (
     <div
-      className={`flex flex-col bg-slate-950 text-slate-100 overflow-hidden select-text ${
-        isDrawer ? 'h-full w-full' : 'min-h-[640px] max-w-4xl mx-auto rounded-2xl border border-slate-800 shadow-2xl'
+      className={`flex flex-col ${WA.bg} text-[#e9edef] overflow-hidden select-text ${
+        isDrawer ? 'h-full w-full' : 'h-[calc(100vh-11rem)] min-h-[560px] max-w-4xl mx-auto rounded-2xl border border-black/40 shadow-2xl'
       }`}
     >
-      {/* 1. MINIMALIST TOP BAR */}
-      <header className="px-5 py-3.5 border-b border-slate-850/80 bg-slate-950/80 backdrop-blur-sm flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-2.5">
-          <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-          <div className="flex items-baseline gap-2">
-            <h1 className="text-xs font-semibold text-white tracking-wide uppercase">Morvello AI</h1>
-            <span className="text-[11px] text-slate-400 font-normal">
-              {availableCount} dispo · {rentedCount} loués
-            </span>
+      {/* HEADER — like a WhatsApp conversation header */}
+      <header className={`${WA.bar} px-3 sm:px-4 py-2.5 flex items-center justify-between shrink-0 shadow-sm z-10`}>
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="relative shrink-0">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center shadow">
+              <Sparkles className="w-5 h-5 text-[#111b21]" />
+            </div>
+            <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-[#25d366] border-2 border-[#202c33]" />
+          </div>
+          <div className="min-w-0">
+            <h1 className="text-[15px] font-semibold text-[#e9edef] leading-tight truncate">Morvello AI</h1>
+            <p className={`text-[12px] leading-tight truncate ${loading ? 'text-[#00a884]' : WA.muted}`}>
+              {loading ? 'écrit…' : `en ligne · ${availableCount} dispo · ${rentedCount} loués`}
+            </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-1">
-          {/* Language Toggle */}
+        <div className={`flex items-center gap-0.5 ${WA.muted}`}>
           <button
             type="button"
             onClick={() => setPreferredLang(preferredLang === 'fr' ? 'darija' : 'fr')}
-            className="px-2 py-1 rounded-md text-[10px] font-medium text-slate-400 hover:text-white hover:bg-slate-900 transition-colors cursor-pointer"
-            title="Basculer la langue par défaut"
+            className="px-2 py-1 rounded-full text-[11px] font-semibold border border-white/10 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+            title="Langue des réponses"
           >
             {preferredLang === 'fr' ? 'FR' : 'Darija'}
           </button>
-
-          {/* Search Toggle */}
           <button
             type="button"
             onClick={() => setShowSearch(!showSearch)}
-            className={`p-1.5 rounded-md transition-colors cursor-pointer ${
-              showSearch ? 'text-amber-400 bg-slate-900' : 'text-slate-400 hover:text-white hover:bg-slate-900'
-            }`}
+            className={`p-2 rounded-full transition-colors cursor-pointer ${showSearch ? 'text-white bg-white/10' : 'hover:bg-white/5 hover:text-white'}`}
             title="Rechercher"
           >
-            <Search className="w-3.5 h-3.5" />
+            <Search className="w-[18px] h-[18px]" />
           </button>
-
-          {/* Settings link for Admin */}
           {isAdmin && (
             <button
               type="button"
@@ -353,220 +431,263 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
                 if (onClose) onClose();
                 setActiveTab('settings');
               }}
-              className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-900 rounded-md transition-colors cursor-pointer"
-              title="Personnaliser la charte et la vision"
+              className="p-2 rounded-full hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+              title="Personnaliser la charte de l'assistant"
             >
-              <Sliders className="w-3.5 h-3.5" />
+              <Sliders className="w-[18px] h-[18px]" />
             </button>
           )}
-
-          {/* Clear history */}
           <button
             type="button"
             onClick={() => setShowClearConfirm(true)}
-            className="p-1.5 text-slate-400 hover:text-slate-300 hover:bg-slate-900 rounded-md transition-colors cursor-pointer"
-            title="Réinitialiser"
+            className="p-2 rounded-full hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+            title="Effacer la conversation"
           >
-            <RotateCcw className="w-3.5 h-3.5" />
+            <RotateCcw className="w-[18px] h-[18px]" />
           </button>
-
-          {/* Expand Toggle */}
           {isDrawer && onToggleExpand && (
             <button
               type="button"
               onClick={onToggleExpand}
-              className="hidden sm:inline-flex p-1.5 text-slate-400 hover:text-white hover:bg-slate-900 rounded-md transition-colors cursor-pointer"
+              className="hidden sm:inline-flex p-2 rounded-full hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
               title={isExpanded ? 'Réduire' : 'Agrandir'}
             >
-              {isExpanded ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+              {isExpanded ? <Minimize2 className="w-[18px] h-[18px]" /> : <Maximize2 className="w-[18px] h-[18px]" />}
             </button>
           )}
-
-          {/* Close */}
           {onClose && (
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-900 rounded-md transition-colors cursor-pointer"
+              className="p-2 rounded-full hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
               title="Fermer"
             >
-              <X className="w-3.5 h-3.5" />
+              <X className="w-[18px] h-[18px]" />
             </button>
           )}
         </div>
       </header>
 
-      {/* 2. SEARCH BAR (COLLAPSIBLE) */}
+      {/* SEARCH */}
       {showSearch && (
-        <div className="px-5 py-2 border-b border-slate-900 bg-slate-950 flex items-center gap-2">
-          <Search className="w-3.5 h-3.5 text-slate-500" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Rechercher dans la conversation..."
-            className="w-full bg-transparent border-0 text-xs text-white placeholder-slate-500 focus:outline-none"
-            autoFocus
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => setSearchQuery('')}
-              className="text-slate-500 hover:text-white text-xs cursor-pointer"
-            >
-              Effacer
-            </button>
-          )}
+        <div className={`${WA.bar} px-3 pb-2.5 shrink-0`}>
+          <div className={`${WA.field} rounded-lg flex items-center gap-2 px-3 py-1.5`}>
+            <Search className={`w-4 h-4 ${WA.muted}`} />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Rechercher dans la conversation…"
+              className="w-full bg-transparent border-0 text-[13px] text-[#e9edef] placeholder-[#8696a0] focus:outline-none"
+              autoFocus
+            />
+            {searchQuery && (
+              <button type="button" onClick={() => setSearchQuery('')} className={`${WA.muted} hover:text-white cursor-pointer`}>
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
         </div>
       )}
 
-      {/* 3. CONFIRM CLEAR ALERT */}
+      {/* CONFIRM CLEAR */}
       {showClearConfirm && (
-        <div className="px-5 py-2.5 bg-slate-900 border-b border-slate-800 text-xs flex items-center justify-between text-slate-300">
-          <span>Effacer l'historique de conversation ?</span>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleClearHistory}
-              className="text-rose-400 hover:text-rose-300 font-medium cursor-pointer"
-            >
-              Confirmer
-            </button>
-            <span className="text-slate-600">·</span>
-            <button
-              type="button"
-              onClick={() => setShowClearConfirm(false)}
-              className="text-slate-400 hover:text-white cursor-pointer"
-            >
+        <div className="px-4 py-2.5 bg-[#182229] border-b border-black/30 text-[13px] flex items-center justify-between shrink-0">
+          <span>Effacer toute la conversation ?</span>
+          <div className="flex items-center gap-4 font-semibold">
+            <button type="button" onClick={() => setShowClearConfirm(false)} className="text-[#8696a0] hover:text-white cursor-pointer">
               Annuler
             </button>
+            <button type="button" onClick={handleClearHistory} className="text-[#f15c6d] hover:text-[#ff7b8a] cursor-pointer">
+              Effacer
+            </button>
           </div>
         </div>
       )}
 
-      {/* 4. CHAT STREAM (CLEAN & SPACIOUS) */}
-      <div className="flex-1 p-5 sm:p-6 overflow-y-auto space-y-6">
-        {filteredMessages.map((msg) => {
-          const isUser = msg.role === 'user';
-          const isDraft = !isUser && isClientMessageDraft(msg.content);
+      {/* CONVERSATION */}
+      <div className="relative flex-1 min-h-0">
+        <div
+          ref={scrollRef}
+          onScroll={(e) => {
+            const el = e.currentTarget;
+            setShowScrollDown(el.scrollHeight - el.scrollTop - el.clientHeight > 200);
+          }}
+          className="absolute inset-0 overflow-y-auto px-3 sm:px-[6%] py-3 space-y-1"
+          style={{ backgroundImage: WALLPAPER }}
+        >
+          <div className="flex justify-center my-2">
+            <span className="text-[11.5px] text-[#ffd279] bg-[#182229] rounded-lg px-3 py-1.5 text-center max-w-md shadow-sm">
+              🔒 Vos données restent cloisonnées : l'assistant ne voit que {isAdmin ? 'les données de votre agence' : 'votre flotte et vos contrats'}.
+            </span>
+          </div>
 
-          return (
-            <div
-              key={msg.id}
-              className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}
-            >
-              {/* Bubble */}
-              <div
-                className={`max-w-[88%] sm:max-w-[82%] text-xs sm:text-[13px] leading-relaxed transition-all ${
-                  isUser
-                    ? 'bg-slate-850 text-slate-100 rounded-2xl rounded-tr-sm px-4 py-2.5 shadow-sm border border-slate-750'
-                    : 'text-slate-200'
-                }`}
-              >
-                <div className="markdown-body prose prose-invert max-w-none text-xs sm:text-[13px] leading-relaxed">
-                  <Markdown>{msg.content}</Markdown>
-                </div>
+          {filteredMessages.length === 0 && (
+            <p className={`text-center text-[13px] ${WA.muted} py-6`}>Aucun message ne correspond à « {searchQuery} ».</p>
+          )}
 
-                {/* Minimal draft actions */}
-                {isDraft && (
-                  <div className="mt-3 pt-2 border-t border-slate-800/80 flex items-center gap-3 text-[11px]">
-                    <button
-                      type="button"
-                      onClick={() => shareViaWhatsApp(msg.content)}
-                      className="inline-flex items-center gap-1.5 text-emerald-400 hover:text-emerald-300 font-medium transition-colors cursor-pointer"
-                    >
-                      <Share2 className="w-3 h-3" />
-                      <span>WhatsApp</span>
-                    </button>
+          {filteredMessages.map((msg, idx) => {
+            const isUser = msg.role === 'user';
+            const isError = msg.id.startsWith('err-');
+            const prev = filteredMessages[idx - 1];
+            const isFirstOfGroup = !prev || prev.role !== msg.role;
+            const answered = isUser && filteredMessages.slice(idx + 1).some((m) => m.role === 'model' && !m.id.startsWith('err-'));
 
-                    <button
-                      type="button"
-                      onClick={() => copyToClipboard(extractDraft(msg.content), msg.id)}
-                      className="inline-flex items-center gap-1.5 text-slate-400 hover:text-white transition-colors cursor-pointer"
-                    >
-                      {copiedId === msg.id ? (
-                        <>
-                          <Check className="w-3 h-3 text-emerald-400" />
-                          <span className="text-emerald-400 font-medium">Copié</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-3 h-3" />
-                          <span>Copier</span>
-                        </>
+            const label = dayLabel(msg.createdAt);
+            const showDay = label !== null && label !== previousDay;
+            if (label) previousDay = label;
+
+            return (
+              <React.Fragment key={msg.id}>
+                {showDay && (
+                  <div className="flex justify-center py-2">
+                    <span className={`text-[11.5px] ${WA.muted} bg-[#182229] rounded-lg px-3 py-1 shadow-sm capitalize`}>{label}</span>
+                  </div>
+                )}
+
+                <div className={`group flex ${isUser ? 'justify-end' : 'justify-start'} ${isFirstOfGroup ? 'pt-2' : ''}`}>
+                  <div
+                    className={`relative max-w-[88%] sm:max-w-[75%] rounded-lg px-2.5 pt-1.5 pb-1 shadow-sm ${
+                      isUser ? `${WA.outgoing} ${isFirstOfGroup ? 'rounded-tr-none' : ''}` : `${isError ? 'bg-[#3b1f24]' : WA.incoming} ${isFirstOfGroup ? 'rounded-tl-none' : ''}`
+                    }`}
+                  >
+                    {/* Bubble tail on the first message of a group */}
+                    {isFirstOfGroup && (
+                      <svg
+                        viewBox="0 0 8 13"
+                        className={`absolute top-0 w-2 h-3 ${isUser ? '-right-2 text-[#005c4b]' : `-left-2 -scale-x-100 ${isError ? 'text-[#3b1f24]' : 'text-[#202c33]'}`}`}
+                        aria-hidden="true"
+                      >
+                        <path fill="currentColor" d="M0 0h8L1.5 11.5C1 12.3 0 12 0 11V0z" />
+                      </svg>
+                    )}
+
+                    <div className="markdown-body max-w-none text-[13.5px] leading-[1.45] text-[#e9edef] break-words [&_p]:my-1 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-1 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-1 [&_li]:my-0.5 [&_li]:marker:text-[#8696a0] [&_strong]:text-white [&_strong]:font-semibold [&_h1]:text-[15px] [&_h2]:text-[14.5px] [&_h3]:text-[14px] [&_h1]:font-bold [&_h2]:font-bold [&_h3]:font-semibold [&_h1]:my-1.5 [&_h2]:my-1.5 [&_h3]:my-1.5 [&_a]:text-[#53bdeb] [&_a]:underline [&_:not(pre)>code]:bg-black/30 [&_:not(pre)>code]:px-1 [&_:not(pre)>code]:rounded [&_table]:my-1 [&_table]:text-[12.5px] [&_th]:text-left [&_th]:pr-3 [&_td]:pr-3 [&_hr]:border-white/10 [&_hr]:my-2">
+                      <Markdown components={markdownComponents(msg.id)}>{msg.content}</Markdown>
+                    </div>
+
+                    {/* Meta line: time + ticks, like WhatsApp */}
+                    <div className="flex items-center justify-end gap-1.5 -mt-0.5 select-none">
+                      {!isUser && !isError && (
+                        <button
+                          type="button"
+                          onClick={() => copyToClipboard(msg.content, msg.id)}
+                          className={`opacity-0 group-hover:opacity-100 focus:opacity-100 text-[10.5px] ${WA.muted} hover:text-white transition-opacity cursor-pointer mr-auto`}
+                        >
+                          {copiedId === msg.id ? 'Copié' : 'Copier'}
+                        </button>
                       )}
-                    </button>
+                      <span className="text-[10.5px] text-[#ffffff99]">{msg.timestamp}</span>
+                      {isUser &&
+                        (answered ? (
+                          <CheckCheck className="w-3.5 h-3.5 text-[#53bdeb]" />
+                        ) : loading && idx === filteredMessages.length - 1 ? (
+                          <Check className="w-3.5 h-3.5 text-[#ffffff99]" />
+                        ) : (
+                          <CheckCheck className="w-3.5 h-3.5 text-[#ffffff99]" />
+                        ))}
+                    </div>
                   </div>
-                )}
+                </div>
+              </React.Fragment>
+            );
+          })}
 
-                {/* Timestamp & standard copy for assistant */}
-                {!isUser && !isDraft && (
-                  <div className="mt-2 flex items-center gap-3 text-[10px] text-slate-500">
-                    <span>{msg.timestamp}</span>
-                    <button
-                      type="button"
-                      onClick={() => copyToClipboard(msg.content, msg.id)}
-                      className="hover:text-slate-300 transition-colors cursor-pointer"
-                    >
-                      {copiedId === msg.id ? 'Copié' : 'Copier'}
-                    </button>
-                  </div>
-                )}
+          {/* Retry after a failed request */}
+          {lastFailedPrompt && !loading && (
+            <div className="flex justify-start pt-1">
+              <button
+                type="button"
+                onClick={() => sendMessage(lastFailedPrompt)}
+                className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-[#00a884] bg-[#202c33] hover:bg-[#2a3942] rounded-full px-3 py-1.5 shadow-sm cursor-pointer"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                Réessayer
+              </button>
+            </div>
+          )}
+
+          {/* Typing indicator */}
+          {loading && (
+            <div className="flex justify-start pt-2">
+              <div className={`${WA.incoming} rounded-lg rounded-tl-none px-4 py-3 shadow-sm flex items-center gap-1`}>
+                <span className="w-2 h-2 rounded-full bg-[#8696a0] animate-bounce [animation-delay:-0.3s]" />
+                <span className="w-2 h-2 rounded-full bg-[#8696a0] animate-bounce [animation-delay:-0.15s]" />
+                <span className="w-2 h-2 rounded-full bg-[#8696a0] animate-bounce" />
               </div>
             </div>
-          );
-        })}
+          )}
 
-        {/* Retry after a failed request */}
-        {lastFailedPrompt && !loading && (
-          <div>
-            <button
-              type="button"
-              onClick={() => sendMessage(lastFailedPrompt)}
-              className="inline-flex items-center gap-1.5 text-[11px] text-amber-400 hover:text-amber-300 font-medium cursor-pointer"
-            >
-              <RotateCcw className="w-3 h-3" />
-              Réessayer
-            </button>
-          </div>
-        )}
+          {/* Suggestions shown as tappable bubbles on a fresh conversation */}
+          {onlyWelcome && !loading && (
+            <div className="flex flex-wrap gap-2 pt-3 pl-1">
+              {quickChips.map((chip) => (
+                <button
+                  key={chip.label}
+                  type="button"
+                  onClick={() => sendMessage(chip.prompt)}
+                  className="text-[12.5px] text-[#e9edef] bg-[#202c33] hover:bg-[#2a3942] border border-white/5 rounded-full px-3 py-1.5 shadow-sm transition-colors cursor-pointer"
+                >
+                  {chip.label}
+                </button>
+              ))}
+            </div>
+          )}
 
-        {/* Loading Indicator */}
-        {loading && (
-          <div className="flex items-center gap-2 text-xs text-slate-500 py-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-bounce [animation-delay:-0.3s]" />
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-bounce [animation-delay:-0.15s]" />
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-bounce" />
-          </div>
-        )}
+          <div ref={chatEndRef} />
+        </div>
 
-        <div ref={chatEndRef} />
-      </div>
-
-      {/* 5. MINIMAL QUICK ACTION CHIPS */}
-      <div className="px-5 py-2 overflow-x-auto flex items-center gap-1.5 scrollbar-none border-t border-slate-900/60">
-        {quickChips.map((chip, idx) => (
+        {/* Jump to latest */}
+        {showScrollDown && (
           <button
-            key={idx}
             type="button"
-            disabled={loading}
-            onClick={() => sendMessage(chip.prompt)}
-            className="px-2.5 py-1 rounded-full text-[11px] text-slate-400 hover:text-white bg-slate-900/80 hover:bg-slate-850 border border-slate-800/80 transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-40"
+            onClick={() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })}
+            className="absolute bottom-3 right-4 w-10 h-10 rounded-full bg-[#202c33] text-[#8696a0] hover:text-white shadow-lg flex items-center justify-center cursor-pointer"
+            title="Aller au dernier message"
           >
-            {chip.label}
+            <ChevronDown className="w-5 h-5" />
           </button>
-        ))}
+        )}
       </div>
 
-      {/* 6. MINIMALIST FLOATING INPUT */}
-      <div className="p-4 sm:p-5 pt-2">
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            sendMessage(input);
-          }}
-          className="relative flex items-center bg-slate-900/90 border border-slate-800/90 focus-within:border-slate-700 focus-within:ring-1 focus-within:ring-slate-700 rounded-2xl transition-all"
+      {/* QUICK REPLIES TRAY */}
+      {showQuickReplies && !onlyWelcome && (
+        <div className={`${WA.bar} px-3 pt-2.5 flex gap-2 overflow-x-auto scrollbar-none shrink-0`}>
+          {quickChips.map((chip) => (
+            <button
+              key={chip.label}
+              type="button"
+              disabled={loading}
+              onClick={() => sendMessage(chip.prompt)}
+              className="text-[12.5px] text-[#e9edef] bg-[#2a3942] hover:bg-[#33444f] rounded-full px-3 py-1.5 whitespace-nowrap shrink-0 transition-colors cursor-pointer disabled:opacity-40"
+            >
+              {chip.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* COMPOSER */}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          sendMessage(input);
+        }}
+        className={`${WA.bar} px-2 sm:px-3 py-2.5 flex items-end gap-2 shrink-0`}
+      >
+        <button
+          type="button"
+          onClick={() => setShowQuickReplies(!showQuickReplies)}
+          disabled={onlyWelcome}
+          className={`p-2.5 rounded-full transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-default ${
+            showQuickReplies ? 'text-[#00a884] bg-white/5' : `${WA.muted} hover:text-white`
+          }`}
+          title="Réponses rapides"
         >
+          <Zap className="w-5 h-5" />
+        </button>
+
+        <div className={`flex-1 ${WA.field} rounded-3xl px-4 py-2.5 flex items-center`}>
           <textarea
             ref={inputRef}
             rows={1}
@@ -578,21 +699,21 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
                 sendMessage(input);
               }
             }}
-            placeholder="Écrivez un message..."
+            placeholder={preferredLang === 'darija' ? 'Kteb message… (réponse en Darija)' : 'Écrivez un message'}
             disabled={loading}
-            className="flex-1 bg-transparent border-0 text-slate-100 text-xs sm:text-sm placeholder-slate-500 resize-none outline-none py-3 px-4 max-h-28"
+            className="w-full bg-transparent border-0 text-[14.5px] text-[#e9edef] placeholder-[#8696a0] resize-none outline-none leading-5 max-h-[140px] disabled:opacity-60"
           />
+        </div>
 
-          <button
-            type="submit"
-            disabled={!input.trim() || loading}
-            className="p-2 mr-2 rounded-xl text-slate-400 hover:text-amber-400 disabled:opacity-20 disabled:hover:text-slate-400 transition-colors cursor-pointer"
-            title="Envoyer"
-          >
-            <Send className="w-4 h-4" />
-          </button>
-        </form>
-      </div>
+        <button
+          type="submit"
+          disabled={!input.trim() || loading}
+          className={`w-11 h-11 shrink-0 rounded-full ${WA.accent} hover:bg-[#06cf9c] text-[#111b21] flex items-center justify-center shadow transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-default`}
+          title="Envoyer"
+        >
+          <Send className="w-5 h-5 translate-x-[1px]" />
+        </button>
+      </form>
     </div>
   );
 };
