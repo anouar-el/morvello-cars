@@ -6,20 +6,103 @@ export interface ActiveAuthToken {
   provider: 'supabase' | 'firebase' | null;
 }
 
+export type AuthProviderType = 'supabase' | 'firebase' | null;
+
 /** Code returned by the server when the session behind a valid token no longer exists. */
 export const SESSION_TERMINATED = 'SESSION_TERMINATED';
 
+const PROVIDER_STORAGE_KEY = 'morvello_active_auth_provider';
+let inMemoryActiveProvider: AuthProviderType = null;
+
+/**
+ * Sets the active application authentication provider in memory and session storage.
+ * Application state only — NOT a security authority.
+ */
+export function setActiveAuthProvider(provider: AuthProviderType): void {
+  inMemoryActiveProvider = provider;
+  if (typeof window !== 'undefined') {
+    try {
+      if (provider) {
+        sessionStorage.setItem(PROVIDER_STORAGE_KEY, provider);
+      } else {
+        sessionStorage.removeItem(PROVIDER_STORAGE_KEY);
+      }
+    } catch {
+      // Ignore storage errors in restricted contexts
+    }
+  }
+}
+
+/**
+ * Gets the active application authentication provider from memory or session storage.
+ */
+export function getActiveAuthProvider(): AuthProviderType {
+  if (inMemoryActiveProvider) return inMemoryActiveProvider;
+
+  // 1. Check active Firebase SDK state: if Firebase user is actively authenticated, active provider is Firebase
+  if (firebaseAuth.currentUser) {
+    inMemoryActiveProvider = 'firebase';
+    return 'firebase';
+  }
+
+  // 2. Check tab session storage
+  if (typeof window !== 'undefined') {
+    try {
+      const stored = sessionStorage.getItem(PROVIDER_STORAGE_KEY);
+      if (stored === 'supabase' || stored === 'firebase') {
+        inMemoryActiveProvider = stored;
+        return stored;
+      }
+    } catch {
+      // Ignore
+    }
+  }
+  return null;
+}
+
+/**
+ * Safely clears only the local Supabase session without affecting other devices.
+ */
+export async function clearStaleSupabaseSession(): Promise<void> {
+  if (isSupabaseConfigured) {
+    try {
+      await supabase.auth.signOut({ scope: 'local' });
+    } catch (err) {
+      console.warn('[Auth] Local Supabase sign-out notice:', err);
+    }
+  }
+  if (typeof window !== 'undefined') {
+    try {
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith('sb-') || key.includes('supabase'))) {
+          keysToRemove.push(key);
+        }
+      }
+      for (const k of keysToRemove) {
+        localStorage.removeItem(k);
+      }
+    } catch {
+      // Ignore storage errors in restricted contexts
+    }
+  }
+}
+
 /**
  * Ends the Supabase session of THIS device only (scope 'local'): the local session is
- * cleared and SIGNED_OUT is emitted, which sends the user back to the login screen.
- * Never refreshes or fabricates a token, and never touches the user's other devices.
+ * cleared and SIGNED_OUT is emitted.
+ * If Firebase is currently active and authenticated, switches active provider to Firebase
+ * instead of logging the user out.
  */
 export async function endTerminatedSession(): Promise<void> {
-  if (!isSupabaseConfigured) return;
-  try {
-    await supabase.auth.signOut({ scope: 'local' });
-  } catch (err) {
-    console.warn('[Auth] Local sign-out after terminated session:', err);
+  await clearStaleSupabaseSession();
+
+  // If Firebase is currently authenticated, continue with Firebase rather than forcing logout
+  if (firebaseAuth.currentUser) {
+    setActiveAuthProvider('firebase');
+  } else {
+    setActiveAuthProvider(null);
   }
 }
 
@@ -27,42 +110,80 @@ export async function endTerminatedSession(): Promise<void> {
  * Returns the current active authorization token (Supabase JWT or Firebase ID token)
  * to include in Authorization headers for backend API requests.
  *
- * getSession() already exchanges an expired access token for a new one. An extra manual
- * refresh must not run alongside supabase-js's own auto-refresh: reusing a rotated refresh
- * token makes Supabase revoke the whole session. So a refresh is only forced on demand,
- * for the single retry after the server rejected the token. If that refresh fails, the
- * session is dead: it is ended locally and no stale token is ever sent again.
+ * Provider-aware:
+ * - If active provider is SUPABASE: returns Supabase access token (or refreshes on demand).
+ * - If active provider is FIREBASE: returns Firebase ID token.
+ * - Stale localStorage tokens do not determine or override active provider.
  */
 export async function getActiveAuthToken(options: { forceRefresh?: boolean } = {}): Promise<ActiveAuthToken> {
-  // 1. Check Supabase Auth first (authoritative login system)
+  let activeProvider = getActiveAuthProvider();
+
+  // If active provider is not set yet or is firebase, let Firebase finish initializing its auth state if pending
+  if (!activeProvider || activeProvider === 'firebase') {
+    if (!firebaseAuth.currentUser && typeof firebaseAuth.authStateReady === 'function') {
+      try {
+        await firebaseAuth.authStateReady();
+      } catch {
+        // Ignore initialization errors
+      }
+    }
+    activeProvider = getActiveAuthProvider();
+  }
+
+  // 1. If active provider is FIREBASE (or Firebase is actively authenticated and not explicitly Supabase):
+  if (activeProvider === 'firebase' || (firebaseAuth.currentUser && activeProvider !== 'supabase')) {
+    if (firebaseAuth.currentUser) {
+      try {
+        const token = await firebaseAuth.currentUser.getIdToken(Boolean(options.forceRefresh));
+        setActiveAuthProvider('firebase');
+        // Ensure any stale Supabase session in localStorage is wiped to prevent zombie tokens
+        clearStaleSupabaseSession().catch(() => {});
+        return { token, provider: 'firebase' };
+      } catch (fbTokenErr) {
+        console.warn('[Auth] Failed to get Firebase ID token:', fbTokenErr);
+        return { token: null, provider: null };
+      }
+    }
+    // Firebase is the designated provider, but no authenticated Firebase user is present
+    return { token: null, provider: null };
+  }
+
+  // 2. If active provider is SUPABASE:
+  if (activeProvider === 'supabase') {
+    if (isSupabaseConfigured) {
+      try {
+        const { data } = await supabase.auth.getSession();
+        let session = data?.session;
+        if (session && options.forceRefresh) {
+          const { data: refreshed, error } = await supabase.auth.refreshSession();
+          if (error || !refreshed?.session) {
+            await endTerminatedSession();
+            session = null;
+          } else {
+            session = refreshed.session;
+          }
+        }
+        if (session?.access_token) {
+          return { token: session.access_token, provider: 'supabase' };
+        }
+      } catch (sbErr) {
+        console.warn('[Auth] Supabase session retrieval error:', sbErr);
+      }
+    }
+    return { token: null, provider: null };
+  }
+
+  // 3. Fallback when provider state is not explicitly set and Firebase has no authenticated user:
   if (isSupabaseConfigured) {
     try {
       const { data } = await supabase.auth.getSession();
-      let session = data?.session;
-      if (session && options.forceRefresh) {
-        const { data: refreshed, error } = await supabase.auth.refreshSession();
-        if (error || !refreshed?.session) {
-          await endTerminatedSession();
-          session = null;
-        } else {
-          session = refreshed.session;
-        }
-      }
+      const session = data?.session;
       if (session?.access_token) {
+        setActiveAuthProvider('supabase');
         return { token: session.access_token, provider: 'supabase' };
       }
     } catch {
-      // Ignore session errors
-    }
-  }
-
-  // 2. Check Firebase Auth (Google Sign-In or Firebase session)
-  if (firebaseAuth.currentUser) {
-    try {
-      const token = await firebaseAuth.currentUser.getIdToken(Boolean(options.forceRefresh));
-      return { token, provider: 'firebase' };
-    } catch {
-      // Ignore token errors
+      // Ignore
     }
   }
 

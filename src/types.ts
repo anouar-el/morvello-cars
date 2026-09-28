@@ -502,7 +502,6 @@ export interface AgentChatMessage {
   role: 'user' | 'model';
   content: string;
   timestamp: string;
-  createdAt?: string; // ISO date, used for day separators (absent on older saved messages)
 }
 
 export const DEFAULT_PERMISSIONS_BY_ROLE: Record<UserRole, UserPermissions> = {

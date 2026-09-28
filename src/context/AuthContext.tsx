@@ -15,9 +15,16 @@ import {
   signOut as firebaseSignOut,
   onAuthStateChanged as onFirebaseAuthStateChanged,
 } from 'firebase/auth';
+import {
+  setActiveAuthProvider,
+  getActiveAuthProvider,
+  clearStaleSupabaseSession,
+  AuthProviderType,
+} from '../lib/authToken';
 
 export interface AuthContextType {
   currentUser: User | null;
+  authProvider: AuthProviderType;
   users: User[];
   availableUsers: User[];
   authLoading: boolean;
@@ -105,6 +112,7 @@ export const AuthProvider: React.FC<{
   // A browser cache is never proof of identity. Sessions are restored only by
   // Supabase/Firebase after their token has been verified.
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [authProvider, setAuthProvider] = useState<AuthProviderType>(() => getActiveAuthProvider());
 
   // Always maintain latest users in ref to avoid re-triggering auth listener effects
   const usersRef = useRef<User[]>(users);
@@ -127,6 +135,7 @@ export const AuthProvider: React.FC<{
           u.id === sbUser.id ||
           u.supabaseUid === sbUser.id
       );
+
       const role: UserRole = profileData?.role === 'admin' || profileData?.role === 'manager' || profileData?.role === 'agent'
         ? profileData.role
         : 'agent';
@@ -221,29 +230,56 @@ export const AuthProvider: React.FC<{
     };
 
     // Session recovery on launch
-    withTimeout(supabase.auth.getSession(), 3500, 'Délai getSession Supabase')
-      .then(async ({ data: { session } }: any) => {
-        if (session?.user) {
+    const restoreSession = async () => {
+      if (typeof firebaseAuth.authStateReady === 'function') {
+        try {
+          await firebaseAuth.authStateReady();
+        } catch {
+          // Ignore
+        }
+      }
+      if (getActiveAuthProvider() === 'firebase' || firebaseAuth.currentUser) {
+        setAuthLoading(false);
+        return;
+      }
+      try {
+        const { data: { session } } = await withTimeout(
+          supabase.auth.getSession(),
+          3500,
+          'Délai getSession Supabase'
+        );
+        if (session?.user && getActiveAuthProvider() !== 'firebase' && !firebaseAuth.currentUser) {
+          setActiveAuthProvider('supabase');
+          setAuthProvider('supabase');
           await applySession(session.user);
         }
-      })
-      .catch((err) => {
+      } catch (err) {
         console.warn('[Supabase Auth] getSession notice:', err);
-      })
-      .finally(() => {
+      } finally {
         setAuthLoading(false);
-      });
+      }
+    };
+    void restoreSession();
 
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user) {
+        if (getActiveAuthProvider() === 'firebase' || firebaseAuth.currentUser) {
+          return;
+        }
+        setActiveAuthProvider('supabase');
+        setAuthProvider('supabase');
         // Defer out of the auth callback: Supabase recommends not awaiting queries inside it
         const sbUser = session.user;
         setTimeout(() => {
           void applySession(sbUser);
         }, 0);
       } else if (event === 'SIGNED_OUT') {
-        setCurrentUser(null);
-        localStorage.removeItem(STORAGE_KEYS.USER);
+        if (getActiveAuthProvider() === 'supabase') {
+          setCurrentUser(null);
+          localStorage.removeItem(STORAGE_KEYS.USER);
+          setActiveAuthProvider(null);
+          setAuthProvider(null);
+        }
       }
     });
 
@@ -257,6 +293,13 @@ export const AuthProvider: React.FC<{
     const unsub = onFirebaseAuthStateChanged(firebaseAuth, async (fbUser) => {
       if (fbUser && fbUser.email) {
         const emailLower = fbUser.email.toLowerCase();
+
+        // When Firebase is authenticated, mark it as active provider and clear any stale local Supabase session
+        setActiveAuthProvider('firebase');
+        setAuthProvider('firebase');
+        if (isSupabaseConfigured) {
+          clearStaleSupabaseSession().catch(() => {});
+        }
 
         // 1. Authoritative resolution: Query Supabase public.profiles strictly by firebase_uid
         let authoritativeProfile: any = null;
@@ -341,6 +384,13 @@ export const AuthProvider: React.FC<{
           });
         });
 
+      } else {
+        if (getActiveAuthProvider() === 'firebase') {
+          setCurrentUser(null);
+          localStorage.removeItem(STORAGE_KEYS.USER);
+          setActiveAuthProvider(null);
+          setAuthProvider(null);
+        }
       }
     });
 
@@ -524,6 +574,8 @@ export const AuthProvider: React.FC<{
       });
 
       // Publish the verified profile after reading it successfully.
+      setActiveAuthProvider('supabase');
+      setAuthProvider('supabase');
       setCurrentUser((prev) => {
         if (
           prev &&
@@ -562,7 +614,12 @@ export const AuthProvider: React.FC<{
       const fbUser = result.user;
       const emailLower = (fbUser.email || '').toLowerCase();
 
-      // 2. Authoritative identity and role resolution from Supabase public.profiles
+      // 2. Safely clear any stale local Supabase session on this device
+      await clearStaleSupabaseSession();
+      setActiveAuthProvider('firebase');
+      setAuthProvider('firebase');
+
+      // 3. Authoritative identity and role resolution from Supabase public.profiles
       // Firebase custom claims are NOT authoritative for role or agency.
       // Never guess identity from email alone.
       let authoritativeProfile: any = null;
@@ -660,6 +717,8 @@ export const AuthProvider: React.FC<{
   };
 
   const logout = async () => {
+    setActiveAuthProvider(null);
+    setAuthProvider(null);
     if (currentUser) {
       logAction('Déconnexion', 'user_permission', currentUser.id, `Déconnexion de ${currentUser.name}`);
     }
@@ -668,15 +727,7 @@ export const AuthProvider: React.FC<{
     } catch (fbSignOutErr) {
       console.warn('Firebase sign-out notice:', fbSignOutErr);
     }
-    if (isSupabaseConfigured) {
-      try {
-        // 'local': log out THIS device only. The default ('global') would also terminate the
-        // user's sessions on every other device, whose tokens then fail with "Auth session missing".
-        await supabase.auth.signOut({ scope: 'local' });
-      } catch (sbSignOutErr) {
-        console.warn('Supabase sign-out notice:', sbSignOutErr);
-      }
-    }
+    await clearStaleSupabaseSession();
     setCurrentUser(null);
     localStorage.removeItem(STORAGE_KEYS.USER);
   };
@@ -1026,6 +1077,7 @@ export const AuthProvider: React.FC<{
     <AuthContext.Provider
       value={{
         currentUser,
+        authProvider,
         users,
         availableUsers,
         authLoading,
