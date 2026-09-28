@@ -4,6 +4,7 @@ import { Briefcase, Phone, Mail, MapPin, CheckCircle2, ShieldCheck, Building2, U
 import { CompanyStamp } from '../CompanyStamp';
 import { CompanyLogo } from '../CompanyLogo';
 import { formatPlateFrench } from '../../utils/plateUtils';
+import { resolveContractInsurance } from '../../data/insurancePacks';
 
 export interface CorporateContractPdfLayoutProps {
   contract: Contract;
@@ -35,6 +36,7 @@ export const CorporateContractPdfLayout: React.FC<CorporateContractPdfLayoutProp
   const halfClauses = Math.ceil(termsVersion.clauses.length / 2);
   const col1Clauses = termsVersion.clauses.slice(0, halfClauses);
   const col2Clauses = termsVersion.clauses.slice(halfClauses);
+  const insurance = resolveContractInsurance(contract);
 
   // Calculate HT and TVA 20% for professional accounting
   const totalTTC = contract.totalAmount || 0;
@@ -373,11 +375,16 @@ export const CorporateContractPdfLayout: React.FC<CorporateContractPdfLayoutProp
               <div className="col-span-3 pl-2 text-right">
                 <span className="text-[8px] uppercase font-bold text-slate-500 block">Dépôt de Garantie Flotte</span>
                 <span className="font-mono text-xs font-black text-slate-950 bg-blue-100 border border-blue-300 px-2 py-0.5 rounded inline-block">
-                  {contract.depositAmount !== undefined
+                  {contract.depositAmount === 0 && contract.insurance?.depositMad === 0
+                    ? 'Aucun dépôt'
+                    : contract.depositAmount !== undefined
                     ? `${Number(contract.depositAmount).toLocaleString()} MAD (Caution)`
                     : contract.depositRecord?.amount !== undefined
                     ? `${Number(contract.depositRecord.amount).toLocaleString()} MAD (Caution)`
                     : 'Convention cadre'}
+                </span>
+                <span className="block text-[7px] text-blue-900 font-semibold mt-0.5">
+                  {insurance.packLabel} · Franchise {insurance.franchiseMad.toLocaleString('fr-FR')} MAD
                 </span>
               </div>
             </div>

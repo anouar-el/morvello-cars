@@ -4,6 +4,7 @@ import { Crown, Phone, Mail, MapPin, CheckCircle2, Star, Shield, ShieldCheck, Sp
 import { CompanyStamp } from '../CompanyStamp';
 import { CompanyLogo } from '../CompanyLogo';
 import { formatPlateFrench } from '../../utils/plateUtils';
+import { resolveContractInsurance } from '../../data/insurancePacks';
 
 export interface PrestigeContractPdfLayoutProps {
   contract: Contract;
@@ -35,6 +36,7 @@ export const PrestigeContractPdfLayout: React.FC<PrestigeContractPdfLayoutProps>
   const halfClauses = Math.ceil(termsVersion.clauses.length / 2);
   const col1Clauses = termsVersion.clauses.slice(0, halfClauses);
   const col2Clauses = termsVersion.clauses.slice(halfClauses);
+  const insurance = resolveContractInsurance(contract);
 
   return (
     <div
@@ -354,10 +356,10 @@ export const PrestigeContractPdfLayout: React.FC<PrestigeContractPdfLayoutProps>
             <div className="flex items-center justify-between border-b border-amber-200 pb-1 mb-1">
               <span className="text-[9px] font-black uppercase text-amber-950 flex items-center gap-1.5">
                 <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
-                3. Protocole d’Inspection Haute Joaillerie &amp; Garantie Zéro Franchise
+                3. Protocole d’Inspection Haute Joaillerie &amp; Couverture Assurance
               </span>
               <span className="text-[8px] bg-emerald-100 text-emerald-950 font-bold px-2 py-0.2 rounded border border-emerald-300">
-                Couverture Tous Risques Sérénité
+                {insurance.packLabel} · Franchise {insurance.franchiseMad.toLocaleString('fr-FR')} MAD
               </span>
             </div>
 
@@ -419,7 +421,9 @@ export const PrestigeContractPdfLayout: React.FC<PrestigeContractPdfLayoutProps>
               <div className="col-span-4 pl-2 text-right">
                 <span className="text-[8px] uppercase font-bold text-slate-500 block">Dépôt de Garantie VIP</span>
                 <span className="font-mono text-xs font-black text-slate-950 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded inline-block">
-                  {contract.depositAmount !== undefined
+                  {contract.depositAmount === 0 && contract.insurance?.depositMad === 0
+                    ? `Aucun dépôt (${insurance.packLabel})`
+                    : contract.depositAmount !== undefined
                     ? `${Number(contract.depositAmount).toLocaleString()} MAD (Empreinte)`
                     : contract.depositRecord?.amount !== undefined
                     ? `${Number(contract.depositRecord.amount).toLocaleString()} MAD (Empreinte)`
@@ -531,7 +535,7 @@ export const PrestigeContractPdfLayout: React.FC<PrestigeContractPdfLayoutProps>
                   CHARTE DE CONCIERGERIE VIP &amp; CONDITIONS GÉNÉRALES PRESTIGE
                 </h3>
                 <p className="text-[7.5px] text-amber-800 font-semibold">
-                  Engagements d'Excellence, Discrétion Absolue &amp; Couverture Sérénité
+                  Engagements d'Excellence, Discrétion Absolue &amp; {insurance.packLabel}
                 </p>
               </div>
             </div>

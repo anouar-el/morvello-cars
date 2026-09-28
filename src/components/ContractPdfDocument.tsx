@@ -8,6 +8,7 @@ import { useApp } from '../context/AppContext';
 import { PrestigeContractPdfLayout } from './templates/PrestigeContractPdfLayout';
 import { CorporateContractPdfLayout } from './templates/CorporateContractPdfLayout';
 import { SignatureContractPdfLayout } from './templates/SignatureContractPdfLayout';
+import { resolveContractInsurance } from '../data/insurancePacks';
 
 interface ContractPdfDocumentProps {
   contract: Contract;
@@ -121,6 +122,8 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
     ? resolvedManager.phone
     : companySettings.phone1;
   const displayManagerName = resolvedManager.name;
+
+  const insurance = resolveContractInsurance(contract);
 
   const formattedStartDate = new Date(contract.startDate).toLocaleDateString('fr-FR', {
     day: '2-digit',
@@ -700,10 +703,14 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
                   Caution / الضمانة
                 </span>
                 <p className="font-mono font-black text-slate-950 text-xs mt-0.5">
-                  {(contract.depositAmount !== undefined ? Number(contract.depositAmount) : (contract.depositRecord?.amount !== undefined ? Number(contract.depositRecord.amount) : 5000)).toLocaleString('fr-FR')} MAD
+                  {contract.depositAmount === 0
+                    ? 'Aucun dépôt'
+                    : `${(contract.depositAmount !== undefined ? Number(contract.depositAmount) : (contract.depositRecord?.amount !== undefined ? Number(contract.depositRecord.amount) : 5000)).toLocaleString('fr-FR')} MAD`}
                 </p>
                 <span className="text-[7px] text-purple-900 font-semibold mt-0.5">
-                  {contract.depositRecord?.method === 'cheque'
+                  {contract.depositAmount === 0 && contract.insurance?.depositMad === 0
+                    ? `Inclus dans le ${insurance.packLabel}`
+                    : contract.depositRecord?.method === 'cheque'
                     ? 'Chèque de caution'
                     : contract.depositRecord?.method === 'cash'
                     ? 'Espèces consignées'
@@ -717,9 +724,9 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
                   Couverture Assurance
                 </span>
                 <p className="text-[9px] font-bold text-white mt-0.5">
-                  Tous Risques Sérénité
+                  {insurance.packLabel} · Franchise {insurance.franchiseMad.toLocaleString('fr-FR')} MAD
                 </p>
-                <span className="text-[7px] text-slate-300 mt-0.5">Assistance 24/7 incluse</span>
+                <span className="text-[6.5px] text-slate-300 mt-0.5 leading-tight">{insurance.coverage}</span>
               </div>
             </div>
           </div>
@@ -994,7 +1001,7 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
           <div className="grid grid-cols-6 gap-1 text-[6.5px] font-mono">
             <div className="bg-slate-100/90 border border-slate-300 rounded p-1 shadow-2xs">
               <span className="text-slate-500 block uppercase font-bold text-[5.5px]">Franchise Sinistre :</span>
-              <strong className="text-slate-950 font-black">Selon CGV</strong>
+              <strong className="text-slate-950 font-black">{insurance.franchiseMad.toLocaleString('fr-FR')} MAD</strong>
             </div>
             <div className="bg-amber-50/90 border border-amber-300/90 rounded p-1 shadow-2xs">
               <span className="text-amber-800 block uppercase font-bold text-[5.5px]">Retard Restitution :</span>

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { User, Vehicle, FuelType, VehicleStatus } from '../../types';
+import { User, Vehicle, FuelType, VehicleStatus, VehicleCategory } from '../../types';
+import { VEHICLE_CATEGORIES, getCategoryLabel, inferVehicleCategory } from '../../data/insurancePacks';
 import { formatPlateFrench } from '../../utils/plateUtils';
 import {
   Car,
@@ -49,6 +50,7 @@ export const VehicleAddModal: React.FC<VehicleAddModalProps> = ({
     vignettePaidYear: 2026,
     nextOilChangeKm: 40000,
     assignedManagerId: isManager ? currentUser.id : '',
+    insuranceCategory: '' as VehicleCategory | '',
   });
 
   if (!isOpen) return null;
@@ -67,6 +69,7 @@ export const VehicleAddModal: React.FC<VehicleAddModalProps> = ({
         ...form,
         brand: form.brand.toUpperCase(),
         plate: formatPlateFrench(form.plate.trim()),
+        insuranceCategory: form.insuranceCategory || undefined,
         assignedManagerId: isManager ? currentUser.id : (form.assignedManagerId || undefined),
         assignedManagerName: isManager ? currentUser.name : (assignedUser?.name || undefined),
         approvalStatus: 'pending_approval',
@@ -78,6 +81,7 @@ export const VehicleAddModal: React.FC<VehicleAddModalProps> = ({
         ...form,
         brand: form.brand.toUpperCase(),
         plate: formatPlateFrench(form.plate.trim()),
+        insuranceCategory: form.insuranceCategory || undefined,
         assignedManagerId: form.assignedManagerId || undefined,
         assignedManagerName: assignedUser?.name || undefined,
         approvalStatus: 'approved',
@@ -217,6 +221,23 @@ export const VehicleAddModal: React.FC<VehicleAddModalProps> = ({
               className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono font-bold focus:border-amber-500 focus:outline-none"
             />
             <p className="text-[11px] text-slate-400 mt-1">Exemple : 55264 | A | 73</p>
+          </div>
+
+          <div>
+            <label className="block text-slate-400 mb-1">Gamme (packs d'assurance)</label>
+            <select
+              value={form.insuranceCategory}
+              onChange={(e) => setForm({ ...form, insuranceCategory: e.target.value as VehicleCategory | '' })}
+              className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white focus:border-amber-500 focus:outline-none"
+            >
+              <option value="">Automatique ({getCategoryLabel(inferVehicleCategory(form.brand, form.model))})</option>
+              {VEHICLE_CATEGORIES.map((cat) => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.label}
+                </option>
+              ))}
+            </select>
+            <p className="text-[11px] text-slate-400 mt-1">Détermine la franchise et la caution de chaque pack sur les contrats.</p>
           </div>
 
           <div className="grid grid-cols-2 gap-3">

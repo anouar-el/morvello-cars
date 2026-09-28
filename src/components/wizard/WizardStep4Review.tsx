@@ -6,6 +6,7 @@ import {
   User,
   CompanySettings,
   ContractTemplateId,
+  ContractInsurance,
   TermsVersion,
 } from '../../types';
 import { CONTRACT_TEMPLATES } from '../../data/contractTemplates';
@@ -42,6 +43,7 @@ interface WizardStep4ReviewProps {
   totalDays: number;
   totalAmount: number;
   depositAmount: number;
+  insurance: ContractInsurance;
   assignedManagerId: string;
   managerPhone: string;
   users: User[];
@@ -72,6 +74,7 @@ export const WizardStep4Review: React.FC<WizardStep4ReviewProps> = ({
   totalDays,
   totalAmount,
   depositAmount,
+  insurance,
   assignedManagerId,
   managerPhone,
   users,
@@ -245,6 +248,10 @@ export const WizardStep4Review: React.FC<WizardStep4ReviewProps> = ({
             <p>
               Total : <strong className="text-amber-400 font-mono">{totalAmount.toLocaleString()} MAD</strong> • Caution :{' '}
               <strong className="font-mono text-white">{depositAmount.toLocaleString()} MAD</strong>
+            </p>
+            <p>
+              Assurance : <strong className="text-sky-300">{insurance.packLabel}</strong> • Franchise :{' '}
+              <strong className="font-mono text-white">{insurance.franchiseMad.toLocaleString('fr-FR')} MAD</strong>
             </p>
           </div>
         </div>

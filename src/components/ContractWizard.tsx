@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../context/AppContext';
-import { Contract, Client, DocumentType, DriverSnapshot, ContractTemplateId } from '../types';
+import { Contract, Client, DocumentType, DriverSnapshot, ContractTemplateId, InsurancePackId } from '../types';
+import { buildContractInsurance, getPackTerms, getVehicleCategory } from '../data/insurancePacks';
 import { formatPlateFrench } from '../utils/plateUtils';
 import {
   User,
@@ -129,6 +130,7 @@ export const ContractWizard: React.FC = () => {
   const [pricePerDay, setPricePerDay] = useState<number>(0);
   const hasUserCustomizedPriceRef = useRef<boolean>(false);
   const [depositAmount, setDepositAmount] = useState<number>(5000);
+  const [insurancePack, setInsurancePack] = useState<InsurancePackId>('base');
   const [contractNotes] = useState<string>('');
 
   // Prolongation
@@ -186,6 +188,7 @@ export const ContractWizard: React.FC = () => {
           ? Number(editingContractData.depositRecord.amount)
           : 5000
       );
+      setInsurancePack(editingContractData.insurance?.packId || 'base');
 
       // Manager & Phone
       if (editingContractData.assignedManagerId) {
@@ -286,6 +289,8 @@ export const ContractWizard: React.FC = () => {
         if (!hasUserCustomizedPriceRef.current && veh.dailyRate !== undefined) {
           setPricePerDay(veh.dailyRate);
         }
+        // La caution suit le pack d'assurance et la gamme du véhicule
+        setDepositAmount(getPackTerms(getVehicleCategory(veh), insurancePack).depositMad);
 
         // Auto-assign vehicle's manager or current user if manager
         const targetMgrId = veh.assignedManagerId || (currentUser?.role === 'manager' ? currentUser.id : '');
@@ -313,14 +318,6 @@ export const ContractWizard: React.FC = () => {
     return Math.max(1, diffDays || 1);
   };
 
-  const totalDays = computeTotalDays();
-  const totalAmount = totalDays * pricePerDay;
-
-  const handleUserPriceChange = (val: number) => {
-    hasUserCustomizedPriceRef.current = true;
-    setPricePerDay(val);
-  };
-
   // Selected entities
   const currentClient =
     clientMode === 'existing'
@@ -328,6 +325,27 @@ export const ContractWizard: React.FC = () => {
       : null;
 
   const currentVehicle = vehicles.find((v) => v.id === selectedVehicleId);
+
+  // Pack d'assurance : gamme du véhicule (ou gamme figée du contrat édité) et instantané des montants
+  const insuranceCategory =
+    editingContractData?.insurance && editingContractData.vehicleId === selectedVehicleId
+      ? editingContractData.insurance.category
+      : getVehicleCategory(currentVehicle || editingContractData?.vehicleSnapshot);
+  const contractInsurance = buildContractInsurance(insuranceCategory, insurancePack);
+
+  const totalDays = computeTotalDays();
+  // Le supplément journalier du pack est facturé en plus du tarif location (données internes, jamais imprimées)
+  const totalAmount = totalDays * (pricePerDay + contractInsurance.dailySupplementMad);
+
+  const handleUserPriceChange = (val: number) => {
+    hasUserCustomizedPriceRef.current = true;
+    setPricePerDay(val);
+  };
+
+  const handleInsurancePackChange = (packId: InsurancePackId) => {
+    setInsurancePack(packId);
+    setDepositAmount(getPackTerms(insuranceCategory, packId).depositMad);
+  };
 
   // Filter clients with strict manager isolation
   const filteredClients = clients.filter((c) => {
@@ -587,6 +605,7 @@ export const ContractWizard: React.FC = () => {
           pricePerDay,
           totalAmount,
           depositAmount: Number(depositAmount),
+          insurance: contractInsurance,
           notes: contractNotes,
         });
 
@@ -617,6 +636,7 @@ export const ContractWizard: React.FC = () => {
             pricePerDay,
             totalAmount,
             depositAmount,
+            insurance: contractInsurance,
             notes: contractNotes,
             templateId: selectedTemplateId,
           }
@@ -654,6 +674,7 @@ export const ContractWizard: React.FC = () => {
         pricePerDay,
         totalAmount,
         depositAmount,
+        insurance: contractInsurance,
         notes: contractNotes,
       });
 
@@ -828,6 +849,8 @@ export const ContractWizard: React.FC = () => {
             setPricePerDay={handleUserPriceChange}
             depositAmount={depositAmount}
             setDepositAmount={setDepositAmount}
+            insurance={contractInsurance}
+            onInsurancePackChange={handleInsurancePackChange}
             hasProlongation={hasProlongation}
             setHasProlongation={setHasProlongation}
             prolongationDate={prolongationDate}
@@ -867,6 +890,7 @@ export const ContractWizard: React.FC = () => {
             totalDays={totalDays}
             totalAmount={totalAmount}
             depositAmount={depositAmount}
+            insurance={contractInsurance}
             assignedManagerId={assignedManagerId}
             managerPhone={managerPhone}
             users={users}

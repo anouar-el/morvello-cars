@@ -124,6 +124,7 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
   const [confirmDeletePaymentId, setConfirmDeletePaymentId] = useState<string | null>(null);
 
   // Derived financial figures
+  const packSupplementPerDay = contract.insurance?.dailySupplementMad || 0;
   const pricePerDay = contract.pricePerDay !== undefined ? Number(contract.pricePerDay) : 0;
   const totalDays = contract.totalDays || 1;
   const totalAmount = contract.totalAmount !== undefined
@@ -148,7 +149,7 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
   const handleSaveInlineDailyPrice = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const validRate = isNaN(inlineDailyPrice) ? 0 : Math.max(0, inlineDailyPrice);
-    const newTotal = validRate * totalDays;
+    const newTotal = (validRate + packSupplementPerDay) * totalDays;
     onUpdateFinancials(contract.id, {
       pricePerDay: validRate,
       totalAmount: newTotal,
@@ -163,7 +164,7 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
     const validDays = isNaN(days) ? 1 : Math.max(1, days);
     setEditPricePerDay(validRate);
     setEditTotalDays(validDays);
-    setEditTotalAmount(validRate * validDays);
+    setEditTotalAmount((validRate + packSupplementPerDay) * validDays);
   };
 
   const handleCreatePayment = (e: React.FormEvent) => {
@@ -365,7 +366,9 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
                     min="0"
                   />
                   <span className="text-[9.5px] text-slate-500 font-mono block mt-1">
-                    Calcul : {editPricePerDay} MAD × {editTotalDays}j = {editPricePerDay * editTotalDays} MAD
+                    {packSupplementPerDay > 0
+                      ? `Calcul : (${editPricePerDay} + ${packSupplementPerDay} ${contract.insurance?.packLabel}) MAD × ${editTotalDays}j = ${(editPricePerDay + packSupplementPerDay) * editTotalDays} MAD`
+                      : `Calcul : ${editPricePerDay} MAD × ${editTotalDays}j = ${editPricePerDay * editTotalDays} MAD`}
                   </span>
                 </div>
                 <div>

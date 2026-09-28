@@ -1,6 +1,7 @@
 import React from 'react';
-import { User, CompanySettings } from '../../types';
-import { Calendar, Gauge, Fuel, Phone, AlertTriangle } from 'lucide-react';
+import { User, CompanySettings, ContractInsurance, InsurancePackId } from '../../types';
+import { Calendar, Gauge, Fuel, Phone, AlertTriangle, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { INSURANCE_PACKS, getPackTerms } from '../../data/insurancePacks';
 
 interface WizardStep3TermsProps {
   startDate: string;
@@ -19,6 +20,8 @@ interface WizardStep3TermsProps {
   setPricePerDay: (v: number) => void;
   depositAmount: number;
   setDepositAmount: (v: number) => void;
+  insurance: ContractInsurance;
+  onInsurancePackChange: (packId: InsurancePackId) => void;
   hasProlongation: boolean;
   setHasProlongation: (v: boolean) => void;
   prolongationDate: string;
@@ -53,6 +56,8 @@ export const WizardStep3Terms: React.FC<WizardStep3TermsProps> = ({
   setPricePerDay,
   depositAmount,
   setDepositAmount,
+  insurance,
+  onInsurancePackChange,
   hasProlongation,
   setHasProlongation,
   prolongationDate,
@@ -203,7 +208,7 @@ export const WizardStep3Terms: React.FC<WizardStep3TermsProps> = ({
               />
             </div>
             <div>
-              <label className="block text-slate-400 mb-1 font-medium">Caution (MAD)</label>
+              <label className="block text-slate-400 mb-1 font-medium">Caution (MAD) · selon pack</label>
               <input
                 type="number"
                 value={depositAmount}
@@ -218,6 +223,61 @@ export const WizardStep3Terms: React.FC<WizardStep3TermsProps> = ({
             </div>
           </div>
         </div>
+      </div>
+
+      {/* PACK D'ASSURANCE (grille morvellocars.com, 1 EUR = 10 MAD) */}
+      <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800 space-y-3 text-xs">
+        <div className="flex items-center justify-between text-sky-400 font-bold border-b border-slate-800 pb-1.5">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4" />
+            <span className="uppercase text-[11px]">Pack d'assurance</span>
+          </div>
+          <span className="text-[10px] text-slate-400 font-normal">
+            Gamme du véhicule : <strong className="text-white">{insurance.categoryLabel}</strong>
+          </span>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+          {INSURANCE_PACKS.map((pack) => {
+            const terms = getPackTerms(insurance.category, pack.id);
+            const isSelected = insurance.packId === pack.id;
+            return (
+              <button
+                key={pack.id}
+                type="button"
+                onClick={() => onInsurancePackChange(pack.id)}
+                className={`text-left p-3 rounded-xl border transition-all cursor-pointer ${
+                  isSelected
+                    ? 'bg-sky-500/15 border-sky-400 ring-1 ring-sky-400'
+                    : 'bg-slate-900 border-slate-800 hover:border-slate-700'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-white">{pack.label}</span>
+                  {isSelected && <CheckCircle2 className="w-4 h-4 text-sky-400" />}
+                </div>
+                <p className="text-[10.5px] text-slate-400 mt-1 leading-snug">{pack.coverage}</p>
+                <div className="mt-2 pt-2 border-t border-slate-800 grid grid-cols-3 gap-1 text-[10px] font-mono">
+                  <div>
+                    <span className="block text-slate-500">Franchise</span>
+                    <strong className="text-white">{terms.franchiseMad.toLocaleString('fr-FR')}</strong>
+                  </div>
+                  <div>
+                    <span className="block text-slate-500">Dépôt</span>
+                    <strong className="text-white">{terms.depositMad.toLocaleString('fr-FR')}</strong>
+                  </div>
+                  <div>
+                    <span className="block text-slate-500">Suppl./j</span>
+                    <strong className="text-amber-400">{terms.dailySupplementMad === 0 ? 'Inclus' : `+${terms.dailySupplementMad}`}</strong>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-[10.5px] text-slate-500">
+          Montants en MAD. Chaque pack comporte une franchise, imprimée sur le contrat. Le supplément journalier reste interne et
+          s'ajoute au total facturé. La caution est pré-remplie selon le pack et reste modifiable.
+        </p>
       </div>
 
       {/* PROLONGATION TOGGLE */}
@@ -328,7 +388,11 @@ export const WizardStep3Terms: React.FC<WizardStep3TermsProps> = ({
         <div className="text-slate-400">
           Montant total calculé :{' '}
           <strong className="text-amber-400 text-sm font-mono">{totalAmount.toLocaleString('fr-FR')} MAD</strong>
-          <span className="text-[11px] text-slate-400 ml-1.5 font-mono">({pricePerDay} MAD/j × {totalDays}j)</span>
+          <span className="text-[11px] text-slate-400 ml-1.5 font-mono">
+            {insurance.dailySupplementMad > 0
+              ? `((${pricePerDay} + ${insurance.dailySupplementMad} ${insurance.packLabel}) MAD/j × ${totalDays}j)`
+              : `(${pricePerDay} MAD/j × ${totalDays}j)`}
+          </span>
         </div>
       </div>
     </div>

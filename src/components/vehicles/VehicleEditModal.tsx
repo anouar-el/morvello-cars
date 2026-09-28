@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { User, Vehicle, FuelType, VehicleStatus, Contract } from '../../types';
+import { User, Vehicle, FuelType, VehicleStatus, Contract, VehicleCategory } from '../../types';
+import { VEHICLE_CATEGORIES, getCategoryLabel, inferVehicleCategory } from '../../data/insurancePacks';
 import {
   Pencil,
   X,
@@ -57,6 +58,7 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
     vignettePaidYear: number;
     nextOilChangeKm?: number;
     assignedManagerId: string;
+    insuranceCategory: VehicleCategory | '';
   }>({
     brand: '',
     model: '',
@@ -75,6 +77,7 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
     vignettePaidYear: 2026,
     nextOilChangeKm: undefined,
     assignedManagerId: '',
+    insuranceCategory: '',
   });
 
   useEffect(() => {
@@ -97,6 +100,7 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
         vignettePaidYear: vehicle.vignettePaidYear ?? 2026,
         nextOilChangeKm: vehicle.nextOilChangeKm,
         assignedManagerId: vehicle.assignedManagerId || '',
+        insuranceCategory: vehicle.insuranceCategory || '',
       });
     }
   }, [vehicle, activeContract]);
@@ -124,6 +128,8 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
       technicalInspectionExpiryDate: form.technicalInspectionExpiryDate,
       vignettePaidYear: form.vignettePaidYear,
       nextOilChangeKm: form.nextOilChangeKm,
+      // null (et non undefined) pour effacer une gamme forcée lors de la fusion JSON côté Supabase
+      insuranceCategory: form.insuranceCategory || null,
       assignedManagerId: form.assignedManagerId || undefined,
       assignedManagerName: assignedUser ? assignedUser.name : form.assignedManagerId ? undefined : undefined,
     });
@@ -242,6 +248,23 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
               className="w-full bg-slate-950 border-2 border-amber-500/50 rounded-xl px-3 py-2 text-amber-400 font-mono font-bold text-sm focus:border-amber-400 focus:outline-none tracking-wider"
             />
             <p className="text-[11px] text-slate-400 mt-1">Format standard marocain : Chiffres | Lettre française | Région (ex: 55264 | A | 73)</p>
+          </div>
+
+          <div>
+            <label className="block text-slate-300 font-semibold mb-1">Gamme (packs d'assurance)</label>
+            <select
+              value={form.insuranceCategory}
+              onChange={(e) => setForm({ ...form, insuranceCategory: e.target.value as VehicleCategory | '' })}
+              className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white focus:border-amber-500 focus:outline-none font-medium"
+            >
+              <option value="">Automatique ({getCategoryLabel(inferVehicleCategory(form.brand, form.model))})</option>
+              {VEHICLE_CATEGORIES.map((cat) => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.label}
+                </option>
+              ))}
+            </select>
+            <p className="text-[11px] text-slate-400 mt-1">Détermine la franchise et la caution de chaque pack sur les contrats.</p>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">

@@ -735,7 +735,7 @@ export const ContractsProvider: React.FC<{
       financials.totalAmount !== undefined
         ? Math.max(0, Number(financials.totalAmount) || 0)
         : financials.pricePerDay !== undefined
-        ? pricePerDay * totalDays
+        ? (pricePerDay + (existing.insurance?.dailySupplementMad || 0)) * totalDays
         : (existing.totalAmount !== undefined ? Number(existing.totalAmount) : (pricePerDay * totalDays));
 
     const newRemaining = Math.max(0, newTotalAmount - totalPaid);

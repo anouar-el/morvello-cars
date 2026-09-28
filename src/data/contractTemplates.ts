@@ -35,7 +35,7 @@ export const CONTRACT_TEMPLATES: ContractTemplateInfo[] = [
       'Charte graphique haut de gamme Noire Onyx & Or Impérial avec dorure',
       'Mention exclusive « Client Privilégié VIP » et service conciergerie 24/7',
       'Ligne téléphonique prioritaire du Responsable Privé dédiée',
-      'Garantie « Zéro Franchise Sérénité » & remplacement prioritaire sous 60 min',
+      'Pack d’assurance et franchise chiffrée imprimés sur le contrat',
       'Inspection esthétique renforcée (jantes alliage, sellerie cuir noble, vitres)',
       'Verso A4 avec Charte de Conciergerie VIP & engagements d’excellence',
     ],

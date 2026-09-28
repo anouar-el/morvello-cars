@@ -170,6 +170,23 @@ export interface Vehicle {
   nextOilChangeKm?: number;
   // Dépenses & Carnet d'entretien
   maintenanceExpenses?: VehicleExpense[];
+  // Gamme tarifaire des packs d'assurance (déduite de la marque/modèle si absente)
+  insuranceCategory?: VehicleCategory | null;
+}
+
+export type VehicleCategory = 'citadine' | 'suv' | 'premium';
+export type InsurancePackId = 'base' | 'ameliore' | 'confort';
+
+/** Pack d'assurance figé sur le contrat (montants en MAD au moment de la signature). */
+export interface ContractInsurance {
+  packId: InsurancePackId;
+  packLabel: string;
+  coverage: string;
+  category: VehicleCategory;
+  categoryLabel: string;
+  franchiseMad: number;
+  depositMad: number;
+  dailySupplementMad: number; // interne : jamais imprimé sur le contrat
 }
 
 export type ExpenseCategory =
@@ -394,6 +411,7 @@ export interface Contract {
   payments?: PaymentRecord[];
   depositAmount?: number;
   depositRecord?: DepositRecord;
+  insurance?: ContractInsurance;
   inspection?: ContractInspection;
   createdAt: string;
   createdBy: string;

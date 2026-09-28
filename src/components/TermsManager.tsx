@@ -37,7 +37,7 @@ const CLAUSE_PRESETS: ClausePreset[] = [
     title: 'FRANCHISE BRIS DE GLACE & PNEUMATIQUES',
     category: 'Assurances',
     content:
-      "Les dégâts causés aux optiques, rétroviseurs, pare-brise ainsi que les perforations ou détériorations anormales des pneumatiques demeurent sous la responsabilité financière exclusive du Locataire, sauf souscription expresse de l'option spécifique 'Pack Sérénité' lors de l'établissement du contrat initial.",
+      "Les dégâts causés aux optiques, rétroviseurs, pare-brise ainsi que les perforations ou détériorations anormales des pneumatiques demeurent sous la responsabilité financière exclusive du Locataire, sauf souscription du 'Pack Amélioré' (bris de glace) ou du 'Pack Confort' (bris de glace, pneus et jantes) lors de l'établissement du contrat, et toujours dans la limite de la franchise indiquée au contrat.",
   },
   {
     title: 'GÉOLOCALISATION ET TRAÇABILITÉ FLOTTE',
