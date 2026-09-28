@@ -624,15 +624,6 @@ html.light [class*="hover:bg-slate-750"]:hover {
   color: #020617 !important;
 }
 
-/* Infobulles graphiques (Recharts) en mode clair */
-html.light .recharts-default-tooltip,
-html.light [class*="recharts-tooltip-wrapper"] > div {
-  background-color: #ffffff !important;
-  border-color: #cbd5e1 !important;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.12) !important;
-  color: #0f172a !important;
-}
-
 /* 10. FIDÉLITÉ DES CONTRATS ET RÉCÉPISSÉS IMPRIMABLES (A4 / Reçus) */
 html.light .contract-a4-page,
 html.light .a4-page,
