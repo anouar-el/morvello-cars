@@ -308,6 +308,9 @@ export const DashboardContractsTable: React.FC<DashboardContractsTableProps> = (
                       </div>
                       <div className="text-[10px] text-purple-300 font-mono">
                         Caution : {cnt.depositAmount !== undefined ? cnt.depositAmount.toLocaleString('fr-FR') : (cnt.depositRecord?.amount !== undefined ? cnt.depositRecord.amount.toLocaleString('fr-FR') : 5000)} DH
+                        {cnt.depositCollected === false && (cnt.depositAmount || 0) > 0 && (
+                          <span className="ml-1 text-rose-300 font-bold">(non prise)</span>
+                        )}
                       </div>
                     </td>
 

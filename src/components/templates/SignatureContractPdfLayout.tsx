@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { CompanyStamp } from '../CompanyStamp';
 import { CompanyLogo } from '../CompanyLogo';
+import { DepositStatusTag } from '../DepositStatusTag';
 import { formatPlateFrench } from '../../utils/plateUtils';
 import { formatFranchise, resolveContractInsurance } from '../../data/insurancePacks';
 
@@ -500,6 +501,7 @@ export const SignatureContractPdfLayout: React.FC<SignatureContractPdfLayoutProp
                     ? `Inclus dans le ${insurance.packLabel}`
                     : `${depositMethod}${contract.depositRecord?.methodDetails ? ` · ${contract.depositRecord.methodDetails}` : ''}`}
                 </span>
+                <DepositStatusTag contract={contract} className="text-[6.5px] mt-0.5" />
               </div>
               <div className="bg-slate-950 text-white rounded-lg p-1.5 text-center border border-slate-800 shadow-2xs flex flex-col justify-center">
                 <span className="text-amber-400 text-[7.5px] uppercase font-black block leading-tight">Couverture Assurance</span>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Contract, PaymentRecord, PaymentMethod } from '../types';
+import { getDepositCollectionStatus } from '../utils/depositUtils';
 import {
   CreditCard,
   Banknote,
@@ -41,6 +42,7 @@ interface ContractPaymentsModalProps {
       totalAmount?: number;
       totalDays?: number;
       depositAmount?: number;
+      depositCollected?: boolean;
     }
   ) => void;
   currentUserName?: string;
@@ -73,6 +75,7 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
   const [editPricePerDay, setEditPricePerDay] = useState<number>(initialPricePerDay);
   const [editTotalAmount, setEditTotalAmount] = useState<number>(initialTotalAmount);
   const [editDepositAmount, setEditDepositAmount] = useState<number>(initialDepositAmount);
+  const [editDepositCollected, setEditDepositCollected] = useState<boolean>(contract.depositCollected !== false);
   const [editTotalDays, setEditTotalDays] = useState<number>(initialTotalDays);
 
   // Quick inline daily price editing directly in the card
@@ -94,6 +97,7 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
     setEditTotalDays(d);
     setEditTotalAmount(t);
     setEditDepositAmount(dep);
+    setEditDepositCollected(contract.depositCollected !== false);
     setInlineDailyPrice(p);
   }, [contract]);
 
@@ -142,6 +146,7 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
       totalAmount: Number(editTotalAmount),
       totalDays: Number(editTotalDays),
       depositAmount: Number(editDepositAmount),
+      depositCollected: editDepositCollected,
     });
     setIsEditingFinancials(false);
   };
@@ -385,10 +390,20 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
                     placeholder="0"
                     min="0"
                   />
+                  {editDepositAmount > 0 && (
+                    <label className="mt-1.5 flex items-center gap-1.5 text-[11px] text-slate-300 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={editDepositCollected}
+                        onChange={(e) => setEditDepositCollected(e.target.checked)}
+                        className="rounded border-slate-700 text-emerald-500 focus:ring-0 w-3.5 h-3.5 cursor-pointer"
+                      />
+                      Caution prise
+                    </label>
+                  )}
                 </div>
               </div>
-              <div className="flex justify-end gap-2 pt-1 border-t border-slate-800">
-                <button
+              <div className="flex justify-end gap-2 pt-1 border-t border-slate-800">                <button
                   type="button"
                   onClick={() => setIsEditingFinancials(false)}
                   className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs cursor-pointer"
@@ -623,10 +638,22 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
                     ? 'Virement bancaire'
                     : 'Empreinte TPE'}
                 </span>
-                <span className="text-emerald-400 font-mono text-[9px] bg-emerald-500/10 px-1.5 py-0.2 rounded border border-emerald-500/30">
-                  {contract.depositRecord?.status === 'released' ? 'Restituée' : 'Détenue'}
-                </span>
-              </div>
+                {getDepositCollectionStatus(contract) === 'not_collected' ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onUpdateFinancials(contract.id, { depositAmount: Number(contract.depositAmount), depositCollected: true })
+                    }
+                    className="text-rose-300 font-mono text-[9px] bg-rose-500/10 hover:bg-rose-500/20 px-1.5 py-0.2 rounded border border-rose-500/30 cursor-pointer"
+                    title="Marquer la caution comme prise"
+                  >
+                    Non prise · Marquer prise
+                  </button>
+                ) : (
+                  <span className="text-emerald-400 font-mono text-[9px] bg-emerald-500/10 px-1.5 py-0.2 rounded border border-emerald-500/30">
+                    {contract.depositRecord?.status === 'released' ? 'Restituée' : 'Détenue'}
+                  </span>
+                )}              </div>
             </div>
           </div>
         </div>

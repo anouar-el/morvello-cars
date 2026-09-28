@@ -45,6 +45,7 @@ interface WizardStep4ReviewProps {
   totalAmount: number;
   depositAmount: number;
   insurance: ContractInsurance;
+  depositCollected: boolean;
   assignedManagerId: string;
   managerPhone: string;
   users: User[];
@@ -76,6 +77,7 @@ export const WizardStep4Review: React.FC<WizardStep4ReviewProps> = ({
   totalAmount,
   depositAmount,
   insurance,
+  depositCollected,
   assignedManagerId,
   managerPhone,
   users,
@@ -249,6 +251,11 @@ export const WizardStep4Review: React.FC<WizardStep4ReviewProps> = ({
             <p>
               Total : <strong className="text-amber-400 font-mono">{totalAmount.toLocaleString()} MAD</strong> • Caution :{' '}
               <strong className="font-mono text-white">{depositAmount.toLocaleString()} MAD</strong>
+              {depositAmount > 0 && (
+                <span className={`ml-1.5 text-[10px] font-bold ${depositCollected ? 'text-emerald-400' : 'text-rose-400'}`}>
+                  {depositCollected ? '✓ Prise' : 'Non prise'}
+                </span>
+              )}
             </p>
             <p>
               Assurance : <strong className="text-sky-300">{insurance.packLabel}</strong> • Franchise :{' '}

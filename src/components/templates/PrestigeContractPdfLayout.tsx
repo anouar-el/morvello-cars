@@ -3,6 +3,7 @@ import { Contract, CompanySettings, TermsVersion } from '../../types';
 import { Crown, Phone, Mail, MapPin, CheckCircle2, Star, Shield, ShieldCheck, Sparkles, User, Car } from 'lucide-react';
 import { CompanyStamp } from '../CompanyStamp';
 import { CompanyLogo } from '../CompanyLogo';
+import { DepositStatusTag } from '../DepositStatusTag';
 import { formatPlateFrench } from '../../utils/plateUtils';
 import { formatFranchise, resolveContractInsurance } from '../../data/insurancePacks';
 
@@ -410,6 +411,7 @@ export const PrestigeContractPdfLayout: React.FC<PrestigeContractPdfLayoutProps>
                     ? `${Number(contract.depositRecord.amount).toLocaleString()} MAD (Empreinte)`
                     : 'Pré-autorisation'}
                 </span>
+                <div><DepositStatusTag contract={contract} className="text-[7px] mt-0.5" /></div>
               </div>
             </div>
           </div>

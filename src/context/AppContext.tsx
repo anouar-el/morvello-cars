@@ -150,6 +150,7 @@ export interface AppContextType {
       totalAmount?: number;
       totalDays?: number;
       depositAmount?: number;
+      depositCollected?: boolean;
     },
     actorName?: string
   ) => Contract | undefined;
@@ -569,7 +570,8 @@ const AppContextInner: React.FC<{ children: React.ReactNode }> = ({ children }) 
         assignedManagerId: contract.assignedManagerId || existing.assignedManagerId,
         assignedManagerName: contract.assignedManagerName || existing.assignedManagerName,
       });
-    } else if (amount > 0) {
+    } else if (amount > 0 && contract.depositCollected !== false) {
+      // Caution non prise : aucune fiche « encaissée » tant qu'elle n'est pas marquée comme prise
       const newDeposit: DepositRecord = {
         id: generateStableId('dep'),
         contractId: contract.id,

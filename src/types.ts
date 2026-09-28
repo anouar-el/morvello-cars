@@ -411,6 +411,7 @@ export interface Contract {
   paymentStatus?: 'paid' | 'partial' | 'unpaid';
   payments?: PaymentRecord[];
   depositAmount?: number;
+  depositCollected?: boolean; // false = caution convenue mais pas encore prise (absent = contrats antérieurs, considérés pris)
   depositRecord?: DepositRecord;
   insurance?: ContractInsurance;
   inspection?: ContractInspection;

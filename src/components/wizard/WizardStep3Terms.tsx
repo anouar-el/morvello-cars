@@ -22,6 +22,8 @@ interface WizardStep3TermsProps {
   setDepositAmount: (v: number) => void;
   insurance: ContractInsurance;
   onInsurancePackChange: (packId: InsurancePackId) => void;
+  depositCollected: boolean;
+  setDepositCollected: (v: boolean) => void;
   hasProlongation: boolean;
   setHasProlongation: (v: boolean) => void;
   prolongationDate: string;
@@ -58,6 +60,8 @@ export const WizardStep3Terms: React.FC<WizardStep3TermsProps> = ({
   setDepositAmount,
   insurance,
   onInsurancePackChange,
+  depositCollected,
+  setDepositCollected,
   hasProlongation,
   setHasProlongation,
   prolongationDate,
@@ -220,6 +224,36 @@ export const WizardStep3Terms: React.FC<WizardStep3TermsProps> = ({
                 min="0"
                 className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono focus:border-amber-500 focus:outline-none"
               />
+              {depositAmount > 0 && (
+                <div className="grid grid-cols-2 gap-1 mt-1.5" role="radiogroup" aria-label="Caution prise ou non prise">
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={depositCollected}
+                    onClick={() => setDepositCollected(true)}
+                    className={`px-2 py-1.5 rounded-lg border text-[11px] font-semibold cursor-pointer transition-colors ${
+                      depositCollected
+                        ? 'bg-emerald-500/15 border-emerald-400 text-emerald-300'
+                        : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-600'
+                    }`}
+                  >
+                    ✓ Prise
+                  </button>
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={!depositCollected}
+                    onClick={() => setDepositCollected(false)}
+                    className={`px-2 py-1.5 rounded-lg border text-[11px] font-semibold cursor-pointer transition-colors ${
+                      !depositCollected
+                        ? 'bg-rose-500/15 border-rose-400 text-rose-300'
+                        : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-600'
+                    }`}
+                  >
+                    Non prise
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -25,6 +25,7 @@ import {
 } from '../lib/recordSync';
 import { formatPlateFrench } from '../utils/plateUtils';
 import { generateStableId } from '../utils/idUtils';
+import { shouldRecordDeposit } from '../utils/depositUtils';
 import { isVehicleAvailableForPeriod } from '../utils/vehicleStatusUtils';
 import {
   getNextAvailableContractNumber,
@@ -106,6 +107,7 @@ export interface ContractsContextType {
       totalAmount?: number;
       totalDays?: number;
       depositAmount?: number;
+      depositCollected?: boolean;
     },
     actorName?: string
   ) => Contract | undefined;
@@ -351,7 +353,7 @@ export const ContractsProvider: React.FC<{
     const resolvedManagerName = targetVeh.assignedManagerName || newContract.assignedManagerName;
 
     let newDeposit: DepositRecord | undefined = undefined;
-    if (newContract.depositAmount && newContract.depositAmount > 0) {
+    if (shouldRecordDeposit(newContract)) {
       newDeposit = {
         id: generateStableId('dep'),
         contractId: newContract.id,
@@ -715,6 +717,7 @@ export const ContractsProvider: React.FC<{
       totalAmount?: number;
       totalDays?: number;
       depositAmount?: number;
+      depositCollected?: boolean;
     },
     actorName: string = 'Direction'
   ): Contract | undefined => {

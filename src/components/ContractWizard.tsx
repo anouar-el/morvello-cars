@@ -131,6 +131,7 @@ export const ContractWizard: React.FC = () => {
   const hasUserCustomizedPriceRef = useRef<boolean>(false);
   const [depositAmount, setDepositAmount] = useState<number>(5000);
   const [insurancePack, setInsurancePack] = useState<InsurancePackId>('base');
+  const [depositCollected, setDepositCollected] = useState<boolean>(true);
   const [contractNotes] = useState<string>('');
 
   // Prolongation
@@ -189,6 +190,7 @@ export const ContractWizard: React.FC = () => {
           : 5000
       );
       setInsurancePack(editingContractData.insurance?.packId || 'base');
+      setDepositCollected(editingContractData.depositCollected !== false);
 
       // Manager & Phone
       if (editingContractData.assignedManagerId) {
@@ -606,6 +608,7 @@ export const ContractWizard: React.FC = () => {
           totalAmount,
           depositAmount: Number(depositAmount),
           insurance: contractInsurance,
+          depositCollected,
           notes: contractNotes,
         });
 
@@ -637,6 +640,7 @@ export const ContractWizard: React.FC = () => {
             totalAmount,
             depositAmount,
             insurance: contractInsurance,
+            depositCollected,
             notes: contractNotes,
             templateId: selectedTemplateId,
           }
@@ -675,6 +679,7 @@ export const ContractWizard: React.FC = () => {
         totalAmount,
         depositAmount,
         insurance: contractInsurance,
+        depositCollected,
         notes: contractNotes,
       });
 
@@ -851,6 +856,8 @@ export const ContractWizard: React.FC = () => {
             setDepositAmount={setDepositAmount}
             insurance={contractInsurance}
             onInsurancePackChange={handleInsurancePackChange}
+            depositCollected={depositCollected}
+            setDepositCollected={setDepositCollected}
             hasProlongation={hasProlongation}
             setHasProlongation={setHasProlongation}
             prolongationDate={prolongationDate}
@@ -891,6 +898,7 @@ export const ContractWizard: React.FC = () => {
             totalAmount={totalAmount}
             depositAmount={depositAmount}
             insurance={contractInsurance}
+            depositCollected={depositCollected}
             assignedManagerId={assignedManagerId}
             managerPhone={managerPhone}
             users={users}

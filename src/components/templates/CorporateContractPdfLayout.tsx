@@ -3,6 +3,7 @@ import { Contract, CompanySettings, TermsVersion } from '../../types';
 import { Briefcase, Phone, Mail, MapPin, CheckCircle2, ShieldCheck, Building2, UserCheck, Car, FileSpreadsheet } from 'lucide-react';
 import { CompanyStamp } from '../CompanyStamp';
 import { CompanyLogo } from '../CompanyLogo';
+import { DepositStatusTag } from '../DepositStatusTag';
 import { formatPlateFrench } from '../../utils/plateUtils';
 import { formatFranchise, resolveContractInsurance } from '../../data/insurancePacks';
 
@@ -351,6 +352,7 @@ export const CorporateContractPdfLayout: React.FC<CorporateContractPdfLayoutProp
                     ? `${Number(contract.depositRecord.amount).toLocaleString()} MAD (Caution)`
                     : 'Convention cadre'}
                 </span>
+                <div><DepositStatusTag contract={contract} className="text-[7px] mt-0.5" /></div>
               </div>
             </div>
           </div>

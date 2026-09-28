@@ -3,6 +3,7 @@ import { Contract, CompanySettings, TermsVersion, ContractTemplateId } from '../
 import { CheckCircle2, Calendar, Clock, Gauge, Car, Shield, Phone, MapPin, User, Mail, Coins } from 'lucide-react';
 import { CompanyStamp } from './CompanyStamp';
 import { CompanyLogo } from './CompanyLogo';
+import { DepositStatusTag } from './DepositStatusTag';
 import { formatPlateFrench } from '../utils/plateUtils';
 import { useApp } from '../context/AppContext';
 import { PrestigeContractPdfLayout } from './templates/PrestigeContractPdfLayout';
@@ -678,6 +679,7 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
                     ? 'Espèces consignées'
                     : 'Empreinte CB bancaire'}
                 </span>
+                <DepositStatusTag contract={contract} className="text-[6.5px] mt-0.5" />
               </div>
               <div className="bg-slate-950 text-white rounded-lg p-1.5 text-center border border-slate-800 shadow-2xs flex flex-col justify-center">
                 <span className="text-amber-400 text-[7.5px] uppercase font-black block leading-tight">Couverture Assurance :</span>
