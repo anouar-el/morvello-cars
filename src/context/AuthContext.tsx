@@ -186,48 +186,45 @@ export const AuthProvider: React.FC<{
       };
     };
 
-    // Fast session recovery on launch
+    // Every session event (initial load, sign-in, token refresh on tab refocus) must
+    // re-read the authoritative profile: building the user without it would fall back
+    // to the unprivileged 'agent' role and silently demote admins.
+    const applySession = async (sbUser: any) => {
+      let profileData: any;
+      try {
+        const { data, error } = await withTimeout(
+          supabase.from('profiles').select('role, name').eq('id', sbUser.id).maybeSingle(),
+          10000,
+          'Délai de chargement du profil Supabase'
+        );
+        if (error) throw error;
+        profileData = data; // null = no profile row -> fail-closed agent
+      } catch (err) {
+        // Transient failure: leave the current session untouched rather than downgrading it
+        console.warn('[Supabase Auth] Profile refresh failed, keeping current session role:', err);
+        return;
+      }
+
+      const userObj = buildUserFromSession(sbUser, profileData);
+      if (!userObj) return;
+      setCurrentUser((prev) => {
+        if (
+          prev &&
+          prev.id === userObj.id &&
+          prev.role === userObj.role &&
+          prev.name === userObj.name
+        ) {
+          return prev;
+        }
+        return userObj;
+      });
+    };
+
+    // Session recovery on launch
     withTimeout(supabase.auth.getSession(), 3500, 'Délai getSession Supabase')
-      .then(({ data: { session } }: any) => {
+      .then(async ({ data: { session } }: any) => {
         if (session?.user) {
-          const fastUser = buildUserFromSession(session.user);
-          if (fastUser) {
-            setCurrentUser((prev) => {
-              if (
-                prev &&
-                prev.id === fastUser.id &&
-                prev.role === fastUser.role &&
-                prev.name === fastUser.name
-              ) {
-                return prev;
-              }
-              return fastUser;
-            });
-            // Asynchronously check for any custom profile overrides without blocking UI
-            Promise.resolve(
-              supabase
-                .from('profiles')
-                .select('role, name')
-                .eq('id', session.user.id)
-                .maybeSingle()
-            )
-              .then(({ data: profileData }) => {
-                if (profileData?.role || profileData?.name) {
-                  setCurrentUser((curr) => {
-                    if (!curr) return curr;
-                    const newRole = (profileData.role as UserRole) || curr.role;
-                    const newName = profileData.name || curr.name;
-                    if (curr.role === newRole && curr.name === newName) return curr;
-                    return {
-                      ...curr,
-                      role: newRole,
-                      name: newName,
-                    };
-                  });
-                }
-              })
-              .catch(() => {});
-          }
+          await applySession(session.user);
         }
       })
       .catch((err) => {
@@ -239,20 +236,11 @@ export const AuthProvider: React.FC<{
 
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user) {
-        const userObj = buildUserFromSession(session.user);
-        if (userObj) {
-          setCurrentUser((prev) => {
-            if (
-              prev &&
-              prev.id === userObj.id &&
-              prev.role === userObj.role &&
-              prev.name === userObj.name
-            ) {
-              return prev;
-            }
-            return userObj;
-          });
-        }
+        // Defer out of the auth callback: Supabase recommends not awaiting queries inside it
+        const sbUser = session.user;
+        setTimeout(() => {
+          void applySession(sbUser);
+        }, 0);
       } else if (event === 'SIGNED_OUT') {
         setCurrentUser(null);
         localStorage.removeItem(STORAGE_KEYS.USER);
