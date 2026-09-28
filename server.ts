@@ -164,12 +164,17 @@ export interface AuthenticatedCaller {
   legacyId?: string;
   error?: undefined;
   statusCode?: undefined;
+  code?: undefined;
 }
+
+/** Machine-readable reason sent to the browser: a terminated session must not be retried. */
+export const SESSION_TERMINATED = 'SESSION_TERMINATED';
 
 export interface UnauthenticatedCaller {
   authenticated: false;
   error: string;
   statusCode: number;
+  code?: typeof SESSION_TERMINATED;
   provider?: undefined;
   uid?: undefined;
   email?: undefined;
@@ -232,6 +237,16 @@ export async function authenticateCaller(req: express.Request): Promise<AuthResu
     if (sbErr) {
       supabaseRejectReason = sbErr.message;
       console.warn('[Server Auth] Supabase token rejected:', sbErr.message);
+      // Valid signature but the session behind it no longer exists (signed out elsewhere, revoked,
+      // user deleted): refreshing cannot help, the browser must sign in again.
+      if (sbErr.name === 'AuthSessionMissingError' || (sbErr as { code?: string }).code === 'session_not_found') {
+        return {
+          authenticated: false,
+          error: 'Votre session a été fermée (déconnexion, expiration ou révocation). Veuillez vous reconnecter.',
+          statusCode: 401,
+          code: SESSION_TERMINATED,
+        };
+      }
     }
     if (!sbErr && sbData?.user) {
       const sbUser = sbData.user;
@@ -378,10 +393,10 @@ export async function authenticateCaller(req: express.Request): Promise<AuthResu
 // Helper to verify admin caller via authenticated token (Supabase Auth or Firebase Auth)
 export async function verifyAdminCaller(
   req: express.Request
-): Promise<{ isAdmin: boolean; callerUid?: string; callerAgency?: string; error?: string }> {
+): Promise<{ isAdmin: boolean; callerUid?: string; callerAgency?: string; error?: string; code?: string }> {
   const auth = await authenticateCaller(req);
   if (!auth.authenticated) {
-    return { isAdmin: false, error: auth.error };
+    return { isAdmin: false, error: auth.error, code: auth.code };
   }
   if (!auth.isAdmin) {
     return {
@@ -413,7 +428,7 @@ app.post('/api/admin/set-user-role', async (req, res) => {
   try {
     const authCheck = await verifyAdminCaller(req);
     if (!authCheck.isAdmin) {
-      return res.status(403).json({ success: false, error: authCheck.error });
+      return res.status(403).json({ success: false, error: authCheck.error, code: authCheck.code });
     }
 
     const { uid, role } = req.body;
@@ -557,7 +572,7 @@ app.post('/api/admin/provision-team-member', async (req, res) => {
   try {
     const authCheck = await verifyAdminCaller(req);
     if (!authCheck.isAdmin) {
-      return res.status(403).json({ success: false, error: authCheck.error });
+      return res.status(403).json({ success: false, error: authCheck.error, code: authCheck.code });
     }
 
     const callerAgency = authCheck.callerAgency;
@@ -863,6 +878,7 @@ app.post('/api/agent-chat', chatRateLimiter, async (req, res) => {
       return res.status(authCheck.statusCode).json({
         success: false,
         error: authCheck.error,
+        code: authCheck.code,
       });
     }
 

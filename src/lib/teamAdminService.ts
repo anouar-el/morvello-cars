@@ -2,7 +2,7 @@ import { httpsCallable } from 'firebase/functions';
 import { functions, auth } from './firebase';
 import { UserRole } from '../types';
 import { saveUserProfile } from './firestoreSync';
-import { getActiveAuthToken } from './authToken';
+import { getActiveAuthToken, endTerminatedSession, SESSION_TERMINATED } from './authToken';
 
 export interface SetUserRoleResult {
   success: boolean;
@@ -90,6 +90,11 @@ export async function callSetUserRole(uid: string, role: UserRole): Promise<SetU
     });
 
     const data = await res.json();
+    if (data?.code === SESSION_TERMINATED) {
+      // The session was closed elsewhere: end it on this device and send the user back to login
+      await endTerminatedSession();
+      return { success: false, error: data.error || 'Votre session a été fermée. Veuillez vous reconnecter.' };
+    }
     if (res.ok && data.success) {
       if (auth.currentUser && auth.currentUser.uid === uid) {
         await forceRefreshTokenClaims();
@@ -139,6 +144,11 @@ export async function callProvisionTeamMember(
     });
 
     const data = await res.json();
+    if (data?.code === SESSION_TERMINATED) {
+      // The session was closed elsewhere: end it on this device and send the user back to login
+      await endTerminatedSession();
+      return { success: false, error: data.error || 'Votre session a été fermée. Veuillez vous reconnecter.' };
+    }
     if (res.ok && data.success) {
       return data;
     }

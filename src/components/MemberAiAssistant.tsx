@@ -3,7 +3,7 @@ import { useApp } from '../context/AppContext';
 import { AgentChatMessage } from '../types';
 import { isAbortException } from '../initErrorHandling';
 import { getScopedDataForUser } from '../utils/managerScopeUtils';
-import { getActiveAuthToken } from '../lib/authToken';
+import { getActiveAuthToken, endTerminatedSession, SESSION_TERMINATED } from '../lib/authToken';
 import Markdown from 'react-markdown';
 import {
   Send,
@@ -238,23 +238,35 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
         return fetch('/api/agent-chat', { method: 'POST', headers, body });
       };
 
+      const readAuthError = async (r: Response): Promise<{ error?: string; code?: string }> => {
+        try {
+          return (await r.clone().json()) || {};
+        } catch {
+          return {};
+        }
+      };
+      const sessionClosedError = () =>
+        new Error('votre session a été fermée (déconnexion, expiration ou révocation). Veuillez vous reconnecter');
+
       let res = await postChat(false);
-      // Rejected token (expired session): refresh it once and retry transparently
       if (res.status === 401) {
+        const first = await readAuthError(res);
+        // The session behind the token no longer exists: retrying cannot help, end it on this device
+        if (first.code === SESSION_TERMINATED) {
+          await endTerminatedSession();
+          throw sessionClosedError();
+        }
+        // Otherwise (e.g. expired access token): refresh once and retry
         res = await postChat(true);
       }
       if (res.status === 401) {
-        // Keep the server's own reason: it tells a missing token from a rejected one
-        let serverReason = '';
-        try {
-          serverReason = (await res.clone().json())?.error || '';
-        } catch {
-          serverReason = '';
+        const second = await readAuthError(res);
+        if (second.code === SESSION_TERMINATED || !sentProvider) {
+          await endTerminatedSession();
+          throw sessionClosedError();
         }
         throw new Error(
-          sentProvider
-            ? `connexion refusée par le serveur (jeton ${sentProvider}) : ${serverReason || 'jeton invalide'}. Déconnectez-vous puis reconnectez-vous`
-            : 'aucune session de connexion active dans ce navigateur. Déconnectez-vous puis reconnectez-vous'
+          `connexion refusée par le serveur (jeton ${sentProvider}) : ${second.error || 'jeton invalide'}. Veuillez vous reconnecter`
         );
       }
 

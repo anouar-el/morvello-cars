@@ -148,6 +148,27 @@ describe('Server Authentication & Authorization Zero-Trust Architecture (Problem
       }
     });
 
+    it('reports a terminated Supabase session (session_not_found) with a dedicated, non-retryable code', async () => {
+      const sessionMissing = Object.assign(new Error('Auth session missing!'), { name: 'AuthSessionMissingError' });
+      const fromSpy = vi.fn();
+      const mockSbClient: any = {
+        auth: { getUser: vi.fn().mockResolvedValue({ data: { user: null }, error: sessionMissing }) },
+        from: fromSpy,
+      };
+      setSupabaseClient(mockSbClient);
+
+      const auth = await authenticateCaller({
+        headers: { authorization: 'Bearer signed-but-revoked-session-jwt' },
+      } as unknown as Request);
+
+      expect(auth.authenticated).toBe(false);
+      expect(auth.statusCode).toBe(401);
+      expect(auth.code).toBe('SESSION_TERMINATED');
+      expect(auth.error).toContain('session a été fermée');
+      // Fail closed: no profile lookup, no Firebase fallback for a dead Supabase session
+      expect(fromSpy).not.toHaveBeenCalled();
+    });
+
     it('Scenario 2: Fails closed when authenticated Supabase user has no profile in public.profiles', async () => {
       const mockSupabaseUser = {
         id: 'sb-uuid-orphan-user',

@@ -670,7 +670,9 @@ export const AuthProvider: React.FC<{
     }
     if (isSupabaseConfigured) {
       try {
-        await supabase.auth.signOut();
+        // 'local': log out THIS device only. The default ('global') would also terminate the
+        // user's sessions on every other device, whose tokens then fail with "Auth session missing".
+        await supabase.auth.signOut({ scope: 'local' });
       } catch (sbSignOutErr) {
         console.warn('Supabase sign-out notice:', sbSignOutErr);
       }
