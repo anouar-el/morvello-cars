@@ -170,8 +170,10 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
         aiSettings,
       });
 
+      let sentProvider: string | null = null;
       const postChat = async (forceRefresh: boolean) => {
-        const { token } = await getActiveAuthToken({ forceRefresh });
+        const { token, provider } = await getActiveAuthToken({ forceRefresh });
+        sentProvider = token ? provider : null;
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
         if (token) {
           headers['Authorization'] = `Bearer ${token}`;
@@ -185,7 +187,18 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
         res = await postChat(true);
       }
       if (res.status === 401) {
-        throw new Error('votre session a expiré. Déconnectez-vous puis reconnectez-vous');
+        // Keep the server's own reason: it tells a missing token from a rejected one
+        let serverReason = '';
+        try {
+          serverReason = (await res.clone().json())?.error || '';
+        } catch {
+          serverReason = '';
+        }
+        throw new Error(
+          sentProvider
+            ? `connexion refusée par le serveur (jeton ${sentProvider}) : ${serverReason || 'jeton invalide'}. Déconnectez-vous puis reconnectez-vous`
+            : 'aucune session de connexion active dans ce navigateur. Déconnectez-vous puis reconnectez-vous'
+        );
       }
 
       let data: any = null;

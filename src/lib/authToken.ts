@@ -6,17 +6,14 @@ export interface ActiveAuthToken {
   provider: 'supabase' | 'firebase' | null;
 }
 
-// Refresh a Supabase token that expires within this margin instead of sending it as-is
-const REFRESH_MARGIN_SECONDS = 60;
-
 /**
  * Returns the current active authorization token (Supabase JWT or Firebase ID token)
  * to include in Authorization headers for backend API requests.
  *
- * getSession() returns the cached session even when its access token has expired
- * (e.g. a tab left open while the browser throttled the auto-refresh), so an expired
- * or nearly expired token is refreshed first. `forceRefresh` does it unconditionally,
- * for a retry after the server rejected the token.
+ * getSession() already exchanges an expired access token for a new one. An extra manual
+ * refresh must not run alongside supabase-js's own auto-refresh: reusing a rotated refresh
+ * token makes Supabase revoke the whole session. So a refresh is only forced on demand,
+ * for the single retry after the server rejected the token.
  */
 export async function getActiveAuthToken(options: { forceRefresh?: boolean } = {}): Promise<ActiveAuthToken> {
   // 1. Check Supabase Auth first (authoritative login system)
@@ -25,9 +22,7 @@ export async function getActiveAuthToken(options: { forceRefresh?: boolean } = {
       const { data } = await supabase.auth.getSession();
       let session = data?.session;
       if (session) {
-        const nowSeconds = Math.floor(Date.now() / 1000);
-        const expiresSoon = !session.expires_at || session.expires_at - nowSeconds < REFRESH_MARGIN_SECONDS;
-        if (options.forceRefresh || expiresSoon) {
+        if (options.forceRefresh) {
           const { data: refreshed } = await supabase.auth.refreshSession();
           if (refreshed?.session) session = refreshed.session;
         }
