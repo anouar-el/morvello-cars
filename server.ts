@@ -23,9 +23,28 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 let supabaseServerClient: SupabaseClient | null = null;
 let supabaseAdminServiceClient: SupabaseClient | null = null;
+// True when a client was injected (tests): it then also stands in for the per-user client
+let supabaseClientInjected = false;
 
 export function setSupabaseClient(client: SupabaseClient | null) {
   supabaseServerClient = client;
+  supabaseClientInjected = Boolean(client);
+}
+
+/**
+ * Client acting as the authenticated user: queries run with the caller's JWT, so RLS
+ * applies exactly as in the browser. The shared anon client runs as the `anon` role,
+ * which the `profiles` policies deny, so reading the caller's own profile needs this.
+ */
+export function getUserScopedSupabaseClient(accessToken: string): SupabaseClient {
+  if (supabaseClientInjected && supabaseServerClient) return supabaseServerClient;
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    throw new Error('Supabase server configuration is missing.');
+  }
+  return createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { headers: { Authorization: `Bearer ${accessToken}` } },
+  });
 }
 
 export function setSupabaseAdminServiceClient(client: SupabaseClient | null) {
@@ -205,14 +224,17 @@ export async function authenticateCaller(req: express.Request): Promise<AuthResu
     if (!sbErr && sbData?.user) {
       const sbUser = sbData.user;
       const emailLower = (sbUser.email || '').toLowerCase().trim();
-      // Query trusted public.profiles record
+      // Query trusted public.profiles record as the caller (RLS lets a user read their own profile)
       let dbProfile: any = null;
       try {
-        const { data: prof } = await sb
+        const { data: prof, error: profQueryErr } = await getUserScopedSupabaseClient(token)
           .from('profiles')
           .select('id, role, name, agency, agency_id, legacy_id, local_id, firebase_uid')
           .eq('id', sbUser.id)
           .maybeSingle();
+        if (profQueryErr) {
+          console.warn('[Server Auth] Supabase profile query error:', profQueryErr.message);
+        }
         dbProfile = prof;
       } catch (profErr) {
         console.warn('[Server Auth] Supabase profile query note:', profErr);
@@ -264,7 +286,9 @@ export async function authenticateCaller(req: express.Request): Promise<AuthResu
     // Firebase custom claims are NOT authoritative for role or agency.
     // Privileged authorization must resolve strictly to a valid Supabase profile linked via firebase_uid.
     // Never guess identity from email alone!
-    const sb = getSupabaseClient();
+    // A Firebase token is not a Supabase JWT, so the lookup cannot run as the user: it uses the
+    // service-role client when configured (falls back to the anon client otherwise).
+    const sb = getSupabaseAdminServiceClient();
     let dbProfile: any = null;
     try {
       const { data: prof } = await sb
