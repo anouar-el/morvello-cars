@@ -38,11 +38,6 @@ export const CorporateContractPdfLayout: React.FC<CorporateContractPdfLayoutProp
   const col2Clauses = termsVersion.clauses.slice(halfClauses);
   const insurance = resolveContractInsurance(contract);
 
-  // Calculate HT and TVA 20% for professional accounting
-  const totalTTC = contract.totalAmount || 0;
-  const totalHT = Math.round((totalTTC / 1.2) * 100) / 100;
-  const tvaAmount = Math.round((totalTTC - totalHT) * 100) / 100;
-
   return (
     <div
       className={`pdf-document-root flex ${
@@ -332,45 +327,18 @@ export const CorporateContractPdfLayout: React.FC<CorporateContractPdfLayoutProp
           </div>
 
           {/* ========================================================================= */}
-          {/* SECTION 3: VENTILATION COMPTABLE B2B & DÉDUCTIBILITÉ TVA 20%              */}
+          {/* SECTION 3: FACTURATION, COUVERTURE & CAUTION (les montants facturés restent internes) */}
           {/* ========================================================================= */}
           <div className="border-2 border-blue-400 rounded-xl bg-gradient-to-r from-blue-50/60 via-white to-blue-50/60 p-2 mb-2 shadow-xs">
             <div className="grid grid-cols-12 items-center gap-3 text-center">
-              <div className="col-span-3 border-r border-blue-200 pr-2">
-                <span className="text-[8px] uppercase font-bold text-slate-500 block">Montant Net Hors Taxes (HT)</span>
-                <span className="font-mono text-xs font-black text-slate-950">
-                  {totalHT.toLocaleString()} MAD HT
-                </span>
+              <div className="col-span-5 border-r border-blue-200 pr-2">
+                <span className="text-[8px] uppercase font-bold text-slate-500 block">Facturation Entreprise</span>
+                <span className="text-[9.5px] font-bold text-slate-950 block">Facture HT / TVA 20% adressée séparément à la société</span>
               </div>
-              <div className="col-span-3 border-r border-blue-200 pr-2">
-                <span className="text-[8px] uppercase font-bold text-slate-500 block">TVA Déductible (20%)</span>
-                <span className="font-mono text-xs font-black text-blue-900">
-                  {tvaAmount.toLocaleString()} MAD TVA
-                </span>
-              </div>
-              <div className="col-span-3 border-r border-blue-200 pr-2">
-                <span className="text-[8px] uppercase font-bold text-slate-500 block">Total Toutes Taxes Comprises</span>
-                <span className="font-mono text-sm font-black text-blue-950">
-                  {totalTTC.toLocaleString()} MAD TTC
-                </span>
-                <div className="mt-0.5 flex items-center justify-center gap-1 text-[6.5px]">
-                  {(() => {
-                    const pdfPaid = (contract.paidAmount !== undefined ? contract.paidAmount : (contract.payments?.reduce((s, p) => s + (p.amount || 0), 0) ?? 0));
-                    const pdfTotal = (contract.totalAmount ?? ((contract.pricePerDay || 0) * contract.totalDays));
-                    const pdfRemaining = contract.remainingAmount !== undefined ? contract.remainingAmount : Math.max(0, pdfTotal - pdfPaid);
-                    return (
-                      <>
-                        <span className={`font-bold ${pdfPaid > 0 ? 'text-emerald-700' : 'text-slate-500'}`}>
-                          Encaissé: {pdfPaid.toLocaleString('fr-FR')} MAD
-                        </span>
-                        <span className="text-slate-300">•</span>
-                        <span className={`font-bold ${pdfRemaining > 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
-                          Reste: {pdfRemaining.toLocaleString('fr-FR')} MAD {pdfRemaining === 0 ? '(Soldé)' : ''}
-                        </span>
-                      </>
-                    );
-                  })()}
-                </div>
+              <div className="col-span-4 border-r border-blue-200 pr-2">
+                <span className="text-[8px] uppercase font-bold text-slate-500 block">Couverture Assurance</span>
+                <span className="font-mono text-xs font-black text-blue-950 block">{insurance.packLabel}</span>
+                <span className="text-[7px] font-bold text-blue-900">Franchise : {insurance.franchiseMad.toLocaleString('fr-FR')} MAD</span>
               </div>
               <div className="col-span-3 pl-2 text-right">
                 <span className="text-[8px] uppercase font-bold text-slate-500 block">Dépôt de Garantie Flotte</span>
@@ -382,9 +350,6 @@ export const CorporateContractPdfLayout: React.FC<CorporateContractPdfLayoutProp
                     : contract.depositRecord?.amount !== undefined
                     ? `${Number(contract.depositRecord.amount).toLocaleString()} MAD (Caution)`
                     : 'Convention cadre'}
-                </span>
-                <span className="block text-[7px] text-blue-900 font-semibold mt-0.5">
-                  {insurance.packLabel} · Franchise {insurance.franchiseMad.toLocaleString('fr-FR')} MAD
                 </span>
               </div>
             </div>

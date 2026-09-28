@@ -1,6 +1,6 @@
 import React from 'react';
 import { Contract, CompanySettings, TermsVersion, ContractTemplateId } from '../types';
-import { CheckCircle2, Calendar, Clock, Gauge, Car, Shield, Phone, MapPin, User, Mail, CreditCard, Coins } from 'lucide-react';
+import { CheckCircle2, Calendar, Clock, Gauge, Car, Shield, Phone, MapPin, User, Mail, Coins } from 'lucide-react';
 import { CompanyStamp } from './CompanyStamp';
 import { CompanyLogo } from './CompanyLogo';
 import { formatPlateFrench } from '../utils/plateUtils';
@@ -217,7 +217,7 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
           {/* ========================================================================= */}
           {/* HEADER MODERNE HAUT DE GAMME : LOGO, INFORMATIONS D'AGENCE & CARTOUCHE    */}
           {/* ========================================================================= */}
-          <div className="pb-1.5 mb-2">
+          <div className="pb-1 mb-1.5">
             <div className="bg-white border border-slate-200/90 rounded-xl p-2.5 shadow-2xs">
               <div className="grid grid-cols-12 items-center gap-3">
                 {/* 1. LOGO OFFICIEL & SIGNATURE PRESTIGE (Gauche - 4 colonnes) */}
@@ -322,9 +322,9 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
           {/* ========================================================================= */}
           {/* SECTION 1: LOCATAIRE / CONDUCTEUR(S) - THÈME SAPHIR & BLEU ROYAL           */}
           {/* ========================================================================= */}
-          <div className="border border-blue-200/90 rounded-xl bg-gradient-to-b from-blue-50/25 via-white to-slate-50/40 p-2.5 mb-2 shadow-xs">
+          <div className="border border-blue-200/90 rounded-xl bg-gradient-to-b from-blue-50/25 via-white to-slate-50/40 p-2 mb-1.5 shadow-xs">
             {/* Rubrique Header Coloré */}
-            <div className="flex items-center justify-between border-b border-blue-200/80 pb-1 mb-2 bg-gradient-to-r from-blue-950 via-blue-900 to-indigo-950 text-white px-2.5 py-1 rounded-lg shadow-2xs">
+            <div className="flex items-center justify-between border-b border-blue-200/80 pb-1 mb-1.5 bg-gradient-to-r from-blue-950 via-blue-900 to-indigo-950 text-white px-2.5 py-1 rounded-lg shadow-2xs">
               <h2 className="text-[10.5px] font-black uppercase tracking-wide flex items-center gap-2 text-white">
                 <span className="w-5 h-5 bg-blue-500/30 border border-blue-300/40 rounded flex items-center justify-center shrink-0">
                   <User className="w-3 h-3 text-blue-200" />
@@ -496,9 +496,9 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
           {/* ========================================================================= */}
           {/* SECTION 2: VÉHICULE & CONTRÔLE DE DÉPART - THÈME OR IMPÉRIAL & AMBRE      */}
           {/* ========================================================================= */}
-          <div className="border border-amber-300/80 rounded-xl bg-gradient-to-b from-amber-50/25 via-white to-amber-50/10 p-2.5 mb-2 shadow-xs">
+          <div className="border border-amber-300/80 rounded-xl bg-gradient-to-b from-amber-50/25 via-white to-amber-50/10 p-2 mb-1.5 shadow-xs">
             {/* Rubrique Header Coloré */}
-            <div className="flex items-center justify-between border-b border-amber-300/80 pb-1 mb-2 bg-gradient-to-r from-amber-900 via-amber-800 to-amber-950 text-white px-2.5 py-1 rounded-lg shadow-2xs">
+            <div className="flex items-center justify-between border-b border-amber-300/80 pb-1 mb-1.5 bg-gradient-to-r from-amber-900 via-amber-800 to-amber-950 text-white px-2.5 py-1 rounded-lg shadow-2xs">
               <h2 className="text-[10.5px] font-black uppercase tracking-wide flex items-center gap-2 text-white">
                 <span className="w-5 h-5 bg-amber-400/30 border border-amber-300/40 rounded flex items-center justify-center shrink-0">
                   <Car className="w-3 h-3 text-amber-200" />
@@ -576,21 +576,21 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
           {/* ========================================================================= */}
           {/* SECTION 3: DURÉE DE LA LOCATION - THÈME ÉMERAUDE & VERT IMPÉRIAL          */}
           {/* ========================================================================= */}
-          <div className="border border-emerald-200/90 rounded-xl bg-gradient-to-b from-emerald-50/20 via-white to-emerald-50/10 p-2.5 mb-2 shadow-xs">
+          <div className="border border-emerald-200/90 rounded-xl bg-gradient-to-b from-emerald-50/20 via-white to-emerald-50/10 p-2 mb-1.5 shadow-xs">
             {/* Rubrique Header Coloré */}
-            <div className="flex items-center justify-between border-b border-emerald-300/80 pb-1 mb-2 bg-gradient-to-r from-emerald-900 via-teal-900 to-emerald-950 text-white px-2.5 py-1 rounded-lg shadow-2xs">
+            <div className="flex items-center justify-between border-b border-emerald-300/80 pb-1 mb-1.5 bg-gradient-to-r from-emerald-900 via-teal-900 to-emerald-950 text-white px-2.5 py-1 rounded-lg shadow-2xs">
               <h2 className="text-[10.5px] font-black uppercase tracking-wide flex items-center gap-2 text-white">
                 <span className="w-5 h-5 bg-emerald-500/30 border border-emerald-300/40 rounded flex items-center justify-center shrink-0">
                   <Calendar className="w-3 h-3 text-emerald-200" />
                 </span>
-                <span>3. Durée de la Location &amp; Modalités de Prise en Charge</span>
+                <span>3. Durée de la Location, Caution &amp; Assurance</span>
               </h2>
               <span className="text-[9.5px] text-emerald-200 font-bold font-arabic">
                 مدة الكراء ومواعيد التسليم والاستلام
               </span>
             </div>
 
-            <div className="grid grid-cols-3 gap-2.5 text-[10px] mb-2">
+            <div className="grid grid-cols-3 gap-2.5 text-[10px] mb-1.5">
               {/* Prise en charge */}
               <div className="bg-white p-2 rounded-lg border border-slate-200 border-t-4 border-t-emerald-600 shadow-2xs">
                 <div className="flex justify-between items-center text-emerald-900 text-[8px] mb-0.5 font-bold">
@@ -661,53 +661,15 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
                 <span className="text-emerald-900 text-[8px] uppercase font-bold block">Kilométrage :</span>
                 <span className="text-xs font-black text-emerald-950 block mt-0.5">Illimité (Usage Maroc)</span>
               </div>
-              <div className="bg-amber-50/80 border border-amber-200/80 rounded-lg p-1.5 text-center shadow-2xs">
-                <span className="text-amber-900 text-[8px] uppercase font-bold block">Carburant Restitution :</span>
-                <span className="text-xs font-black text-amber-950 block mt-0.5">
-                  À l'identique ({contract.departureFuel || contract.inspection?.departureChecklist?.fuelLevel || '8/8'})
-                </span>
-              </div>
-              <div className="bg-slate-950 text-white rounded-lg p-1.5 text-center border border-slate-800 shadow-2xs flex flex-col justify-center">
-                <span className="text-amber-400 text-[7.5px] uppercase font-black block leading-tight">Assistance 24/7 :</span>
-                <span className="text-[9.5px] font-black text-white font-mono block leading-tight mt-0.5">
-                  {companySettings.assistancePhone || '0522582962'}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* ========================================================================= */}
-          {/* SECTION 4: CONDITIONS TARIFAIRES & DÉPÔT DE GARANTIE                      */}
-          {/* ========================================================================= */}
-          <div className="border border-slate-300 rounded-xl bg-gradient-to-b from-slate-50 via-white to-amber-50/20 p-2 mb-2 shadow-xs">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-1 mb-1.5 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-950 text-white px-2.5 py-1 rounded-lg shadow-2xs">
-              <div className="flex items-center gap-2">
-                <h2 className="text-[10px] font-black uppercase tracking-wide flex items-center gap-2 text-white">
-                  <span className="w-5 h-5 bg-amber-500/30 border border-amber-300/40 rounded flex items-center justify-center shrink-0">
-                    <CreditCard className="w-3 h-3 text-amber-300" />
-                  </span>
-                  <span>4. Conditions Tarifaires &amp; Dépôt de Garantie (Caution)</span>
-                </h2>
-              </div>
-              <span className="text-[9px] text-amber-200 font-bold font-arabic">
-                الشروط المالية ومبلغ الضمان
-              </span>
-            </div>
-
-            <div className="grid grid-cols-12 gap-2 text-[9.5px]">
-              {/* Tarif journalier et total facturé : données internes, volontairement absents du contrat remis au client */}
-
-              {/* Caution / Dépôt de garantie */}
-              <div className="col-span-6 bg-white p-1.5 rounded-lg border border-slate-200 border-l-4 border-l-purple-600 shadow-2xs flex flex-col justify-between">
-                <span className="text-purple-950 text-[7.5px] uppercase font-black tracking-wider">
-                  Caution / الضمانة
-                </span>
-                <p className="font-mono font-black text-slate-950 text-xs mt-0.5">
+              {/* Caution & assurance (les tarifs restent internes et ne sont pas imprimés) */}
+              <div className="bg-purple-50/80 border border-purple-200/80 rounded-lg p-1.5 text-center shadow-2xs">
+                <span className="text-purple-900 text-[8px] uppercase font-bold block">Caution / الضمانة :</span>
+                <span className="text-xs font-black font-mono text-purple-950 block mt-0.5">
                   {contract.depositAmount === 0
                     ? 'Aucun dépôt'
                     : `${(contract.depositAmount !== undefined ? Number(contract.depositAmount) : (contract.depositRecord?.amount !== undefined ? Number(contract.depositRecord.amount) : 5000)).toLocaleString('fr-FR')} MAD`}
-                </p>
-                <span className="text-[7px] text-purple-900 font-semibold mt-0.5">
+                </span>
+                <span className="text-[7px] text-purple-900 font-semibold block">
                   {contract.depositAmount === 0 && contract.insurance?.depositMad === 0
                     ? `Inclus dans le ${insurance.packLabel}`
                     : contract.depositRecord?.method === 'cheque'
@@ -717,32 +679,29 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
                     : 'Empreinte CB bancaire'}
                 </span>
               </div>
-
-              {/* Modalités & Couverture */}
-              <div className="col-span-6 bg-gradient-to-br from-slate-900 to-slate-950 text-white p-1.5 rounded-lg border border-slate-800 shadow-2xs flex flex-col justify-between text-right">
-                <span className="text-amber-400 text-[7.5px] uppercase font-black tracking-wider">
-                  Couverture Assurance
-                </span>
-                <p className="text-[9px] font-bold text-white mt-0.5">
-                  {insurance.packLabel} · Franchise {insurance.franchiseMad.toLocaleString('fr-FR')} MAD
-                </p>
-                <span className="text-[6.5px] text-slate-300 mt-0.5 leading-tight">{insurance.coverage}</span>
+              <div className="bg-slate-950 text-white rounded-lg p-1.5 text-center border border-slate-800 shadow-2xs flex flex-col justify-center">
+                <span className="text-amber-400 text-[7.5px] uppercase font-black block leading-tight">Couverture Assurance :</span>
+                <span className="text-[9.5px] font-black text-white block leading-tight mt-0.5">{insurance.packLabel}</span>
+                <span className="text-[7px] text-slate-300 block">Franchise : {insurance.franchiseMad.toLocaleString('fr-FR')} MAD</span>
               </div>
+            </div>
+            <div className="text-[7px] text-emerald-900 mt-1 text-center">
+              Carburant à restituer à l'identique ({contract.departureFuel || contract.inspection?.departureChecklist?.fuelLevel || '8/8'}) • {insurance.packLabel} : {insurance.coverage}
             </div>
           </div>
 
           {/* ========================================================================= */}
           {/* SECTION 5: SIGNATURES MANUSCRITES - THÈME ARDOISE NOIRE & OR IMPÉRIAL      */}
           {/* ========================================================================= */}
-          <div className="border-2 border-slate-900 rounded-xl bg-gradient-to-b from-slate-100/90 via-white to-slate-50 p-2.5 shadow-xs">
+          <div className="border-2 border-slate-900 rounded-xl bg-gradient-to-b from-slate-100/90 via-white to-slate-50 p-2 shadow-xs">
             {/* Rubrique Header Coloré */}
-            <div className="flex items-center justify-between border-b border-slate-700 pb-1 mb-2 bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 text-white px-2.5 py-1 rounded-lg shadow-2xs">
+            <div className="flex items-center justify-between border-b border-slate-700 pb-1 mb-1.5 bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 text-white px-2.5 py-1 rounded-lg shadow-2xs">
               <div className="flex items-center gap-2">
                 <span className="w-5 h-5 bg-amber-500/25 border border-amber-400/40 rounded flex items-center justify-center shrink-0">
                   <Shield className="w-3 h-3 text-amber-300" />
                 </span>
                 <span className="text-[9.5px] font-black uppercase tracking-wider text-amber-300">
-                  5. Signatures Manuscrites Obligatoires — « Lu et approuvé »
+                  4. Signatures Manuscrites Obligatoires — « Lu et approuvé »
                 </span>
               </div>
               <span className="text-[8.5px] text-amber-200/90 font-bold font-arabic">
@@ -752,12 +711,12 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
 
             <div className="grid grid-cols-2 gap-3">
               {/* 1. MORVELLO CARS & CACHET OFFICIEL */}
-              <div className="border-2 border-amber-500/60 rounded-xl p-2 flex flex-col justify-between min-h-[130px] bg-gradient-to-b from-amber-50/30 to-white shadow-2xs relative">
+              <div className="border-2 border-amber-500/60 rounded-xl p-2 flex flex-col justify-between min-h-[124px] bg-gradient-to-b from-amber-50/30 to-white shadow-2xs relative">
                 <div className="text-[9px] font-black uppercase text-amber-950 bg-amber-100/80 border border-amber-300/80 px-2 py-0.5 rounded-md text-center z-10 relative">
                   Pour Sté MORVELLO CARS • خاتم وتوقيع الوكالة
                 </div>
                 <div className="relative flex items-center justify-center py-1 z-0 flex-1">
-                  <CompanyStamp size="md" rotation={-1.5} />
+                  <CompanyStamp size="sm" rotation={-1.5} />
                   {contract.agencySignature && (
                     <img
                       src={contract.agencySignature}
@@ -776,7 +735,7 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
               </div>
 
               {/* 2. LOCATAIRE & CONDUCTEUR SECONDAIRE */}
-              <div className="border-2 border-blue-900/40 rounded-xl p-2 flex flex-col justify-between min-h-[130px] bg-gradient-to-b from-blue-50/30 to-white shadow-2xs">
+              <div className="border-2 border-blue-900/40 rounded-xl p-2 flex flex-col justify-between min-h-[124px] bg-gradient-to-b from-blue-50/30 to-white shadow-2xs">
                 <div className="text-[9px] font-black uppercase text-blue-950 bg-blue-100/80 border border-blue-300/80 px-2 py-0.5 rounded-md text-center">
                   {contract.hasSecondDriver && contract.secondDriverSnapshot
                     ? 'Signatures : Locataire & 2ème Conducteur'
@@ -839,7 +798,7 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
         </div>
 
         {/* LEGAL FOOTER PAGE 1 */}
-        <div className="border-t-2 border-slate-900 pt-2 mt-2 text-center text-[8px] text-slate-700 leading-tight">
+        <div className="border-t-2 border-slate-900 pt-1.5 mt-1.5 text-center text-[8px] text-slate-700 leading-tight">
           <div className="font-extrabold text-slate-950 uppercase tracking-wider">
             {companySettings.name} • SARL au Capital de 100 000 MAD
           </div>

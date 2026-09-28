@@ -384,38 +384,19 @@ export const PrestigeContractPdfLayout: React.FC<PrestigeContractPdfLayoutProps>
           </div>
 
           {/* ========================================================================= */}
-          {/* SECTION 4: RÉCAPITULATIF FINANCIER & CAUTION VIP                          */}
+          {/* SECTION 4: DURÉE, COUVERTURE & CAUTION VIP (les tarifs restent internes)   */}
           {/* ========================================================================= */}
           <div className="border-2 border-amber-400/80 rounded-xl bg-gradient-to-r from-amber-50/50 via-white to-amber-50/50 p-2 mb-2 shadow-xs">
             <div className="grid grid-cols-12 items-center gap-3">
               <div className="col-span-4 border-r border-amber-300 pr-2">
-                <span className="text-[8px] uppercase font-bold text-slate-500 block">Tarif Journalier Prestige</span>
-                <span className="font-mono text-xs font-bold text-slate-950">
-                  {contract.pricePerDay !== undefined ? `${contract.pricePerDay.toLocaleString()} MAD / jour` : 'Sur Mesure VIP'}
-                </span>
+                <span className="text-[8px] uppercase font-bold text-slate-500 block">Durée de la Location</span>
+                <span className="font-mono text-xs font-bold text-slate-950">{contract.totalDays} jour(s) · Kilométrage illimité</span>
               </div>
               <div className="col-span-4 border-r border-amber-300 pr-2 text-center">
-                <span className="text-[8px] uppercase font-bold text-slate-500 block">Montant Total Location</span>
-                <span className="font-mono text-sm font-black text-amber-950">
-                  {contract.totalAmount !== undefined ? `${contract.totalAmount.toLocaleString()} MAD` : 'Inclus Pack'}
-                </span>
-                <div className="mt-0.5 flex items-center justify-center gap-2 text-[7px]">
-                  {(() => {
-                    const pdfPaid = (contract.paidAmount !== undefined ? contract.paidAmount : (contract.payments?.reduce((s, p) => s + (p.amount || 0), 0) ?? 0));
-                    const pdfTotal = (contract.totalAmount ?? ((contract.pricePerDay || 0) * contract.totalDays));
-                    const pdfRemaining = contract.remainingAmount !== undefined ? contract.remainingAmount : Math.max(0, pdfTotal - pdfPaid);
-                    return (
-                      <>
-                        <span className={`font-bold ${pdfPaid > 0 ? 'text-emerald-700' : 'text-slate-500'}`}>
-                          Encaissé : {pdfPaid.toLocaleString('fr-FR')} MAD
-                        </span>
-                        <span className="text-slate-300">•</span>
-                        <span className={`font-bold ${pdfRemaining > 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
-                          Reste : {pdfRemaining.toLocaleString('fr-FR')} MAD {pdfRemaining === 0 ? '(Soldé)' : ''}
-                        </span>
-                      </>
-                    );
-                  })()}
+                <span className="text-[8px] uppercase font-bold text-slate-500 block">Couverture Assurance</span>
+                <span className="font-mono text-sm font-black text-amber-950">{insurance.packLabel}</span>
+                <div className="mt-0.5 text-[7px] font-bold text-slate-700">
+                  Franchise : {insurance.franchiseMad.toLocaleString('fr-FR')} MAD
                 </div>
               </div>
               <div className="col-span-4 pl-2 text-right">

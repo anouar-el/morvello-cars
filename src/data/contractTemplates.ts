@@ -56,7 +56,7 @@ export const CONTRACT_TEMPLATES: ContractTemplateInfo[] = [
       'Charte exécutive Bleu Marine Affaires & Ardoise structurée',
       'Bloc Entreprise B2B dédié : Raison Sociale, ICE, RC, IF, N° Bon de Commande',
       'Section conducteurs salariés mandatés et préposés de la société',
-      'Ventilation comptable détaillée avec TVA déductible (20%) et tarif mensuel',
+      'Facturation HT / TVA 20% adressée séparément (aucun montant imprimé sur le contrat)',
       'Forfait kilométrique pro mensuel (km inclus & barème km supplémentaire)',
       'Verso A4 avec Conditions Générales Professionnelles & Règles de Flotte B2B',
     ],
