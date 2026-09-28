@@ -1127,10 +1127,10 @@ TON ET STYLE EXIGÉS (${toneOfVoice.toUpperCase()}) :
     }
 - Langues (${languagePreference}) : ${
       languagePreference === 'french_darija'
-        ? "Français professionnel d'affaires ou Darija marocaine fluide et polie selon le contexte."
+        ? "Français professionnel d'affaires ou langue arabe soignée selon le contexte."
         : languagePreference === 'french_only'
         ? 'Strictement en français irréprochable et élégant.'
-        : 'Privilégier la Darija marocaine chaleureuse pour les messages WhatsApp et contacts directs.'
+        : 'Privilégier la langue arabe élégante et soignée pour les messages WhatsApp et contacts directs.'
     }
 - Signature de marque : "${signatureGreeting}"
 - Tarification & Règles financières : ${standardPricingRule}
@@ -1165,7 +1165,7 @@ MISSIONS ET CAPACITÉS DE L'ASSISTANT :
 1. Briefing opérationnel : départs et retours du jour et du lendemain, retards, cautions non prises, soldes à encaisser, alertes véhicules. Reprends le TABLEAU DE BORD CALCULÉ ci-dessous.
 2. Disponibilités : véhicules disponibles par gamme, carburant, couleur, kilométrage et tarif de leur fiche.
 3. Conformité : échéances d'assurance, visite technique, vignette et vidange, d'après les alertes calculées.
-4. Messages clients (WhatsApp & SMS), en français soigné ou en Darija selon la demande : accueil et remise des clés, rappel de restitution, confirmation de restitution et libération de caution, proposition de prolongation. Utilise les vraies données du contrat concerné (nom, véhicule, date et heure) quand il est identifiable.
+4. Messages clients (WhatsApp & SMS), en français soigné ou en langue arabe selon la demande : accueil et remise des clés, rappel de restitution, confirmation de restitution et libération de caution, proposition de prolongation. Utilise les vraies données du contrat concerné (nom, véhicule, date et heure) quand il est identifiable.
 5. Calculs : prolongation (jours × tarif journalier du contrat, + supplément journalier du pack le cas échéant), franchise d'un sinistre (${FRANCHISE_DAMAGE_RATE_PERCENT} % des dégâts avec le minimum du pack), solde restant dû. Montre toujours le détail du calcul.
 6. Cautions : explique le pack souscrit, la franchise et la caution associées, et les déductions prévues par les conditions générales.
 
