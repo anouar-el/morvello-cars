@@ -14,12 +14,22 @@ import { FRANCHISE_DAMAGE_RATE_PERCENT } from './src/data/insurancePacks';
 
 dotenv.config();
 
+export function normalizeSupabaseUrl(raw?: string): string {
+  if (!raw || typeof raw !== 'string') return '';
+  let url = raw.trim();
+  url = url.replace(/\/+$/, '');
+  url = url.replace(/\/rest\/v1\/?$/i, '');
+  url = url.replace(/\/auth\/v1\/?$/i, '');
+  url = url.replace(/\/+$/, '');
+  return url.startsWith('https://') ? url : '';
+}
+
 // Supabase Server-side Client Configuration
 // The browser gets VITE_* values baked in at build time, but the server reads them at runtime:
 // on a host where they are only build variables they are missing here, so SUPABASE_* is accepted too.
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const SUPABASE_URL = normalizeSupabaseUrl(process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL);
+const SUPABASE_ANON_KEY = (process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '').trim();
+const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
 
 let supabaseServerClient: SupabaseClient | null = null;
 let supabaseAdminServiceClient: SupabaseClient | null = null;
@@ -43,7 +53,7 @@ export function getUserScopedSupabaseClient(accessToken: string): SupabaseClient
   }
   return createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
-    global: { headers: { Authorization: `Bearer ${accessToken}` } },
+    global: { headers: { Authorization: `Bearer ${accessToken}`, apikey: SUPABASE_ANON_KEY } },
   });
 }
 
@@ -214,11 +224,13 @@ export async function authenticateCaller(req: express.Request): Promise<AuthResu
     };
   }
 
+  let supabaseRejectReason = '';
   // 1. First, attempt Supabase Auth token verification (authoritative primary login system)
   try {
     const sb = getSupabaseClient();
     const { data: sbData, error: sbErr } = await sb.auth.getUser(token);
     if (sbErr) {
+      supabaseRejectReason = sbErr.message;
       console.warn('[Server Auth] Supabase token rejected:', sbErr.message);
     }
     if (!sbErr && sbData?.user) {
@@ -227,7 +239,8 @@ export async function authenticateCaller(req: express.Request): Promise<AuthResu
       // Query trusted public.profiles record as the caller (RLS lets a user read their own profile)
       let dbProfile: any = null;
       try {
-        const { data: prof, error: profQueryErr } = await getUserScopedSupabaseClient(token)
+        const userScoped = getUserScopedSupabaseClient(token);
+        const { data: prof, error: profQueryErr } = await userScoped
           .from('profiles')
           .select('id, role, name, agency, agency_id, legacy_id, local_id, firebase_uid')
           .eq('id', sbUser.id)
@@ -236,6 +249,23 @@ export async function authenticateCaller(req: express.Request): Promise<AuthResu
           console.warn('[Server Auth] Supabase profile query error:', profQueryErr.message);
         }
         dbProfile = prof;
+
+        if (!dbProfile && emailLower) {
+          try {
+            const emailQuery = userScoped
+              .from('profiles')
+              .select('id, role, name, agency, agency_id, legacy_id, local_id, firebase_uid')
+              .eq('email', emailLower);
+            const { data: profByEmail } = await (emailQuery && typeof (emailQuery as any).maybeSingle === 'function'
+              ? (emailQuery as any).maybeSingle()
+              : emailQuery);
+            if (profByEmail) {
+              dbProfile = profByEmail;
+            }
+          } catch (emailQueryErr) {
+            console.warn('[Server Auth] Supabase profile query by email note:', emailQueryErr);
+          }
+        }
       } catch (profErr) {
         console.warn('[Server Auth] Supabase profile query note:', profErr);
       }
@@ -334,9 +364,12 @@ export async function authenticateCaller(req: express.Request): Promise<AuthResu
       legacyId,
     };
   } catch (fbEx: any) {
+    const errorDetails = supabaseRejectReason
+      ? `Supabase: ${supabaseRejectReason}`
+      : 'Supabase & Firebase';
     return {
       authenticated: false,
-      error: 'Jeton d’authentification invalide ou expiré (Supabase & Firebase).',
+      error: `Jeton d’authentification invalide ou expiré (${errorDetails}).`,
       statusCode: 401,
     };
   }

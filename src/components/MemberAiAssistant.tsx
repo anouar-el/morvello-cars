@@ -212,8 +212,14 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
           `trop de demandes en peu de temps. Réessayez dans ${data?.retryAfterSeconds || 60} secondes`
         );
       }
-      if (!res.ok && !data?.error) {
-        throw new Error(`le service IA ne répond pas (code ${res.status})`);
+      if (res.status === 403) {
+        throw new Error(
+          data?.error ||
+            'accès refusé (code 403) : votre compte ne dispose pas d’un profil collaborateur actif dans l’agence.'
+        );
+      }
+      if (!res.ok) {
+        throw new Error(data?.error || `le service IA ne répond pas (code ${res.status})`);
       }
 
       if (data?.success && data.reply) {
