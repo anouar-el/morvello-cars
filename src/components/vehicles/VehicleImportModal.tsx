@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { User, Vehicle, FuelType } from '../../types';
 import { formatPlateFrench } from '../../utils/plateUtils';
 import { useApp } from '../../context/AppContext';
-import * as XLSX from 'xlsx';
 import {
   FileSpreadsheet,
   Download,
@@ -117,8 +116,9 @@ export const VehicleImportModal: React.FC<VehicleImportModalProps> = ({
     );
   }
 
-  const downloadExcelTemplate = () => {
+  const downloadExcelTemplate = async () => {
     try {
+      const XLSX = await import('xlsx');
       const templateHeaders = [
         'Marque',
         'Modèle',
@@ -312,6 +312,7 @@ HYUNDAI;Tucson 1.6 CRDi DCT;19384 | D | 6;Diesel;available;58400;650;2024;Noir F
 
     if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
       try {
+        const XLSX = await import('xlsx');
         const buffer = await file.arrayBuffer();
         const wb = XLSX.read(buffer, { type: 'array' });
         const targetSheetName =

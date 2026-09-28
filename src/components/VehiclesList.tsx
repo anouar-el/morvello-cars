@@ -10,7 +10,6 @@ import {
   Download,
   FileSpreadsheet,
 } from 'lucide-react';
-import * as XLSX from 'xlsx';
 import { getVehicleHealthSummary } from '../utils/vehicleExpiryUtils';
 import { isVehicleOwnedByManager } from '../utils/managerScopeUtils';
 import { VehicleCard } from './vehicles/VehicleCard';
@@ -223,8 +222,9 @@ export const VehiclesList: React.FC = () => {
     triggerToast('Exportation CSV (séparateur point-virgule) téléchargée.');
   };
 
-  const exportVehiclesToExcel = () => {
+  const exportVehiclesToExcel = async () => {
     try {
+      const XLSX = await import('xlsx');
       const headers = [
         'Marque',
         'Modèle',

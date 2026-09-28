@@ -28,6 +28,17 @@ export default defineConfig(() => {
     },
     build: {
       target: 'es2022',
+      rollupOptions: {
+        output: {
+          // Split heavy third-party libraries into long-lived cacheable chunks
+          manualChunks(id: string) {
+            if (!id.includes('node_modules')) return;
+            if (/[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(id)) return 'vendor-react';
+            if (id.includes('@firebase') || /[\\/]node_modules[\\/]firebase[\\/]/.test(id)) return 'vendor-firebase';
+            if (id.includes('@supabase')) return 'vendor-supabase';
+          },
+        },
+      },
     },
   };
 });
