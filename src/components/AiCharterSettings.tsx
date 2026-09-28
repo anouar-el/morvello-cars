@@ -326,7 +326,7 @@ export const AiCharterSettings: React.FC = () => {
                   disabled={isAgent}
                   onChange={(e) => setFormData({ ...formData, standardPricingRule: e.target.value })}
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:border-amber-500 focus:outline-none"
-                  placeholder="Ex: 300 MAD/jour standard. Caution standard 5 000 MAD."
+                  placeholder="Ex: Tarif de la fiche véhicule. Packs Base / Amélioré / Confort, franchise 5 % des dégâts (minimum par pack)."
                 />
                 <p className="text-[11px] text-slate-500 mt-1">
                   Base sur laquelle l'IA s'appuie pour calculer les devis et prolongations.

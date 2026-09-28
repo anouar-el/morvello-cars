@@ -645,7 +645,7 @@ export const DEFAULT_AI_SETTINGS: AiAssistantSettings = {
     'Ne pas valider de restitution de caution sans contrôle physique complet du véhicule',
   ],
   standardPricingRule:
-    'Tarif de référence : 300 MAD/jour standard pour les citadines et compactes (Peugeot 208, Citroën C3/C-Elysée, Renault Kardian). Caution standard : 5 000 MAD par pré-autorisation carte bancaire ou chèque avec accord préalable.',
+    'Le tarif journalier est celui de la fiche de chaque véhicule. Assurance : Pack de Base (inclus), Pack Amélioré ou Pack Confort, avec franchise et caution selon la gamme du véhicule (citadine, SUV, premium). La franchise est de 5 % du montant des dégâts avec un minimum par pack.',
   sampleResponses: [
     {
       id: 'sample-1',
@@ -663,7 +663,7 @@ export const DEFAULT_AI_SETTINGS: AiAssistantSettings = {
       id: 'sample-3',
       scenario: 'Demande de prolongation de contrat',
       idealReply:
-        "Bonjour Cher Client,\nNous pouvons volontiers étudier la prolongation de votre contrat sous réserve de disponibilité du véhicule sur le planning. Le tarif appliqué reste notre tarif standard de 300 MAD/jour. Souhaitez-vous que nous validions dès maintenant le prolongement de X jours avec avenant contractuel ?",
+        "Bonjour Cher Client,\nNous pouvons volontiers étudier la prolongation de votre contrat sous réserve de disponibilité du véhicule sur le planning. Le tarif journalier de votre contrat reste inchangé pour les jours supplémentaires. Souhaitez-vous que nous validions dès maintenant le prolongement de X jours avec avenant contractuel ?",
     },
   ],
   customInstructions:

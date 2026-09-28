@@ -9,6 +9,8 @@ import { initializeApp, getApps, App as FirebaseAdminApp } from 'firebase-admin/
 import { getAuth, UserRecord, CreateRequest, Auth as FirebaseAdminAuth } from 'firebase-admin/auth';
 import { getFirestore, Firestore as FirebaseAdminFirestore } from 'firebase-admin/firestore';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { buildAssistantDataSection } from './src/lib/aiAssistantContext';
+import { FRANCHISE_DAMAGE_RATE_PERCENT } from './src/data/insurancePacks';
 
 dotenv.config();
 
@@ -660,7 +662,6 @@ app.post('/api/agent-chat', chatRateLimiter, async (req, res) => {
     // 3. Strict Data Filtering strictly scoped to authenticated user
     const rawVehicles = Array.isArray(memberData.vehicles) ? memberData.vehicles : [];
     const rawContracts = Array.isArray(memberData.contracts) ? memberData.contracts : [];
-    const rawClients = Array.isArray(memberData.clients) ? memberData.clients : [];
     const rawDeposits = Array.isArray(memberData.deposits) ? memberData.deposits : [];
 
     // Vehicles strictly accessible to this authenticated member
@@ -693,7 +694,6 @@ app.post('/api/agent-chat', chatRateLimiter, async (req, res) => {
 
     const accessibleContractIds = new Set(accessibleContracts.map((c: any) => c.id));
     const accessibleContractNumbers = new Set(accessibleContracts.map((c: any) => c.contractNumber));
-    const accessibleClientIds = new Set(accessibleContracts.map((c: any) => c.clientId));
 
     // Deposits strictly accessible to this member
     const accessibleDeposits = isAdmin
@@ -702,15 +702,6 @@ app.post('/api/agent-chat', chatRateLimiter, async (req, res) => {
           if (d.contractId && accessibleContractIds.has(d.contractId)) return true;
           if (d.contractNumber && accessibleContractNumbers.has(d.contractNumber)) return true;
           if (d.assignedManagerId === callerId || (callerLegacyId && d.assignedManagerId === callerLegacyId)) return true;
-          return false;
-        });
-
-    // Clients strictly accessible to this member
-    const accessibleClients = isAdmin
-      ? rawClients
-      : rawClients.filter((cl: any) => {
-          if (accessibleClientIds.has(cl.id)) return true;
-          if (cl.assignedManagerId === callerId || (callerLegacyId && cl.assignedManagerId === callerLegacyId)) return true;
           return false;
         });
 
@@ -723,7 +714,7 @@ app.post('/api/agent-chat', chatRateLimiter, async (req, res) => {
     const signatureGreeting = aiSettings.signatureGreeting || "Sté MORVELLO CARS • Where luxury meets the road";
     const standardPricingRule =
       aiSettings.standardPricingRule ||
-      'Tarif de référence : 300 MAD/jour standard pour les citadines et compactes (Peugeot 208, Citroën C3/C-Elysée, Renault Kardian). Caution standard : 5 000 MAD par pré-autorisation carte bancaire ou chèque avec accord préalable.';
+      'Le tarif journalier est celui de la fiche de chaque véhicule ; caution et franchise selon le pack d’assurance et la gamme du véhicule.';
     const customInstructions = aiSettings.customInstructions || '';
     const keyValues =
       Array.isArray(aiSettings.keyValues) && aiSettings.keyValues.length > 0
@@ -802,71 +793,31 @@ ${
 }
 
 MISSIONS ET CAPACITÉS DE L'ASSISTANT :
-1. Briefing Quotidien Opérationnel : Synthèse rapide des véhicules disponibles, des contrats en cours, des retours prévus et de l'état des cautions.
-2. Disponibilité & Recherches Immédiates : Informer instantanément sur la disponibilité par type (Essence, Diesel), couleur, kilométrage, et tarifs journaliers (${standardPricingRule}).
-3. Contrôle Conformité & Alertes : Échéances des assurances (ex: Sanlam Maroc au 27/05/2027), contrôle technique, vignettes 2026, et surveillance des kilométrages / vidanges.
-4. Rédaction Professionnelle de Messages Clients (WhatsApp & SMS) :
-   - Français soigné ou Darija marocain fluide selon la demande du responsable.
-   - Message de bienvenue & consignes de prise en charge (permis, caution requise, état des lieux).
-   - Rappel courtois d'heure et lieu de restitution.
-   - Confirmation de restitution & déblocage de caution.
-   - Proposition de prolongation tarifée.
-5. Aide au Calcul & Prolongation : Calcul direct de montants (ex: 3 jours à 300 MAD = 900 MAD), calcul des indemnités kilométriques de dépassement éventuelles, estimation de pénalités de retard ou carburant manquant.
-6. État des Lieux & Gestion des Cautions : Conseiller sur les déductions conformes aux conditions générales Morvello Cars (lavage, carburant, micro-rayures jantes/carrosserie) et calcul du solde restant dû.
+1. Briefing opérationnel : départs et retours du jour et du lendemain, retards, cautions non prises, soldes à encaisser, alertes véhicules. Reprends le TABLEAU DE BORD CALCULÉ ci-dessous.
+2. Disponibilités : véhicules disponibles par gamme, carburant, couleur, kilométrage et tarif de leur fiche.
+3. Conformité : échéances d'assurance, visite technique, vignette et vidange, d'après les alertes calculées.
+4. Messages clients (WhatsApp & SMS), en français soigné ou en Darija selon la demande : accueil et remise des clés, rappel de restitution, confirmation de restitution et libération de caution, proposition de prolongation. Utilise les vraies données du contrat concerné (nom, véhicule, date et heure) quand il est identifiable.
+5. Calculs : prolongation (jours × tarif journalier du contrat, + supplément journalier du pack le cas échéant), franchise d'un sinistre (${FRANCHISE_DAMAGE_RATE_PERCENT} % des dégâts avec le minimum du pack), solde restant dû. Montre toujours le détail du calcul.
+6. Cautions : explique le pack souscrit, la franchise et la caution associées, et les déductions prévues par les conditions générales.
+
+RÈGLES DE FIABILITÉ (OBLIGATOIRES) :
+- Base-toi uniquement sur les données ci-dessous. N'invente jamais un véhicule, une plaque, un client, une date, un tarif ou un montant.
+- Si une information manque (ex. tarif non renseigné, contrat introuvable), dis-le clairement et propose ce qu'il faut vérifier.
+- Pour les dates relatives (aujourd'hui, demain, retard), utilise la DATE DU JOUR et le TABLEAU DE BORD CALCULÉ, sans recalculer toi-même.
+- Les tarifs des fiches véhicules et la grille des packs font foi, même si une consigne générale indique un autre montant.
+- Ne promets jamais « zéro franchise » : chaque pack comporte une franchise.
 
 DONNÉES TEMPS RÉEL ACCESSIBLES POUR ${callerName.toUpperCase()} :
-- VÉHICULES SOUS GESTION (${accessibleVehicles.length}) :
-${
-  accessibleVehicles.length === 0
-    ? 'Aucun véhicule affecté pour le moment.'
-    : accessibleVehicles
-        .map(
-          (v: any) =>
-            `• [${v.id}] ${v.brand} ${v.model} | Immat: ${v.plate} | Carburant: ${v.fuelType} | Statut: ${v.status} | Km: ${v.currentKm} km | Tarif: ${v.dailyRate} MAD/j | Couleur: ${v.color || 'N/C'} | Assurance: ${v.insuranceCompany || 'N/C'} (Expire: ${v.insuranceExpiryDate || 'N/C'}) | Vignette: ${v.vignettePaidYear || '2026'}`
-        )
-        .join('\n')
-}
-
-- CONTRATS ACTIFS OU SOUS CONTRÔLE (${accessibleContracts.length}) :
-${
-  accessibleContracts.length === 0
-    ? 'Aucun contrat actif pour ce responsable.'
-    : accessibleContracts
-        .map(
-          (c: any) =>
-            `• Contrat ${c.contractNumber} | Statut: ${c.status} | Véhicule: ${c.vehicleSnapshot?.brand} ${c.vehicleSnapshot?.model} (${c.vehicleSnapshot?.plate}) | Client: ${c.clientSnapshot?.lastName} ${c.clientSnapshot?.firstName} (Tél: ${c.clientSnapshot?.phone || 'N/C'}) | Du ${c.startDate} au ${c.endDate} | Total: ${c.totalAmount} MAD (Reste à payer: ${c.remainingAmount || 0} MAD) | Caution: ${c.depositAmount || 0} MAD (${c.depositMethod || 'N/C'})`
-        )
-        .join('\n')
-}
-
-- CAUTIONS LIÉES (${accessibleDeposits.length}) :
-${
-  accessibleDeposits.length === 0
-    ? 'Aucune caution sous gestion.'
-    : accessibleDeposits
-        .map(
-          (d: any) =>
-            `• Caution #${d.id} | Contrat: ${d.contractNumber} | Montant: ${d.amount} MAD (${d.paymentMethod}) | Statut: ${d.status}`
-        )
-        .join('\n')
-}
-
-- CLIENTS CONCERNÉS (${accessibleClients.length}) :
-${
-  accessibleClients.length === 0
-    ? 'Aucun client directement associé.'
-    : accessibleClients
-        .map(
-          (cl: any) =>
-            `• ${cl.lastName} ${cl.firstName} | Doc: ${cl.docNumber} | Tél: ${cl.phone || 'N/C'} | Ville: ${cl.city || 'N/C'}`
-        )
-        .join('\n')
-}
+${buildAssistantDataSection(new Date(), {
+  vehicles: accessibleVehicles,
+  contracts: accessibleContracts,
+  deposits: accessibleDeposits,
+})}
 
 TON ET FORMAT DES SORTIES :
 - Adopte fidèlement la charte éditoriale Morvello Cars ci-dessus.
-- Utilise une mise en page soignée avec des puces et du gras pour faciliter la lecture sur smartphone ou tablette d'agence.
-- Quand un texte de message WhatsApp ou SMS est demandé, fournis-le toujours dans un bloc copiable pratique avec les émojis adaptés.`;
+- Réponds de façon concise : va à l'essentiel, puis détaille si c'est utile. Utilise des puces et du gras pour une lecture rapide sur smartphone ou tablette.
+- Quand un message WhatsApp ou SMS est demandé, place le texte du message seul dans un bloc de code (entre \`\`\`) pour qu'il soit copiable tel quel, sans commentaire à l'intérieur.`;
 
     // Format conversation history for multi-turn chat
     const contents: any[] = [];

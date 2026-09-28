@@ -73,43 +73,43 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
 
-  // Scoped metrics
+  // Scoped metrics (same scope as the data sent to the assistant)
   const isAdmin = currentUser.role === 'admin';
-  const memberVehicles = isAdmin
-    ? vehicles
-    : vehicles.filter(
-        (v) =>
-          v.assignedManagerId === currentUser.id ||
-          (v.assignedManagerName && v.assignedManagerName.toLowerCase().includes(currentUser.name.toLowerCase()))
-      );
+  const { scopedVehicles: memberVehicles } = getScopedDataForUser(currentUser, vehicles, contracts, deposits, clients, users);
   const availableCount = memberVehicles.filter((v) => v.status === 'available').length;
   const rentedCount = memberVehicles.filter((v) => v.status === 'rented').length;
 
-  // Minimalist quick prompts (single sleek horizontal list)
+  const [lastFailedPrompt, setLastFailedPrompt] = useState<string | null>(null);
+
+  // Quick prompts, answered from the server-computed dashboard (dates, alerts, deposits)
   const quickChips = [
     {
-      label: 'Briefing flotte',
-      prompt: 'Fais-moi un point rapide et synthétique sur l’état de ma flotte aujourd’hui : véhicules disponibles, loués et alertes urgentes.',
+      label: 'Briefing du jour',
+      prompt: 'Fais-moi le briefing du jour : départs et retours d’aujourd’hui et de demain, retards, cautions non prises, soldes à encaisser et alertes véhicules. Termine par les 3 actions prioritaires.',
+    },
+    {
+      label: 'Retours & retards',
+      prompt: 'Quels véhicules doivent revenir aujourd’hui et demain, et lesquels sont en retard ? Donne le client, le téléphone et l’heure prévue.',
+    },
+    {
+      label: 'Cautions & soldes',
+      prompt: 'Liste les cautions non prises et les soldes restant à encaisser sur mes contrats en cours, avec le montant et le client.',
+    },
+    {
+      label: 'Alertes flotte',
+      prompt: 'Quelles sont les échéances à traiter sur ma flotte : assurances, visites techniques, vidanges et vignettes ?',
     },
     {
       label: 'Véhicules dispo',
-      prompt: 'Liste-moi mes véhicules actuellement disponibles avec immatriculation et tarif journalier standard.',
+      prompt: 'Liste mes véhicules disponibles, groupés par gamme (citadine, SUV, premium), avec immatriculation et tarif journalier.',
     },
     {
       label: 'Accueil WhatsApp',
-      prompt: 'Rédige un court message d’accueil WhatsApp élégant et chaleureux pour la remise des clés au client.',
+      prompt: 'Rédige un court message WhatsApp d’accueil pour la remise des clés au client de mon prochain départ, avec les documents à présenter.',
     },
     {
       label: 'Rappel restitution',
-      prompt: 'Rédige un rappel SMS courtois au client avec consignes pour l’heure de restitution et le plein de carburant.',
-    },
-    {
-      label: 'Prolongation 3j',
-      prompt: 'Calcule le montant exact d’une prolongation de 3 jours (tarif 300 MAD/j) et prépare le message pour le client.',
-    },
-    {
-      label: 'Échéances Sanlam',
-      prompt: 'Vérifie les échéances d’assurance et de contrôle technique pour ma flotte.',
+      prompt: 'Rédige un rappel WhatsApp courtois pour le client qui doit restituer son véhicule aujourd’hui (heure, carburant à l’identique).',
     },
   ];
 
@@ -131,19 +131,29 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
     setMessages((prev) => [...prev, userMsg]);
     setInput('');
     setLoading(true);
+    setLastFailedPrompt(null);
 
     try {
-      const historyPayload = messages.slice(-6).map((m) => ({
-        role: m.role,
-        content: m.content,
-      }));
+      // Welcome and error bubbles are UI only: never send them back as if the model had written them
+      // (a question that failed is dropped too, so a retry is not seen twice)
+      const historyPayload = messages
+        .filter(
+          (m, i) =>
+            !m.id.startsWith('err-') &&
+            !m.id.startsWith('welcome') &&
+            !(m.role === 'user' && messages[i + 1]?.id.startsWith('err-'))
+        )
+        .slice(-8)
+        .map((m) => ({
+          role: m.role,
+          content: m.content,
+        }));
 
       // Cloisonnement strict des données transmises à l'IA selon le rôle
       const {
         scopedVehicles,
         scopedContracts,
         scopedDeposits,
-        scopedClients,
       } = getScopedDataForUser(currentUser, vehicles, contracts, deposits, clients, users);
 
       const { token } = await getActiveAuthToken();
@@ -166,16 +176,28 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
           memberData: {
             vehicles: scopedVehicles,
             contracts: scopedContracts,
-            clients: scopedClients,
             deposits: scopedDeposits,
           },
           aiSettings,
         }),
       });
 
-      const data = await res.json();
+      let data: any = null;
+      try {
+        data = await res.json();
+      } catch {
+        data = null;
+      }
+      if (res.status === 429) {
+        throw new Error(
+          `trop de demandes en peu de temps. Réessayez dans ${data?.retryAfterSeconds || 60} secondes`
+        );
+      }
+      if (!res.ok && !data?.error) {
+        throw new Error(`le service IA ne répond pas (code ${res.status})`);
+      }
 
-      if (data.success && data.reply) {
+      if (data?.success && data.reply) {
         const assistantMsg: AgentChatMessage = {
           id: `model-${Date.now()}`,
           role: 'model',
@@ -184,12 +206,13 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
         };
         setMessages((prev) => [...prev, assistantMsg]);
       } else {
-        throw new Error(data.error || 'Réponse indisponible');
+        throw new Error(data?.error || 'Réponse indisponible');
       }
     } catch (err: any) {
       if (isAbortException(err)) {
         return;
       }
+      setLastFailedPrompt(userPrompt.trim());
       const errorMsg: AgentChatMessage = {
         id: `err-${Date.now()}`,
         role: 'model',
@@ -208,8 +231,14 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
     setTimeout(() => setCopiedId(null), 1800);
   };
 
+  /** Client message drafts are returned in a ``` block: copy/share only that text, not the assistant's comments. */
+  const extractDraft = (content: string): string => {
+    const match = content.match(/```(?:[a-z]*)\n?([\s\S]*?)```/i);
+    return (match ? match[1] : content).trim();
+  };
+
   const shareViaWhatsApp = (text: string) => {
-    const cleanText = text
+    const cleanText = extractDraft(text)
       .replace(/\*\*(.*?)\*\*/g, '*$1*')
       .replace(/### (.*?)\n/g, '*$1*\n')
       .replace(/## (.*?)\n/g, '*$1*\n')
@@ -240,6 +269,7 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
   const isClientMessageDraft = (content: string) => {
     const l = content.toLowerCase();
     return (
+      /```[\s\S]+```/.test(content) ||
       l.includes('whatsapp') ||
       l.includes('sms') ||
       l.includes('salam') ||
@@ -426,7 +456,7 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
 
                     <button
                       type="button"
-                      onClick={() => copyToClipboard(msg.content, msg.id)}
+                      onClick={() => copyToClipboard(extractDraft(msg.content), msg.id)}
                       className="inline-flex items-center gap-1.5 text-slate-400 hover:text-white transition-colors cursor-pointer"
                     >
                       {copiedId === msg.id ? (
@@ -461,6 +491,20 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
             </div>
           );
         })}
+
+        {/* Retry after a failed request */}
+        {lastFailedPrompt && !loading && (
+          <div>
+            <button
+              type="button"
+              onClick={() => sendMessage(lastFailedPrompt)}
+              className="inline-flex items-center gap-1.5 text-[11px] text-amber-400 hover:text-amber-300 font-medium cursor-pointer"
+            >
+              <RotateCcw className="w-3 h-3" />
+              Réessayer
+            </button>
+          </div>
+        )}
 
         {/* Loading Indicator */}
         {loading && (
