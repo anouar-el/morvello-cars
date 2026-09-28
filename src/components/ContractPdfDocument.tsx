@@ -666,30 +666,6 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
                   </span>
                   <span>4. Conditions Tarifaires &amp; Dépôt de Garantie (Caution)</span>
                 </h2>
-                {(() => {
-                  const pdfPaid = (contract.paidAmount !== undefined ? contract.paidAmount : (contract.payments?.reduce((s, p) => s + (p.amount || 0), 0) ?? 0));
-                  const pdfTotal = (contract.totalAmount ?? ((contract.pricePerDay || 0) * contract.totalDays));
-                  const pdfRemaining = contract.remainingAmount !== undefined ? contract.remainingAmount : Math.max(0, pdfTotal - pdfPaid);
-                  if (pdfTotal === 0 || pdfRemaining === 0) {
-                    return (
-                      <span className="text-[7.5px] font-bold text-emerald-300 bg-emerald-500/20 border border-emerald-400/40 px-1.5 py-0.2 rounded">
-                        ✓ {pdfTotal === 0 ? 'Soldé (0 MAD)' : 'Soldé'}
-                      </span>
-                    );
-                  }
-                  if (pdfPaid > 0) {
-                    return (
-                      <span className="text-[7.5px] font-bold text-amber-300 bg-amber-500/20 border border-amber-400/40 px-1.5 py-0.2 rounded">
-                        ⚡ Acompte Versé
-                      </span>
-                    );
-                  }
-                  return (
-                    <span className="text-[7.5px] font-bold text-rose-300 bg-rose-500/20 border border-rose-400/40 px-1.5 py-0.2 rounded">
-                      En attente de règlement
-                    </span>
-                  );
-                })()}
               </div>
               <span className="text-[9px] text-amber-200 font-bold font-arabic">
                 الشروط المالية ومبلغ الضمان
@@ -697,51 +673,10 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
             </div>
 
             <div className="grid grid-cols-12 gap-2 text-[9.5px]">
-              {/* Tarif Journalier */}
-              <div className="col-span-3 bg-white p-1.5 rounded-lg border border-slate-200 border-l-4 border-l-blue-600 shadow-2xs flex flex-col justify-between">
-                <span className="text-blue-900 text-[7.5px] uppercase font-black tracking-wider">
-                  Tarif Journalier / اليوم
-                </span>
-                <p className="font-mono font-black text-slate-950 text-xs mt-0.5">
-                  {contract.pricePerDay !== undefined ? `${contract.pricePerDay.toLocaleString('fr-FR')} MAD` : 'Tarif convenu'}
-                  <span className="text-[7.5px] font-normal text-slate-500 ml-1">/ jour</span>
-                </p>
-                <span className="text-[7px] text-slate-500 mt-0.5">TTC • Kilométrage illimité</span>
-              </div>
-
-              {/* Total Location */}
-              <div className="col-span-3 bg-white p-1.5 rounded-lg border border-slate-200 border-l-4 border-l-amber-600 shadow-2xs flex flex-col justify-between">
-                <span className="text-amber-950 text-[7.5px] uppercase font-black tracking-wider">
-                  Total Facturé ({contract.totalDays}j)
-                </span>
-                <p className="font-mono font-black text-amber-950 text-[13px] mt-0.5">
-                  {contract.totalAmount !== undefined
-                    ? `${contract.totalAmount.toLocaleString('fr-FR')} MAD`
-                    : contract.pricePerDay !== undefined
-                    ? `${(contract.pricePerDay * contract.totalDays).toLocaleString('fr-FR')} MAD`
-                    : 'Sur devis'}
-                </p>
-                <div className="mt-0.5 pt-0.5 border-t border-amber-100 flex items-center justify-between text-[7px]">
-                  {(() => {
-                    const pdfPaid = (contract.paidAmount !== undefined ? contract.paidAmount : (contract.payments?.reduce((s, p) => s + (p.amount || 0), 0) ?? 0));
-                    const pdfTotal = (contract.totalAmount ?? ((contract.pricePerDay || 0) * contract.totalDays));
-                    const pdfRemaining = contract.remainingAmount !== undefined ? contract.remainingAmount : Math.max(0, pdfTotal - pdfPaid);
-                    return (
-                      <>
-                        <span className={`font-bold ${pdfPaid > 0 ? 'text-emerald-700' : 'text-slate-500'}`}>
-                          Encaissé : {pdfPaid.toLocaleString('fr-FR')} MAD
-                        </span>
-                        <span className={`font-bold ${pdfRemaining > 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
-                          Reste : {pdfRemaining.toLocaleString('fr-FR')} MAD {pdfRemaining === 0 ? '(Soldé)' : ''}
-                        </span>
-                      </>
-                    );
-                  })()}
-                </div>
-              </div>
+              {/* Tarif journalier et total facturé : données internes, volontairement absents du contrat remis au client */}
 
               {/* Caution / Dépôt de garantie */}
-              <div className="col-span-3 bg-white p-1.5 rounded-lg border border-slate-200 border-l-4 border-l-purple-600 shadow-2xs flex flex-col justify-between">
+              <div className="col-span-6 bg-white p-1.5 rounded-lg border border-slate-200 border-l-4 border-l-purple-600 shadow-2xs flex flex-col justify-between">
                 <span className="text-purple-950 text-[7.5px] uppercase font-black tracking-wider">
                   Caution / الضمانة
                 </span>
@@ -758,7 +693,7 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
               </div>
 
               {/* Modalités & Couverture */}
-              <div className="col-span-3 bg-gradient-to-br from-slate-900 to-slate-950 text-white p-1.5 rounded-lg border border-slate-800 shadow-2xs flex flex-col justify-between text-right">
+              <div className="col-span-6 bg-gradient-to-br from-slate-900 to-slate-950 text-white p-1.5 rounded-lg border border-slate-800 shadow-2xs flex flex-col justify-between text-right">
                 <span className="text-amber-400 text-[7.5px] uppercase font-black tracking-wider">
                   Couverture Assurance
                 </span>
