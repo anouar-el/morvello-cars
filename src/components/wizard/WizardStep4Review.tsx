@@ -10,6 +10,7 @@ import {
   TermsVersion,
 } from '../../types';
 import { CONTRACT_TEMPLATES } from '../../data/contractTemplates';
+import { formatFranchise } from '../../data/insurancePacks';
 import { NewClientFormData, NewSecondDriverFormData } from './WizardStep1Client';
 import {
   CheckCircle2,
@@ -251,7 +252,7 @@ export const WizardStep4Review: React.FC<WizardStep4ReviewProps> = ({
             </p>
             <p>
               Assurance : <strong className="text-sky-300">{insurance.packLabel}</strong> • Franchise :{' '}
-              <strong className="font-mono text-white">{insurance.franchiseMad.toLocaleString('fr-FR')} MAD</strong>
+              <strong className="font-mono text-white">{formatFranchise(insurance)}</strong>
             </p>
           </div>
         </div>

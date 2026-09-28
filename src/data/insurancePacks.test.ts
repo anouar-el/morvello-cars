@@ -3,6 +3,8 @@ import {
   INSURANCE_PACKS,
   VEHICLE_CATEGORIES,
   buildContractInsurance,
+  computeFranchise,
+  formatFranchise,
   getPackTerms,
   getVehicleCategory,
   inferVehicleCategory,
@@ -24,6 +26,14 @@ describe('insurance packs (grille morvellocars.com, 1 EUR = 10 MAD)', () => {
         expect(terms.depositMad).toBeLessThanOrEqual(terms.franchiseMad);
       }
     }
+  });
+
+  it('charges 5% of the damage, never below the pack minimum', () => {
+    const ins = buildContractInsurance('citadine', 'base'); // minimum 8 000 MAD
+    expect(computeFranchise(ins, 50000)).toBe(8000);
+    expect(computeFranchise(ins, 300000)).toBe(15000);
+    expect(computeFranchise(ins, 0)).toBe(8000);
+    expect(formatFranchise(ins)).toMatch(/^5 % des dégâts, min\. 8[\s  ]000 MAD$/);
   });
 
   it('infers the vehicle category from the model names used on the website', () => {

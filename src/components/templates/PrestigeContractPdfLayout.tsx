@@ -4,7 +4,7 @@ import { Crown, Phone, Mail, MapPin, CheckCircle2, Star, Shield, ShieldCheck, Sp
 import { CompanyStamp } from '../CompanyStamp';
 import { CompanyLogo } from '../CompanyLogo';
 import { formatPlateFrench } from '../../utils/plateUtils';
-import { resolveContractInsurance } from '../../data/insurancePacks';
+import { formatFranchise, resolveContractInsurance } from '../../data/insurancePacks';
 
 export interface PrestigeContractPdfLayoutProps {
   contract: Contract;
@@ -359,7 +359,7 @@ export const PrestigeContractPdfLayout: React.FC<PrestigeContractPdfLayoutProps>
                 3. Protocole d’Inspection Haute Joaillerie &amp; Couverture Assurance
               </span>
               <span className="text-[8px] bg-emerald-100 text-emerald-950 font-bold px-2 py-0.2 rounded border border-emerald-300">
-                {insurance.packLabel} · Franchise {insurance.franchiseMad.toLocaleString('fr-FR')} MAD
+                {insurance.packLabel} · Franchise {formatFranchise(insurance)}
               </span>
             </div>
 
@@ -396,7 +396,7 @@ export const PrestigeContractPdfLayout: React.FC<PrestigeContractPdfLayoutProps>
                 <span className="text-[8px] uppercase font-bold text-slate-500 block">Couverture Assurance</span>
                 <span className="font-mono text-sm font-black text-amber-950">{insurance.packLabel}</span>
                 <div className="mt-0.5 text-[7px] font-bold text-slate-700">
-                  Franchise : {insurance.franchiseMad.toLocaleString('fr-FR')} MAD
+                  Franchise : {formatFranchise(insurance)}
                 </div>
               </div>
               <div className="col-span-4 pl-2 text-right">

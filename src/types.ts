@@ -184,7 +184,8 @@ export interface ContractInsurance {
   coverage: string;
   category: VehicleCategory;
   categoryLabel: string;
-  franchiseMad: number;
+  franchiseMad: number; // minimum de franchise (MAD)
+  franchiseRatePercent?: number; // franchise = ce % du montant des dégâts, sans descendre sous franchiseMad
   depositMad: number;
   dailySupplementMad: number; // interne : jamais imprimé sur le contrat
 }

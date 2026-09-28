@@ -7,6 +7,9 @@ import { Contract, ContractInsurance, InsurancePackId, Vehicle, VehicleCategory 
  */
 export const EUR_TO_MAD = 10;
 
+/** Franchise appliquée : ce pourcentage du montant des dégâts, avec pour minimum le montant de la grille. */
+export const FRANCHISE_DAMAGE_RATE_PERCENT = 5;
+
 export const VEHICLE_CATEGORIES: { id: VehicleCategory; label: string; examples: string }[] = [
   { id: 'citadine', label: 'Citadine & Berline', examples: 'i10, Picanto, C3, 208, Clio, Logan, Sandero, Accent, Jogger' },
   { id: 'suv', label: 'SUV', examples: 'Duster, Arkana, T-Roc, Tucson, Sportage, Formentor' },
@@ -90,9 +93,22 @@ export function buildContractInsurance(category: VehicleCategory, packId: Insura
     category,
     categoryLabel: getCategoryLabel(category),
     franchiseMad: terms.franchiseMad,
+    franchiseRatePercent: FRANCHISE_DAMAGE_RATE_PERCENT,
     depositMad: terms.depositMad,
     dailySupplementMad: terms.dailySupplementMad,
   };
+}
+
+/** Franchise due pour un sinistre donné : le pourcentage des dégâts, jamais en dessous du minimum du pack. */
+export function computeFranchise(insurance: Pick<ContractInsurance, 'franchiseMad' | 'franchiseRatePercent'>, damageMad: number): number {
+  const rate = insurance.franchiseRatePercent ?? FRANCHISE_DAMAGE_RATE_PERCENT;
+  return Math.max(insurance.franchiseMad, Math.round((Math.max(0, damageMad) * rate) / 100));
+}
+
+/** Libellé imprimé : « 5 % des dégâts, min. 8 000 MAD ». */
+export function formatFranchise(insurance: Pick<ContractInsurance, 'franchiseMad' | 'franchiseRatePercent'>): string {
+  const rate = insurance.franchiseRatePercent ?? FRANCHISE_DAMAGE_RATE_PERCENT;
+  return `${rate} % des dégâts, min. ${insurance.franchiseMad.toLocaleString('fr-FR')} MAD`;
 }
 
 /**

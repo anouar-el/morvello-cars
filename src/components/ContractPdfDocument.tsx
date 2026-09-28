@@ -8,7 +8,7 @@ import { useApp } from '../context/AppContext';
 import { PrestigeContractPdfLayout } from './templates/PrestigeContractPdfLayout';
 import { CorporateContractPdfLayout } from './templates/CorporateContractPdfLayout';
 import { SignatureContractPdfLayout } from './templates/SignatureContractPdfLayout';
-import { resolveContractInsurance } from '../data/insurancePacks';
+import { formatFranchise, resolveContractInsurance } from '../data/insurancePacks';
 
 interface ContractPdfDocumentProps {
   contract: Contract;
@@ -682,7 +682,7 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
               <div className="bg-slate-950 text-white rounded-lg p-1.5 text-center border border-slate-800 shadow-2xs flex flex-col justify-center">
                 <span className="text-amber-400 text-[7.5px] uppercase font-black block leading-tight">Couverture Assurance :</span>
                 <span className="text-[9.5px] font-black text-white block leading-tight mt-0.5">{insurance.packLabel}</span>
-                <span className="text-[7px] text-slate-300 block">Franchise : {insurance.franchiseMad.toLocaleString('fr-FR')} MAD</span>
+                <span className="text-[7px] text-slate-300 block">Franchise : {formatFranchise(insurance)}</span>
               </div>
             </div>
             <div className="text-[7px] text-emerald-900 mt-1 text-center">
@@ -960,7 +960,7 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
           <div className="grid grid-cols-6 gap-1 text-[6.5px] font-mono">
             <div className="bg-slate-100/90 border border-slate-300 rounded p-1 shadow-2xs">
               <span className="text-slate-500 block uppercase font-bold text-[5.5px]">Franchise Sinistre :</span>
-              <strong className="text-slate-950 font-black">{insurance.franchiseMad.toLocaleString('fr-FR')} MAD</strong>
+              <strong className="text-slate-950 font-black">{formatFranchise(insurance)}</strong>
             </div>
             <div className="bg-amber-50/90 border border-amber-300/90 rounded p-1 shadow-2xs">
               <span className="text-amber-800 block uppercase font-bold text-[5.5px]">Retard Restitution :</span>

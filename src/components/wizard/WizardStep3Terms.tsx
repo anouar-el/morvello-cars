@@ -1,7 +1,7 @@
 import React from 'react';
 import { User, CompanySettings, ContractInsurance, InsurancePackId } from '../../types';
 import { Calendar, Gauge, Fuel, Phone, AlertTriangle, ShieldCheck, CheckCircle2 } from 'lucide-react';
-import { INSURANCE_PACKS, getPackTerms } from '../../data/insurancePacks';
+import { FRANCHISE_DAMAGE_RATE_PERCENT, INSURANCE_PACKS, getPackTerms } from '../../data/insurancePacks';
 
 interface WizardStep3TermsProps {
   startDate: string;
@@ -258,7 +258,7 @@ export const WizardStep3Terms: React.FC<WizardStep3TermsProps> = ({
                 <p className="text-[10.5px] text-slate-400 mt-1 leading-snug">{pack.coverage}</p>
                 <div className="mt-2 pt-2 border-t border-slate-800 grid grid-cols-3 gap-1 text-[10px] font-mono">
                   <div>
-                    <span className="block text-slate-500">Franchise</span>
+                    <span className="block text-slate-500">Franchise min.</span>
                     <strong className="text-white">{terms.franchiseMad.toLocaleString('fr-FR')}</strong>
                   </div>
                   <div>
@@ -275,7 +275,8 @@ export const WizardStep3Terms: React.FC<WizardStep3TermsProps> = ({
           })}
         </div>
         <p className="text-[10.5px] text-slate-500">
-          Montants en MAD. Chaque pack comporte une franchise, imprimée sur le contrat. Le supplément journalier reste interne et
+          Montants en MAD. Franchise = {FRANCHISE_DAMAGE_RATE_PERCENT} % du montant des dégâts, avec pour minimum le montant du pack
+          (imprimée sur le contrat). Le supplément journalier reste interne et
           s'ajoute au total facturé. La caution est pré-remplie selon le pack et reste modifiable.
         </p>
       </div>

@@ -4,7 +4,7 @@ import { Briefcase, Phone, Mail, MapPin, CheckCircle2, ShieldCheck, Building2, U
 import { CompanyStamp } from '../CompanyStamp';
 import { CompanyLogo } from '../CompanyLogo';
 import { formatPlateFrench } from '../../utils/plateUtils';
-import { resolveContractInsurance } from '../../data/insurancePacks';
+import { formatFranchise, resolveContractInsurance } from '../../data/insurancePacks';
 
 export interface CorporateContractPdfLayoutProps {
   contract: Contract;
@@ -338,7 +338,7 @@ export const CorporateContractPdfLayout: React.FC<CorporateContractPdfLayoutProp
               <div className="col-span-4 border-r border-blue-200 pr-2">
                 <span className="text-[8px] uppercase font-bold text-slate-500 block">Couverture Assurance</span>
                 <span className="font-mono text-xs font-black text-blue-950 block">{insurance.packLabel}</span>
-                <span className="text-[7px] font-bold text-blue-900">Franchise : {insurance.franchiseMad.toLocaleString('fr-FR')} MAD</span>
+                <span className="text-[7px] font-bold text-blue-900">Franchise : {formatFranchise(insurance)}</span>
               </div>
               <div className="col-span-3 pl-2 text-right">
                 <span className="text-[8px] uppercase font-bold text-slate-500 block">Dépôt de Garantie Flotte</span>

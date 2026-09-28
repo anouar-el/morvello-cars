@@ -16,7 +16,7 @@ import {
 import { CompanyStamp } from '../CompanyStamp';
 import { CompanyLogo } from '../CompanyLogo';
 import { formatPlateFrench } from '../../utils/plateUtils';
-import { resolveContractInsurance } from '../../data/insurancePacks';
+import { formatFranchise, resolveContractInsurance } from '../../data/insurancePacks';
 
 export interface SignatureContractPdfLayoutProps {
   contract: Contract;
@@ -504,7 +504,7 @@ export const SignatureContractPdfLayout: React.FC<SignatureContractPdfLayoutProp
               <div className="bg-slate-950 text-white rounded-lg p-1.5 text-center border border-slate-800 shadow-2xs flex flex-col justify-center">
                 <span className="text-amber-400 text-[7.5px] uppercase font-black block leading-tight">Couverture Assurance</span>
                 <span className="text-[9.5px] font-black text-white block leading-tight mt-0.5">{insurance.packLabel}</span>
-                <span className="text-[6.8px] text-slate-300 block">Franchise : {insurance.franchiseMad.toLocaleString('fr-FR')} MAD</span>
+                <span className="text-[6.8px] text-slate-300 block">Franchise : {formatFranchise(insurance)}</span>
               </div>
             </div>
           </div>
@@ -683,7 +683,7 @@ export const SignatureContractPdfLayout: React.FC<SignatureContractPdfLayoutProp
           {/* Frais particuliers */}
           <div className="grid grid-cols-6 gap-1 text-[6.8px] font-mono">
             {[
-              ['Franchise Sinistre', `${insurance.franchiseMad.toLocaleString('fr-FR')} MAD`, 'bg-slate-100 border-slate-300 text-slate-950'],
+              ['Franchise Sinistre', formatFranchise(insurance), 'bg-slate-100 border-slate-300 text-slate-950'],
               ['Retard Restitution', 'Tarif/j + 50%', 'bg-amber-50 border-amber-300 text-amber-950'],
               ['Frais Dossier PV', '150 DH / infr.', 'bg-blue-50 border-blue-300 text-blue-950'],
               ['Carburant Écart', 'Pompe + 100 DH', 'bg-emerald-50 border-emerald-300 text-emerald-950'],
