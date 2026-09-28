@@ -53,7 +53,7 @@ ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS firebase_uid TEXT;
 CREATE INDEX IF NOT EXISTS idx_profiles_agency_id ON public.profiles(agency_id);
 CREATE INDEX IF NOT EXISTS idx_profiles_local_id ON public.profiles(local_id);
 CREATE INDEX IF NOT EXISTS idx_profiles_legacy_id ON public.profiles(legacy_id);
-CREATE INDEX IF NOT EXISTS idx_profiles_firebase_uid ON public.profiles(firebase_uid);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_profiles_firebase_uid_unique ON public.profiles(firebase_uid) WHERE firebase_uid IS NOT NULL AND trim(firebase_uid) <> '';
 CREATE INDEX IF NOT EXISTS idx_profiles_email ON public.profiles(lower(email));
 CREATE INDEX IF NOT EXISTS idx_profiles_role ON public.profiles(role);
 
@@ -510,12 +510,42 @@ $$;
 
 CREATE OR REPLACE FUNCTION public.can_access_manager_row(row_assigned_manager_id text, row_created_by text)
 RETURNS boolean
-LANGUAGE sql
+LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
-  SELECT public.can_access_record(row_assigned_manager_id, row_created_by, NULL);
+DECLARE
+  v_uid uuid;
+  v_current_agency text;
+BEGIN
+  -- 1. Utilisateur non-authentifié -> FALSE
+  v_uid := auth.uid();
+  IF v_uid IS NULL THEN
+    RETURN FALSE;
+  END IF;
+
+  -- 2. Agence courante de l'utilisateur requise (fail-closed)
+  v_current_agency := public.get_current_agency_id();
+  IF v_current_agency IS NULL OR trim(v_current_agency) = '' THEN
+    RETURN FALSE;
+  END IF;
+
+  -- 3. Administrateur de l'agence autorisé
+  IF public.is_admin() THEN
+    RETURN TRUE;
+  END IF;
+
+  -- 4. Manager vérifié sur assigned_manager_id ou created_by
+  RETURN (
+    (row_assigned_manager_id IS NOT NULL AND public.is_current_manager(row_assigned_manager_id))
+    OR (
+      (row_assigned_manager_id IS NULL OR trim(row_assigned_manager_id) = '')
+      AND row_created_by IS NOT NULL
+      AND public.is_current_manager(row_created_by)
+    )
+  );
+END;
 $$;
 
 -- VUE SÉCURISÉE PUBLIQUE : définie après les fonctions d'autorisation qu'elle appelle.
@@ -649,6 +679,11 @@ BEGIN
     IF NEW.agency_id IS NULL OR trim(NEW.agency_id) = '' THEN
       RAISE EXCEPTION 'Agency required: profile creation must specify an authorized agency.';
     END IF;
+
+    -- Non-admins cannot assign firebase_uid on insert
+    IF NEW.firebase_uid IS NOT NULL AND trim(NEW.firebase_uid) <> '' THEN
+      RAISE EXCEPTION 'Identity violation: non-admins cannot assign firebase_uid on insert.';
+    END IF;
   ELSE
     IF NEW.agency_id IS NULL OR trim(NEW.agency_id) = '' THEN
       v_caller_agency := public.get_current_agency_id();
@@ -656,6 +691,18 @@ BEGIN
         RAISE EXCEPTION 'Agency required: active admin profile must have an assigned agency.';
       END IF;
       NEW.agency_id := v_caller_agency;
+    END IF;
+  END IF;
+
+  -- Unique firebase_uid check on insert
+  IF NEW.firebase_uid IS NOT NULL AND trim(NEW.firebase_uid) <> '' THEN
+    NEW.firebase_uid := trim(NEW.firebase_uid);
+    IF EXISTS (
+      SELECT 1 FROM public.profiles p
+      WHERE p.firebase_uid = NEW.firebase_uid
+        AND p.id <> NEW.id
+    ) THEN
+      RAISE EXCEPTION 'Duplicate identity rejected: firebase_uid already associated with another profile.';
     END IF;
   END IF;
 

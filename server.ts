@@ -17,10 +17,17 @@ dotenv.config();
 // Supabase Server-side Client Configuration
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 let supabaseServerClient: SupabaseClient | null = null;
+let supabaseAdminServiceClient: SupabaseClient | null = null;
+
 export function setSupabaseClient(client: SupabaseClient | null) {
   supabaseServerClient = client;
+}
+
+export function setSupabaseAdminServiceClient(client: SupabaseClient | null) {
+  supabaseAdminServiceClient = client;
 }
 
 export function getSupabaseClient(): SupabaseClient {
@@ -36,6 +43,33 @@ export function getSupabaseClient(): SupabaseClient {
     });
   }
   return supabaseServerClient;
+}
+
+/**
+ * Server-only administrative Supabase client using SUPABASE_SERVICE_ROLE_KEY.
+ * CRITICAL ZERO-TRUST RULE:
+ * This client is NEVER exposed to the client/browser.
+ * It is invoked ONLY AFTER authenticateCaller() and verifyAdminCaller()
+ * have cryptographically and authoritatively validated the user, their role,
+ * and their agency jurisdiction.
+ */
+export function getSupabaseAdminServiceClient(): SupabaseClient {
+  if (supabaseAdminServiceClient) {
+    return supabaseAdminServiceClient;
+  }
+
+  if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
+    supabaseAdminServiceClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    });
+    return supabaseAdminServiceClient;
+  }
+
+  // Graceful fallback to standard server client if service role key is not configured in environment
+  return getSupabaseClient();
 }
 
 // Lazy initialization for Firebase Admin SDK
@@ -293,6 +327,13 @@ export async function verifyAdminCaller(
  * Set User Role:
  * Authoritatively updates public.profiles in Supabase, and synchronizes Custom Claims
  * in Firebase Auth & Firestore for legacy compatibility.
+ *
+ * P0.4.3 Zero-Trust Remediation:
+ * 1. Caller must be verified admin.
+ * 2. Caller agency comes strictly from public.profiles (authCheck.callerAgency).
+ * 3. Target profile must be loaded from Supabase.
+ * 4. Cross-agency protection: Target agency_id MUST match caller agency_id.
+ * 5. Uses getSupabaseAdminServiceClient() after authentication for controlled mutation.
  */
 app.post('/api/admin/set-user-role', async (req, res) => {
   try {
@@ -311,57 +352,108 @@ app.post('/api/admin/set-user-role', async (req, res) => {
       return res.status(400).json({ success: false, error: `Rôle invalide. Autorisés: ${allowed.join(', ')}` });
     }
 
+    const callerAgency = authCheck.callerAgency;
+    if (!callerAgency) {
+      return res.status(403).json({
+        success: false,
+        error: 'Périmètre d’agence non défini pour cet administrateur (action refusée).',
+      });
+    }
+
+    const sbAdmin = getSupabaseAdminServiceClient();
+
+    // 1. Authoritative verification of target user profile & agency jurisdiction
+    const { data: targetProfile, error: targetFetchErr } = await sbAdmin
+      .from('profiles')
+      .select('id, agency_id, agency, role, email, firebase_uid')
+      .or(`id.eq.${uid},firebase_uid.eq.${uid}`)
+      .maybeSingle();
+
+    if (targetFetchErr) {
+      console.warn('[Server] Error fetching target profile in set-user-role:', targetFetchErr.message);
+    }
+
+    if (!targetProfile) {
+      return res.status(404).json({
+        success: false,
+        error: 'Utilisateur cible introuvable dans le référentiel des profils.',
+      });
+    }
+
+    const targetAgency = targetProfile.agency_id || targetProfile.agency;
+    if (!targetAgency || targetAgency !== callerAgency) {
+      console.warn(
+        `[Security] Cross-agency role modification blocked! Caller agency=${callerAgency}, Target agency=${targetAgency}`
+      );
+      return res.status(403).json({
+        success: false,
+        error: 'Violation de cloisonnement inter-agence : vous ne pouvez modifier que les utilisateurs de votre agence.',
+      });
+    }
+
     const isAdminRole = role === 'admin';
 
-    // 1. Authoritative: Update role in Supabase public.profiles
+    // 2. Authoritative: Update role in Supabase public.profiles via controlled admin client
     try {
-      const sb = getSupabaseClient();
-      const { error: sbErr } = await sb
+      const { error: sbErr } = await sbAdmin
         .from('profiles')
         .update({
           role: role,
           updated_at: new Date().toISOString(),
         })
-        .or(`id.eq.${uid},firebase_uid.eq.${uid}`);
+        .eq('id', targetProfile.id);
 
       if (sbErr) {
-        console.warn('[Server] Supabase profile update error in set-user-role:', sbErr.message);
+        console.error('[Server] Supabase profile update error in set-user-role:', sbErr.message);
+        return res.status(500).json({
+          success: false,
+          error: `Échec de mise à jour du profil: ${sbErr.message}`,
+        });
       }
     } catch (sbEx: any) {
-      console.warn('[Server] Exception updating Supabase profile role:', sbEx?.message);
-    }
-
-    // 2. Compatibility: Update Firebase Auth custom claims
-    try {
-      await getAdminAuth().setCustomUserClaims(uid, {
-        role: role,
-        admin: isAdminRole,
+      console.error('[Server] Exception updating Supabase profile role:', sbEx?.message);
+      return res.status(500).json({
+        success: false,
+        error: 'Erreur interne lors de la mise à jour du profil.',
       });
-    } catch (fbErr: any) {
-      console.warn('[Server] Firebase setCustomUserClaims note:', fbErr?.message);
     }
 
-    // 3. Compatibility: Update Firestore /users/{uid} document
-    try {
-      await getAdminDb().collection('users').doc(uid).set(
-        {
-          uid,
-          role,
-          adminClaim: isAdminRole,
-          updatedAt: new Date().toISOString(),
-          updatedBy: authCheck.callerUid,
-        },
-        { merge: true }
-      );
-    } catch (fsErr: any) {
-      console.warn('[Server] Firestore update warning in set-user-role:', fsErr?.message);
+    // 3. Compatibility: Update Firebase Auth custom claims if firebase_uid exists
+    const targetFirebaseUid = targetProfile.firebase_uid || (uid.startsWith('usr-') ? null : uid);
+    if (targetFirebaseUid) {
+      try {
+        await getAdminAuth().setCustomUserClaims(targetFirebaseUid, {
+          role: role,
+          admin: isAdminRole,
+        });
+      } catch (fbErr: any) {
+        console.warn('[Server] Firebase setCustomUserClaims note:', fbErr?.message);
+      }
+
+      // Update Firestore /users/{uid} document for compatibility
+      try {
+        await getAdminDb().collection('users').doc(targetFirebaseUid).set(
+          {
+            uid: targetFirebaseUid,
+            role,
+            adminClaim: isAdminRole,
+            updatedAt: new Date().toISOString(),
+            updatedBy: authCheck.callerUid,
+          },
+          { merge: true }
+        );
+      } catch (fsErr: any) {
+        console.warn('[Server] Firestore update warning in set-user-role:', fsErr?.message);
+      }
     }
 
-    console.log(`[Server] Applied authoritative role for UID ${uid}: role=${role}, admin=${isAdminRole}`);
+    console.log(
+      `[Server] Applied authoritative role for UID ${targetProfile.id}: role=${role}, admin=${isAdminRole} in agency=${callerAgency}`
+    );
 
     res.json({
       success: true,
-      uid,
+      uid: targetProfile.id,
       role,
       admin: isAdminRole,
       message: `Rôle ${role.toUpperCase()} appliqué avec succès.`,
@@ -379,12 +471,27 @@ app.post('/api/admin/set-user-role', async (req, res) => {
  * Provision Team Member:
  * Authoritatively creates user profile in Supabase public.profiles,
  * and maintains Firebase Auth / Firestore account for compatibility.
+ *
+ * P0.4.3 Zero-Trust Remediation:
+ * 1. Caller agency comes strictly from public.profiles (authCheck.callerAgency).
+ * 2. If body.agency is provided and differs from caller agency, reject with 403.
+ * 3. Never allow arbitrary agency overrides.
+ * 4. Email collision protection: If email exists on a different profile, return safe 409 conflict.
+ * 5. Uses getSupabaseAdminServiceClient() after strict authorization.
  */
 app.post('/api/admin/provision-team-member', async (req, res) => {
   try {
     const authCheck = await verifyAdminCaller(req);
     if (!authCheck.isAdmin) {
       return res.status(403).json({ success: false, error: authCheck.error });
+    }
+
+    const callerAgency = authCheck.callerAgency;
+    if (!callerAgency) {
+      return res.status(403).json({
+        success: false,
+        error: 'Périmètre d’agence non défini pour cet administrateur (provisionnement refusé).',
+      });
     }
 
     const {
@@ -401,14 +508,34 @@ app.post('/api/admin/provision-team-member', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Email valide obligatoire.' });
     }
 
+    // Strict agency check: body.agency must match caller's agency
+    if (agency && typeof agency === 'string' && agency.trim() !== '' && agency.trim() !== callerAgency) {
+      console.warn(
+        `[Security] Cross-agency provisioning attempt blocked! Caller agency=${callerAgency}, Requested agency=${agency}`
+      );
+      return res.status(403).json({
+        success: false,
+        error: 'Violation de cloisonnement inter-agence : vous ne pouvez créer des collaborateurs que dans votre agence.',
+      });
+    }
+
+    const targetAgency = callerAgency;
     const trimmedEmail = email.trim().toLowerCase();
     const trimmedName = (name || trimmedEmail.split('@')[0]).trim();
     const allowed = ['admin', 'manager', 'agent'];
     const targetRole = allowed.includes(role) ? role : 'manager';
     const isAdminRole = targetRole === 'admin';
-    const targetAgency = (agency && typeof agency === 'string' ? agency.trim() : '') || authCheck.callerAgency || 'Nouaceur Casablanca';
 
-    // 1. Firebase Auth user creation / update for compatibility
+    const sbAdmin = getSupabaseAdminServiceClient();
+
+    // 1. Check for existing profile by email in Supabase
+    const { data: existingProfileByEmail } = await sbAdmin
+      .from('profiles')
+      .select('id, email, firebase_uid, agency_id, agency')
+      .ilike('email', trimmedEmail)
+      .maybeSingle();
+
+    // 2. Firebase Auth user creation / update for compatibility
     let userRecord: UserRecord;
     const auth = getAdminAuth();
     try {
@@ -438,6 +565,36 @@ app.post('/api/admin/provision-team-member', async (req, res) => {
       }
     }
 
+    // Email collision rule:
+    // If a profile exists with this email, but its firebase_uid differs from userRecord.uid,
+    // we MUST NOT overwrite it or steal that identity.
+    if (existingProfileByEmail) {
+      if (
+        existingProfileByEmail.firebase_uid &&
+        existingProfileByEmail.firebase_uid !== userRecord.uid
+      ) {
+        console.warn(
+          `[Security] Email collision rejected! Email ${trimmedEmail} belongs to profile ${existingProfileByEmail.id} with different firebase_uid.`
+        );
+        return res.status(409).json({
+          success: false,
+          error: 'Conflit d’identité : un profil collaborateur existe déjà avec cet email sous un autre identifiant.',
+        });
+      }
+
+      // If existing profile belongs to another agency, block overwrite
+      const existingAgency = existingProfileByEmail.agency_id || existingProfileByEmail.agency;
+      if (existingAgency && existingAgency !== targetAgency) {
+        console.warn(
+          `[Security] Cross-agency email conflict! Email ${trimmedEmail} belongs to agency ${existingAgency}.`
+        );
+        return res.status(409).json({
+          success: false,
+          error: 'Conflit d’agence : un collaborateur existe déjà avec cet email dans une autre agence.',
+        });
+      }
+    }
+
     // Set Custom Claims in Firebase for compatibility
     try {
       await auth.setCustomUserClaims(userRecord.uid, {
@@ -448,22 +605,11 @@ app.post('/api/admin/provision-team-member', async (req, res) => {
       console.warn('[Server] Could not set Firebase custom claims:', claimErr?.message);
     }
 
-    // 2. Authoritative: Provision profile in Supabase public.profiles
-    const sb = getSupabaseClient();
-    let supabaseProfileId = crypto.randomUUID();
+    // 3. Authoritative: Provision profile in Supabase public.profiles
+    let supabaseProfileId = existingProfileByEmail ? existingProfileByEmail.id : crypto.randomUUID();
 
     try {
-      const { data: existingProf } = await sb
-        .from('profiles')
-        .select('id')
-        .or(`email.eq.${trimmedEmail},firebase_uid.eq.${userRecord.uid}`)
-        .maybeSingle();
-
-      if (existingProf?.id) {
-        supabaseProfileId = existingProf.id;
-      }
-
-      const { error: sbProfErr } = await sb.from('profiles').upsert(
+      const { error: sbProfErr } = await sbAdmin.from('profiles').upsert(
         {
           id: supabaseProfileId,
           email: trimmedEmail,
@@ -481,11 +627,21 @@ app.post('/api/admin/provision-team-member', async (req, res) => {
 
       if (sbProfErr) {
         console.error('[Server] Supabase profile provision error:', sbProfErr);
-      } else {
-        console.log(`[Server] Provisioned authoritative Supabase profile for ${trimmedEmail} (ID: ${supabaseProfileId})`);
+        return res.status(500).json({
+          success: false,
+          error: `Échec d’enregistrement du profil: ${sbProfErr.message}`,
+        });
       }
+
+      console.log(
+        `[Server] Provisioned authoritative Supabase profile for ${trimmedEmail} (ID: ${supabaseProfileId}) in agency ${targetAgency}`
+      );
     } catch (sbEx: any) {
       console.error('[Server] Exception provisioning Supabase profile:', sbEx);
+      return res.status(500).json({
+        success: false,
+        error: 'Erreur interne lors du provisionnement.',
+      });
     }
 
     // Generate secure password reset / activation link
