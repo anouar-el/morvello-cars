@@ -303,7 +303,7 @@ export const WizardStep1Client: React.FC<WizardStep1ClientProps> = ({
               cinRecto={newClientForm.cinDocUrl ? { dataUrl: newClientForm.cinDocUrl, name: newClientForm.cinDocName } : undefined}
               cinVerso={newClientForm.cinDocVersoUrl ? { dataUrl: newClientForm.cinDocVersoUrl, name: newClientForm.cinDocVersoName } : undefined}
               licenseRecto={newClientForm.licenseDocUrl ? { dataUrl: newClientForm.licenseDocUrl, name: newClientForm.licenseDocName } : undefined}
-              licenseVerso={newClientForm.licenseDocVersoUrl ? { dataUrl: newClientForm.licenseDocVersoName, name: newClientForm.licenseDocVersoName } : undefined}
+              licenseVerso={newClientForm.licenseDocVersoUrl ? { dataUrl: newClientForm.licenseDocVersoUrl, name: newClientForm.licenseDocVersoName } : undefined}
               onChange={(docs) => setNewClientForm((prev) => ({ ...prev, ...docs }))}
             />
           </div>

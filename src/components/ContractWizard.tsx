@@ -872,6 +872,7 @@ export const ContractWizard: React.FC = () => {
             companySettings={companySettings}
             totalDays={totalDays}
             totalAmount={totalAmount}
+            vehicleAvailability={vehicleAvailability}
           />
         )}
 
