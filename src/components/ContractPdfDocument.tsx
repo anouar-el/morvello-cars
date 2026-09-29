@@ -64,7 +64,7 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
     if (propManagerPhone) {
       return {
         phone: propManagerPhone,
-        name: propManagerName || contract.assignedManagerName || '',
+        name: propManagerName || contract.managerDisplayName?.trim() || contract.assignedManagerName || '',
       };
     }
 
@@ -72,7 +72,7 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
     if (contract.managerPhone) {
       return {
         phone: contract.managerPhone,
-        name: contract.assignedManagerName || '',
+        name: contract.managerDisplayName?.trim() || contract.assignedManagerName || '',
       };
     }
 
@@ -82,7 +82,7 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
       if (u) {
         return {
           phone: u.phone || companySettings.phone1,
-          name: u.name,
+          name: contract.managerDisplayName?.trim() || u.name,
         };
       }
     }
@@ -95,7 +95,7 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
         if (u) {
           return {
             phone: u.phone || companySettings.phone1,
-            name: u.name || v.assignedManagerName || '',
+            name: contract.managerDisplayName?.trim() || u.name || v.assignedManagerName || '',
           };
         }
       }
@@ -107,7 +107,7 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
       if (u?.phone) {
         return {
           phone: u.phone,
-          name: u.name,
+          name: contract.managerDisplayName?.trim() || u.name,
         };
       }
     }
@@ -115,14 +115,14 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
     // 6. Secours : numéro central de l'agence
     return {
       phone: companySettings.phone1,
-      name: contract.assignedManagerName || '',
+      name: contract.managerDisplayName?.trim() || contract.assignedManagerName || '',
     };
   })();
 
   const activePhone = resolvedManager.phone && resolvedManager.phone.trim().length > 0
     ? resolvedManager.phone
     : companySettings.phone1;
-  const displayManagerName = resolvedManager.name;
+  const displayManagerName = propManagerName || contract.managerDisplayName?.trim() || resolvedManager.name || contract.assignedManagerName || '';
 
   const insurance = resolveContractInsurance(contract);
 
@@ -254,7 +254,10 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
                   <div className="flex items-center justify-center text-[7.5px] font-mono bg-slate-50 border border-slate-200 px-2 py-1 rounded-md shadow-2xs">
                     <span className="flex items-center gap-1 text-slate-800">
                       <Phone className="w-2.5 h-2.5 text-blue-700 shrink-0" />
-                      <span>Tél : <strong className="text-slate-950 font-bold">{activePhone}</strong></span>
+                      <span>
+                        Tél : <strong className="text-slate-950 font-bold">{activePhone}</strong>
+                        {displayManagerName ? <span className="text-slate-600 font-medium"> · {displayManagerName}</span> : null}
+                      </span>
                     </span>
                   </div>
                 </div>
@@ -730,6 +733,8 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
                 <div className="text-[8px] text-slate-500 text-center z-10 font-medium">
                   {contract.agencySignedBy ? (
                     <span className="font-semibold text-slate-700">Signé par {contract.agencySignedBy}</span>
+                  ) : displayManagerName ? (
+                    <span className="font-semibold text-slate-700">Responsable : {displayManagerName}</span>
                   ) : (
                     'Visa & Cachet légal agence'
                   )}

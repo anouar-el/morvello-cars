@@ -248,10 +248,13 @@ export const DashboardContractsTable: React.FC<DashboardContractsTableProps> = (
                       <div className="text-[10px] text-slate-400 mt-0.5">
                         Créé le {new Date(cnt.createdAt).toLocaleDateString('fr-FR')}
                       </div>
-                      {cnt.assignedManagerName && (
+                      {(cnt.managerDisplayName || cnt.assignedManagerName) && (
                         <div className="text-[10px] text-slate-500 flex items-center gap-1 mt-0.5">
                           <User className="w-2.5 h-2.5 text-amber-400" />
-                          <span>{cnt.assignedManagerName}</span>
+                          <span>{cnt.managerDisplayName || cnt.assignedManagerName}</span>
+                          {cnt.managerDisplayName && cnt.assignedManagerName && cnt.managerDisplayName !== cnt.assignedManagerName && (
+                            <span className="text-[9px] text-slate-400">({cnt.assignedManagerName})</span>
+                          )}
                           {cnt.managerPhone && (
                             <span className="text-amber-400/90 font-mono font-bold">
                               • {cnt.managerPhone}

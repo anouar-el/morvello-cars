@@ -638,12 +638,19 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                       </div>
                       {(() => {
                         const v = vehicles.find((item) => item.id === cnt.vehicleId || item.plate === cnt.vehicleSnapshot.plate);
-                        return v?.assignedManagerName ? (
-                          <div className="text-[10px] text-blue-300 font-mono mt-0.5 flex items-center gap-1">
+                        const managerName = cnt.managerDisplayName || cnt.assignedManagerName || v?.assignedManagerName;
+                        if (!managerName) return null;
+                        const officialName = cnt.assignedManagerName || v?.assignedManagerName;
+                        const hasCustom = cnt.managerDisplayName && officialName && cnt.managerDisplayName !== officialName;
+                        return (
+                          <div className="text-[10px] text-blue-300 font-mono mt-0.5 flex items-center gap-1" title={hasCustom ? `Nom officiel : ${officialName}` : undefined}>
                             <UserCheck className="w-3 h-3 text-blue-400 shrink-0" />
-                            {v.assignedManagerName}
+                            <span>{managerName}</span>
+                            {hasCustom && (
+                              <span className="text-[9px] text-slate-400">({officialName})</span>
+                            )}
                           </div>
-                        ) : null;
+                        );
                       })()}
                     </td>
 

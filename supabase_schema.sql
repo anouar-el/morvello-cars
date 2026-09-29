@@ -155,9 +155,12 @@ CREATE TABLE IF NOT EXISTS public.contracts (
 
 ALTER TABLE public.contracts ADD COLUMN IF NOT EXISTS agency_id TEXT;
 ALTER TABLE public.contracts ADD COLUMN IF NOT EXISTS assigned_manager_id TEXT;
+ALTER TABLE public.contracts ADD COLUMN IF NOT EXISTS manager_display_name TEXT;
+ALTER TABLE public.contracts ADD COLUMN IF NOT EXISTS manager_phone TEXT;
 ALTER TABLE public.contracts ADD COLUMN IF NOT EXISTS created_by TEXT;
 CREATE INDEX IF NOT EXISTS idx_contracts_agency_id ON public.contracts(agency_id);
 CREATE INDEX IF NOT EXISTS idx_contracts_assigned_manager ON public.contracts(assigned_manager_id);
+CREATE INDEX IF NOT EXISTS idx_contracts_manager_display_name ON public.contracts(manager_display_name);
 CREATE INDEX IF NOT EXISTS idx_contracts_created_by ON public.contracts(created_by);
 
 -- 8. TABLE DES CAUTIONS & EMPREINTES (DEPOSITS)
@@ -1303,6 +1306,8 @@ DECLARE
   v_deposit_amount numeric;
   v_departure_km numeric;
   v_assigned_manager_id text;
+  v_manager_display_name text;
+  v_manager_phone text;
   v_created_by text;
   
   v_conflict_contract record;
@@ -1493,6 +1498,8 @@ BEGIN
   v_deposit_amount := COALESCE((p_contract->>'depositAmount')::numeric, (p_contract->>'deposit_amount')::numeric, 0);
   v_departure_km := COALESCE((p_contract->>'departureKm')::numeric, (p_contract->>'departure_km')::numeric, v_vehicle.current_km);
   v_assigned_manager_id := COALESCE(p_contract->>'assignedManagerId', p_contract->>'assigned_manager_id', v_vehicle.assigned_manager_id, v_auth_uid::text);
+  v_manager_display_name := NULLIF(trim(COALESCE(p_contract->>'managerDisplayName', p_contract->>'manager_display_name')), '');
+  v_manager_phone := NULLIF(trim(COALESCE(p_contract->>'managerPhone', p_contract->>'manager_phone')), '');
   v_created_by := COALESCE(p_contract->>'createdBy', p_contract->>'created_by', v_caller.name, v_auth_uid::text);
 
   INSERT INTO public.contracts (
@@ -1507,6 +1514,8 @@ BEGIN
     deposit_amount,
     agency_id,
     assigned_manager_id,
+    manager_display_name,
+    manager_phone,
     created_by,
     data,
     created_at,
@@ -1523,6 +1532,8 @@ BEGIN
     v_deposit_amount,
     v_agency_id,
     v_assigned_manager_id,
+    v_manager_display_name,
+    v_manager_phone,
     v_created_by,
     p_contract,
     timezone('utc'::text, now()),
@@ -1537,6 +1548,9 @@ BEGIN
     end_date = EXCLUDED.end_date,
     total_amount = EXCLUDED.total_amount,
     deposit_amount = EXCLUDED.deposit_amount,
+    assigned_manager_id = EXCLUDED.assigned_manager_id,
+    manager_display_name = EXCLUDED.manager_display_name,
+    manager_phone = EXCLUDED.manager_phone,
     data = EXCLUDED.data,
     updated_at = timezone('utc'::text, now());
 

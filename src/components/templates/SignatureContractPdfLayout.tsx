@@ -535,6 +535,8 @@ export const SignatureContractPdfLayout: React.FC<SignatureContractPdfLayoutProp
                 <div className="text-[7.5px] text-slate-500 text-center z-10 font-medium">
                   {contract.agencySignedBy ? (
                     <span className="font-semibold text-slate-700">Signé par {contract.agencySignedBy}</span>
+                  ) : displayManagerName ? (
+                    <span className="font-semibold text-slate-700">Responsable : {displayManagerName}</span>
                   ) : (
                     'Visa & Cachet légal agence'
                   )}

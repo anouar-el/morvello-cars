@@ -47,6 +47,7 @@ interface WizardStep4ReviewProps {
   insurance: ContractInsurance;
   depositCollected: boolean;
   assignedManagerId: string;
+  managerDisplayName?: string;
   managerPhone: string;
   users: User[];
   companySettings: CompanySettings;
@@ -79,6 +80,7 @@ export const WizardStep4Review: React.FC<WizardStep4ReviewProps> = ({
   insurance,
   depositCollected,
   assignedManagerId,
+  managerDisplayName,
   managerPhone,
   users,
   companySettings,
@@ -271,21 +273,36 @@ export const WizardStep4Review: React.FC<WizardStep4ReviewProps> = ({
             <Phone className="w-3.5 h-3.5 text-amber-400" />
           </h3>
           <div className="space-y-1 text-slate-300">
-            <p>
-              Responsable :{' '}
-              <strong className="text-white">
-                {users.find((u) => u.id === assignedManagerId)?.name || 'Direction Agence'}
-              </strong>
-            </p>
-            <div>
-              <span className="text-slate-400 block text-[11px]">GSM Contrat Imprimé :</span>
-              <span className="font-mono text-amber-400 font-bold block mt-0.5 text-xs bg-slate-900 px-2 py-1 rounded border border-slate-800">
-                {managerPhone || users.find((u) => u.id === assignedManagerId)?.phone || companySettings.phone1}
-              </span>
-            </div>
-            <p className="text-[10px] text-slate-500 italic pt-1">
-              Numéro direct d'assistance affiché sur l'en-tête de la page 1.
-            </p>
+            {(() => {
+              const assignedUser = users.find((u) => u.id === assignedManagerId);
+              const officialName = assignedUser?.name || 'Direction Agence';
+              const trimmedDisplay = managerDisplayName?.trim();
+              const hasCustomDisplay = trimmedDisplay && trimmedDisplay !== officialName;
+
+              return (
+                <>
+                  <p>
+                    Responsable :{' '}
+                    <strong className="text-white">{officialName}</strong>
+                  </p>
+                  {hasCustomDisplay ? (
+                    <p>
+                      Nom affiché sur contrat :{' '}
+                      <strong className="text-amber-400 font-semibold">{trimmedDisplay}</strong>
+                    </p>
+                  ) : null}
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">GSM Contrat Imprimé :</span>
+                    <span className="font-mono text-amber-400 font-bold block mt-0.5 text-xs bg-slate-900 px-2 py-1 rounded border border-slate-800">
+                      {managerPhone || assignedUser?.phone || companySettings.phone1}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-slate-500 italic pt-1">
+                    Numéro direct et nom d'affichage imprimés sur l'en-tête du contrat A4.
+                  </p>
+                </>
+              );
+            })()}
           </div>
         </div>
       </div>

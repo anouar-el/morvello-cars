@@ -46,7 +46,7 @@ export const DigitalSignatureModal: React.FC<DigitalSignatureModalProps> = ({
     } else if (role === 'second_driver' && contract.secondDriverSnapshot) {
       setSignerFullName(`${contract.secondDriverSnapshot.firstName} ${contract.secondDriverSnapshot.lastName}`);
     } else if (role === 'agency') {
-      setSignerFullName(contract.assignedManagerName || contract.createdBy || 'Direction Morvello Cars');
+      setSignerFullName(contract.managerDisplayName || contract.assignedManagerName || contract.createdBy || 'Direction Morvello Cars');
     }
   };
 

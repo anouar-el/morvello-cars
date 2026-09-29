@@ -211,6 +211,9 @@ export async function fetchRemoteAgencyDataFromSupabase(): Promise<MorvelloCloud
         totalAmount: Number(row.total_amount ?? d.totalAmount ?? 0),
         depositAmount: Number(row.deposit_amount ?? d.depositAmount ?? 0),
         assignedManagerId: row.assigned_manager_id || d.assignedManagerId,
+        assignedManagerName: row.assigned_manager_name || d.assignedManagerName,
+        managerDisplayName: row.manager_display_name || d.managerDisplayName,
+        managerPhone: row.manager_phone || d.managerPhone,
         createdBy: row.created_by || d.createdBy,
       };
     });
@@ -1032,10 +1035,14 @@ export async function saveContractRecordToSupabase(
       total_amount: contract.totalAmount,
       deposit_amount: contract.depositAmount,
       assigned_manager_id: assignedMgrId,
+      manager_display_name: contract.managerDisplayName?.trim() || null,
+      manager_phone: contract.managerPhone?.trim() || null,
       created_by: createdBy,
       data: {
         ...contract,
         assignedManagerId: assignedMgrId,
+        managerDisplayName: contract.managerDisplayName?.trim() || undefined,
+        managerPhone: contract.managerPhone?.trim() || undefined,
         createdBy: createdBy,
       },
       updated_at: nowIso,

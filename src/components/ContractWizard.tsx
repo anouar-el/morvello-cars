@@ -141,6 +141,7 @@ export const ContractWizard: React.FC = () => {
 
   // Step 3 (bis): Manager en charge & Téléphone direct (En-tête PDF)
   const [assignedManagerId, setAssignedManagerId] = useState<string>('');
+  const [managerDisplayName, setManagerDisplayName] = useState<string>('');
   const [managerPhone, setManagerPhone] = useState<string>('');
 
   // Modèle de contrat assigné au créateur ou défini par défaut de l'entreprise
@@ -196,11 +197,17 @@ export const ContractWizard: React.FC = () => {
       if (editingContractData.assignedManagerId) {
         setAssignedManagerId(editingContractData.assignedManagerId);
       }
+      if (editingContractData.managerDisplayName) {
+        setManagerDisplayName(editingContractData.managerDisplayName);
+      } else if (editingContractData.assignedManagerName) {
+        setManagerDisplayName(editingContractData.assignedManagerName);
+      }
       if (editingContractData.managerPhone) {
         setManagerPhone(editingContractData.managerPhone);
       } else if (editingContractData.assignedManagerId) {
         const m = users.find((u) => u.id === editingContractData.assignedManagerId);
         if (m?.phone) setManagerPhone(m.phone);
+        if (!editingContractData.managerDisplayName && m?.name) setManagerDisplayName(m.name);
       }
 
       // Deuxième conducteur
@@ -300,11 +307,17 @@ export const ContractWizard: React.FC = () => {
           setAssignedManagerId(targetMgrId);
           const mgr = users.find((u) => u.id === targetMgrId);
           setManagerPhone(mgr?.phone || companySettings.phone1);
+          if (!managerDisplayName) {
+            setManagerDisplayName(mgr?.name || '');
+          }
         } else if (!assignedManagerId) {
           const firstMgr = users.find((u) => u.role === 'manager') || users[0];
           if (firstMgr) {
             setAssignedManagerId(firstMgr.id);
             setManagerPhone(firstMgr.phone || companySettings.phone1);
+            if (!managerDisplayName) {
+              setManagerDisplayName(firstMgr.name || '');
+            }
           }
         }
       }
@@ -580,6 +593,7 @@ export const ContractWizard: React.FC = () => {
           : undefined);
       const resolvedManagerPhone =
         managerPhone.trim() || resolvedManagerObj?.phone || companySettings.phone1;
+      const resolvedDisplayName = managerDisplayName.trim() || undefined;
 
       if (isEditMode && editingContractData) {
         const updated = updateContract(editingContractData.id, {
@@ -591,6 +605,7 @@ export const ContractWizard: React.FC = () => {
           vehicleSnapshot,
           assignedManagerId: assignedManagerId || currentVehicle?.assignedManagerId,
           assignedManagerName: resolvedManagerObj?.name || currentVehicle?.assignedManagerName,
+          managerDisplayName: resolvedDisplayName,
           managerPhone: resolvedManagerPhone,
           startDate,
           startTime,
@@ -623,6 +638,7 @@ export const ContractWizard: React.FC = () => {
             vehicleSnapshot,
             assignedManagerId: assignedManagerId || currentVehicle?.assignedManagerId,
             assignedManagerName: resolvedManagerObj?.name || currentVehicle?.assignedManagerName,
+            managerDisplayName: resolvedDisplayName,
             managerPhone: resolvedManagerPhone,
             startDate,
             startTime,
@@ -660,6 +676,7 @@ export const ContractWizard: React.FC = () => {
         vehicleSnapshot,
         assignedManagerId: assignedManagerId || currentVehicle?.assignedManagerId,
         assignedManagerName: resolvedManagerObj?.name || currentVehicle?.assignedManagerName,
+        managerDisplayName: resolvedDisplayName,
         managerPhone: resolvedManagerPhone,
         startDate,
         startTime,
@@ -866,6 +883,8 @@ export const ContractWizard: React.FC = () => {
             setProlongationTime={setProlongationTime}
             assignedManagerId={assignedManagerId}
             setAssignedManagerId={setAssignedManagerId}
+            managerDisplayName={managerDisplayName}
+            setManagerDisplayName={setManagerDisplayName}
             managerPhone={managerPhone}
             setManagerPhone={setManagerPhone}
             users={users}
@@ -901,6 +920,7 @@ export const ContractWizard: React.FC = () => {
             insurance={contractInsurance}
             depositCollected={depositCollected}
             assignedManagerId={assignedManagerId}
+            managerDisplayName={managerDisplayName}
             managerPhone={managerPhone}
             users={users}
             companySettings={companySettings}
