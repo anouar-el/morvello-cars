@@ -391,13 +391,13 @@ export const AiCharterSettings: React.FC = () => {
             {/* Language Strategy */}
             <div className="border-t border-slate-800 pt-5">
               <label className="block text-xs font-bold text-slate-300 uppercase tracking-wide mb-2">
-                Stratégie Linguistique (Français & Darija Marocain)
+                Stratégie Linguistique (Français & Langue Arabe)
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                 {[
                   {
                     id: 'french_darija' as AiLanguagePreference,
-                    label: '🇫🇷 Français & 🇲🇦 Darija au choix',
+                    label: '🇫🇷 Français & 🇲🇦 Arabe au choix',
                     desc: 'Alternance naturelle selon le contexte ou la langue choisie par l’interlocuteur.',
                   },
                   {
@@ -407,8 +407,8 @@ export const AiCharterSettings: React.FC = () => {
                   },
                   {
                     id: 'darija_arabic_french' as AiLanguagePreference,
-                    label: '🇲🇦 Priorité Darija Chaleureuse',
-                    desc: 'Favorise la Darija marocaine polie pour les contacts WhatsApp et messages de bienvenue.',
+                    label: '🇲🇦 Priorité Langue Arabe',
+                    desc: 'Favorise la langue arabe soignée pour les contacts WhatsApp et messages de bienvenue.',
                   },
                 ].map((item) => (
                   <label
