@@ -1,4 +1,5 @@
 import express from 'express';
+import helmet from 'helmet';
 import path from 'path';
 import fs from 'fs';
 import { GoogleGenAI } from '@google/genai';
@@ -13,6 +14,15 @@ import { buildAssistantDataSection } from './src/lib/aiAssistantContext';
 import { FRANCHISE_DAMAGE_RATE_PERCENT } from './src/data/insurancePacks';
 
 dotenv.config();
+
+/** Masks an email for log output (e.g. "jo***@example.com") so PII does not sit in plaintext logs. */
+export function maskEmail(email: string): string {
+  if (!email || typeof email !== 'string') return '';
+  const [local, domain] = email.split('@');
+  if (!domain) return '***';
+  const visible = local.slice(0, 2);
+  return `${visible}${'*'.repeat(Math.max(local.length - visible.length, 1))}@${domain}`;
+}
 
 export function normalizeSupabaseUrl(raw?: string): string {
   if (!raw || typeof raw !== 'string') return '';
@@ -152,6 +162,12 @@ const app = express();
 // On external hosting (Hostinger, Render, Railway, etc.), the platform-assigned process.env.PORT
 // must be respected, with a fallback to 3000 if it is absent.
 const PORT = process.env.AI_STUDIO === 'true' ? 3000 : parseInt(process.env.PORT || '3000', 10);
+
+// Security headers (X-Frame-Options, X-Content-Type-Options, HSTS, etc.).
+// CSP is left to the app's default (disabled) here: the SPA loads an inline bootstrap script
+// and Google Fonts, so a strict CSP needs deliberate nonce/allowlist tuning and browser testing
+// before being turned on, rather than being enabled blind.
+app.use(helmet({ contentSecurityPolicy: false }));
 
 app.use(express.json({ limit: '10mb' }));
 
@@ -507,6 +523,13 @@ app.post('/api/admin/set-user-role', async (req, res) => {
       return res.status(403).json({ success: false, error: authCheck.error, code: authCheck.code });
     }
 
+    if (!checkAdminRateLimit(res, authCheck.callerUid!)) {
+      return res.status(429).json({
+        success: false,
+        error: 'Trop de requêtes administratives. Veuillez patienter avant de continuer.',
+      });
+    }
+
     const { uid, role } = req.body;
     if (!uid || typeof uid !== 'string') {
       return res.status(400).json({ success: false, error: 'UID utilisateur cible requis.' });
@@ -675,6 +698,13 @@ app.post('/api/admin/provision-team-member', async (req, res) => {
       return res.status(403).json({ success: false, error: authCheck.error, code: authCheck.code });
     }
 
+    if (!checkAdminRateLimit(res, authCheck.callerUid!)) {
+      return res.status(429).json({
+        success: false,
+        error: 'Trop de requêtes administratives. Veuillez patienter avant de continuer.',
+      });
+    }
+
     const callerAgency = authCheck.callerAgency;
     if (!callerAgency) {
       return res.status(403).json({
@@ -749,10 +779,10 @@ app.post('/api/admin/provision-team-member', async (req, res) => {
     const auth = getAdminAuth();
     try {
       userRecord = await auth.getUserByEmail(trimmedEmail);
-      console.log(`[Server] User ${trimmedEmail} exists with UID: ${userRecord.uid}`);
+      console.log(`[Server] User ${maskEmail(trimmedEmail)} exists with UID: ${userRecord.uid}`);
       if (password && typeof password === 'string' && password.length >= 6) {
         await auth.updateUser(userRecord.uid, { password });
-        console.log(`[Server] Updated password for existing user ${trimmedEmail}`);
+        console.log(`[Server] Updated password for existing user ${maskEmail(trimmedEmail)}`);
       }
     } catch (err: any) {
       if (err.code === 'auth/user-not-found') {
@@ -768,7 +798,7 @@ app.post('/api/admin/provision-team-member', async (req, res) => {
           createPayload.phoneNumber = phone;
         }
         userRecord = await auth.createUser(createPayload);
-        console.log(`[Server] Provisioned new Auth user ${trimmedEmail} (UID: ${userRecord.uid})`);
+        console.log(`[Server] Provisioned new Auth user ${maskEmail(trimmedEmail)} (UID: ${userRecord.uid})`);
       } else {
         throw err;
       }
@@ -783,7 +813,7 @@ app.post('/api/admin/provision-team-member', async (req, res) => {
         existingProfileByEmail.firebase_uid !== userRecord.uid
       ) {
         console.warn(
-          `[Security] Email collision rejected! Email ${trimmedEmail} belongs to profile ${existingProfileByEmail.id} with different firebase_uid.`
+          `[Security] Email collision rejected! Email ${maskEmail(trimmedEmail)} belongs to profile ${existingProfileByEmail.id} with different firebase_uid.`
         );
         return res.status(409).json({
           success: false,
@@ -795,7 +825,7 @@ app.post('/api/admin/provision-team-member', async (req, res) => {
       const existingAgency = existingProfileByEmail.agency_id || existingProfileByEmail.agency;
       if (existingAgency && existingAgency !== targetAgency) {
         console.warn(
-          `[Security] Cross-agency email conflict! Email ${trimmedEmail} belongs to agency ${existingAgency}.`
+          `[Security] Cross-agency email conflict! Email ${maskEmail(trimmedEmail)} belongs to agency ${existingAgency}.`
         );
         return res.status(409).json({
           success: false,
@@ -843,7 +873,7 @@ app.post('/api/admin/provision-team-member', async (req, res) => {
       }
 
       console.log(
-        `[Server] Provisioned authoritative Supabase profile for ${trimmedEmail} (ID: ${supabaseProfileId}) in agency ${targetAgency}`
+        `[Server] Provisioned authoritative Supabase profile for ${maskEmail(trimmedEmail)} (ID: ${supabaseProfileId}) in agency ${targetAgency}`
       );
     } catch (sbEx: any) {
       console.error('[Server] Exception provisioning Supabase profile:', sbEx);
@@ -936,63 +966,58 @@ app.get(['/api/health', '/health'], (req, res) => {
   });
 });
 
-// In-memory sliding-window rate limiter for /api/agent-chat (prevents API abuse and quota exhaustion)
+// In-memory sliding-window rate limiters (prevent API abuse and quota exhaustion).
+// Always keyed on the server-verified caller UID, never a client-supplied value (e.g.
+// req.body.memberId), which an attacker can vary per request to bypass the limit.
 interface RateLimitRecord {
   count: number;
   resetTime: number;
 }
-const chatRateLimitMap = new Map<string, RateLimitRecord>();
 
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, record] of chatRateLimitMap.entries()) {
-    if (now > record.resetTime) {
-      chatRateLimitMap.delete(key);
+function createRateLimiter(windowMs: number, maxRequests: number) {
+  const map = new Map<string, RateLimitRecord>();
+
+  setInterval(() => {
+    const now = Date.now();
+    for (const [key, record] of map.entries()) {
+      if (now > record.resetTime) {
+        map.delete(key);
+      }
     }
-  }
-}, 5 * 60 * 1000).unref();
+  }, 5 * 60 * 1000).unref();
 
-function chatRateLimiter(req: express.Request, res: express.Response, next: express.NextFunction) {
-  const clientIp =
-    (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
-    req.socket.remoteAddress ||
-    'unknown-ip';
-  const memberId = req.body?.memberId || 'anonymous';
-  const rateLimitKey = `${clientIp}:${memberId}`;
+  return function checkRateLimit(res: express.Response, callerUid: string): boolean {
+    const now = Date.now();
+    let record = map.get(callerUid);
 
-  const WINDOW_MS = 60 * 1000; // 1 minute window
-  const MAX_REQUESTS = 25; // 25 requests per minute
+    if (!record || now > record.resetTime) {
+      record = { count: 1, resetTime: now + windowMs };
+      map.set(callerUid, record);
+    } else {
+      record.count++;
+    }
 
-  const now = Date.now();
-  let record = chatRateLimitMap.get(rateLimitKey);
+    const remaining = Math.max(0, maxRequests - record.count);
+    const resetSeconds = Math.ceil((record.resetTime - now) / 1000);
 
-  if (!record || now > record.resetTime) {
-    record = { count: 1, resetTime: now + WINDOW_MS };
-    chatRateLimitMap.set(rateLimitKey, record);
-  } else {
-    record.count++;
-  }
+    res.setHeader('X-RateLimit-Limit', maxRequests);
+    res.setHeader('X-RateLimit-Remaining', remaining);
+    res.setHeader('X-RateLimit-Reset', resetSeconds);
 
-  const remaining = Math.max(0, MAX_REQUESTS - record.count);
-  const resetSeconds = Math.ceil((record.resetTime - now) / 1000);
+    if (record.count > maxRequests) {
+      res.setHeader('Retry-After', resetSeconds);
+      return false;
+    }
 
-  res.setHeader('X-RateLimit-Limit', MAX_REQUESTS);
-  res.setHeader('X-RateLimit-Remaining', remaining);
-  res.setHeader('X-RateLimit-Reset', resetSeconds);
-
-  if (record.count > MAX_REQUESTS) {
-    res.setHeader('Retry-After', resetSeconds);
-    return res.status(429).json({
-      error: 'Trop de requêtes vers l\'assistant IA. Veuillez patienter avant de continuer.',
-      retryAfterSeconds: resetSeconds,
-    });
-  }
-
-  next();
+    return true;
+  };
 }
 
+const checkChatRateLimit = createRateLimiter(60 * 1000, 25); // 25 req/min
+const checkAdminRateLimit = createRateLimiter(60 * 1000, 15); // 15 req/min (admin provisioning/role changes)
+
 // AI Agent Chat Endpoint - strictly isolated per authenticated member
-app.post('/api/agent-chat', chatRateLimiter, async (req, res) => {
+app.post('/api/agent-chat', async (req, res) => {
   try {
     // 1. Mandatory server-side cryptographic authentication check
     const authCheck = await authenticateCaller(req);
@@ -1001,6 +1026,15 @@ app.post('/api/agent-chat', chatRateLimiter, async (req, res) => {
         success: false,
         error: authCheck.error,
         code: authCheck.code,
+      });
+    }
+
+    // 2. Rate limit keyed on the verified caller UID (not a client-supplied value)
+    if (!checkChatRateLimit(res, authCheck.uid)) {
+      const resetSeconds = Number(res.getHeader('X-RateLimit-Reset')) || 60;
+      return res.status(429).json({
+        error: 'Trop de requêtes vers l\'assistant IA. Veuillez patienter avant de continuer.',
+        retryAfterSeconds: resetSeconds,
       });
     }
 
@@ -1339,6 +1373,24 @@ export async function startServer() {
   console.log(`[CONFIG_LOADED] Environment configuration loaded (PORT: ${PORT}, Host: 0.0.0.0, AI_STUDIO: ${process.env.AI_STUDIO || 'false'})`);
   console.log(`[AUTH_INITIALIZED] Auth providers configured (Supabase: ${Boolean(SUPABASE_URL && SUPABASE_ANON_KEY)}, Firebase: ${Boolean(getApps().length)})`);
   console.log('[ROUTES_REGISTERED] Express API routes and middleware mounted');
+
+  // Firebase Admin (used for Firebase token verification and legacy /users provisioning) relies on
+  // Application Default Credentials. On GCP hosting these are automatic; on any other host
+  // (Hostinger, Render, Railway, ...) GOOGLE_APPLICATION_CREDENTIALS must point to a service
+  // account key file, or every Firebase Admin call will fail at request time with an opaque error.
+  if (
+    (process.env.NODE_ENV || '').toLowerCase().trim() === 'production' &&
+    !process.env.GOOGLE_APPLICATION_CREDENTIALS &&
+    !process.env.K_SERVICE && // Cloud Run
+    !process.env.GAE_APPLICATION && // App Engine
+    !process.env.FUNCTION_TARGET // Cloud Functions
+  ) {
+    console.warn(
+      '[CONFIG_WARNING] GOOGLE_APPLICATION_CREDENTIALS is not set and no GCP runtime was detected. ' +
+        'Firebase Admin (token verification, team provisioning) will fail unless this host runs on GCP infrastructure. ' +
+        'Set GOOGLE_APPLICATION_CREDENTIALS to a service account key file if deploying elsewhere.'
+    );
+  }
 
   const distPath = resolveDistPath();
   const isProd = isProductionMode(distPath);
