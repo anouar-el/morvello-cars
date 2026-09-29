@@ -141,10 +141,24 @@ export const ClientsDriversProvider: React.FC<{
       return { success: false, error: 'Client introuvable.' };
     }
 
-    const isGerant = currentUser?.role === 'admin';
-    const isManager = currentUser?.role === 'manager';
+    // Résolution de l'utilisateur actif (paramètre explicite ou session localStorage)
+    let user = currentUser;
+    if (!user) {
+      try {
+        const savedAuth = localStorage.getItem('morvello_auth_user');
+        if (savedAuth) {
+          user = JSON.parse(savedAuth);
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
 
-    if (!isGerant && !isManager) {
+    const isGerant = user?.role === 'admin';
+    const isManager = user?.role === 'manager';
+    const hasPermission = Boolean(user?.permissions?.canDeleteClients);
+
+    if (!isGerant && !isManager && !hasPermission) {
       return {
         success: false,
         error: 'Permission refusée : vous ne disposez pas des droits pour supprimer ce client.',

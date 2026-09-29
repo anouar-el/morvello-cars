@@ -762,7 +762,23 @@ const AppContextInner: React.FC<{ children: React.ReactNode }> = ({ children }) 
         deleteTermsClause: (number) => company.deleteTermsClause(number, auth.currentUser?.name),
         addClient: clientsDrivers.addClient,
         updateClient: clientsDrivers.updateClient,
-        deleteClient: clientsDrivers.deleteClient,
+        deleteClient: (id) =>
+          clientsDrivers.deleteClient(
+            id,
+            auth.currentUser,
+            (clientId, docNumber) => {
+              const activeContract = contractsCtx.contracts.find(
+                (c) =>
+                  (c.clientId === clientId ||
+                    (docNumber && c.clientSnapshot?.docNumber?.toLowerCase() === docNumber?.toLowerCase())) &&
+                  (c.status === 'active' || c.status === 'draft')
+              );
+              return {
+                isBlocked: !!activeContract,
+                contractNumber: activeContract?.contractNumber,
+              };
+            }
+          ),
         addDriver: clientsDrivers.addDriver,
         addVehicle: vehiclesCtx.addVehicle,
         updateVehicle: vehiclesCtx.updateVehicle,
