@@ -119,7 +119,8 @@ export const AuditView: React.FC = () => {
 
       {/* AUDIT LOG TABLE */}
       <div className="bg-slate-900 border border-slate-800 rounded-xl shadow-md overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* DESKTOP TABLE ONLY (md:block) */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left text-xs text-slate-300">
             <thead className="bg-slate-950/70 text-slate-400 uppercase text-[10px] font-semibold border-b border-slate-800">
               <tr>
@@ -170,6 +171,42 @@ export const AuditView: React.FC = () => {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* MOBILE CARD VIEW (< md screens) */}
+        <div className="md:hidden divide-y divide-slate-800">
+          {filteredLogs.length === 0 ? (
+            <div className="text-center py-10 text-slate-500 text-xs">
+              Aucun événement d'audit ne correspond à vos filtres.
+            </div>
+          ) : (
+            filteredLogs.map((log) => (
+              <div key={log.id} className="p-3.5 space-y-2 bg-slate-900/60 hover:bg-slate-900 transition-colors">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    {log.timestamp}
+                  </span>
+                  <div>{getActionBadge(log.action)}</div>
+                </div>
+
+                <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold text-white">{log.userName}</span>
+                    <span className="text-[9.5px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 font-mono uppercase">
+                      {log.userRole}
+                    </span>
+                  </div>
+                  <span className="text-amber-400 font-mono font-bold text-xs">
+                    {log.targetId}
+                  </span>
+                </div>
+
+                <div className="text-xs text-slate-300 bg-slate-950/70 p-2.5 rounded-lg border border-slate-800">
+                  {log.details}
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>

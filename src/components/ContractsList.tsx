@@ -214,6 +214,37 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
     }
   };
 
+  const getPaymentBadge = (cnt: Contract) => {
+    const pricePerDay = cnt.pricePerDay !== undefined ? Number(cnt.pricePerDay) : 0;
+    const totalDays = cnt.totalDays || 1;
+    const total = cnt.totalAmount !== undefined ? Number(cnt.totalAmount) : pricePerDay * totalDays;
+    const paymentsList = cnt.payments || [];
+    const paid = paymentsList.length > 0
+      ? paymentsList.reduce((s, p) => s + (Number(p.amount) || 0), 0)
+      : (cnt.paidAmount !== undefined ? Number(cnt.paidAmount) : 0);
+    const remaining = Math.max(0, total - paid);
+
+    if (total === 0 || remaining <= 0) {
+      return (
+        <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-1.5 py-0.5 rounded font-mono">
+          ✓ Soldé
+        </span>
+      );
+    }
+    if (paid > 0) {
+      return (
+        <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-amber-400 bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.5 rounded font-mono">
+          ⚡ Acompte
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-rose-400 bg-rose-500/15 border border-rose-500/30 px-1.5 py-0.5 rounded font-mono">
+        ✕ Non payé
+      </span>
+    );
+  };
+
   const handleCancel = (contract: Contract) => {
     const reason = window.prompt(`Motif d'annulation pour le contrat ${contract.contractNumber} :`);
     if (reason !== null) {
@@ -507,7 +538,8 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
 
       {/* CONTRACTS TABLE */}
       <div className="bg-slate-900 border border-slate-800 rounded-xl shadow-md overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* TABLE WRAPPER - DESKTOP ONLY */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left text-xs text-slate-300">
             <thead className="bg-slate-950/70 text-slate-400 uppercase text-[10px] font-semibold border-b border-slate-800">
               <tr>
@@ -918,6 +950,196 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
             </tbody>
           </table>
         </div>
+
+        {/* ========================================================================= */}
+        {/* MOBILE CARD VIEW (< md screens)                                           */}
+        {/* ========================================================================= */}
+        <div className="md:hidden divide-y divide-slate-800">
+          {sortedContracts.length === 0 ? (
+            <div className="text-center py-12 text-slate-500 text-xs">
+              Aucun contrat ne correspond à vos critères de recherche.
+            </div>
+          ) : (
+            sortedContracts.map((cnt) => {
+              const matchingVehicle = vehicles.find((item) => item.id === cnt.vehicleId || item.plate === cnt.vehicleSnapshot.plate);
+              const managerName = cnt.managerDisplayName || cnt.assignedManagerName || matchingVehicle?.assignedManagerName;
+
+              return (
+                <div key={cnt.id} className="p-3.5 space-y-3 bg-slate-900/60 hover:bg-slate-900 transition-colors">
+                  {/* CARD HEADER: N° CONTRAT + STATUS + TEMPLATE BADGE */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-mono font-bold text-amber-400 text-sm">
+                          {cnt.contractNumber}
+                        </span>
+                        {duplicateNumberSet.has(cnt.contractNumber) && (
+                          <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-300 bg-amber-500/20 border border-amber-500/40 px-1 py-0.2 rounded">
+                            <AlertTriangle className="w-2.5 h-2.5 text-amber-400" />
+                            Doublon
+                          </span>
+                        )}
+                        <span className={`text-[9px] px-1.5 py-0.2 rounded border font-semibold ${
+                          cnt.templateId === 'prestige'
+                            ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                            : cnt.templateId === 'corporate'
+                            ? 'bg-blue-500/15 text-blue-300 border-blue-500/30'
+                            : cnt.templateId === 'signature'
+                            ? 'bg-violet-500/15 text-violet-300 border-violet-500/30'
+                            : 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                        }`}>
+                          {cnt.templateId === 'prestige' ? '★ VIP' : cnt.templateId === 'corporate' ? '🏢 B2B' : cnt.templateId === 'signature' ? '✒ Sign' : '📄 Standard'}
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-slate-500 mt-0.5">
+                        {new Date(cnt.createdAt).toLocaleDateString('fr-FR')} • {cnt.createdBy}
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col items-end gap-1">
+                      {getStatusBadge(cnt.status)}
+                      {cnt.clientSignature ? (
+                        <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-1.5 py-0.2 rounded">
+                          <ShieldCheck className="w-2.5 h-2.5" />
+                          Signé
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[8.5px] font-medium text-slate-400 bg-slate-800/80 border border-slate-700/60 px-1.5 py-0.2 rounded">
+                          <PenTool className="w-2 h-2 text-slate-500" />
+                          À signer
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* VÉHICULE & CLIENT ROW */}
+                  <div className="bg-slate-950/70 p-2.5 rounded-xl border border-slate-800 grid grid-cols-2 gap-2 text-xs">
+                    {/* VÉHICULE */}
+                    <div>
+                      <span className="text-[9.5px] text-slate-400 uppercase font-bold block">Véhicule</span>
+                      <div className="font-bold text-white uppercase text-xs truncate">
+                        {cnt.vehicleSnapshot.brand} {cnt.vehicleSnapshot.model}
+                      </div>
+                      <div className="font-mono text-[10.5px] text-amber-400 font-bold mt-0.5">
+                        {formatPlateFrench(cnt.vehicleSnapshot.plate)}
+                      </div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">
+                        {cnt.departureKm.toLocaleString('fr-FR')} KM • {cnt.departureFuel || '8/8'}
+                      </div>
+                    </div>
+
+                    {/* CLIENT */}
+                    <div>
+                      <span className="text-[9.5px] text-slate-400 uppercase font-bold block">Locataire</span>
+                      <div className="font-bold text-white uppercase text-xs truncate">
+                        {cnt.clientSnapshot.lastName} {cnt.clientSnapshot.firstName}
+                      </div>
+                      {cnt.clientSnapshot.phone ? (
+                        <a
+                          href={`tel:${cnt.clientSnapshot.phone}`}
+                          className="inline-flex items-center gap-1 text-[10.5px] text-amber-400 hover:underline font-mono font-medium mt-0.5"
+                        >
+                          📞 {cnt.clientSnapshot.phone}
+                        </a>
+                      ) : (
+                        <span className="text-[10px] text-slate-500 italic block mt-0.5">Tél non renseigné</span>
+                      )}
+                      {managerName && (
+                        <div className="text-[9.5px] text-blue-300 font-mono mt-0.5 truncate">
+                          Resp: {managerName}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* PÉRIODE & TARIFS */}
+                  <div className="flex items-center justify-between text-xs px-0.5">
+                    <div className="text-slate-300 text-[11px] leading-tight">
+                      <div>
+                        Du <strong className="text-white">{new Date(cnt.startDate).toLocaleDateString('fr-FR')}</strong> au <strong className="text-white">{new Date(cnt.prolongation?.isActive ? cnt.prolongation.newEndDate : cnt.endDate).toLocaleDateString('fr-FR')}</strong>
+                      </div>
+                      <div className="text-[10px] text-amber-400/90 font-medium mt-0.5">
+                        {cnt.totalDays} jour(s) • {cnt.pricePerDay} MAD/j
+                      </div>
+                    </div>
+
+                    <div className="text-right">
+                      <div className="font-mono font-bold text-white text-sm">
+                        {cnt.totalAmount.toLocaleString('fr-FR')} MAD
+                      </div>
+                      <div className="mt-0.5">
+                        {getPaymentBadge(cnt)}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* MOBILE ACTION BUTTONS (LARGE TOUCH TARGETS) */}
+                  <div className="grid grid-cols-4 gap-1.5 pt-1">
+                    {/* 1. Voir PDF */}
+                    <button
+                      type="button"
+                      onClick={() => openPdfModal(cnt)}
+                      className="flex flex-col items-center justify-center p-2 rounded-xl bg-blue-500/15 hover:bg-blue-500/25 text-blue-300 border border-blue-500/30 text-[10px] font-semibold transition-colors cursor-pointer"
+                    >
+                      <Eye className="w-4 h-4 mb-0.5" />
+                      <span>PDF A4</span>
+                    </button>
+
+                    {/* 2. Signature e-Sign */}
+                    <button
+                      type="button"
+                      onClick={() => setSigningContract(cnt)}
+                      className={`flex flex-col items-center justify-center p-2 rounded-xl text-[10px] font-semibold border transition-colors cursor-pointer ${
+                        cnt.clientSignature
+                          ? 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                          : 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border-amber-500/30'
+                      }`}
+                    >
+                      <PenTool className="w-4 h-4 mb-0.5" />
+                      <span>{cnt.clientSignature ? 'Signé' : 'Signer'}</span>
+                    </button>
+
+                    {/* 3. Photos / Inspection */}
+                    <button
+                      type="button"
+                      onClick={() => setInspectionContract(cnt)}
+                      className="flex flex-col items-center justify-center p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[10px] font-semibold transition-colors cursor-pointer relative"
+                    >
+                      <Camera className="w-4 h-4 mb-0.5" />
+                      {cnt.inspection?.photos?.length ? (
+                        <span className="absolute top-1 right-2 text-[8px] font-bold bg-amber-500 text-slate-950 px-1 rounded-full">
+                          {cnt.inspection.photos.length}
+                        </span>
+                      ) : null}
+                      <span>Photos</span>
+                    </button>
+
+                    {/* 4. Action contextuelle (Restituer si actif, sinon Modifier) */}
+                    {cnt.status === 'active' && hasPermission('canValidateContracts') ? (
+                      <button
+                        type="button"
+                        onClick={() => onOpenCheckInModal(cnt)}
+                        className="flex flex-col items-center justify-center p-2 rounded-xl bg-emerald-600/30 hover:bg-emerald-600/40 text-emerald-300 border border-emerald-500/40 text-[10px] font-bold transition-colors cursor-pointer"
+                      >
+                        <CheckSquare className="w-4 h-4 mb-0.5" />
+                        <span>Restituer</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => startEditingContract(cnt)}
+                        className="flex flex-col items-center justify-center p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[10px] font-semibold transition-colors cursor-pointer"
+                      >
+                        <Edit3 className="w-4 h-4 mb-0.5" />
+                        <span>Modifier</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
       </div>
 
       {/* MODAL ÉTAT DES LIEUX & PHOTOS */}
@@ -929,8 +1151,9 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
 
       {/* MODAL MODIFICATION CARBURANT & KM DE DÉPART */}
       {fuelEditModalContract && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-950/80 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-150">
+          <div className="bg-slate-900 border border-slate-800 rounded-t-3xl sm:rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto pb-safe">
+            <div className="w-12 h-1.5 bg-slate-700 rounded-full mx-auto -mt-2 mb-2 sm:hidden shrink-0" />
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div className="flex items-center gap-2.5">
                 <div className="p-2 bg-amber-500/15 text-amber-400 rounded-xl border border-amber-500/30">
@@ -1030,8 +1253,9 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
       {/* MODAL CONFIRMATION SUPPRESSION CONTRAT (GÉRANT SEUL)                      */}
       {/* ========================================================================= */}
       {contractToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-          <div className="bg-slate-900 border border-rose-500/40 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-950/80 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-150">
+          <div className="bg-slate-900 border border-rose-500/40 rounded-t-3xl sm:rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto pb-safe">
+            <div className="w-12 h-1.5 bg-slate-700 rounded-full mx-auto -mt-2 mb-2 sm:hidden shrink-0" />
             <div className="flex items-center gap-3 border-b border-slate-800 pb-3">
               <div className="w-10 h-10 rounded-xl bg-rose-500/20 text-rose-400 flex items-center justify-center border border-rose-500/30 shrink-0">
                 <Trash2 className="w-5 h-5" />

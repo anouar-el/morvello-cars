@@ -942,10 +942,11 @@ export const PermissionsManager: React.FC = () => {
         </>
       )}
 
-      {/* MODAL : AJOUT D'UN NOUVEAU MEMBRE D'ÉQUIPE */}
+      {/* MODAL : AJOUT D'UN NOUVEAU MEMBRE D'ÉQUIPE (DRAWER ON MOBILE) */}
       {isAddUserModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden">
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in">
+          <div className="bg-slate-900 border-t sm:border border-slate-800 rounded-t-3xl sm:rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden pb-safe sm:pb-0">
+            <div className="w-12 h-1.5 bg-slate-700 rounded-full mx-auto my-2 sm:hidden shrink-0" />
             <div className="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400">
@@ -1090,10 +1091,11 @@ export const PermissionsManager: React.FC = () => {
         </div>
       )}
 
-      {/* MODAL : CONFIRMATION SUPPRESSION COLLABORATEUR */}
+      {/* MODAL : CONFIRMATION SUPPRESSION COLLABORATEUR (DRAWER ON MOBILE) */}
       {userToDelete && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden p-6 space-y-5">
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in">
+          <div className="bg-slate-900 border-t sm:border border-slate-800 rounded-t-3xl sm:rounded-2xl w-full max-w-md shadow-2xl overflow-hidden p-5 sm:p-6 space-y-5 pb-safe sm:pb-6">
+            <div className="w-12 h-1.5 bg-slate-700 rounded-full mx-auto mb-2 sm:hidden shrink-0" />
             <div className="w-12 h-12 rounded-2xl bg-rose-500/20 border border-rose-500/40 text-rose-400 flex items-center justify-center mx-auto">
               <AlertTriangle className="w-6 h-6" />
             </div>

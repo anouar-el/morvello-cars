@@ -425,7 +425,8 @@ export const ClientsList: React.FC = () => {
 
       {/* CLIENTS TABLE */}
       <div className="bg-slate-900 border border-slate-800 rounded-xl shadow-md overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* DESKTOP TABLE ONLY (md:block) */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left text-xs text-slate-300">
             <thead className="bg-slate-950/70 text-slate-400 uppercase text-[10px] font-semibold border-b border-slate-800">
               <tr>
@@ -592,12 +593,147 @@ export const ClientsList: React.FC = () => {
             </tbody>
           </table>
         </div>
+
+        {/* ========================================================================= */}
+        {/* MOBILE CARDS VIEW (< md screens)                                          */}
+        {/* ========================================================================= */}
+        <div className="md:hidden divide-y divide-slate-800">
+          {filteredClients.length === 0 ? (
+            <div className="text-center py-12 text-slate-500 text-xs">
+              Aucun client trouvé.
+            </div>
+          ) : (
+            filteredClients.map((cli) => {
+              const mgrInfo = getClientAssignedManager(cli);
+
+              return (
+                <div key={cli.id} className="p-3.5 space-y-3 bg-slate-900/60 hover:bg-slate-900 transition-colors">
+                  {/* CARD HEADER: NAME & COUNTRY & QUICK CALL */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="font-bold text-white text-sm uppercase truncate flex items-center gap-1.5">
+                        <span>{cli.lastName} {cli.firstName}</span>
+                      </div>
+                      <div className="text-[10px] text-slate-400 flex items-center gap-1.5 mt-0.5">
+                        <span className="bg-slate-800 text-slate-300 font-mono px-1.5 py-0.2 rounded text-[9.5px]">
+                          {cli.country || 'Maroc'}
+                        </span>
+                        <span>• Réf. {cli.id}</span>
+                        {cli.birthDate && <span>• Né(e) {cli.birthDate}</span>}
+                      </div>
+                    </div>
+
+                    {cli.phone && (
+                      <a
+                        href={`tel:${cli.phone}`}
+                        className="p-2 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25 active:scale-95 transition-all flex items-center justify-center shrink-0"
+                        title={`Appeler ${cli.firstName}`}
+                      >
+                        <Phone className="w-4 h-4" />
+                      </a>
+                    )}
+                  </div>
+
+                  {/* CONTACT & IDENTITY ROW */}
+                  <div className="grid grid-cols-2 gap-2 text-[11px] bg-slate-950/70 p-2.5 rounded-xl border border-slate-800">
+                    <div>
+                      <span className="text-[9.5px] text-slate-500 uppercase font-bold block">Pièce d'Identité</span>
+                      <div className="font-mono font-bold text-slate-200 truncate mt-0.5">
+                        {cli.docNumber || '—'}
+                      </div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">
+                        Type : <span className="font-mono text-amber-400 font-semibold">{cli.docType}</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <span className="text-[9.5px] text-slate-500 uppercase font-bold block">Permis de Conduire</span>
+                      <div className="font-mono font-bold text-amber-400 truncate mt-0.5">
+                        {cli.drivingLicense || '—'}
+                      </div>
+                      {(cli.licenseDocUrl || cli.cinDocUrl) && (
+                        <div className="text-[9px] text-emerald-400 font-mono flex items-center gap-1 mt-0.5">
+                          <FileCheck className="w-3 h-3 text-emerald-400" />
+                          <span>Docs numérisés</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* AFFECTATION RESPONSABLE & VÉHICULE */}
+                  <div className="flex items-center justify-between text-xs bg-slate-950/40 p-2 rounded-lg border border-slate-800/80">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <UserCheck className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                      <div className="min-w-0 truncate">
+                        <span className="text-[10px] text-slate-400 block">Responsable</span>
+                        <span className="text-[11px] font-semibold text-white truncate">
+                          {mgrInfo.managerName || 'Non affecté'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="text-right shrink-0">
+                      {mgrInfo.vehicleName ? (
+                        <div className="flex items-center gap-1 text-[10px] font-bold text-emerald-300 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                          <span>{mgrInfo.vehicleName}</span>
+                          {mgrInfo.vehiclePlate && (
+                            <span className="font-mono text-[9px] text-amber-300">({mgrInfo.vehiclePlate})</span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-[10px] text-slate-500 font-mono">
+                          {cli.contractCount} location(s)
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* ACTIONS BAR */}
+                  <div className="flex items-center gap-1.5 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedClientDetail(cli)}
+                      className="flex-1 py-2 px-2.5 rounded-xl bg-blue-500/15 hover:bg-blue-500/25 text-blue-300 border border-blue-500/30 font-bold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer min-h-[38px]"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Fiche Client</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleOpenEdit(cli)}
+                      className="p-2 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-xs transition-colors cursor-pointer min-h-[38px] min-w-[38px] flex items-center justify-center"
+                      title="Modifier le client"
+                    >
+                      <Edit3 className="w-4 h-4" />
+                    </button>
+
+                    {canDeleteClient && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDeleteError('');
+                          setClientToDelete(cli);
+                        }}
+                        className="p-2 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 border border-rose-500/30 text-xs transition-colors cursor-pointer min-h-[38px] min-w-[38px] flex items-center justify-center ml-auto"
+                        title="Supprimer la fiche client"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
       </div>
 
-      {/* MODAL FICHE CLIENT & HISTORIQUE */}
+      {/* MODAL FICHE CLIENT & HISTORIQUE (DRAWER ON MOBILE) */}
       {selectedClientDetail && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-950/80 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-150">
+          <div className="bg-slate-900 border-t sm:border border-slate-800 rounded-t-3xl sm:rounded-2xl max-w-2xl w-full p-4 sm:p-6 shadow-2xl space-y-4 max-h-[92vh] sm:max-h-[90vh] overflow-y-auto pb-safe sm:pb-6">
+            <div className="w-12 h-1.5 bg-slate-700 rounded-full mx-auto mb-2 sm:hidden shrink-0" />
             <div className="flex items-start justify-between border-b border-slate-800 pb-3">
               <div>
                 <span className="text-[10px] text-blue-400 font-bold uppercase tracking-widest font-mono">
@@ -1063,10 +1199,11 @@ export const ClientsList: React.FC = () => {
         </div>
       )}
 
-      {/* MODAL NOUVEAU CLIENT */}
+      {/* MODAL NOUVEAU CLIENT (DRAWER ON MOBILE) */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-950/80 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-150">
+          <div className="bg-slate-900 border-t sm:border border-slate-800 rounded-t-3xl sm:rounded-2xl max-w-lg w-full p-4 sm:p-6 shadow-2xl space-y-4 max-h-[92vh] sm:max-h-[90vh] overflow-y-auto pb-safe sm:pb-6">
+            <div className="w-12 h-1.5 bg-slate-700 rounded-full mx-auto mb-2 sm:hidden shrink-0" />
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div className="flex items-center gap-2">
                 <UserPlus className="w-5 h-5 text-amber-400" />
@@ -1276,10 +1413,11 @@ export const ClientsList: React.FC = () => {
           </div>
         </div>
       )}
-      {/* MODAL MODIFICATION FICHE CLIENT */}
+      {/* MODAL MODIFICATION FICHE CLIENT (DRAWER ON MOBILE) */}
       {editingClient && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-950/80 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-150">
+          <div className="bg-slate-900 border-t sm:border border-slate-800 rounded-t-3xl sm:rounded-2xl max-w-lg w-full p-4 sm:p-6 shadow-2xl space-y-4 max-h-[92vh] sm:max-h-[90vh] overflow-y-auto pb-safe sm:pb-6">
+            <div className="w-12 h-1.5 bg-slate-700 rounded-full mx-auto mb-2 sm:hidden shrink-0" />
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div className="flex items-center gap-2.5">
                 <div className="p-2 bg-amber-500/15 text-amber-400 rounded-xl border border-amber-500/30">
@@ -1458,10 +1596,11 @@ export const ClientsList: React.FC = () => {
         </div>
       )}
 
-      {/* MODAL CONFIRMATION SUPPRESSION CLIENT */}
+      {/* MODAL CONFIRMATION SUPPRESSION CLIENT (DRAWER ON MOBILE) */}
       {clientToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-950/85 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-150">
+          <div className="bg-slate-900 border-t sm:border border-slate-800 rounded-t-3xl sm:rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl space-y-4 pb-safe sm:pb-6">
+            <div className="w-12 h-1.5 bg-slate-700 rounded-full mx-auto mb-2 sm:hidden shrink-0" />
             <div className="flex items-start gap-3">
               <div className="p-3 bg-rose-500/15 border border-rose-500/30 rounded-xl text-rose-400 shrink-0">
                 <Trash2 className="w-6 h-6" />

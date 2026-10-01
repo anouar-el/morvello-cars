@@ -18,8 +18,9 @@ export const VehicleDeleteModal: React.FC<VehicleDeleteModalProps> = ({
   if (!vehicle) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-      <div className="bg-slate-900 border border-rose-500/40 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-950/80 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-150">
+      <div className="bg-slate-900 border-t sm:border border-rose-500/40 rounded-t-3xl sm:rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl space-y-4 pb-safe sm:pb-6">
+        <div className="w-12 h-1.5 bg-slate-700 rounded-full mx-auto mb-2 sm:hidden shrink-0" />
         <div className="flex items-center gap-3 border-b border-slate-800 pb-3">
           <div className="w-10 h-10 rounded-xl bg-rose-500/20 text-rose-400 flex items-center justify-center border border-rose-500/30 shrink-0">
             <Trash2 className="w-5 h-5" />

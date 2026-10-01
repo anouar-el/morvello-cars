@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { ActiveTab, UserRole } from '../types';
 import { CompanyLogo } from './CompanyLogo';
+import { MobileBottomNav } from './MobileBottomNav';
 import {
   LayoutDashboard,
   FileText,
@@ -345,61 +346,65 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenNotifications }) => {
             {/* NEW CONTRACT PROMINENT BUTTON */}
             <button
               onClick={() => setActiveTab('new_contract')}
-              className="flex items-center gap-2 bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-bold text-xs sm:text-sm px-3.5 py-2 rounded-xl shadow-lg shadow-amber-500/25 transition-all active:scale-95 cursor-pointer"
+              className="hidden sm:flex items-center gap-2 bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-bold text-xs sm:text-sm px-3.5 py-2 rounded-xl shadow-lg shadow-amber-500/25 transition-all active:scale-95 cursor-pointer"
             >
               <PlusCircle className="w-4 h-4" />
-              <span className="hidden sm:inline">+ Nouveau contrat</span>
-              <span className="sm:hidden">+ Contrat</span>
+              <span>+ Nouveau contrat</span>
             </button>
           </div>
         </div>
       </div>
 
       {/* CLOISONNEMENT STATUS SUB-BAR */}
-      <div className={`px-4 sm:px-6 lg:px-8 py-1.5 text-xs border-t transition-colors ${
+      <div className={`px-3 sm:px-6 lg:px-8 py-1 sm:py-1.5 text-xs border-t transition-colors ${
         currentUser.role === 'admin'
           ? 'bg-amber-500/10 border-amber-500/30 text-amber-200'
           : currentUser.role === 'manager'
           ? 'bg-blue-500/10 border-blue-500/30 text-blue-200'
           : 'bg-slate-950/80 border-slate-800 text-slate-300'
       }`}>
-        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2 text-[11px]">
-          <div className="flex items-center gap-2">
-            <span className={`w-2 h-2 rounded-full animate-pulse ${
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 text-[10px] sm:text-[11px]">
+          <div className="flex items-center gap-1.5 sm:gap-2 truncate">
+            <span className={`w-2 h-2 rounded-full shrink-0 animate-pulse ${
               currentUser.role === 'admin' ? 'bg-amber-400' : currentUser.role === 'manager' ? 'bg-blue-400' : 'bg-slate-400'
             }`} />
-            <span>
-              <strong>Session active :</strong> {currentUser.name} ({currentUser.role === 'admin' ? 'Super Admin / Gérant' : `Responsable d'agence`})
-            </span>
-            <span className="text-slate-400">•</span>
-            <span>
+            <span className="truncate">
+              <strong>{currentUser.name}</strong> •{' '}
               {currentUser.role === 'admin' ? (
-                <span>Supervision globale du parc entier • Droit exclusif d'affectation des véhicules & validation des ajouts</span>
+                <span className="font-semibold text-amber-300">👑 Super Admin</span>
               ) : currentUser.role === 'manager' ? (
-                <span>
-                  <strong>Flotte assignée :</strong> {currentUser.assignedFleetName} ({scopedVehicles.length} véhicules)
-                </span>
+                <span>Responsable ({currentUser.assignedFleetName || currentUser.agency})</span>
               ) : (
                 <span>Agent comptoir</span>
               )}
             </span>
+            <span className="hidden sm:inline text-slate-400">•</span>
+            <span className="hidden sm:inline text-slate-300">
+              {currentUser.role === 'admin' ? (
+                <span>Supervision globale du parc entier</span>
+              ) : currentUser.role === 'manager' ? (
+                <span>Flotte assignée : {scopedVehicles.length} véhicules</span>
+              ) : (
+                <span>Saisie des contrats</span>
+              )}
+            </span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 shrink-0">
             {currentUser.role === 'admin' && pendingApprovalsCount > 0 && (
               <button
                 onClick={() => setActiveTab('vehicles')}
-                className="bg-amber-500 text-slate-950 font-bold px-2 py-0.5 rounded text-[10px] flex items-center gap-1 hover:bg-amber-400 cursor-pointer"
+                className="bg-amber-500 text-slate-950 font-bold px-1.5 sm:px-2 py-0.5 rounded text-[9.5px] sm:text-[10px] flex items-center gap-1 hover:bg-amber-400 cursor-pointer"
               >
-                ⚠️ {pendingApprovalsCount} à valider
+                ⚠️ {pendingApprovalsCount} <span className="hidden sm:inline">à valider</span>
               </button>
             )}
           </div>
         </div>
       </div>
 
-      {/* BOTTOM NAVIGATION TABS */}
-      <nav className="bg-slate-950/70 border-t border-slate-800/80 px-4 sm:px-6 lg:px-8">
+      {/* DESKTOP NAVIGATION TABS (HIDDEN ON MOBILE, HANDLED BY MOBILE BOTTOM NAV) */}
+      <nav className="hidden md:block bg-slate-950/70 border-t border-slate-800/80 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto flex items-center gap-1 overflow-x-auto py-1 text-sm no-scrollbar">
           {navItems.map((item) => {
             const isActive = activeTab === item.id;
@@ -431,6 +436,24 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenNotifications }) => {
           })}
         </div>
       </nav>
+
+      {/* MOBILE BOTTOM NAVIGATION BAR */}
+      <MobileBottomNav
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        currentUser={currentUser}
+        activeContractsCount={activeContractsCount}
+        heldDepositsCount={heldDepositsCount}
+        availableVehiclesCount={availableVehiclesCount}
+        onOpenNotifications={onOpenNotifications}
+        alertsCount={alerts.length}
+        criticalAlertsCount={criticalCount}
+        cloudSyncStatus={cloudSyncStatus}
+        syncWithCloud={syncWithCloud}
+        theme={theme}
+        toggleTheme={toggleTheme}
+        logout={logout}
+      />
     </header>
   );
 };
