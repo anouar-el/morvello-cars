@@ -1,6 +1,61 @@
-import { Contract } from '../types';
+import { Contract, DepositStatus } from '../types';
 
 export type DepositCollectionStatus = 'collected' | 'not_collected' | 'none';
+
+export type DbDepositStatus = 'pending' | 'collected' | 'partially_returned' | 'returned' | 'deducted';
+
+/**
+ * Mappe l'état applicatif de la caution vers les statuts stricts imposés par
+ * la contrainte de vérification PostgreSQL "deposits_status_check" :
+ * ('pending', 'collected', 'partially_returned', 'returned', 'deducted').
+ * Évite l'erreur : new row for relation "deposits" violates check constraint "deposits_status_check".
+ */
+export function mapDepositStatusToDb(status?: string): DbDepositStatus {
+  if (!status) return 'pending';
+  switch (status) {
+    case 'held':
+      return 'pending';
+    case 'released':
+      return 'returned';
+    case 'partially_deducted':
+      return 'partially_returned';
+    case 'fully_retained':
+      return 'deducted';
+    case 'pending':
+    case 'collected':
+    case 'partially_returned':
+    case 'returned':
+    case 'deducted':
+      return status as DbDepositStatus;
+    default:
+      return 'pending';
+  }
+}
+
+/**
+ * Mappe le statut SQL PostgreSQL vers le type applicatif DepositStatus.
+ */
+export function mapDepositStatusFromDb(dbStatus?: string): DepositStatus {
+  if (!dbStatus) return 'held';
+  switch (dbStatus) {
+    case 'pending':
+    case 'collected':
+      return 'held';
+    case 'returned':
+      return 'released';
+    case 'partially_returned':
+      return 'partially_deducted';
+    case 'deducted':
+      return 'fully_retained';
+    case 'held':
+    case 'released':
+    case 'partially_deducted':
+    case 'fully_retained':
+      return dbStatus as DepositStatus;
+    default:
+      return 'held';
+  }
+}
 
 /**
  * État de la caution à afficher : « none » quand aucune caution n'est due (montant nul, ex. Pack Confort).

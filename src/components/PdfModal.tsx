@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { ContractPdfDocument } from './ContractPdfDocument';
 import { DigitalSignatureModal } from './DigitalSignatureModal';
-import { getContractTemplate } from '../data/contractTemplates';
+import { CONTRACT_TEMPLATES, getContractTemplate } from '../data/contractTemplates';
+import { ContractTemplateId } from '../types';
 import {
   downloadContractPdf,
   openContractPdfInNewTab,
@@ -23,6 +24,8 @@ import {
   PenTool,
   ShieldCheck,
   ExternalLink,
+  Layers,
+  Save,
 } from 'lucide-react';
 
 export const PdfModal: React.FC = () => {
@@ -36,6 +39,19 @@ export const PdfModal: React.FC = () => {
     startEditingContract,
     updateContract,
   } = useApp();
+
+  // Active contract template live switcher
+  const [selectedTemplateId, setSelectedTemplateId] = useState<ContractTemplateId>('standard');
+  const [isSavingTemplate, setIsSavingTemplate] = useState<boolean>(false);
+  const [savedSuccess, setSavedSuccess] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (pdfModalContract) {
+      setSelectedTemplateId(
+        pdfModalContract.templateId || companySettings.defaultContractTemplate || 'standard'
+      );
+    }
+  }, [pdfModalContract?.id, pdfModalContract?.templateId, companySettings.defaultContractTemplate]);
 
   // Adaptive initial zoom for mobile and small screens
   const [zoom, setZoom] = useState<number>(() => {
@@ -82,7 +98,8 @@ export const PdfModal: React.FC = () => {
         `Génération et téléchargement du fichier Contrat_${pdfModalContract.contractNumber}.pdf`
       );
 
-      const result = await downloadContractPdf(pdfModalContract, {
+      const contractToExport = { ...pdfModalContract, templateId: selectedTemplateId };
+      const result = await downloadContractPdf(contractToExport, {
         idPrefix: 'export',
         onProgress: (step, percent) => {
           setGenerationStep(step);
@@ -114,7 +131,8 @@ export const PdfModal: React.FC = () => {
       setGenerationStep('Génération de l\'aperçu PDF...');
       setGenerationPercent(15);
 
-      const result = await openContractPdfInNewTab(pdfModalContract, {
+      const contractToOpen = { ...pdfModalContract, templateId: selectedTemplateId };
+      const result = await openContractPdfInNewTab(contractToOpen, {
         idPrefix: 'export',
         onProgress: (step, percent) => {
           setGenerationStep(step);
@@ -133,6 +151,26 @@ export const PdfModal: React.FC = () => {
     }
   };
 
+  const handleSaveTemplateToContract = async () => {
+    if (!pdfModalContract) return;
+    try {
+      setIsSavingTemplate(true);
+      await updateContract(pdfModalContract.id, { templateId: selectedTemplateId });
+      addAuditLog(
+        'Modification modèle de contrat',
+        'contract',
+        pdfModalContract.contractNumber,
+        `Attribution du modèle ${getContractTemplate(selectedTemplateId).name} au contrat ${pdfModalContract.contractNumber}`
+      );
+      setSavedSuccess(true);
+      setTimeout(() => setSavedSuccess(false), 3000);
+    } finally {
+      setIsSavingTemplate(false);
+    }
+  };
+
+  const contractToDisplay = { ...pdfModalContract, templateId: selectedTemplateId };
+
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-slate-950/90 backdrop-blur-md overflow-hidden animate-in fade-in duration-200">
       {/* TOP TOOLBAR (NO-PRINT) */}
@@ -147,17 +185,48 @@ export const PdfModal: React.FC = () => {
                 <h2 className="text-xs sm:text-sm font-bold text-white tracking-wide">
                   Contrat N° {pdfModalContract.contractNumber}
                 </h2>
-                <span className={`text-[9px] sm:text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
-                  pdfModalContract.templateId === 'prestige'
-                    ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
-                    : pdfModalContract.templateId === 'corporate'
-                    ? 'bg-blue-500/15 text-blue-300 border-blue-500/30'
-                    : pdfModalContract.templateId === 'signature'
-                    ? 'bg-violet-500/15 text-violet-300 border-violet-500/30'
-                    : 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
-                }`}>
-                  {getContractTemplate(pdfModalContract.templateId || companySettings.defaultContractTemplate).name}
-                </span>
+                {/* Sélecteur interactif de modèle de contrat */}
+                <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1 bg-slate-800 border border-slate-700 hover:border-slate-600 rounded-lg px-2 py-0.5 transition-colors">
+                    <Layers className="w-3 h-3 text-amber-400 shrink-0" />
+                    <select
+                      value={selectedTemplateId}
+                      onChange={(e) => setSelectedTemplateId(e.target.value as ContractTemplateId)}
+                      className="bg-transparent text-[10px] sm:text-xs font-bold text-amber-300 focus:outline-none cursor-pointer pr-1"
+                      title="Changer de modèle de contrat pour la prévisualisation et l'impression"
+                    >
+                      {CONTRACT_TEMPLATES.map((tmpl) => (
+                        <option key={tmpl.id} value={tmpl.id} className="bg-slate-900 text-white">
+                          {tmpl.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Bouton d'enregistrement du modèle sur le contrat si différent */}
+                  {selectedTemplateId !== (pdfModalContract.templateId || companySettings.defaultContractTemplate || 'standard') && (
+                    <button
+                      onClick={handleSaveTemplateToContract}
+                      disabled={isSavingTemplate}
+                      className="text-[10px] bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-2 py-0.5 rounded-md flex items-center gap-1 shadow-xs transition-colors cursor-pointer"
+                      title="Enregistrer ce modèle pour ce contrat"
+                    >
+                      {savedSuccess ? (
+                        <>
+                          <CheckCircle className="w-3 h-3 text-white" />
+                          <span>Enregistré ✓</span>
+                        </>
+                      ) : isSavingTemplate ? (
+                        <Loader2 className="w-3 h-3 animate-spin text-white" />
+                      ) : (
+                        <>
+                          <Save className="w-3 h-3 text-white" />
+                          <span className="hidden sm:inline">Appliquer au contrat</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
               </div>
               <p className="text-[11px] sm:text-xs text-slate-400 truncate max-w-[240px] sm:max-w-none">
                 {pdfModalContract.clientSnapshot.lastName} {pdfModalContract.clientSnapshot.firstName} • {pdfModalContract.vehicleSnapshot.brand} {pdfModalContract.vehicleSnapshot.model}
@@ -346,9 +415,10 @@ export const PdfModal: React.FC = () => {
           }}
         >
           <ContractPdfDocument
-            contract={pdfModalContract}
+            contract={contractToDisplay}
             companySettings={companySettings}
             termsVersion={termsVersion}
+            templateId={selectedTemplateId}
             layout={viewLayout}
             idPrefix="preview"
           />
@@ -362,9 +432,10 @@ export const PdfModal: React.FC = () => {
         style={{ width: '210mm' }}
       >
         <ContractPdfDocument
-          contract={pdfModalContract}
+          contract={contractToDisplay}
           companySettings={companySettings}
           termsVersion={termsVersion}
+          templateId={selectedTemplateId}
           layout="stacked"
           idPrefix="export"
           showPageIndicator={true}
@@ -374,9 +445,10 @@ export const PdfModal: React.FC = () => {
       {/* PRINT CONTAINER (ALWAYS IN DOM FOR WINDOW.PRINT) */}
       <div id="printable-contract-container" className="hidden print:block">
         <ContractPdfDocument
-          contract={pdfModalContract}
+          contract={contractToDisplay}
           companySettings={companySettings}
           termsVersion={termsVersion}
+          templateId={selectedTemplateId}
           showPageIndicator={true}
           idPrefix="print"
         />
