@@ -193,7 +193,9 @@ function contentSecurityPolicy() {
     directives: {
       defaultSrc: ["'self'"],
       baseUri: ["'self'"],
-      objectSrc: ["'none'"],
+      // Uploaded PDFs are previewed from data: URLs and contracts opened from blob: URLs. Both
+      // inherit this policy, and older Chromium renders them through a plugin element.
+      objectSrc: ['blob:', 'data:'],
       formAction: ["'self'"],
       // apis.google.com: loader used by the Firebase Google sign-in popup
       scriptSrc: ["'self'", 'https://apis.google.com'],
