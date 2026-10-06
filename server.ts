@@ -180,50 +180,62 @@ app.use(
   })
 );
 
+// "true" makes the browser log violations without blocking anything, to validate a deployment safely
+const CSP_REPORT_ONLY = process.env.CSP_REPORT_ONLY === 'true';
+
 /**
  * Content-Security-Policy for the production build. Inline scripts are forbidden and every
- * external origin listed is one the app really talks to. Setting CSP_REPORT_ONLY=true makes the
- * browser log violations without blocking anything, to validate a deployment safely.
+ * external origin listed is one the app really talks to.
  */
-function contentSecurityPolicy() {
+function contentSecurityPolicyDirectives(): Record<string, string[]> {
   const supabaseOrigin = SUPABASE_URL ? new URL(SUPABASE_URL).origin : null;
-  return helmet.contentSecurityPolicy({
-    useDefaults: false,
-    reportOnly: process.env.CSP_REPORT_ONLY === 'true',
-    directives: {
-      defaultSrc: ["'self'"],
-      baseUri: ["'self'"],
-      // Uploaded PDFs are previewed from data: URLs and contracts opened from blob: URLs. Both
-      // inherit this policy, and older Chromium renders them through a plugin element.
-      objectSrc: ['blob:', 'data:'],
-      formAction: ["'self'"],
-      // apis.google.com: loader used by the Firebase Google sign-in popup
-      scriptSrc: ["'self'", 'https://apis.google.com'],
-      scriptSrcAttr: ["'none'"],
-      // Inline styles stay allowed: html2canvas injects <style> elements to render the contract PDF
-      styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
-      fontSrc: ["'self'", 'data:', 'https://fonts.gstatic.com'],
-      // Uploaded documents and signatures are data:/blob: URLs; profile photos come from Google
-      imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
-      connectSrc: [
-        "'self'",
-        // The PDF engines re-read generated images through fetch()
-        'data:',
-        'blob:',
-        // Firebase Auth, Firestore, and the font stylesheet re-fetched for PDF capture
-        'https://*.googleapis.com',
-        'https://fonts.gstatic.com',
-        // Supabase REST/Auth and Realtime; the wildcard covers a server started without SUPABASE_URL
-        'https://*.supabase.co',
-        'wss://*.supabase.co',
-        ...(supabaseOrigin ? [supabaseOrigin, supabaseOrigin.replace(/^https:/, 'wss:')] : []),
-      ],
-      // Firebase Auth helper iframe, Google account chooser, and in-app document previews
-      frameSrc: ["'self'", 'data:', 'blob:', `https://${firebaseConfig.authDomain}`, 'https://accounts.google.com'],
-      workerSrc: ["'self'", 'blob:'],
-      ...(IS_AI_STUDIO ? {} : { frameAncestors: ["'self'"] }),
-    },
-  });
+  return {
+    defaultSrc: ["'self'"],
+    baseUri: ["'self'"],
+    // Uploaded PDFs are previewed from data: URLs and contracts opened from blob: URLs. Both
+    // inherit this policy, and older Chromium renders them through a plugin element.
+    objectSrc: ['blob:', 'data:'],
+    formAction: ["'self'"],
+    // apis.google.com: loader used by the Firebase Google sign-in popup
+    scriptSrc: ["'self'", 'https://apis.google.com'],
+    scriptSrcAttr: ["'none'"],
+    // Inline styles stay allowed: html2canvas injects <style> elements to render the contract PDF
+    styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+    fontSrc: ["'self'", 'data:', 'https://fonts.gstatic.com'],
+    // Uploaded documents and signatures are data:/blob: URLs; profile photos come from Google
+    imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
+    connectSrc: [
+      "'self'",
+      // The PDF engines re-read generated images through fetch()
+      'data:',
+      'blob:',
+      // Firebase Auth, Firestore, and the font stylesheet re-fetched for PDF capture
+      'https://*.googleapis.com',
+      'https://fonts.gstatic.com',
+      // Supabase REST/Auth and Realtime; the wildcard covers a server started without SUPABASE_URL
+      'https://*.supabase.co',
+      'wss://*.supabase.co',
+      ...(supabaseOrigin ? [supabaseOrigin, supabaseOrigin.replace(/^https:/, 'wss:')] : []),
+    ],
+    // Firebase Auth helper iframe, Google account chooser, and in-app document previews
+    frameSrc: ["'self'", 'data:', 'blob:', `https://${firebaseConfig.authDomain}`, 'https://accounts.google.com'],
+    workerSrc: ["'self'", 'blob:'],
+    ...(IS_AI_STUDIO ? {} : { frameAncestors: ["'self'"] }),
+  };
+}
+
+/**
+ * The same policy as a <meta> tag for the app shell. Some hosts (Hostinger) overwrite the
+ * Content-Security-Policy response header with their own, so the header alone never reaches
+ * the browser there.
+ */
+function contentSecurityPolicyMetaTag(): string {
+  const policy = Object.entries(contentSecurityPolicyDirectives())
+    // Browsers ignore frame-ancestors in a <meta> policy; X-Frame-Options covers it
+    .filter(([name]) => name !== 'frameAncestors')
+    .map(([name, sources]) => `${name.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)} ${sources.join(' ')}`)
+    .join('; ');
+  return `<meta http-equiv="Content-Security-Policy" content="${policy}">`;
 }
 
 app.use(express.json({ limit: '10mb' }));
@@ -1413,9 +1425,33 @@ export function isProductionMode(distPath: string): boolean {
 
 function serveStaticBuild(serverApp: express.Express, distPath: string) {
   console.log(`[Server] Serving static production build from: ${distPath}`);
-  serverApp.use(contentSecurityPolicy());
+  serverApp.use(
+    helmet.contentSecurityPolicy({
+      useDefaults: false,
+      reportOnly: CSP_REPORT_ONLY,
+      directives: contentSecurityPolicyDirectives(),
+    })
+  );
   // Not every host compresses responses itself, and the JS/CSS shrink to about a quarter
   serverApp.use(compression());
+
+  const sendAppShell = (_req: express.Request, res: express.Response) => {
+    const indexPath = path.join(distPath, 'index.html');
+    if (!fs.existsSync(indexPath)) {
+      res.status(503).send('Application build not found. Please run "npm run build".');
+      return;
+    }
+    // Always revalidated, so a new deployment is picked up on the next visit
+    res.setHeader('Cache-Control', 'no-cache');
+    if (CSP_REPORT_ONLY) {
+      // A <meta> policy cannot be report-only: enforcing it would defeat the switch
+      res.sendFile(indexPath);
+      return;
+    }
+    const html = fs.readFileSync(indexPath, 'utf8').replace('<head>', `<head>\n    ${contentSecurityPolicyMetaTag()}`);
+    res.type('html').send(html);
+  };
+  serverApp.get(['/', '/index.html'], sendAppShell);
   // Vite content-hashes everything under /assets, so those files can be cached forever.
   serverApp.use('/assets', express.static(path.join(distPath, 'assets'), { immutable: true, maxAge: '1y' }));
   // A hashed file that no longer exists (replaced by a newer deployment) must be a real 404:
@@ -1423,15 +1459,8 @@ function serveStaticBuild(serverApp: express.Express, distPath: string) {
   serverApp.use('/assets', (_req, res) => {
     res.status(404).end();
   });
-  serverApp.use(express.static(distPath));
-  serverApp.get('*', (req, res) => {
-    const indexPath = path.join(distPath, 'index.html');
-    if (fs.existsSync(indexPath)) {
-      res.sendFile(indexPath);
-    } else {
-      res.status(503).send('Application build not found. Please run "npm run build".');
-    }
-  });
+  serverApp.use(express.static(distPath, { index: false }));
+  serverApp.get('*', sendAppShell);
 }
 
 // Configure Vite middleware or static serving
