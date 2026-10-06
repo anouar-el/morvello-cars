@@ -138,7 +138,7 @@ const PERMISSION_DEFINITIONS: PermissionMeta[] = [
   {
     key: 'canImportVehiclesExcel',
     label: 'Importer des véhicules par fichier Excel (.xlsx)',
-    description: 'Permet d’importer des véhicules en masse via Excel. Restreint par défaut au Gérant pour des motifs de sécurité (vulnérabilités de la librairie xlsx).',
+    description: 'Permet d’importer des véhicules en masse via Excel. Restreint par défaut au Gérant pour des motifs de sécurité (analyse de fichiers externes, modification en masse du parc).',
     category: 'fleet',
   },
 

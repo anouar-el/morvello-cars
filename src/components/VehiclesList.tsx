@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { getVehicleHealthSummary } from '../utils/vehicleExpiryUtils';
 import { isVehicleOwnedByManager } from '../utils/managerScopeUtils';
+import { buildXlsxFile, XLSX_MIME_TYPE } from '../utils/excelWorkbook';
 import { VehicleCard } from './vehicles/VehicleCard';
 import { VehicleAddModal } from './vehicles/VehicleAddModal';
 import { VehicleEditModal } from './vehicles/VehicleEditModal';
@@ -94,11 +95,9 @@ export const VehiclesList: React.FC = () => {
 
   const canUserDeleteVehicles = isAdmin || isManager || hasPermission('canDeleteVehicles');
 
-  // SÉCURITÉ / VULNÉRABILITÉS XLSX (SheetJS) :
-  // Référence CVE / Advisories : GHSA-4r6h-8v6p-xvw6 (Prototype Pollution) & GHSA-5pgg-2g8v-p4x9 (ReDoS).
-  // La librairie xlsx ne disposant pas de correctif officiel pour ces failles de parsing de fichiers non fiables,
-  // l'importation de fichiers Excel (.xlsx) est strictement restreinte aux administrateurs (rôle 'admin')
-  // afin de limiter la surface d'exposition.
+  // SÉCURITÉ : l'analyse d'un fichier fourni par un utilisateur reste une surface d'attaque, et un import
+  // en masse modifie tout le parc. L'importation est donc réservée aux administrateurs (rôle 'admin')
+  // ou à la permission explicite 'canImportVehiclesExcel'.
   const canImportVehicles = isAdmin || hasPermission('canImportVehiclesExcel');
 
   // Helper to determine if vehicle is actively under rental
@@ -224,7 +223,6 @@ export const VehiclesList: React.FC = () => {
 
   const exportVehiclesToExcel = async () => {
     try {
-      const XLSX = await import('xlsx');
       const headers = [
         'Marque',
         'Modèle',
@@ -273,34 +271,14 @@ export const VehiclesList: React.FC = () => {
         ];
       });
 
-      const wb = XLSX.utils.book_new();
-      const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-      ws['!cols'] = [
-        { wch: 16 },
-        { wch: 28 },
-        { wch: 18 },
-        { wch: 14 },
-        { wch: 14 },
-        { wch: 14 },
-        { wch: 22 },
-        { wch: 10 },
-        { wch: 18 },
-        { wch: 20 },
-        { wch: 22 },
-        { wch: 20 },
-        { wch: 22 },
-        { wch: 16 },
-        { wch: 22 },
-        { wch: 24 },
-        { wch: 22 },
-        { wch: 14 },
-        { wch: 40 },
-      ];
-      XLSX.utils.book_append_sheet(wb, ws, 'Parc_Morvello');
-      const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-      const blob = new Blob([wbout], {
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      });
+      const wbout = await buildXlsxFile([
+        {
+          name: 'Parc_Morvello',
+          rows: [headers, ...rows],
+          columnWidths: [16, 28, 18, 14, 14, 14, 22, 10, 18, 20, 22, 20, 22, 16, 22, 24, 22, 14, 40],
+        },
+      ]);
+      const blob = new Blob([wbout], { type: XLSX_MIME_TYPE });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -378,11 +356,7 @@ export const VehiclesList: React.FC = () => {
             <span>Export CSV</span>
           </button>
 
-          {/*
-            SÉCURITÉ / VULNÉRABILITÉ XLSX :
-            Bouton d'importation masqué pour les non-administrateurs afin d'éviter l'exposition
-            aux vulnérabilités de parsing de la librairie xlsx (SheetJS).
-          */}
+          {/* SÉCURITÉ : bouton d'importation masqué pour les non-administrateurs (voir canImportVehicles) */}
           {canImportVehicles && (
             <button
               onClick={() => setIsImportModalOpen(true)}

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { User, Vehicle, FuelType } from '../../types';
 import { formatPlateFrench } from '../../utils/plateUtils';
 import { useApp } from '../../context/AppContext';
+import { buildXlsxFile, readXlsxSheetAsCsv, XLSX_MIME_TYPE } from '../../utils/excelWorkbook';
 import {
   FileSpreadsheet,
   Download,
@@ -34,20 +35,9 @@ export const VehicleImportModal: React.FC<VehicleImportModalProps> = ({
   const activeUser = currentUser ?? appCtx?.currentUser;
 
   /**
-   * SÉCURITÉ / VULNÉRABILITÉS XLSX (SheetJS) :
-   * Références CVE / Security Advisories :
-   * - GHSA-4r6h-8v6p-xvw6 : Prototype Pollution in SheetJS
-   * - GHSA-5pgg-2g8v-p4x9 : Regular Expression Denial of Service (ReDoS) in SheetJS
-   *
-   * MOTIF DE CETTE RESTRICTION :
-   * La librairie 'xlsx' (SheetJS) comporte une vulnérabilité critique de sévérité HAUTE sans
-   * correctif officiel amont disponible à ce jour. Le traitement de fichiers .xlsx non fiables
-   * injectés par des utilisateurs externes ou des agents pourrait corrompre les prototypes
-   * JavaScript globaux ou bloquer l'événement loop (ReDoS).
-   *
-   * Pour mitiger ce risque et réduire la surface d'exposition, l'importation et le parsing
-   * de fichiers Excel sont strictement réservés aux utilisateurs avec le rôle 'admin'
-   * (ou permission explicite 'canImportVehiclesExcel').
+   * SÉCURITÉ : l'analyse d'un fichier fourni par un utilisateur reste une surface d'attaque,
+   * et un import en masse modifie tout le parc. L'importation et le parsing de fichiers sont
+   * donc strictement réservés au rôle 'admin' (ou permission explicite 'canImportVehiclesExcel').
    * NE PAS SUPPRIMER CETTE VÉRIFICATION SÉCURISÉE.
    */
   const isAuthorized =
@@ -95,7 +85,7 @@ export const VehicleImportModal: React.FC<VehicleImportModalProps> = ({
               L'importation et l'analyse de fichiers de véhicules (.xlsx / CSV) sont strictement réservées aux administrateurs du système Morvello Cars.
             </p>
             <p className="text-slate-400 text-[10px] leading-relaxed border-t border-rose-900/40 pt-2 font-mono">
-              Sécurité : Restriction défensive liée aux vulnérabilités connues de parsing xlsx (GHSA-4r6h-8v6p-xvw6, GHSA-5pgg-2g8v-p4x9).
+              Sécurité : l'analyse de fichiers externes et l'import en masse sont limités aux administrateurs.
             </p>
           </div>
 
@@ -118,7 +108,6 @@ export const VehicleImportModal: React.FC<VehicleImportModalProps> = ({
 
   const downloadExcelTemplate = async () => {
     try {
-      const XLSX = await import('xlsx');
       const templateHeaders = [
         'Marque',
         'Modèle',
@@ -199,29 +188,6 @@ export const VehicleImportModal: React.FC<VehicleImportModalProps> = ({
         ],
       ];
 
-      const wb = XLSX.utils.book_new();
-      const wsVehicles = XLSX.utils.aoa_to_sheet([templateHeaders, ...templateRows]);
-      wsVehicles['!cols'] = [
-        { wch: 16 },
-        { wch: 28 },
-        { wch: 18 },
-        { wch: 14 },
-        { wch: 14 },
-        { wch: 14 },
-        { wch: 22 },
-        { wch: 10 },
-        { wch: 18 },
-        { wch: 20 },
-        { wch: 22 },
-        { wch: 20 },
-        { wch: 22 },
-        { wch: 16 },
-        { wch: 22 },
-        { wch: 14 },
-        { wch: 40 },
-      ];
-      XLSX.utils.book_append_sheet(wb, wsVehicles, 'Vehicules');
-
       const instructions = [
         ['GUIDE D UTILISATION DU MODELE D IMPORTATION MORVELLO'],
         [''],
@@ -244,14 +210,15 @@ export const VehicleImportModal: React.FC<VehicleImportModalProps> = ({
         ['Date_Achat', 'Date acquisition (AAAA-MM-JJ)', '2025-01-15', 'Optionnel'],
         ['Notes', 'Commentaires et options', 'Texte libre', 'Optionnel'],
       ];
-      const wsInst = XLSX.utils.aoa_to_sheet(instructions);
-      wsInst['!cols'] = [{ wch: 26 }, { wch: 36 }, { wch: 36 }, { wch: 14 }];
-      XLSX.utils.book_append_sheet(wb, wsInst, 'Instructions');
-
-      const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-      const blob = new Blob([wbout], {
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      });
+      const wbout = await buildXlsxFile([
+        {
+          name: 'Vehicules',
+          rows: [templateHeaders, ...templateRows],
+          columnWidths: [16, 28, 18, 14, 14, 14, 22, 10, 18, 20, 22, 20, 22, 16, 22, 14, 40],
+        },
+        { name: 'Instructions', rows: instructions, columnWidths: [26, 36, 36, 14] },
+      ]);
+      const blob = new Blob([wbout], { type: XLSX_MIME_TYPE });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -303,35 +270,33 @@ HYUNDAI;Tucson 1.6 CRDi DCT;19384 | D | 6;Diesel;available;58400;650;2024;Noir F
     // Contrôle de sécurité défensif : bloquer le parsing si non autorisé
     if (!isAuthorized) {
       setImportError(
-        "Opération non autorisée : L'analyse de fichiers est strictement réservée aux administrateurs (sécurité xlsx GHSA-4r6h-8v6p-xvw6)."
+        "Opération non autorisée : L'analyse de fichiers est strictement réservée aux administrateurs."
       );
       return;
     }
 
     const fileName = file.name.toLowerCase();
 
-    if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
-      try {
-        const XLSX = await import('xlsx');
-        const buffer = await file.arrayBuffer();
-        const wb = XLSX.read(buffer, { type: 'array' });
-        const targetSheetName =
-          wb.SheetNames.find(
-            (name) =>
-              name.toLowerCase().includes('vehicule') ||
-              name.toLowerCase().includes('véhicule') ||
-              name.toLowerCase().includes('flotte')
-          ) || wb.SheetNames[0];
+    if (fileName.endsWith('.xls')) {
+      setImportError(
+        'L’ancien format Excel .xls n’est pas pris en charge. Enregistrez le fichier au format .xlsx ou CSV, puis réessayez.'
+      );
+      return;
+    }
 
-        const sheet = wb.Sheets[targetSheetName];
+    if (fileName.endsWith('.xlsx')) {
+      try {
+        const sheet = await readXlsxSheetAsCsv(await file.arrayBuffer(), (name) => {
+          const lower = name.toLowerCase();
+          return lower.includes('vehicule') || lower.includes('véhicule') || lower.includes('flotte');
+        });
         if (!sheet) {
           setImportError('Aucune feuille exploitable trouvée dans le classeur Excel.');
           return;
         }
 
-        const csvString = XLSX.utils.sheet_to_csv(sheet, { FS: ';' });
-        setImportText(csvString);
-        onToast(`Feuille Excel "${targetSheetName}" analysée avec succès.`);
+        setImportText(sheet.csv);
+        onToast(`Feuille Excel "${sheet.sheetName}" analysée avec succès.`);
       } catch (err) {
         setImportError(
           `Impossible de lire le fichier Excel : ${err instanceof Error ? err.message : 'Format corrompu'}`
@@ -532,11 +497,11 @@ HYUNDAI;Tucson 1.6 CRDi DCT;19384 | D | 6;Diesel;available;58400;650;2024;Noir F
 
           <div>
             <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-              1. Charger un fichier Excel (.xlsx, .xls) ou CSV (.csv, .txt) :
+              1. Charger un fichier Excel (.xlsx) ou CSV (.csv, .txt) :
             </label>
             <input
               type="file"
-              accept=".xlsx,.xls,.csv,.txt"
+              accept=".xlsx,.csv,.txt"
               onChange={(e) => {
                 const file = e.target.files?.[0];
                 if (file) {
