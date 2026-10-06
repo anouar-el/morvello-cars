@@ -144,33 +144,33 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenNotifications }) => {
   return (
     <header className="no-print bg-slate-900 border-b border-slate-800 text-slate-100 sticky top-0 z-40 shadow-xl">
       {/* TOP ROW: BRAND, ROLE SWITCHER, CTA */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between gap-2 h-16">
           {/* BRAND */}
           <div
-            className="flex items-center gap-3 cursor-pointer group"
+            className="flex items-center gap-3 cursor-pointer group min-w-0"
             onClick={() => setActiveTab('dashboard')}
           >
-            <div className="w-11 h-11 rounded-xl bg-slate-950 border border-amber-500/40 flex items-center justify-center p-1 shadow-md shadow-amber-500/10 group-hover:scale-105 transition-transform">
+            <div className="w-11 h-11 shrink-0 rounded-xl bg-slate-950 border border-amber-500/40 flex items-center justify-center p-1 shadow-md shadow-amber-500/10 group-hover:scale-105 transition-transform">
               <CompanyLogo size="sm" variant="icon-only" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-base font-extrabold tracking-wider font-serif uppercase text-white">
+            <div className="hidden sm:block min-w-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-base font-extrabold tracking-wider font-serif uppercase text-white truncate">
                   Sté MORVELLO CARS
                 </span>
-                <span className="text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 px-1.5 py-0.2 rounded font-mono">
+                <span className="hidden lg:inline text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 px-1.5 py-0.2 rounded font-mono">
                   PRESTIGE
                 </span>
               </div>
-              <p className="text-[11px] text-slate-400 font-medium">
+              <p className="hidden xl:block text-[11px] text-slate-400 font-medium truncate">
                 Where luxury meets the road • Gestion des Contrats & PDF A4
               </p>
             </div>
           </div>
 
           {/* RIGHT TOOLS: PROFILE / ROLE TEST SWITCHER & ACTION CTA */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
             {/* ENHANCED PROFILE SWITCHER DROPDOWN */}
             <div className="relative">
               <button
@@ -190,7 +190,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenNotifications }) => {
                 ) : (
                   <UserCheck className="w-3.5 h-3.5 text-blue-400 shrink-0" />
                 )}
-                <div className="text-left leading-tight hidden sm:block">
+                <div className="text-left leading-tight hidden lg:block">
                   <div className="text-white font-bold flex items-center gap-1.5">
                     {currentUser.name}
                     <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-900 border border-slate-700 font-mono text-slate-300 uppercase">
@@ -201,7 +201,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenNotifications }) => {
                     {currentUser.assignedFleetName || currentUser.agency || 'Accès Global'}
                   </div>
                 </div>
-                <div className="sm:hidden font-bold text-[11px] text-white">
+                <div className="hidden min-[400px]:block lg:hidden font-bold text-[11px] text-white">
                   {currentUser.role === 'admin' ? 'Gérant' : currentUser.name.split(' ')[0]}
                 </div>
                 <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0 ml-0.5" />
@@ -214,7 +214,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenNotifications }) => {
                     className="fixed inset-0 z-40"
                     onClick={() => setIsProfileMenuOpen(false)}
                   />
-                  <div className="absolute right-0 mt-2 w-72 sm:w-80 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-3 z-50 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="fixed top-16 left-3 right-3 sm:left-auto sm:right-6 sm:w-80 lg:absolute lg:top-auto lg:right-0 lg:mt-2 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-3 z-50 animate-in fade-in zoom-in-95 duration-150">
                     <div className="flex items-center gap-3 p-2.5 bg-slate-950/80 rounded-xl border border-slate-800 mb-2">
                       <div
                         className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold shrink-0 ${
@@ -308,7 +308,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenNotifications }) => {
               ) : (
                 <Cloud className="w-3.5 h-3.5 text-slate-400" />
               )}
-              <span className="hidden md:inline font-medium">
+              <span className="hidden xl:inline font-medium">
                 {cloudSyncStatus === 'syncing'
                   ? 'Sync Cloud...'
                   : cloudSyncStatus === 'synced'
@@ -332,12 +332,12 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenNotifications }) => {
               {theme === 'dark' ? (
                 <>
                   <Sun className="w-3.5 h-3.5 text-amber-400" />
-                  <span className="hidden sm:inline font-medium">Clair</span>
+                  <span className="hidden lg:inline font-medium">Clair</span>
                 </>
               ) : (
                 <>
                   <Moon className="w-3.5 h-3.5 text-amber-700" />
-                  <span className="hidden sm:inline font-medium text-slate-800">Sombre</span>
+                  <span className="hidden lg:inline font-medium text-slate-800">Sombre</span>
                 </>
               )}
             </button>
@@ -345,11 +345,12 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenNotifications }) => {
             {/* NEW CONTRACT PROMINENT BUTTON */}
             <button
               onClick={() => setActiveTab('new_contract')}
-              className="flex items-center gap-2 bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-bold text-xs sm:text-sm px-3.5 py-2 rounded-xl shadow-lg shadow-amber-500/25 transition-all active:scale-95 cursor-pointer"
+              aria-label="Nouveau contrat"
+              className="flex items-center gap-2 bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-bold text-xs lg:text-sm px-3 sm:px-3.5 py-2 rounded-xl shadow-lg shadow-amber-500/25 transition-all active:scale-95 cursor-pointer whitespace-nowrap"
             >
-              <PlusCircle className="w-4 h-4" />
-              <span className="hidden sm:inline">+ Nouveau contrat</span>
-              <span className="sm:hidden">+ Contrat</span>
+              <PlusCircle className="w-4 h-4 shrink-0" />
+              <span className="hidden lg:inline">+ Nouveau contrat</span>
+              <span className="hidden sm:inline lg:hidden">+ Contrat</span>
             </button>
           </div>
         </div>
@@ -371,8 +372,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenNotifications }) => {
             <span>
               <strong>Session active :</strong> {currentUser.name} ({currentUser.role === 'admin' ? 'Super Admin / Gérant' : `Responsable d'agence`})
             </span>
-            <span className="text-slate-400">•</span>
-            <span>
+            <span className="hidden sm:inline text-slate-400">•</span>
+            <span className="hidden sm:inline">
               {currentUser.role === 'admin' ? (
                 <span>Supervision globale du parc entier • Droit exclusif d'affectation des véhicules & validation des ajouts</span>
               ) : currentUser.role === 'manager' ? (

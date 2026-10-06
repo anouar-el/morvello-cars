@@ -332,8 +332,8 @@ export const ClientsList: React.FC = () => {
           </div>
 
           {/* MANAGER SELECTOR */}
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5 bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-slate-300">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="flex items-center gap-1.5 bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-slate-300 min-w-0 flex-1 md:flex-none">
               <Filter className="w-3.5 h-3.5 text-amber-400 shrink-0" />
               <span className="text-[11px] text-slate-400 hidden sm:inline">Filtrer par :</span>
               {currentUser.role === 'admin' ? (
@@ -341,7 +341,7 @@ export const ClientsList: React.FC = () => {
                   value={managerFilter}
                   onChange={(e) => setManagerFilter(e.target.value)}
                   aria-label="Filtrer par responsable"
-                  className="bg-transparent border-none text-white text-xs focus:outline-none cursor-pointer pr-2"
+                  className="bg-transparent border-none text-white text-xs focus:outline-none cursor-pointer pr-2 min-w-0 w-full md:w-auto"
                 >
                   <option value="all" className="bg-slate-900 text-white">Tous les responsables</option>
                   <option value="unassigned" className="bg-slate-900 text-slate-400">Non affectés (Aucune location)</option>
@@ -358,7 +358,7 @@ export const ClientsList: React.FC = () => {
                   value={managerFilter}
                   onChange={(e) => setManagerFilter(e.target.value)}
                   aria-label="Filtrer par responsable"
-                  className="bg-transparent border-none text-white text-xs focus:outline-none cursor-pointer pr-2"
+                  className="bg-transparent border-none text-white text-xs focus:outline-none cursor-pointer pr-2 min-w-0 w-full md:w-auto"
                 >
                   <option value="mine" className="bg-slate-900 text-amber-400 font-semibold">
                     ★ Mes clients affectés ({currentUser.name})

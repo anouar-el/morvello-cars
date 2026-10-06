@@ -346,9 +346,9 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
       )}
 
       {/* FILTER & SEARCH BAR */}
-      <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl shadow-md flex flex-col md:flex-row md:items-center justify-between gap-3">
+      <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl shadow-md flex flex-col lg:flex-row lg:items-center justify-between gap-3">
         {/* Search */}
-        <div className="relative flex-1">
+        <div className="relative flex-1 lg:min-w-[220px]">
           <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
           <input
             type="text"
@@ -385,8 +385,8 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
         )}
 
         {/* Filter Pills (Section 32) */}
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          <div className="flex items-center gap-1.5 overflow-x-auto">
+        <div className="flex flex-wrap items-center gap-2 text-xs min-w-0">
+          <div className="flex items-center gap-1.5 overflow-x-auto min-w-0 max-w-full">
             {[
               { id: 'all', label: 'Tous', count: visibleContracts.length },
               { id: 'active', label: 'Actifs', count: visibleContracts.filter((c) => c.status === 'active').length },
@@ -416,7 +416,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
           </div>
 
           {/* Payment Status Quick Filter */}
-          <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800 text-[11px]">
+          <div className="flex flex-wrap items-center gap-1 max-w-full bg-slate-950 p-1 rounded-lg border border-slate-800 text-[11px]">
             <span className="text-slate-500 px-1.5 font-medium flex items-center gap-1">
               <Banknote className="w-3 h-3 text-amber-400" />
               Règlement :
@@ -464,7 +464,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
           </div>
 
           {/* Contract Number Order Selector */}
-          <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800 text-[11px]">
+          <div className="flex flex-wrap items-center gap-1 max-w-full bg-slate-950 p-1 rounded-lg border border-slate-800 text-[11px]">
             <span className="text-slate-500 px-1.5 font-medium flex items-center gap-1">
               <ArrowUpDown className="w-3 h-3 text-amber-400" />
               Ordre N° :

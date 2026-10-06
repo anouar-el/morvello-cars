@@ -92,10 +92,10 @@ export const WizardStep1Client: React.FC<WizardStep1ClientProps> = ({
 }) => {
   return (
     <div className="space-y-4 animate-in fade-in duration-150">
-      <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
         <div>
           <h2 className="text-base font-bold text-white flex items-center gap-2">
-            <User className="w-5 h-5 text-amber-400" />
+            <User className="w-5 h-5 text-amber-400 shrink-0" />
             Étape 1 : Sélection ou Création du Locataire (Conducteur)
           </h2>
           <p className="text-xs text-slate-400">
@@ -104,7 +104,7 @@ export const WizardStep1Client: React.FC<WizardStep1ClientProps> = ({
         </div>
 
         {/* Mode Toggle: Existant vs Nouveau */}
-        <div className="flex items-center bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs">
+        <div className="flex items-center self-start sm:self-auto shrink-0 bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs whitespace-nowrap">
           <button
             type="button"
             onClick={() => setClientMode('existing')}

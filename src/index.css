@@ -669,6 +669,15 @@ html.light .contract-a4-page [class*="bg-gradient-"] .text-blue-300 {
   color: #93c5fd !important;
 }
 
+/* iOS Safari zooms the whole page when a focused field has a font-size under 16px */
+@media (max-width: 639px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
 /* Scrollbars personnalisées */
 ::-webkit-scrollbar {
   width: 6px;
