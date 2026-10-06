@@ -1,5 +1,6 @@
 import express from 'express';
 import helmet from 'helmet';
+import compression from 'compression';
 import path from 'path';
 import fs from 'fs';
 import { GoogleGenAI } from '@google/genai';
@@ -12,6 +13,7 @@ import { getFirestore, Firestore as FirebaseAdminFirestore } from 'firebase-admi
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { buildAssistantDataSection } from './src/lib/aiAssistantContext';
 import { FRANCHISE_DAMAGE_RATE_PERCENT } from './src/data/insurancePacks';
+import firebaseConfig from './firebase-applet-config.json';
 
 dotenv.config();
 
@@ -161,13 +163,66 @@ const app = express();
 // AI Studio's preview environment requires the fixed port 3000 (Nginx routes ingress 8080 -> 3000).
 // On external hosting (Hostinger, Render, Railway, etc.), the platform-assigned process.env.PORT
 // must be respected, with a fallback to 3000 if it is absent.
-const PORT = process.env.AI_STUDIO === 'true' ? 3000 : parseInt(process.env.PORT || '3000', 10);
+const IS_AI_STUDIO = process.env.AI_STUDIO === 'true';
+const PORT = IS_AI_STUDIO ? 3000 : parseInt(process.env.PORT || '3000', 10);
 
-// Security headers (X-Frame-Options, X-Content-Type-Options, HSTS, etc.).
-// CSP is left to the app's default (disabled) here: the SPA loads an inline bootstrap script
-// and Google Fonts, so a strict CSP needs deliberate nonce/allowlist tuning and browser testing
-// before being turned on, rather than being enabled blind.
-app.use(helmet({ contentSecurityPolicy: false }));
+// Security headers (X-Frame-Options, X-Content-Type-Options, HSTS, etc.). The
+// Content-Security-Policy is added by serveStaticBuild(): it only fits the production build,
+// since Vite's dev server relies on inline scripts.
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    // Google sign-in runs in a popup (Firebase signInWithPopup) the page must keep a handle on.
+    // Helmet's default "same-origin" severs that link and the sign-in fails as "popup closed".
+    crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },
+    // AI Studio previews the app inside a cross-origin iframe.
+    frameguard: IS_AI_STUDIO ? false : { action: 'sameorigin' },
+  })
+);
+
+/**
+ * Content-Security-Policy for the production build. Inline scripts are forbidden and every
+ * external origin listed is one the app really talks to. Setting CSP_REPORT_ONLY=true makes the
+ * browser log violations without blocking anything, to validate a deployment safely.
+ */
+function contentSecurityPolicy() {
+  const supabaseOrigin = SUPABASE_URL ? new URL(SUPABASE_URL).origin : null;
+  return helmet.contentSecurityPolicy({
+    useDefaults: false,
+    reportOnly: process.env.CSP_REPORT_ONLY === 'true',
+    directives: {
+      defaultSrc: ["'self'"],
+      baseUri: ["'self'"],
+      objectSrc: ["'none'"],
+      formAction: ["'self'"],
+      // apis.google.com: loader used by the Firebase Google sign-in popup
+      scriptSrc: ["'self'", 'https://apis.google.com'],
+      scriptSrcAttr: ["'none'"],
+      // Inline styles stay allowed: html2canvas injects <style> elements to render the contract PDF
+      styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+      fontSrc: ["'self'", 'data:', 'https://fonts.gstatic.com'],
+      // Uploaded documents and signatures are data:/blob: URLs; profile photos come from Google
+      imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
+      connectSrc: [
+        "'self'",
+        // The PDF engines re-read generated images through fetch()
+        'data:',
+        'blob:',
+        // Firebase Auth, Firestore, and the font stylesheet re-fetched for PDF capture
+        'https://*.googleapis.com',
+        'https://fonts.gstatic.com',
+        // Supabase REST/Auth and Realtime; the wildcard covers a server started without SUPABASE_URL
+        'https://*.supabase.co',
+        'wss://*.supabase.co',
+        ...(supabaseOrigin ? [supabaseOrigin, supabaseOrigin.replace(/^https:/, 'wss:')] : []),
+      ],
+      // Firebase Auth helper iframe, Google account chooser, and in-app document previews
+      frameSrc: ["'self'", 'data:', 'blob:', `https://${firebaseConfig.authDomain}`, 'https://accounts.google.com'],
+      workerSrc: ["'self'", 'blob:'],
+      ...(IS_AI_STUDIO ? {} : { frameAncestors: ["'self'"] }),
+    },
+  });
+}
 
 app.use(express.json({ limit: '10mb' }));
 
@@ -1356,6 +1411,16 @@ export function isProductionMode(distPath: string): boolean {
 
 function serveStaticBuild(serverApp: express.Express, distPath: string) {
   console.log(`[Server] Serving static production build from: ${distPath}`);
+  serverApp.use(contentSecurityPolicy());
+  // Not every host compresses responses itself, and the JS/CSS shrink to about a quarter
+  serverApp.use(compression());
+  // Vite content-hashes everything under /assets, so those files can be cached forever.
+  serverApp.use('/assets', express.static(path.join(distPath, 'assets'), { immutable: true, maxAge: '1y' }));
+  // A hashed file that no longer exists (replaced by a newer deployment) must be a real 404:
+  // falling through to the SPA shell would answer a script request with HTML and a 200.
+  serverApp.use('/assets', (_req, res) => {
+    res.status(404).end();
+  });
   serverApp.use(express.static(distPath));
   serverApp.get('*', (req, res) => {
     const indexPath = path.join(distPath, 'index.html');
