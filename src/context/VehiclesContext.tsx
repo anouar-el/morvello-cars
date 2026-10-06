@@ -92,8 +92,8 @@ export const VehiclesProvider: React.FC<{
       assignedManagerName: isManager && currentUser ? currentUser.name : (assignedUser?.name || vehicleData.assignedManagerName),
     };
 
-    const updatedVehicles = [newVehicle, ...vehicles];
-    setVehicles(updatedVehicles);
+    // Functional update: a bulk import calls this several times within one render
+    setVehicles((prev) => [newVehicle, ...prev]);
     syncCreateVehicle(newVehicle, currentUser).catch((err) =>
       console.warn('Record-level sync addVehicle note:', err)
     );

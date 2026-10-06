@@ -780,7 +780,7 @@ const AppContextInner: React.FC<{ children: React.ReactNode }> = ({ children }) 
             }
           ),
         addDriver: clientsDrivers.addDriver,
-        addVehicle: vehiclesCtx.addVehicle,
+        addVehicle: (vehicle) => vehiclesCtx.addVehicle(vehicle, auth.currentUser),
         updateVehicle: vehiclesCtx.updateVehicle,
         approveVehicle: vehiclesCtx.approveVehicle,
         rejectVehicle: vehiclesCtx.rejectVehicle,
