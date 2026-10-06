@@ -36,6 +36,8 @@ export default defineConfig(() => {
             if (/[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(id)) return 'vendor-react';
             if (id.includes('@firebase') || /[\\/]node_modules[\\/]firebase[\\/]/.test(id)) return 'vendor-firebase';
             if (id.includes('@supabase')) return 'vendor-supabase';
+            // Otherwise every icon shared between two lazy views becomes its own tiny request
+            if (id.includes('lucide-react')) return 'vendor-icons';
           },
         },
       },

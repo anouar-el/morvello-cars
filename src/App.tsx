@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { Navbar } from './components/Navbar';
 import { SyncErrorBanner } from './components/SyncErrorBanner';
@@ -11,24 +11,62 @@ import { Dashboard } from './components/Dashboard';
 import { LoginView } from './components/LoginView';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Contract } from './types';
-import { Bot, Sparkles } from 'lucide-react';
+import { Bot, Loader2, Sparkles } from 'lucide-react';
+import { lazyView, preloadViewsWhenIdle } from './lazyView';
 
-// Core application view components (statically imported for instant, error-free tab navigation)
-import { ContractWizard } from './components/ContractWizard';
-import { ContractsList } from './components/ContractsList';
-import { ClientsList } from './components/ClientsList';
-import { VehiclesList } from './components/VehiclesList';
-import { TermsManager } from './components/TermsManager';
-import { SettingsView } from './components/SettingsView';
-import { AuditView } from './components/AuditView';
-import { DepositsManagement } from './components/DepositsManagement';
-import { PermissionsManager } from './components/PermissionsManager';
-import { PdfModal } from './components/PdfModal';
-import { ReturnCheckInModal } from './components/ReturnCheckInModal';
-import { InspectionManagerModal } from './components/InspectionManagerModal';
-import { NotificationsCenterModal } from './components/NotificationsCenterModal';
-import { MemberAiAssistant } from './components/MemberAiAssistant';
-import { ContractTemplatesManager } from './components/ContractTemplatesManager';
+// Everything but the login screen and the dashboard is split out of the initial bundle,
+// then preloaded in the background right after sign-in so tab navigation stays instant.
+const ContractWizard = lazyView(() => import('./components/ContractWizard').then((m) => m.ContractWizard));
+const ContractsList = lazyView(() => import('./components/ContractsList').then((m) => m.ContractsList));
+const ClientsList = lazyView(() => import('./components/ClientsList').then((m) => m.ClientsList));
+const VehiclesList = lazyView(() => import('./components/VehiclesList').then((m) => m.VehiclesList));
+const TermsManager = lazyView(() => import('./components/TermsManager').then((m) => m.TermsManager));
+const SettingsView = lazyView(() => import('./components/SettingsView').then((m) => m.SettingsView));
+const AuditView = lazyView(() => import('./components/AuditView').then((m) => m.AuditView));
+const DepositsManagement = lazyView(() =>
+  import('./components/DepositsManagement').then((m) => m.DepositsManagement)
+);
+const PermissionsManager = lazyView(() =>
+  import('./components/PermissionsManager').then((m) => m.PermissionsManager)
+);
+const PdfModal = lazyView(() => import('./components/PdfModal').then((m) => m.PdfModal));
+const ReturnCheckInModal = lazyView(() =>
+  import('./components/ReturnCheckInModal').then((m) => m.ReturnCheckInModal)
+);
+const InspectionManagerModal = lazyView(() =>
+  import('./components/InspectionManagerModal').then((m) => m.InspectionManagerModal)
+);
+const NotificationsCenterModal = lazyView(() =>
+  import('./components/NotificationsCenterModal').then((m) => m.NotificationsCenterModal)
+);
+const MemberAiAssistant = lazyView(() =>
+  import('./components/MemberAiAssistant').then((m) => m.MemberAiAssistant)
+);
+const ContractTemplatesManager = lazyView(() =>
+  import('./components/ContractTemplatesManager').then((m) => m.ContractTemplatesManager)
+);
+
+// Most-used screens first: the preload runs sequentially
+const BACKGROUND_PRELOAD_ORDER = [
+  ContractsList,
+  ContractWizard,
+  VehiclesList,
+  ClientsList,
+  DepositsManagement,
+  MemberAiAssistant,
+  SettingsView,
+  PermissionsManager,
+  ContractTemplatesManager,
+  TermsManager,
+  AuditView,
+];
+
+const ViewLoadingFallback = () => (
+  <div className="flex flex-col items-center justify-center min-h-[400px] w-full gap-3 text-slate-400">
+    <Loader2 className="w-8 h-8 text-amber-500 animate-spin" />
+    <span className="text-xs font-mono tracking-wider">Chargement du module...</span>
+  </div>
+);
 
 function MainAppContent() {
   const { activeTab, setActiveTab, currentUser } = useApp();
@@ -37,6 +75,12 @@ function MainAppContent() {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
   const [isAssistantExpanded, setIsAssistantExpanded] = useState(false);
+
+  const isSignedIn = Boolean(currentUser);
+  useEffect(() => {
+    if (!isSignedIn) return;
+    return preloadViewsWhenIdle(BACKGROUND_PRELOAD_ORDER);
+  }, [isSignedIn]);
 
   if (!currentUser) {
     return <LoginView />;
@@ -125,7 +169,7 @@ function MainAppContent() {
       {/* MAIN CONTAINER */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6 lg:p-8 pb-28 md:pb-8">
         <ErrorBoundary key={activeTab} isolateView fallbackTitle="Erreur dans le module actif">
-          {renderContent()}
+          <Suspense fallback={<ViewLoadingFallback />}>{renderContent()}</Suspense>
         </ErrorBoundary>
       </main>
 
@@ -169,12 +213,16 @@ function MainAppContent() {
               isAssistantExpanded ? 'sm:w-[780px] md:w-[880px]' : 'sm:w-[520px] md:w-[580px]'
             } h-full bg-slate-900 shadow-2xl border-l border-slate-800 flex flex-col transform transition-all duration-300 ease-in-out`}
           >
-            <MemberAiAssistant
-              isDrawer={true}
-              onClose={() => setIsAssistantOpen(false)}
-              isExpanded={isAssistantExpanded}
-              onToggleExpand={() => setIsAssistantExpanded(!isAssistantExpanded)}
-            />
+            <ErrorBoundary isolateView fallbackTitle="Erreur dans l’assistant IA">
+              <Suspense fallback={<ViewLoadingFallback />}>
+                <MemberAiAssistant
+                  isDrawer={true}
+                  onClose={() => setIsAssistantOpen(false)}
+                  isExpanded={isAssistantExpanded}
+                  onToggleExpand={() => setIsAssistantExpanded(!isAssistantExpanded)}
+                />
+              </Suspense>
+            </ErrorBoundary>
           </div>
         </div>
       )}
@@ -191,23 +239,39 @@ function MainAppContent() {
         </div>
       </footer>
 
-      {/* GLOBAL MODALS */}
-      <PdfModal />
-      <ReturnCheckInModal
-        contract={checkInContract}
-        onClose={() => setCheckInContract(null)}
-        onOpenDetailedInspection={(contract) => setInspectionContract(contract)}
-      />
-      <InspectionManagerModal
-        contract={inspectionContract}
-        isOpen={!!inspectionContract}
-        onClose={() => setInspectionContract(null)}
-      />
-      <NotificationsCenterModal
-        isOpen={isNotificationsOpen}
-        onClose={() => setIsNotificationsOpen(false)}
-        onOpenCheckInModal={(contract) => setCheckInContract(contract)}
-      />
+      {/* GLOBAL MODALS (each in its own boundary: one failing to load must not blank the app) */}
+      <ErrorBoundary isolateView fallbackTitle="Erreur dans l’aperçu du contrat">
+        <Suspense fallback={null}>
+          <PdfModal />
+        </Suspense>
+      </ErrorBoundary>
+      <ErrorBoundary isolateView fallbackTitle="Erreur dans la restitution du véhicule">
+        <Suspense fallback={null}>
+          <ReturnCheckInModal
+            contract={checkInContract}
+            onClose={() => setCheckInContract(null)}
+            onOpenDetailedInspection={(contract) => setInspectionContract(contract)}
+          />
+        </Suspense>
+      </ErrorBoundary>
+      <ErrorBoundary isolateView fallbackTitle="Erreur dans l’état des lieux">
+        <Suspense fallback={null}>
+          <InspectionManagerModal
+            contract={inspectionContract}
+            isOpen={!!inspectionContract}
+            onClose={() => setInspectionContract(null)}
+          />
+        </Suspense>
+      </ErrorBoundary>
+      <ErrorBoundary isolateView fallbackTitle="Erreur dans le centre d’alertes">
+        <Suspense fallback={null}>
+          <NotificationsCenterModal
+            isOpen={isNotificationsOpen}
+            onClose={() => setIsNotificationsOpen(false)}
+            onOpenCheckInModal={(contract) => setCheckInContract(contract)}
+          />
+        </Suspense>
+      </ErrorBoundary>
     </div>
   );
 }

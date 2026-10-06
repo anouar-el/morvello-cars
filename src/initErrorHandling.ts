@@ -30,6 +30,11 @@ export const isAbortException = (err: any): boolean => {
   );
 };
 
+let backgroundPreloading = false;
+export const setBackgroundPreloading = (active: boolean) => {
+  backgroundPreloading = active;
+};
+
 // Filter console.error and console.warn so benign abort errors don't trigger platform error capture
 const originalConsoleError = console.error;
 console.error = (...args: any[]) => {
@@ -73,6 +78,9 @@ if (typeof window !== 'undefined') {
 
   // Auto-recover from stale dynamic chunks after a new deployment
   window.addEventListener('vite:preloadError', (event) => {
+    // Reloading while offline lands on the browser's error page, and a background preload
+    // failing must never reload the page under the user: both are left to the caller.
+    if (backgroundPreloading || !navigator.onLine) return;
     console.warn('[Vite] Dynamic import chunk failed to load (new version deployed). Reloading page...', event);
     const reloadKey = 'morvello_preload_reload';
     const lastReload = sessionStorage.getItem(reloadKey);
