@@ -196,7 +196,8 @@ export const DashboardContractsTable: React.FC<DashboardContractsTableProps> = (
       </div>
 
       {/* CONTRACTS TABLE */}
-      <div className="overflow-x-auto">
+      {/* DESKTOP TABLE ONLY (md:block) */}
+      <div className="hidden md:block overflow-x-auto">
         <table className="w-full text-left text-xs text-slate-300">
           <thead className="bg-slate-950/80 text-slate-400 uppercase text-[10px] font-semibold border-b border-slate-800">
             <tr>
@@ -248,10 +249,13 @@ export const DashboardContractsTable: React.FC<DashboardContractsTableProps> = (
                       <div className="text-[10px] text-slate-400 mt-0.5">
                         Créé le {new Date(cnt.createdAt).toLocaleDateString('fr-FR')}
                       </div>
-                      {cnt.assignedManagerName && (
+                      {(cnt.managerDisplayName || cnt.assignedManagerName) && (
                         <div className="text-[10px] text-slate-500 flex items-center gap-1 mt-0.5">
                           <User className="w-2.5 h-2.5 text-amber-400" />
-                          <span>{cnt.assignedManagerName}</span>
+                          <span>{cnt.managerDisplayName || cnt.assignedManagerName}</span>
+                          {cnt.managerDisplayName && cnt.assignedManagerName && cnt.managerDisplayName !== cnt.assignedManagerName && (
+                            <span className="text-[9px] text-slate-400">({cnt.assignedManagerName})</span>
+                          )}
                           {cnt.managerPhone && (
                             <span className="text-amber-400/90 font-mono font-bold">
                               • {cnt.managerPhone}
@@ -366,6 +370,116 @@ export const DashboardContractsTable: React.FC<DashboardContractsTableProps> = (
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* MOBILE CARD VIEW FOR DASHBOARD (< md screens)                             */}
+      {/* ========================================================================= */}
+      <div className="md:hidden divide-y divide-slate-800">
+        {filteredContracts.length === 0 ? (
+          <div className="px-4 py-8 text-center text-slate-500 text-xs">
+            Aucun contrat ne correspond aux critères de recherche.
+          </div>
+        ) : (
+          sortedContracts.slice(0, 8).map((cnt) => {
+            const effectiveEndDate = cnt.prolongation?.isActive
+              ? cnt.prolongation.newEndDate
+              : cnt.endDate;
+
+            return (
+              <div key={cnt.id} className="p-3.5 space-y-3 bg-slate-900/60 hover:bg-slate-900 transition-colors">
+                {/* CARD HEADER: N° CONTRAT + STATUS */}
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="font-mono font-black text-amber-400 text-sm">
+                      {cnt.contractNumber}
+                    </div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">
+                      Créé le {new Date(cnt.createdAt).toLocaleDateString('fr-FR')}
+                      {(cnt.managerDisplayName || cnt.assignedManagerName) && (
+                        <span> • {cnt.managerDisplayName || cnt.assignedManagerName}</span>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    {getStatusBadge(cnt)}
+                  </div>
+                </div>
+
+                {/* CLIENT & VEHICLE ROW */}
+                <div className="grid grid-cols-2 gap-2 text-xs bg-slate-950/70 p-2.5 rounded-xl border border-slate-800">
+                  <div>
+                    <span className="text-[9.5px] text-slate-500 uppercase font-bold block">Locataire</span>
+                    <div className="font-bold text-white uppercase text-xs truncate mt-0.5">
+                      {cnt.clientSnapshot.lastName} {cnt.clientSnapshot.firstName}
+                    </div>
+                    {cnt.clientSnapshot.phone && (
+                      <a
+                        href={`tel:${cnt.clientSnapshot.phone}`}
+                        className="inline-flex items-center gap-1 text-[10.5px] text-amber-400 hover:underline font-mono mt-0.5"
+                      >
+                        📞 {cnt.clientSnapshot.phone}
+                      </a>
+                    )}
+                  </div>
+
+                  <div>
+                    <span className="text-[9.5px] text-slate-500 uppercase font-bold block">Véhicule</span>
+                    <div className="font-semibold text-white uppercase text-xs truncate mt-0.5">
+                      {cnt.vehicleSnapshot.brand} {cnt.vehicleSnapshot.model}
+                    </div>
+                    <div className="font-mono text-[10.5px] text-amber-400 font-bold mt-0.5">
+                      {formatPlateFrench(cnt.vehicleSnapshot.plate)}
+                    </div>
+                  </div>
+                </div>
+
+                {/* PERIOD & TOTAL */}
+                <div className="flex items-center justify-between text-xs bg-slate-950/40 p-2 rounded-lg border border-slate-800/80">
+                  <div className="text-[11px] text-slate-300">
+                    <span className="text-slate-500 text-[10px] block">Période ({cnt.totalDays}j)</span>
+                    <span className="font-mono">{cnt.startDate} → {effectiveEndDate}</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-slate-500 text-[10px] block">Montant Total</span>
+                    <span className="font-mono font-bold text-emerald-400 text-sm">
+                      {cnt.totalAmount.toLocaleString('fr-FR')} <span className="text-xs">MAD</span>
+                    </span>
+                  </div>
+                </div>
+
+                {/* MOBILE ACTION BUTTONS */}
+                <div className="flex items-center gap-1.5 pt-1">
+                  <button
+                    onClick={() => onOpenPdf(cnt)}
+                    className="flex-1 py-2 px-3 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer min-h-[38px]"
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    <span>Contrat PDF</span>
+                  </button>
+
+                  {cnt.status === 'active' && (
+                    <button
+                      onClick={() => onOpenCheckInModal(cnt)}
+                      className="flex-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-emerald-600/20 active:scale-95 transition-all cursor-pointer min-h-[38px]"
+                    >
+                      <CheckSquare className="w-3.5 h-3.5" />
+                      <span>Restituer</span>
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => onDuplicateContract(cnt)}
+                    className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 rounded-xl text-xs transition-colors cursor-pointer min-h-[38px] min-w-[38px] flex items-center justify-center shrink-0"
+                    title="Dupliquer pour une nouvelle location"
+                  >
+                    <Copy className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            );
+          })
+        )}
       </div>
 
       {/* FOOTER */}

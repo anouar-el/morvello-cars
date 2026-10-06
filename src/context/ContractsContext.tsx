@@ -299,6 +299,7 @@ export const ContractsProvider: React.FC<{
 
     const pricePerDay = contractData.pricePerDay !== undefined ? Number(contractData.pricePerDay) : 0;
     const totalDays = contractData.totalDays || 1;
+    const managerDisplayName = contractData.managerDisplayName?.trim() || undefined;
     const totalContractAmount = contractData.totalAmount !== undefined
       ? Number(contractData.totalAmount)
       : (pricePerDay * totalDays);
@@ -320,6 +321,7 @@ export const ContractsProvider: React.FC<{
       clientId,
       assignedManagerId,
       assignedManagerName,
+      managerDisplayName,
       managerPhone,
       contractNumber,
       createdAt: new Date().toISOString(),

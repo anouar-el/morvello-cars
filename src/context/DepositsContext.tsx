@@ -4,6 +4,7 @@ import { initialDeposits } from '../data/mockData';
 import {
   syncCreateDeposit,
   syncUpdateDeposit,
+  syncDeleteDeposit,
 } from '../lib/recordSync';
 
 export interface DepositsContextType {
@@ -16,6 +17,7 @@ export interface DepositsContextType {
     refundedRemaining?: boolean,
     actorName?: string
   ) => void;
+  deleteDeposit: (depositId: string, actorName?: string) => Promise<boolean>;
   addDepositRecord: (deposit: DepositRecord) => void;
   setDepositsList: (deposits: DepositRecord[]) => void;
 }
@@ -155,6 +157,32 @@ export const DepositsProvider: React.FC<{
     );
   };
 
+  const deleteDeposit = async (
+    depositId: string,
+    actorName: string = 'Direction'
+  ): Promise<boolean> => {
+    const existing = deposits.find((d) => d.id === depositId);
+    if (!existing) return false;
+
+    const updated = deposits.filter((d) => d.id !== depositId);
+    setDeposits(updated);
+
+    try {
+      await syncDeleteDeposit(depositId);
+    } catch (err) {
+      console.warn('Record-level sync deleteDeposit note:', err);
+    }
+
+    logAction(
+      'Suppression caution',
+      'contract',
+      depositId,
+      `Caution #${depositId} (${existing.amount} MAD, contrat ${existing.contractNumber}) supprimée par ${actorName}.`
+    );
+
+    return true;
+  };
+
   const addDepositRecord = (deposit: DepositRecord) => {
     const updated = [deposit, ...deposits];
     setDeposits(updated);
@@ -174,6 +202,7 @@ export const DepositsProvider: React.FC<{
         updateDeposit,
         releaseDeposit,
         deductDeposit,
+        deleteDeposit,
         addDepositRecord,
         setDepositsList,
       }}

@@ -827,10 +827,14 @@ export async function syncCreateContract(
       total_amount: contract.totalAmount || 0,
       deposit_amount: contract.depositAmount || 0,
       assigned_manager_id: assignedMgrId,
+      manager_display_name: contract.managerDisplayName?.trim() || null,
+      manager_phone: contract.managerPhone?.trim() || null,
       created_by: contract.createdBy || authUid || 'Direction',
       data: {
         ...contract,
         assignedManagerId: assignedMgrId,
+        managerDisplayName: contract.managerDisplayName?.trim() || undefined,
+        managerPhone: contract.managerPhone?.trim() || undefined,
       },
       created_at: timestamp,
       updated_at: timestamp,
@@ -933,6 +937,8 @@ export async function syncUpdateContract(
     if (patch.endDate !== undefined) updateFields.end_date = patch.endDate;
     if (patch.totalAmount !== undefined) updateFields.total_amount = patch.totalAmount;
     if (patch.depositAmount !== undefined) updateFields.deposit_amount = patch.depositAmount;
+    if (patch.managerDisplayName !== undefined) updateFields.manager_display_name = patch.managerDisplayName?.trim() || null;
+    if (patch.managerPhone !== undefined) updateFields.manager_phone = patch.managerPhone?.trim() || null;
 
     const { data: currentFull } = await supabase
       .from('contracts')

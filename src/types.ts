@@ -419,6 +419,7 @@ export interface Contract {
   createdBy: string;
   assignedManagerId?: string;
   assignedManagerName?: string;
+  managerDisplayName?: string; // Nom d'affichage / surnom personnalisé sur ce contrat spécifique
   managerPhone?: string;
   notes?: string;
   pdfUrl?: string;

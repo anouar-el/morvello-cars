@@ -96,7 +96,10 @@ export const CorporateContractPdfLayout: React.FC<CorporateContractPdfLayoutProp
                   <div className="flex items-center justify-center text-[7.5px] font-mono bg-blue-50/70 border border-blue-200 px-2 py-0.8 rounded-md">
                     <span className="flex items-center gap-1 text-blue-950 font-bold">
                       <Phone className="w-2.5 h-2.5 text-blue-700 shrink-0" />
-                      <span>Ligne Pro : <strong className="font-extrabold">{activePhone}</strong></span>
+                      <span>
+                        Ligne Pro : <strong className="font-extrabold">{activePhone}</strong>
+                        {displayManagerName ? <span className="font-medium text-blue-900"> · {displayManagerName}</span> : null}
+                      </span>
                     </span>
                   </div>
                 </div>
@@ -458,7 +461,7 @@ export const CorporateContractPdfLayout: React.FC<CorporateContractPdfLayoutProp
                 )}
               </div>
               <div className="text-[6.5px] text-slate-600 text-center z-10 font-bold border-t border-slate-200 pt-0.5">
-                Comptes Entreprises • Fait à Casablanca, le {formattedStartDate}
+                {contract.agencySignedBy ? `Signé par ${contract.agencySignedBy}` : displayManagerName ? `Responsable : ${displayManagerName}` : 'Comptes Entreprises'} • Fait à Casablanca, le {formattedStartDate}
               </div>
             </div>
           </div>

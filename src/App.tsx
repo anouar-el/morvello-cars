@@ -123,7 +123,7 @@ function MainAppContent() {
       <SyncErrorBanner />
 
       {/* MAIN CONTAINER */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+      <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6 lg:p-8 pb-28 md:pb-8">
         <ErrorBoundary key={activeTab} isolateView fallbackTitle="Erreur dans le module actif">
           {renderContent()}
         </ErrorBoundary>
@@ -131,7 +131,7 @@ function MainAppContent() {
 
       {/* FLOATING AI ASSISTANT TRIGGER BUTTON (BOTTOM-RIGHT) */}
       {activeTab !== 'ai_assistant' && (
-        <div className="fixed bottom-6 right-6 z-40 no-print">
+        <div className="fixed bottom-20 right-4 sm:bottom-6 sm:right-6 z-30 no-print">
           <button
             onClick={() => setIsAssistantOpen(!isAssistantOpen)}
             className="group relative flex items-center gap-3 px-4 py-3 rounded-full bg-gradient-to-r from-amber-500 via-amber-600 to-amber-500 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold shadow-xl shadow-amber-500/25 hover:shadow-amber-500/40 hover:scale-105 active:scale-95 transition-all duration-200 border border-amber-300/40"

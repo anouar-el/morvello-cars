@@ -183,6 +183,7 @@ export interface AppContextType {
   updateDeposit: (id: string, data: Partial<DepositRecord>) => void;
   releaseDeposit: (depositId: string, refundedAmount: number, notes?: string) => void;
   deductDeposit: (depositId: string, deduction: Omit<DepositDeduction, 'id' | 'date'>, refundedRemaining?: boolean) => void;
+  deleteDeposit: (depositId: string) => Promise<boolean>;
 
   // Inspection photos action
   updateContractInspection: (contractId: string, inspection: ContractInspection) => void;
@@ -631,6 +632,27 @@ const AppContextInner: React.FC<{ children: React.ReactNode }> = ({ children }) 
     }
   }, [depositsCtx, contractsCtx]);
 
+  const deleteDepositAndSyncContract = useCallback(
+    async (depositId: string): Promise<boolean> => {
+      const existing = depositsCtx.deposits.find((d) => d.id === depositId);
+      if (!existing) return false;
+
+      // Si la caution était rattachée à un contrat, détacher la fiche de caution
+      const matchedContract = contractsCtx.contracts.find(
+        (c) => c.id === existing.contractId || c.contractNumber === existing.contractNumber
+      );
+      if (matchedContract && matchedContract.depositRecord?.id === depositId) {
+        contractsCtx.updateContract(matchedContract.id, {
+          depositRecord: undefined,
+          depositCollected: false,
+        });
+      }
+
+      return depositsCtx.deleteDeposit(depositId, auth.currentUser?.name);
+    },
+    [depositsCtx, contractsCtx, auth.currentUser]
+  );
+
   // Reconcile contract deposit amounts with deposits records on startup
   const hasReconciledDepositsRef = useRef(false);
   useEffect(() => {
@@ -740,7 +762,23 @@ const AppContextInner: React.FC<{ children: React.ReactNode }> = ({ children }) 
         deleteTermsClause: (number) => company.deleteTermsClause(number, auth.currentUser?.name),
         addClient: clientsDrivers.addClient,
         updateClient: clientsDrivers.updateClient,
-        deleteClient: clientsDrivers.deleteClient,
+        deleteClient: (id) =>
+          clientsDrivers.deleteClient(
+            id,
+            auth.currentUser,
+            (clientId, docNumber) => {
+              const activeContract = contractsCtx.contracts.find(
+                (c) =>
+                  (c.clientId === clientId ||
+                    (docNumber && c.clientSnapshot?.docNumber?.toLowerCase() === docNumber?.toLowerCase())) &&
+                  (c.status === 'active' || c.status === 'draft')
+              );
+              return {
+                isBlocked: !!activeContract,
+                contractNumber: activeContract?.contractNumber,
+              };
+            }
+          ),
         addDriver: clientsDrivers.addDriver,
         addVehicle: vehiclesCtx.addVehicle,
         updateVehicle: vehiclesCtx.updateVehicle,
@@ -809,6 +847,7 @@ const AppContextInner: React.FC<{ children: React.ReactNode }> = ({ children }) 
           depositsCtx.releaseDeposit(depositId, amount, notes, auth.currentUser?.name),
         deductDeposit: (depositId, deduction, refundRemaining) =>
           depositsCtx.deductDeposit(depositId, deduction, refundRemaining, auth.currentUser?.name),
+        deleteDeposit: deleteDepositAndSyncContract,
         updateContractInspection: contractsCtx.updateContractInspection,
         getClientAssignedManager,
       }}

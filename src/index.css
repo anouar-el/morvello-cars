@@ -721,6 +721,46 @@ html.light ::-webkit-scrollbar-thumb:hover {
 }
 
 /* Strict Print Rules for A4 2 Pages (100% Fidelity & Multi-Page Pagination) */
+/* ========================================================================= */
+/* MOBILE SAFE AREA INSETS & BOTTOM SHEET DRAWER SYSTEM                      */
+/* ========================================================================= */
+
+.pb-safe {
+  padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+}
+
+.pt-safe {
+  padding-top: calc(0.75rem + env(safe-area-inset-top, 0px));
+}
+
+@keyframes slideUpDrawer {
+  from {
+    transform: translateY(100%);
+    opacity: 0.8;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up {
+  animation: slideUpDrawer 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes fadeInBackdrop {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fade-in {
+  animation: fadeInBackdrop 0.2s ease-out forwards;
+}
+
 @media print {
   html,
   body {

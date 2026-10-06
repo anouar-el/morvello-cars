@@ -1,6 +1,6 @@
 import React from 'react';
+import { User as UserIcon, Calendar, Gauge, Fuel, Phone, AlertTriangle, ShieldCheck, CheckCircle2 } from 'lucide-react';
 import { User, CompanySettings, ContractInsurance, InsurancePackId } from '../../types';
-import { Calendar, Gauge, Fuel, Phone, AlertTriangle, ShieldCheck, CheckCircle2 } from 'lucide-react';
 import { FRANCHISE_DAMAGE_RATE_PERCENT, INSURANCE_PACKS, getPackTerms } from '../../data/insurancePacks';
 
 interface WizardStep3TermsProps {
@@ -32,6 +32,8 @@ interface WizardStep3TermsProps {
   setProlongationTime: (v: string) => void;
   assignedManagerId: string;
   setAssignedManagerId: (v: string) => void;
+  managerDisplayName: string;
+  setManagerDisplayName: (v: string) => void;
   managerPhone: string;
   setManagerPhone: (v: string) => void;
   users: User[];
@@ -70,6 +72,8 @@ export const WizardStep3Terms: React.FC<WizardStep3TermsProps> = ({
   setProlongationTime,
   assignedManagerId,
   setAssignedManagerId,
+  managerDisplayName,
+  setManagerDisplayName,
   managerPhone,
   setManagerPhone,
   users,
@@ -354,21 +358,22 @@ export const WizardStep3Terms: React.FC<WizardStep3TermsProps> = ({
         )}
       </div>
 
-      {/* MANAGER RÉFÉRENT & TÉLÉPHONE DIRECT (POUR L'EN-TÊTE DU CONTRAT PDF) */}
+      {/* MANAGER RÉFÉRENT & COORDONNÉES DIRECTES (POUR L'EN-TÊTE DU CONTRAT PDF) */}
       <div className="bg-slate-950/80 p-4 rounded-xl border border-slate-800 space-y-3">
         <div className="flex items-center justify-between text-amber-400 font-bold border-b border-slate-800 pb-1.5">
           <div className="flex items-center gap-2">
             <Phone className="w-4 h-4 text-amber-400" />
-            <span className="uppercase text-[11px]">Manager Référent &amp; Téléphone Direct (En-tête PDF)</span>
+            <span className="uppercase text-[11px]">Manager Référent &amp; Coordonnées Directes (En-tête PDF)</span>
           </div>
           <span className="text-[10px] text-slate-400 font-mono">Personnalisation Contrat</span>
         </div>
 
         <p className="text-[11px] text-slate-400">
-          Le numéro de téléphone ci-dessous s'imprimera directement sur l'en-tête et le pied de page de la 1ère page du contrat PDF pour que le client joigne immédiatement son responsable attitré.
+          Ces coordonnées apparaîtront sur l'en-tête du contrat PDF pour que le locataire puisse identifier et joindre directement son interlocuteur.
         </p>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+          {/* 1. Responsable / Manager officiel */}
           <div>
             <label className="block text-slate-400 mb-1 font-medium text-xs">
               Collaborateur / Manager en charge *
@@ -379,10 +384,12 @@ export const WizardStep3Terms: React.FC<WizardStep3TermsProps> = ({
                 const newId = e.target.value;
                 setAssignedManagerId(newId);
                 const mgr = users.find((u) => u.id === newId);
-                if (mgr?.phone) {
-                  setManagerPhone(mgr.phone);
+                if (mgr) {
+                  setManagerPhone(mgr.phone || companySettings.phone1);
+                  setManagerDisplayName(mgr.name || '');
                 } else {
                   setManagerPhone(companySettings.phone1);
+                  setManagerDisplayName('');
                 }
               }}
               className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white text-xs font-semibold focus:border-amber-500 focus:outline-none cursor-pointer"
@@ -396,10 +403,32 @@ export const WizardStep3Terms: React.FC<WizardStep3TermsProps> = ({
             </select>
           </div>
 
+          {/* 2. Nom d'affichage sur contrat (surnom / display name) */}
           <div>
             <label className="block text-slate-400 mb-1 font-medium text-xs flex items-center justify-between">
-              <span>Numéro de Téléphone Direct imprimé</span>
-              <span className="text-[10px] text-amber-400 font-mono">Modifiable</span>
+              <span>Nom affiché sur le contrat</span>
+              <span className="text-[10px] text-amber-400 font-mono">Optionnel</span>
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                value={managerDisplayName}
+                onChange={(e) => setManagerDisplayName(e.target.value)}
+                placeholder="Ex: Ahmed"
+                className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-8 pr-3 py-2 text-amber-300 text-xs font-semibold focus:border-amber-500 focus:outline-none"
+              />
+              <UserIcon className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
+            </div>
+            <p className="text-[10px] text-slate-500 mt-1 leading-tight">
+              Optional. This name will appear on the contract instead of the manager's official name.
+            </p>
+          </div>
+
+          {/* 3. Téléphone direct imprimé */}
+          <div>
+            <label className="block text-slate-400 mb-1 font-medium text-xs flex items-center justify-between">
+              <span>Téléphone Manager sur contrat</span>
+              <span className="text-[10px] text-slate-500 font-mono">Ligne directe</span>
             </label>
             <div className="relative">
               <input
@@ -411,6 +440,9 @@ export const WizardStep3Terms: React.FC<WizardStep3TermsProps> = ({
               />
               <Phone className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
             </div>
+            <p className="text-[10px] text-slate-500 mt-1 leading-tight">
+              Numéro de téléphone direct enregistré sur ce contrat.
+            </p>
           </div>
         </div>
       </div>
