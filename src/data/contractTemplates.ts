@@ -76,7 +76,7 @@ export const CONTRACT_TEMPLATES: ContractTemplateInfo[] = [
     features: [
       'En-tête officiel du Standard : logo, assistance 24/7, cartouche N° de contrat',
       'Rubriques colorées Locataire, Véhicule, Durée, Garanties et Signatures',
-      'Contrôle de départ issu de l’inspection réelle (« À vérifier » si non renseignée)',
+      'Contrôle de départ issu de l’inspection réelle (cases à cocher à la main si non renseignée)',
       'Jauge carburant 8 segments et observations de départ',
       'Cadre de signature dédié au 2ème conducteur et référence de signature électronique',
       'Verso A4 identique au Standard : 20 articles, frais particuliers et paraphes',

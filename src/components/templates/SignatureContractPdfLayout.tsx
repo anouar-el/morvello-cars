@@ -1,18 +1,6 @@
 import React from 'react';
 import { Contract, CompanySettings, TermsVersion } from '../../types';
-import {
-  CheckCircle2,
-  XCircle,
-  Circle,
-  Calendar,
-  Clock,
-  Car,
-  Shield,
-  Phone,
-  MapPin,
-  User,
-  Mail,
-} from 'lucide-react';
+import { CheckCircle2, XCircle, Calendar, Clock, Car, Shield, Phone, MapPin, User, Mail } from 'lucide-react';
 import { CompanyStamp } from '../CompanyStamp';
 import { CompanyLogo } from '../CompanyLogo';
 import { DepositStatusTag } from '../DepositStatusTag';
@@ -34,63 +22,155 @@ export interface SignatureContractPdfLayoutProps {
 }
 
 /*
- * Modèle 4 « Signature » : reprend la charte du modèle Standard (bandeaux de rubrique colorés,
- * cartes à liseré, cartouche d'en-tête) avec des données réelles là où le Standard affiche
- * des mentions fixes. Les dégradés sont réservés aux bandeaux sombres : en thème clair,
- * index.css force le texte en blanc à l'intérieur de tout élément `bg-gradient-*`.
+ * Modèle 4 « Signature » : la charte du modèle Standard (bandeaux de rubrique colorés bilingues,
+ * cartes à liseré, cartouche d'en-tête) alimentée par les données réelles du contrat.
+ *
+ * COULEURS : uniquement des valeurs littérales (`text-[#…]`, styles en ligne), jamais la palette
+ * Tailwind (`text-slate-900`, `bg-amber-50`, `text-white`…). Le thème clair de l'application
+ * remappe cette palette et force des couleurs sur ces classes : avec elles, le contrat imprimé
+ * changeait d'aspect — jusqu'à devenir illisible — selon le thème de l'agent qui l'éditait.
  */
 
-const SECTION_BARS = {
-  blue: 'from-blue-950 via-blue-900 to-indigo-950',
-  amber: 'from-amber-900 via-amber-800 to-amber-950',
-  emerald: 'from-emerald-900 via-teal-900 to-emerald-950',
-  slate: 'from-slate-900 via-slate-800 to-slate-950',
-} as const;
+type Tone = 'blue' | 'amber' | 'emerald' | 'slate';
 
-const SectionBar: React.FC<{
+const TONES: Record<Tone, { bar: string; frame: string; accent: string; label: string; soft: string; softLine: string }> = {
+  blue: {
+    bar: 'linear-gradient(90deg, #172554, #1e3a8a 50%, #1e1b4b)',
+    frame: '#c7d4f3',
+    accent: '#1d4ed8',
+    label: '#1e3a8a',
+    soft: '#f1f5fd',
+    softLine: '#c7d4f3',
+  },
+  amber: {
+    bar: 'linear-gradient(90deg, #78350f, #92400e 50%, #451a03)',
+    frame: '#ecd08a',
+    accent: '#b45309',
+    label: '#78350f',
+    soft: '#fdf7e7',
+    softLine: '#ecd08a',
+  },
+  emerald: {
+    bar: 'linear-gradient(90deg, #064e3b, #134e4a 50%, #022c22)',
+    frame: '#b9e3d3',
+    accent: '#047857',
+    label: '#065f46',
+    soft: '#eefaf5',
+    softLine: '#b9e3d3',
+  },
+  slate: {
+    bar: 'linear-gradient(90deg, #0f172a, #1e293b 50%, #020617)',
+    frame: '#0f172a',
+    accent: '#0f172a',
+    label: '#0f172a',
+    soft: '#f6f8fb',
+    softLine: '#dbe2ea',
+  },
+};
+
+const HEADER_RULE = 'linear-gradient(90deg, #0b1638, #b7791f 50%, #0b1638)';
+const DARK_BAND = 'linear-gradient(90deg, #020617, #172554 50%, #020617)';
+
+const Section: React.FC<{
+  tone: Tone;
   index: string;
   title: string;
   arabic: string;
   icon: React.ReactNode;
-  tone: keyof typeof SECTION_BARS;
-}> = ({ index, title, arabic, icon, tone }) => (
-  <div
-    className={`flex items-center justify-between mb-1.5 bg-gradient-to-r ${SECTION_BARS[tone]} text-white px-2.5 py-1 rounded-lg shadow-2xs`}
+  strong?: boolean;
+  children: React.ReactNode;
+}> = ({ tone, index, title, arabic, icon, strong, children }) => (
+  <section
+    className={`rounded-xl bg-[#ffffff] p-1.5 ${strong ? 'border-2' : 'border'}`}
+    style={{ borderColor: TONES[tone].frame }}
   >
-    <h2 className="text-[10.5px] font-black uppercase tracking-wide flex items-center gap-2 text-white">
-      <span className="w-5 h-5 bg-white/15 border border-white/25 rounded flex items-center justify-center shrink-0">{icon}</span>
-      <span>
-        {index}. {title}
-      </span>
-    </h2>
-    <span className="text-[9.5px] text-amber-200 font-bold font-arabic">{arabic}</span>
+    <div
+      className="flex items-center justify-between gap-3 rounded-lg px-2.5 py-[5px] mb-1.5"
+      style={{ backgroundImage: TONES[tone].bar }}
+    >
+      <h2 className="flex items-center gap-2 text-[11.5px] font-black uppercase tracking-wide text-[#ffffff]">
+        <span className="w-5 h-5 rounded flex items-center justify-center shrink-0 bg-[#ffffff26] border border-[#ffffff40] text-[#fde9b0]">
+          {icon}
+        </span>
+        <span>
+          {index}. {title}
+        </span>
+      </h2>
+      <span className="text-[11px] font-bold text-[#fde9b0] whitespace-nowrap">{arabic}</span>
+    </div>
+    {children}
+  </section>
+);
+
+/** Carte de donnée à liseré gauche, de la couleur de sa rubrique. */
+const Card: React.FC<{ tone: Tone; dense?: boolean; className?: string; children: React.ReactNode }> = ({
+  tone,
+  dense,
+  className = '',
+  children,
+}) => (
+  <div
+    className={`rounded-lg bg-[#ffffff] border border-[#dbe2ea] border-l-[3px] px-2 ${dense ? 'py-1' : 'py-2'} ${className}`}
+    style={{ borderLeftColor: TONES[tone].accent }}
+  >
+    {children}
   </div>
 );
 
-/** Badge d'état issu de l'inspection de départ ; « À vérifier » quand rien n'a été relevé. */
-const InspectionBadge: React.FC<{ label: string; state: boolean | undefined; okText: string; koText: string }> = ({
-  label,
-  state,
-  okText,
-  koText,
-}) => {
-  const tone =
-    state === true
-      ? 'bg-emerald-50 border-emerald-200 text-emerald-950'
-      : state === false
-      ? 'bg-rose-50 border-rose-200 text-rose-950'
-      : 'bg-slate-50 border-slate-200 text-slate-700';
+const Label: React.FC<{ tone: Tone; className?: string; children: React.ReactNode }> = ({ tone, className = '', children }) => (
+  <span className={`text-[9px] font-black uppercase tracking-[0.05em] ${className}`} style={{ color: TONES[tone].label }}>
+    {children}
+  </span>
+);
+
+const Tag: React.FC<{ tone: Tone; children: React.ReactNode }> = ({ tone, children }) => (
+  <span
+    className="inline-block rounded border px-1.5 text-[8px] font-bold leading-[1.5] whitespace-nowrap"
+    style={{ backgroundColor: TONES[tone].soft, borderColor: TONES[tone].softLine, color: TONES[tone].label }}
+  >
+    {children}
+  </span>
+);
+
+/**
+ * Point de contrôle de départ. État relevé à l'inspection s'il existe ; sinon deux cases à cocher
+ * à la main lors de la remise des clés.
+ */
+const InspectionItem: React.FC<{
+  label: string;
+  state: boolean | undefined;
+  okText: string;
+  koText: string;
+  boxes?: [string, string];
+}> = ({ label, state, okText, koText, boxes = ['Oui', 'Non'] }) => {
+  if (state === undefined) {
+    const box = <span className="inline-block w-[9px] h-[9px] rounded-[2px] border border-[#475569] bg-[#ffffff] shrink-0" />;
+    return (
+      <div className="rounded-md border border-[#dbe2ea] bg-[#f6f8fb] px-2 py-1 flex items-center justify-between gap-1.5">
+        <span className="font-bold text-[#1e293b] truncate">{label}</span>
+        <span className="flex items-center gap-2 text-[#334155] shrink-0">
+          {boxes.map((choice) => (
+            <span key={choice} className="flex items-center gap-1">
+              {box} {choice}
+            </span>
+          ))}
+        </span>
+      </div>
+    );
+  }
   return (
-    <div className={`border rounded-md px-2 py-0.5 flex items-center gap-1.5 shadow-2xs ${tone}`}>
-      {state === true ? (
-        <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
-      ) : state === false ? (
-        <XCircle className="w-3 h-3 text-rose-600 shrink-0" />
+    <div
+      className={`rounded-md border px-2 py-1 flex items-center gap-1.5 ${
+        state ? 'bg-[#ecfdf5] border-[#a7f3d0] text-[#064e3b]' : 'bg-[#fef2f2] border-[#fecaca] text-[#7f1d1d]'
+      }`}
+    >
+      {state ? (
+        <CheckCircle2 className="w-3 h-3 shrink-0 text-[#059669]" />
       ) : (
-        <Circle className="w-3 h-3 text-slate-400 shrink-0" />
+        <XCircle className="w-3 h-3 shrink-0 text-[#dc2626]" />
       )}
       <span className="truncate">
-        {label} : <strong>{state === true ? okText : state === false ? koText : 'À vérifier'}</strong>
+        {label} : <strong className="font-black">{state ? okText : koText}</strong>
       </span>
     </div>
   );
@@ -101,23 +181,70 @@ const FuelGauge: React.FC<{ value?: string }> = ({ value }) => {
   const match = value?.match(/(\d)\s*\/\s*8/);
   const level = match ? Math.min(8, Math.max(0, Number(match[1]))) : undefined;
   return (
-    <div className="mt-0.5">
+    <div className="mt-1">
       <div className="flex gap-[2px]">
         {Array.from({ length: 8 }).map((_, i) => (
           <span
             key={i}
             className={`h-[7px] flex-1 rounded-[1px] border ${
-              level !== undefined && i < level ? 'bg-emerald-500 border-emerald-600' : 'bg-white border-slate-300'
+              level !== undefined && i < level ? 'bg-[#10b981] border-[#059669]' : 'bg-[#ffffff] border-[#cbd5e1]'
             }`}
           />
         ))}
       </div>
-      <div className="text-[8px] text-slate-700 mt-0.5 text-right">
-        Carburant : <strong className="text-emerald-700 font-bold">{value || 'À relever'}</strong>
+      <div className="text-[8.5px] text-[#334155] mt-0.5 text-right">
+        Carburant : <strong className="font-black text-[#047857]">{value || 'À relever'}</strong>
       </div>
     </div>
   );
 };
+
+/** « 1988-03-22 » → « 22/03/1988 » ; toute autre saisie est rendue telle quelle. */
+function formatDateFr(value?: string): string {
+  const iso = value?.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return iso ? `${iso[3]}/${iso[2]}/${iso[1]}` : value || '—';
+}
+
+// Géométrie du verso A4, en px CSS : largeur d'une colonne d'articles et hauteur qui leur reste
+const TERMS_COLUMN_WIDTH = 343;
+const TERMS_COLUMN_HEIGHT = 640;
+const TERMS_LINE_HEIGHT = 1.38;
+// Largeur moyenne d'un caractère, volontairement pessimiste : l'estimation penche du côté « trop long »
+const TERMS_CHAR_WIDTH_EM = 0.47;
+// Ligne de titre et espacements d'un article
+const TERMS_CLAUSE_CHROME_EM = 2.4;
+
+/**
+ * Répartit les articles en deux colonnes de hauteur voisine, au plus grand corps qui tient dans
+ * la page. Les conditions générales sont modifiables : si elles s'allongent, le corps diminue au
+ * lieu de pousser les signatures du verso hors de la page.
+ */
+function layoutClauses<T extends { content: string }>(clauses: T[]): { columns: [T[], T[]]; fontSize: number } {
+  for (let tenths = 96; ; tenths--) {
+    const fontSize = tenths / 10;
+    const charsPerLine = TERMS_COLUMN_WIDTH / (TERMS_CHAR_WIDTH_EM * fontSize);
+    const heights = clauses.map(
+      (clause) => fontSize * (TERMS_CLAUSE_CHROME_EM + Math.ceil(clause.content.length / charsPerLine) * TERMS_LINE_HEIGHT)
+    );
+    const total = heights.reduce((sum, height) => sum + height, 0);
+
+    let cut = clauses.length;
+    let tallest = total;
+    let firstColumn = 0;
+    for (let i = 1; i < clauses.length; i++) {
+      firstColumn += heights[i - 1];
+      const candidate = Math.max(firstColumn, total - firstColumn);
+      if (candidate < tallest) {
+        tallest = candidate;
+        cut = i;
+      }
+    }
+
+    if (tallest <= TERMS_COLUMN_HEIGHT || tenths <= 70) {
+      return { columns: [clauses.slice(0, cut), clauses.slice(cut)], fontSize };
+    }
+  }
+}
 
 export const SignatureContractPdfLayout: React.FC<SignatureContractPdfLayoutProps> = ({
   contract,
@@ -132,9 +259,7 @@ export const SignatureContractPdfLayout: React.FC<SignatureContractPdfLayoutProp
   formattedEndDate,
   formattedCreatedAt,
 }) => {
-  const halfClauses = Math.ceil(termsVersion.clauses.length / 2);
-  const col1Clauses = termsVersion.clauses.slice(0, halfClauses);
-  const col2Clauses = termsVersion.clauses.slice(halfClauses);
+  const { columns: clauseColumns, fontSize: termsFontSize } = layoutClauses(termsVersion.clauses);
 
   const client = contract.clientSnapshot;
   const vehicle = contract.vehicleSnapshot;
@@ -169,8 +294,24 @@ export const SignatureContractPdfLayout: React.FC<SignatureContractPdfLayoutProp
       : contract.depositRecord?.method === 'virement'
       ? 'Virement bancaire'
       : 'Empreinte CB bancaire';
+  // Le détail saisi reprend souvent le moyen (« Empreinte bancaire TPE ») : ne pas l'imprimer deux fois
+  const depositDetails = contract.depositRecord?.methodDetails?.trim();
+  const depositLine =
+    depositDetails && depositDetails.toLowerCase().includes(depositMethod.split(' ')[0].toLowerCase())
+      ? depositDetails
+      : [depositMethod, depositDetails].filter(Boolean).join(' · ');
 
   const insurance = resolveContractInsurance(contract);
+
+  const legalIds = (
+    [
+      ['IF', companySettings.taxId],
+      ['RC', companySettings.rc],
+      ['ICE', companySettings.ice],
+      ['Patente', companySettings.patente || '35894120'],
+    ] as Array<[string, string | undefined]>
+  ).filter(([, value]) => Boolean(value && String(value).trim()));
+  const contactItems = [companySettings.website, companySettings.email].filter((item) => Boolean(item && item.trim()));
 
   const signatureCols = secondDriver ? 'grid-cols-3' : 'grid-cols-2';
 
@@ -183,434 +324,399 @@ export const SignatureContractPdfLayout: React.FC<SignatureContractPdfLayoutProp
       {/* ========================================================================= */}
       {/* PAGE 1 : CONTRAT DE LOCATION (RECTO)                                      */}
       {/* ========================================================================= */}
-      <div id={page1Id} className="a4-page contract-a4-page flex flex-col justify-between text-slate-900 border border-slate-300 print:border-none">
-        <div className="flex-1 flex flex-col justify-between">
+      <div id={page1Id} className="a4-page contract-a4-page flex flex-col justify-between text-[#0b1220] border border-[#cbd5e1] print:border-none">
+        <div className="flex-1 flex flex-col justify-between gap-1.5">
           {/* EN-TÊTE : LOGO · ASSISTANCE · CARTOUCHE */}
-          <div className="pb-1.5 mb-2">
-            <div className="bg-white border border-slate-200/90 rounded-xl p-2.5 shadow-2xs">
-              <div className="grid grid-cols-12 items-center gap-3">
-                <div className="col-span-4 shrink-0 flex items-center gap-2">
-                  <CompanyLogo size="md" customHeight={68} variant="raw-image" className="h-[68px] w-auto max-w-[155px]" />
-                  <div className="h-10 w-[1px] bg-slate-200 shrink-0" />
-                  <div className="flex flex-col justify-center">
-                    <span className="text-[7.2px] font-black uppercase tracking-wider text-amber-950 leading-tight">
-                      Location de Voitures de Luxe
-                    </span>
-                    <span className="text-[6px] font-semibold text-slate-500 uppercase tracking-widest mt-0.5">
-                      Prestige &amp; VIP
-                    </span>
+          <div>
+            <div className="grid grid-cols-12 items-center gap-3">
+              <div className="col-span-4 flex items-center gap-2.5">
+                <CompanyLogo size="md" customHeight={70} variant="raw-image" className="h-[70px] w-auto max-w-[150px]" />
+                <div className="border-l border-[#dbe2ea] pl-2.5">
+                  <div className="text-[8.5px] font-black uppercase tracking-[0.1em] leading-[1.25] text-[#78350f]">
+                    Location de voitures
+                    <br />
+                    de luxe
                   </div>
-                </div>
-
-                <div className="col-span-4 px-2.5 border-x border-slate-200/90 flex flex-col justify-center gap-1.5">
-                  <div className="bg-amber-50 border border-amber-400/80 rounded-lg px-2.5 py-1 text-center shadow-2xs">
-                    <div className="flex items-center justify-center gap-1.5 text-[6.8px] font-black uppercase tracking-wider text-amber-950">
-                      <Phone className="w-2.5 h-2.5 text-amber-700 shrink-0" />
-                      <span>Assistance &amp; Dépannage 24/7</span>
-                    </div>
-                    <div className="text-[10px] font-mono font-black text-slate-950 tracking-wider mt-0.5">{assistancePhone}</div>
-                  </div>
-                  <div className="flex items-center justify-center text-[7.5px] font-mono bg-slate-50 border border-slate-200 px-2 py-1 rounded-md shadow-2xs">
-                    <span className="flex items-center gap-1 text-slate-800 truncate">
-                      <Phone className="w-2.5 h-2.5 text-blue-700 shrink-0" />
-                      <span>
-                        Tél : <strong className="text-slate-950 font-bold">{activePhone}</strong>
-                        {displayManagerName ? <span className="text-slate-500"> · {displayManagerName}</span> : null}
-                      </span>
-                    </span>
-                  </div>
-                </div>
-
-                <div className="col-span-4 flex flex-col justify-center">
-                  <div className="rounded-lg overflow-hidden border border-slate-900 shadow-2xs">
-                    <div className="bg-gradient-to-r from-slate-950 via-blue-950 to-slate-950 text-white px-2.5 py-1 flex items-center justify-between border-b border-amber-400/40">
-                      <span className="text-[8.5px] font-black tracking-[0.14em] uppercase text-white">CONTRAT DE LOCATION</span>
-                      <span className="text-[8.5px] font-bold font-arabic text-amber-300">عقد كراء سيارة</span>
-                    </div>
-                    <div className="bg-white px-2 py-1 flex items-center justify-center gap-1.5">
-                      <span className="text-[7.5px] font-mono font-bold uppercase text-slate-400">N°</span>
-                      <span className="font-mono text-[15px] font-black tracking-widest text-slate-950 bg-amber-50 border border-amber-300/80 px-2.5 py-0.5 rounded shadow-2xs">
-                        {contract.contractNumber}
-                      </span>
-                    </div>
-                    <div className="bg-slate-50 border-t border-slate-200 px-2 py-0.5 flex items-center justify-between text-[6.8px] font-mono text-slate-600">
-                      <span>
-                        Émis le : <strong className="text-slate-950 font-bold">{formattedCreatedAt}</strong>
-                      </span>
-                      <span className="bg-blue-100 text-blue-950 font-bold text-[6.2px] px-1.5 py-0.2 rounded border border-blue-200 uppercase">
-                        ORIGINAL (RECTO)
-                      </span>
-                    </div>
-                  </div>
+                  <div className="text-[7.5px] font-bold uppercase tracking-[0.2em] text-[#64748b] mt-1">Prestige &amp; VIP</div>
                 </div>
               </div>
 
-              <div className="mt-2 pt-1.5 border-t border-slate-200/90 flex items-center justify-between text-[7px] font-mono text-slate-700 bg-slate-50/80 rounded px-2.5 py-1">
-                <div className="flex items-center gap-1.5">
-                  <span className="font-extrabold text-slate-950 uppercase">{companySettings.name}</span>
-                  <span className="text-slate-400">• SARL au Capital de 100 000 MAD</span>
+              <div className="col-span-4 flex flex-col justify-center gap-1">
+                <div className="rounded-lg border border-[#e5b94a] bg-[#fdf7e7] px-2.5 py-1 text-center">
+                  <div className="flex items-center justify-center gap-1.5 text-[8px] font-black uppercase tracking-[0.06em] text-[#78350f]">
+                    <Phone className="w-2.5 h-2.5 shrink-0 text-[#b45309]" />
+                    <span>Assistance &amp; Dépannage 24/7</span>
+                  </div>
+                  <div className="text-[11.5px] font-mono font-black tracking-wider text-[#0b1220] mt-0.5">{assistancePhone}</div>
                 </div>
-                <div className="flex items-center gap-2.5 text-slate-800">
-                  <span>IF : <strong className="font-bold text-slate-950">{companySettings.taxId}</strong></span>
-                  <span className="text-slate-300">|</span>
-                  <span>RC : <strong className="font-bold text-slate-950">{companySettings.rc}</strong></span>
-                  <span className="text-slate-300">|</span>
-                  <span>ICE : <strong className="font-bold text-slate-950">{companySettings.ice}</strong></span>
-                  <span className="text-slate-300">|</span>
-                  <span>Patente : <strong className="font-bold text-slate-950">{companySettings.patente || '35894120'}</strong></span>
+                <div className="rounded-md border border-[#dbe2ea] bg-[#f6f8fb] px-2 py-[3px] flex items-center justify-center gap-1 text-[8.5px] text-[#334155]">
+                  <Phone className="w-2.5 h-2.5 shrink-0 text-[#1d4ed8]" />
+                  <span className="truncate">
+                    Agence : <strong className="font-mono font-black text-[#0b1220]">{activePhone}</strong>
+                    {displayManagerName ? <span className="text-[#64748b]"> · {displayManagerName}</span> : null}
+                  </span>
+                </div>
+              </div>
+
+              <div className="col-span-4">
+                <div className="rounded-lg overflow-hidden border border-[#0b1638]">
+                  <div className="px-2.5 py-1 flex items-center justify-between" style={{ backgroundImage: DARK_BAND }}>
+                    <span className="text-[9.5px] font-black tracking-[0.14em] uppercase text-[#ffffff]">Contrat de location</span>
+                    <span className="text-[9.5px] font-bold text-[#fcd34d]">عقد كراء سيارة</span>
+                  </div>
+                  <div className="bg-[#ffffff] px-2 py-1 flex items-center justify-center gap-1.5">
+                    <span className="text-[8.5px] font-mono font-bold uppercase text-[#64748b]">N°</span>
+                    <span className="font-mono text-[16px] font-black tracking-widest leading-tight text-[#0b1220] bg-[#fdf7e7] border border-[#e5b94a] px-2.5 py-0.5 rounded">
+                      {contract.contractNumber}
+                    </span>
+                  </div>
+                  <div className="bg-[#f6f8fb] border-t border-[#dbe2ea] px-2 py-[3px] flex items-center justify-between text-[8px] text-[#475569]">
+                    <span>
+                      Émis le <strong className="font-mono font-black text-[#0b1220]">{formattedCreatedAt}</strong>
+                    </span>
+                    <span className="rounded border border-[#c7d4f3] bg-[#e8eefc] px-1.5 text-[7.5px] font-black uppercase text-[#1e3a8a]">
+                      Original · Recto
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
-
-            <div className="mt-1.5 space-y-0.5">
-              <div className="h-[2px] bg-gradient-to-r from-slate-950 via-amber-600 to-slate-950 rounded-full" />
-              <div className="h-[0.5px] bg-gradient-to-r from-transparent via-blue-800 to-transparent" />
-            </div>
+            <div className="mt-2 h-[2px] rounded-full" style={{ backgroundImage: HEADER_RULE }} />
           </div>
 
           {/* 1. LOCATAIRE / CONDUCTEUR(S) */}
-          <div className="border border-blue-200/90 rounded-xl bg-white p-2 mb-1.5 shadow-xs">
-            <SectionBar
-              index="1"
-              tone="blue"
-              icon={<User className="w-3 h-3 text-blue-200" />}
-              title={secondDriver ? 'Locataire Principal & 2ème Conducteur Agréé' : 'Locataire / Conducteur'}
-              arabic={secondDriver ? 'المكتري والسائق الإضافي المرخص له' : 'المكتري / السائق'}
-            />
-
-            <div className="grid grid-cols-12 gap-2 text-[10px]">
-              <div className="col-span-6 bg-white p-2 rounded-lg border border-slate-200 border-l-4 border-l-blue-600 shadow-2xs flex flex-col justify-between">
-                <div className="flex items-center justify-between">
-                  <span className="text-blue-900 text-[8px] uppercase font-black tracking-wider">Nom &amp; Prénom / الإسم الكامل</span>
-                  {secondDriver && (
-                    <span className="text-[7px] bg-blue-50 text-blue-900 border border-blue-200 px-1.5 rounded font-bold uppercase">Principal</span>
-                  )}
+          <Section
+            tone="blue"
+            index="1"
+            icon={<User className="w-3 h-3" />}
+            title={secondDriver ? 'Locataire Principal & 2ème Conducteur Agréé' : 'Locataire / Conducteur'}
+            arabic={secondDriver ? 'المكتري والسائق الإضافي المرخص له' : 'المكتري / السائق'}
+          >
+            <div className="grid grid-cols-12 gap-1.5">
+              <Card tone="blue" className="col-span-6">
+                <div className="flex items-center justify-between gap-2">
+                  <Label tone="blue">Nom &amp; Prénom / الإسم الكامل</Label>
+                  {secondDriver && <Tag tone="blue">Principal</Tag>}
                 </div>
-                <p className="font-black text-slate-950 uppercase text-xs tracking-wide mt-0.5">{clientFullName}</p>
-                <div className="text-[8.5px] text-slate-600 mt-0.5 flex items-center justify-between">
+                <p className="text-[14.5px] font-black uppercase tracking-wide leading-tight text-[#0b1220] mt-0.5 line-clamp-2">{clientFullName}</p>
+                <div className="flex items-center justify-between gap-2 mt-1 text-[9.5px] text-[#475569]">
                   <span>
-                    Né(e) le : <strong className="text-slate-900">{client.birthDate || '—'}</strong>
+                    Né(e) le : <strong className="font-black text-[#0b1220]">{formatDateFr(client.birthDate)}</strong>
                   </span>
-                  <span className="bg-blue-50 text-blue-950 border border-blue-200/80 px-1.5 rounded font-semibold text-[8px]">
-                    {client.country || 'Maroc'}
-                  </span>
+                  <Tag tone="blue">{client.country || 'Maroc'}</Tag>
                 </div>
-              </div>
+              </Card>
 
-              <div className="col-span-3 bg-white p-2 rounded-lg border border-slate-200 border-l-4 border-l-indigo-600 shadow-2xs flex flex-col justify-between">
-                <span className="text-indigo-900 text-[8px] uppercase font-black tracking-wider">{client.docType} N° / رقم الهوية</span>
-                <p className="font-black font-mono text-slate-950 text-xs mt-0.5">{client.docNumber}</p>
-                <span className="text-[7.5px] text-emerald-800 font-bold bg-emerald-50 border border-emerald-200/80 px-1 rounded mt-0.5 inline-block w-max">
-                  ✓ Original vérifié
-                </span>
-              </div>
+              <Card tone="blue" className="col-span-3">
+                <Label tone="blue">{client.docType} N° / رقم الهوية</Label>
+                <p className="text-[13.5px] font-mono font-black leading-tight text-[#0b1220] mt-0.5">{client.docNumber}</p>
+                <div className="mt-1">
+                  <Tag tone="emerald">✓ Original vérifié</Tag>
+                </div>
+              </Card>
 
-              <div className="col-span-3 bg-white p-2 rounded-lg border border-slate-200 border-l-4 border-l-emerald-600 shadow-2xs flex flex-col justify-between">
-                <span className="text-emerald-900 text-[8px] uppercase font-black tracking-wider">Permis / رخصة السياقة</span>
-                <p className="font-black font-mono text-slate-950 text-xs mt-0.5">{client.drivingLicense}</p>
-                <span className="text-[7.5px] text-emerald-800 font-bold bg-emerald-50 border border-emerald-200/80 px-1 rounded mt-0.5 inline-block w-max">
-                  Catégorie B
-                </span>
-              </div>
+              <Card tone="blue" className="col-span-3">
+                <Label tone="blue">Permis / رخصة السياقة</Label>
+                <p className="text-[13.5px] font-mono font-black leading-tight text-[#0b1220] mt-0.5">{client.drivingLicense}</p>
+                <div className="mt-1">
+                  <Tag tone="emerald">Catégorie B</Tag>
+                </div>
+              </Card>
 
               {secondDriver && (
-                <div className="col-span-12 bg-white px-2 py-1 rounded-lg border border-slate-200 border-l-4 border-l-purple-600 shadow-2xs grid grid-cols-12 gap-2 items-center">
-                  <div className="col-span-5 truncate">
-                    <span className="text-purple-900 text-[7.5px] uppercase font-black tracking-wider">2ème Conducteur : </span>
-                    <strong className="font-black text-slate-950 uppercase text-[10.5px] tracking-wide">
+                <Card tone="blue" dense className="col-span-12 grid grid-cols-12 gap-2 items-center">
+                  <div className="col-span-5 leading-tight">
+                    <Label tone="blue">2ème conducteur : </Label>
+                    <strong className="text-[12px] font-black uppercase tracking-wide text-[#0b1220]">
                       {secondDriver.lastName.toUpperCase()} {secondDriver.firstName}
                     </strong>
                   </div>
-                  <div className="col-span-3 text-[9px] text-slate-700">
-                    {secondDriver.docType} : <strong className="font-mono text-slate-950">{secondDriver.docNumber}</strong>
+                  <div className="col-span-3 text-[9.5px] text-[#475569] truncate">
+                    {secondDriver.docType} : <strong className="font-mono font-black text-[#0b1220]">{secondDriver.docNumber}</strong>
                   </div>
-                  <div className="col-span-2 text-[9px] text-slate-700">
-                    Permis : <strong className="font-mono text-slate-950">{secondDriver.drivingLicense}</strong>
+                  <div className="col-span-2 text-[9.5px] text-[#475569] truncate">
+                    Permis : <strong className="font-mono font-black text-[#0b1220]">{secondDriver.drivingLicense}</strong>
                   </div>
-                  <div className="col-span-2 text-[9px] text-slate-700 text-right">
-                    <strong className="font-mono text-slate-950">{secondDriver.phone || '—'}</strong>
+                  <div className="col-span-2 text-[9.5px] text-right truncate">
+                    <strong className="font-mono font-black text-[#0b1220]">{secondDriver.phone || '—'}</strong>
                   </div>
-                </div>
+                </Card>
               )}
 
-              <div className="col-span-12 bg-blue-50/60 px-2.5 py-1.5 rounded-lg border border-blue-200/70 grid grid-cols-12 gap-2 text-[9px] shadow-2xs">
-                <div className="col-span-4 flex items-center gap-1.5 text-slate-800">
-                  <Phone className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                  <span>
-                    GSM : <strong className="font-mono text-slate-950 text-[10px]">{client.phone || 'Non renseigné'}</strong>
+              {/* Largeurs libres : l'adresse reçoit toute la place que le téléphone et l'email laissent */}
+              <div className="col-span-12 rounded-lg border border-[#c7d4f3] bg-[#f1f5fd] px-2.5 py-1 flex items-center gap-3 text-[10px] text-[#334155]">
+                <div className="shrink-0 flex items-center gap-1.5">
+                  <Phone className="w-3 h-3 shrink-0 text-[#1d4ed8]" />
+                  <span className="whitespace-nowrap">
+                    GSM : <strong className="font-mono font-black text-[#0b1220]">{client.phone || 'Non renseigné'}</strong>
                   </span>
                 </div>
-                <div className="col-span-4 text-slate-700 truncate flex items-center gap-1">
-                  <Mail className="w-3 h-3 text-slate-400 shrink-0" />
-                  {client.email ? (
-                    <span className="truncate">
-                      Email : <strong className="text-slate-900">{client.email}</strong>
-                    </span>
-                  ) : (
-                    <span className="text-slate-500 italic">Email : Non renseigné</span>
-                  )}
+                <div className="shrink-0 max-w-[215px] flex items-start gap-1.5">
+                  <Mail className="w-3 h-3 shrink-0 mt-px text-[#1d4ed8]" />
+                  <span className="leading-tight break-all line-clamp-2">
+                    Email : {client.email ? <strong className="font-black text-[#0b1220]">{client.email}</strong> : <em>Non renseigné</em>}
+                  </span>
                 </div>
-                <div className="col-span-4 text-slate-700 flex items-center gap-1 truncate">
-                  <MapPin className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                  <span className="truncate">
-                    Adresse : <strong className="text-slate-900">{client.address || 'Casablanca, Maroc'}</strong>
+                <div className="flex-1 min-w-0 flex items-start gap-1.5">
+                  <MapPin className="w-3 h-3 shrink-0 mt-px text-[#1d4ed8]" />
+                  <span className="leading-tight line-clamp-3">
+                    Adresse : <strong className="font-black text-[#0b1220]">{client.address || 'Casablanca, Maroc'}</strong>
                   </span>
                 </div>
               </div>
             </div>
-          </div>
+          </Section>
 
           {/* 2. VÉHICULE & CONTRÔLE DE DÉPART */}
-          <div className="border border-amber-300/80 rounded-xl bg-white p-2 mb-1.5 shadow-xs">
-            <SectionBar
-              index="2"
-              tone="amber"
-              icon={<Car className="w-3 h-3 text-amber-200" />}
-              title="Véhicule & Contrôle de Départ"
-              arabic="بيانات وحالة السيارة عند التسليم"
-            />
-
-            <div className="grid grid-cols-12 gap-2 text-[10px]">
-              <div className="col-span-5 bg-white p-2 rounded-lg border border-slate-200 border-l-4 border-l-amber-600 shadow-2xs flex flex-col justify-between">
-                <span className="text-amber-950 text-[8px] uppercase font-black tracking-wider">Marque &amp; Modèle / النوع</span>
-                <p className="font-black text-slate-950 uppercase text-xs tracking-wide mt-0.5">
+          <Section
+            tone="amber"
+            index="2"
+            icon={<Car className="w-3 h-3" />}
+            title="Véhicule & Contrôle de Départ"
+            arabic="بيانات وحالة السيارة عند التسليم"
+          >
+            <div className="grid grid-cols-12 gap-1.5">
+              <Card tone="amber" className="col-span-5 flex flex-col justify-between">
+                <Label tone="amber">Marque &amp; Modèle / النوع</Label>
+                <p className="text-[14.5px] font-black uppercase tracking-wide leading-tight text-[#0b1220] mt-0.5 line-clamp-2">
                   {vehicle.brand} {vehicle.model}
                 </p>
-                <div className="flex flex-wrap gap-1 mt-0.5">
+                <div className="flex gap-1 mt-1 overflow-hidden">
                   {[vehicle.fuelType, vehicle.transmission, vehicle.color, vehicle.year ? String(vehicle.year) : undefined]
                     .filter(Boolean)
                     .map((tag) => (
-                      <span key={tag} className="bg-amber-50 text-amber-950 border border-amber-200/80 px-1.5 rounded font-semibold text-[7.5px]">
+                      <Tag key={tag} tone="amber">
                         {tag}
-                      </span>
+                      </Tag>
                     ))}
                 </div>
-              </div>
+              </Card>
 
-              <div className="col-span-4 bg-amber-50 p-1.5 rounded-lg border-2 border-amber-400/90 shadow-2xs flex flex-col items-center justify-center text-center">
-                <span className="text-amber-950 text-[7.5px] uppercase font-black tracking-wider">Immatriculation / رقم اللوحة</span>
-                <div className="mt-0.5 bg-slate-950 border border-amber-500/80 px-3 py-0.5 rounded shadow-xs">
-                  <p className="font-mono font-black text-xs tracking-widest text-amber-300">{formatPlateFrench(vehicle.plate)}</p>
+              <div className="col-span-4 rounded-lg border-2 border-[#e5b94a] bg-[#fdf7e7] px-2 py-2 flex flex-col items-center justify-center text-center">
+                <Label tone="amber">Immatriculation / رقم اللوحة</Label>
+                <div className="mt-1 rounded border border-[#d4a017] bg-[#0b1220] px-3.5 py-0.5">
+                  <p className="font-mono text-[15px] font-black tracking-widest leading-tight text-[#fcd34d]">{formatPlateFrench(vehicle.plate)}</p>
                 </div>
-                <span className="text-[7px] text-amber-900 font-bold mt-0.5 tracking-wide">Royaume du Maroc • تسجيل رسمي</span>
+                <span className="text-[7.5px] font-bold tracking-wide text-[#78350f] mt-1">Royaume du Maroc • تسجيل رسمي</span>
               </div>
 
-              <div className="col-span-3 bg-white p-2 rounded-lg border border-slate-200 border-l-4 border-l-slate-800 shadow-2xs flex flex-col justify-between">
-                <span className="text-slate-700 text-[8px] uppercase font-black tracking-wider text-right">KM au Départ</span>
-                <p className="font-mono font-black text-slate-950 text-[13px] mt-0.5 text-right">
-                  {contract.departureKm.toLocaleString('fr-FR')} <span className="text-[8.5px] font-normal text-slate-600">KM</span>
+              <Card tone="amber" className="col-span-3 flex flex-col justify-between">
+                <Label tone="amber" className="block text-right">
+                  KM au départ
+                </Label>
+                <p className="font-mono text-[15px] font-black leading-tight text-[#0b1220] text-right mt-0.5">
+                  {contract.departureKm.toLocaleString('fr-FR')} <span className="text-[9px] font-bold text-[#64748b]">KM</span>
                 </p>
                 <FuelGauge value={departureFuel} />
-              </div>
+              </Card>
             </div>
 
-            {/* Contrôle réel issu de l'inspection de départ */}
-            <div className="mt-2 pt-1.5 border-t border-amber-200/60 grid grid-cols-4 gap-2 text-[8.5px]">
-              <InspectionBadge label="Roue secours" state={checklist?.spareWheel} okText="Présente" koText="Absente" />
-              <InspectionBadge label="Documents bord" state={documentsOk} okText="Conformes" koText="Manquants" />
-              <InspectionBadge label="Triangle & Gilet" state={safetyOk} okText="Présents" koText="Incomplet" />
-              <InspectionBadge label="Carrosserie" state={bodyOk} okText="Conforme" koText="Défauts signalés" />
+            <div className="mt-1.5 grid grid-cols-4 gap-1.5 text-[8.5px]">
+              <InspectionItem label="Roue de secours" state={checklist?.spareWheel} okText="Présente" koText="Absente" />
+              <InspectionItem label="Documents de bord" state={documentsOk} okText="Conformes" koText="Manquants" />
+              <InspectionItem label="Triangle & gilet" state={safetyOk} okText="Présents" koText="Incomplet" />
+              <InspectionItem label="Carrosserie" state={bodyOk} okText="Conforme" koText="Défauts signalés" boxes={['OK', 'Défauts']} />
             </div>
             {departureNotes && (
-              <div className="mt-1.5 text-[8px] text-slate-800 bg-amber-50/60 border border-amber-200/80 rounded-md px-2 py-1 leading-snug line-clamp-2">
-                <strong className="text-amber-950 uppercase text-[7.5px]">Observations au départ :</strong> {departureNotes}
+              <div className="mt-1.5 rounded-md border border-[#ecd08a] bg-[#fdf7e7] px-2 py-1 text-[8.5px] leading-snug text-[#1e293b] line-clamp-2">
+                <strong className="font-black uppercase text-[8px] text-[#78350f]">Observations au départ :</strong> {departureNotes}
               </div>
             )}
-          </div>
+          </Section>
 
           {/* 3. DURÉE DE LA LOCATION */}
-          <div className="border border-emerald-200/90 rounded-xl bg-white p-2 mb-1.5 shadow-xs">
-            <SectionBar
-              index="3"
-              tone="emerald"
-              icon={<Calendar className="w-3 h-3 text-emerald-200" />}
-              title="Durée de la Location, Caution & Garanties"
-              arabic="مدة الكراء والضمانة والتأمين"
-            />
+          <Section
+            tone="emerald"
+            index="3"
+            icon={<Calendar className="w-3 h-3" />}
+            title="Durée de la Location, Caution & Garanties"
+            arabic="مدة الكراء والضمانة والتأمين"
+          >
+            <div className="grid grid-cols-3 gap-1.5 mb-1.5">
+              {(
+                [
+                  ['Sortie / Départ', 'تاريخ الخروج', formattedStartDate, contract.startTime, '#047857'],
+                  ['Restitution / Retour', 'تاريخ الدخول', formattedEndDate, contract.endTime, '#b45309'],
+                ] as const
+              ).map(([label, arabic, date, time, color]) => (
+                <div key={label} className="rounded-lg bg-[#ffffff] border border-[#dbe2ea] border-t-[3px] px-2 py-2" style={{ borderTopColor: color }}>
+                  <div className="flex items-center justify-between text-[9px] font-black" style={{ color }}>
+                    <span className="uppercase tracking-[0.05em] flex items-center gap-1">
+                      <Calendar className="w-2.5 h-2.5" /> {label}
+                    </span>
+                    <span>{arabic}</span>
+                  </div>
+                  <div className="text-[14.5px] font-black leading-tight text-[#0b1220] mt-0.5">{date}</div>
+                  <div className="flex items-center gap-1 mt-0.5 text-[9.5px] text-[#475569]">
+                    <Clock className="w-2.5 h-2.5 shrink-0" style={{ color }} />
+                    <span>
+                      Heure : <strong className="font-mono font-black text-[#0b1220]">{time}</strong>
+                      <span className="text-[#64748b]"> · Nouaceur / Casablanca</span>
+                    </span>
+                  </div>
+                </div>
+              ))}
 
-            <div className="grid grid-cols-3 gap-2 text-[10px] mb-2">
-              <div className="bg-white p-2 rounded-lg border border-slate-200 border-t-4 border-t-emerald-600 shadow-2xs">
-                <div className="flex justify-between items-center text-emerald-900 text-[8px] mb-0.5 font-bold">
-                  <span className="uppercase flex items-center gap-1">
-                    <Calendar className="w-2.5 h-2.5 text-emerald-700" /> Sortie / Départ
+              <div className="rounded-lg bg-[#ffffff] border border-[#dbe2ea] border-t-[3px] border-t-[#0369a1] px-2 py-2">
+                <div className="flex items-center justify-between text-[9px] font-black text-[#075985]">
+                  <span className="uppercase tracking-[0.05em] flex items-center gap-1">
+                    <Shield className="w-2.5 h-2.5" /> Prolongation
                   </span>
-                  <span className="font-arabic">تاريخ الخروج</span>
-                </div>
-                <div className="font-black text-slate-950 text-[11.5px]">{formattedStartDate}</div>
-                <div className="text-slate-700 font-mono text-[9px] mt-0.5 flex items-center gap-1">
-                  <Clock className="w-2.5 h-2.5 text-emerald-600" /> Heure : <strong className="text-slate-950">{contract.startTime}</strong> <span className="text-slate-500 font-sans text-[8px]">· Nouaceur / Casablanca</span>
-                </div>
-              </div>
-
-              <div className="bg-white p-2 rounded-lg border border-slate-200 border-t-4 border-t-amber-600 shadow-2xs">
-                <div className="flex justify-between items-center text-amber-900 text-[8px] mb-0.5 font-bold">
-                  <span className="uppercase flex items-center gap-1">
-                    <Calendar className="w-2.5 h-2.5 text-amber-700" /> Restitution / Retour
-                  </span>
-                  <span className="font-arabic">تاريخ الدخول</span>
-                </div>
-                <div className="font-black text-slate-950 text-[11.5px]">{formattedEndDate}</div>
-                <div className="text-slate-700 font-mono text-[9px] mt-0.5 flex items-center gap-1">
-                  <Clock className="w-2.5 h-2.5 text-amber-600" /> Heure : <strong className="text-slate-950">{contract.endTime}</strong> <span className="text-slate-500 font-sans text-[8px]">· Nouaceur / Casablanca</span>
-                </div>
-              </div>
-
-              <div className="bg-white p-2 rounded-lg border border-slate-200 border-t-4 border-t-sky-600 shadow-2xs">
-                <div className="flex justify-between items-center text-sky-900 text-[8px] mb-0.5 font-bold">
-                  <span className="uppercase flex items-center gap-1">
-                    <Shield className="w-2.5 h-2.5 text-sky-700" /> Prolongation
-                  </span>
-                  <span className="font-arabic">التمديد</span>
+                  <span>التمديد</span>
                 </div>
                 {contract.prolongation?.isActive ? (
                   <>
-                    <div className="font-black text-sky-950 text-[11.5px]">
+                    <div className="text-[14.5px] font-black leading-tight text-[#0b1220] mt-0.5">
                       {new Date(contract.prolongation.newEndDate).toLocaleDateString('fr-FR')}
                     </div>
-                    <div className="text-sky-800 font-mono text-[9px] mt-0.5">
-                      Heure accordée : <strong>{contract.prolongation.newEndTime}</strong>
+                    <div className="mt-0.5 text-[9.5px] text-[#475569]">
+                      Heure accordée : <strong className="font-mono font-black text-[#0b1220]">{contract.prolongation.newEndTime}</strong>
+                      <span className="font-black text-[#075985]"> · Validée</span>
                     </div>
-                    <div className="text-[7.5px] text-sky-700 font-bold mt-0.5">Prolongation validée</div>
                   </>
                 ) : (
-                  <div className="text-slate-600 text-[8px] pt-0.5 leading-snug">
-                    Aucun accord de prolongation actif. Préavis 24h obligatoire.
-                  </div>
+                  <p className="mt-1 text-[9.5px] leading-snug text-[#475569]">
+                    Aucun accord de prolongation actif.
+                    <br />
+                    Préavis de 24 h obligatoire.
+                  </p>
                 )}
               </div>
             </div>
 
             {/* Récapitulatif : durée, kilométrage, caution et assurance (aucun tarif : les prix restent internes) */}
-            <div className="grid grid-cols-4 gap-2 text-[9px]">
-              <div className="bg-blue-50 border border-blue-200/80 rounded-lg p-1.5 text-center shadow-2xs">
-                <span className="text-blue-900 text-[8px] uppercase font-bold block">Durée Totale</span>
-                <span className="text-xs font-black text-blue-950 block mt-0.5">{contract.totalDays} Jour(s)</span>
+            <div className="grid grid-cols-4 gap-1.5 text-center">
+              <div className="rounded-lg border border-[#c7d4f3] bg-[#f1f5fd] px-1.5 py-2 flex flex-col justify-center">
+                <span className="block text-[9px] font-black uppercase text-[#1e3a8a]">Durée totale</span>
+                <span className="block text-[14.5px] font-black leading-tight text-[#0b1220] mt-0.5">{contract.totalDays} jour(s)</span>
               </div>
-              <div className="bg-emerald-50 border border-emerald-200/80 rounded-lg p-1.5 text-center shadow-2xs">
-                <span className="text-emerald-900 text-[8px] uppercase font-bold block">Kilométrage</span>
-                <span className="text-xs font-black text-emerald-950 block mt-0.5">Illimité (Maroc)</span>
-                <span className="text-[6.8px] text-emerald-900 block">Carburant restitué à l'identique</span>
+              <div className="rounded-lg border border-[#b9e3d3] bg-[#eefaf5] px-1.5 py-2 flex flex-col justify-center">
+                <span className="block text-[9px] font-black uppercase text-[#065f46]">Kilométrage</span>
+                <span className="block text-[14.5px] font-black leading-tight text-[#0b1220] mt-0.5">Illimité (Maroc)</span>
+                <span className="block text-[8.5px] text-[#065f46] mt-0.5">Carburant restitué à l'identique</span>
               </div>
-              <div className="bg-purple-50 border border-purple-200/80 rounded-lg p-1.5 text-center shadow-2xs">
-                <span className="text-purple-900 text-[8px] uppercase font-bold block">Caution / الضمانة</span>
-                <span className="text-xs font-black font-mono text-purple-950 block mt-0.5">
+              <div className="rounded-lg border border-[#ecd08a] bg-[#fdf7e7] px-1.5 py-2 flex flex-col justify-center">
+                <span className="block text-[9px] font-black uppercase text-[#78350f]">Caution / الضمانة</span>
+                <span className="block font-mono text-[14.5px] font-black leading-tight text-[#0b1220] mt-0.5">
                   {depositAmount > 0 ? `${depositAmount.toLocaleString('fr-FR')} MAD` : 'Aucun dépôt'}
                 </span>
-                <span className="text-[6.8px] text-purple-900 block truncate">
-                  {depositAmount === 0 && contract.insurance?.depositMad === 0
-                    ? `Inclus dans le ${insurance.packLabel}`
-                    : `${depositMethod}${contract.depositRecord?.methodDetails ? ` · ${contract.depositRecord.methodDetails}` : ''}`}
+                <span className="block text-[8.5px] text-[#78350f] mt-0.5 truncate">
+                  {depositAmount === 0 && contract.insurance?.depositMad === 0 ? `Inclus dans le ${insurance.packLabel}` : depositLine}
                 </span>
-                <DepositStatusTag contract={contract} className="text-[6.5px] mt-0.5" />
+                <DepositStatusTag contract={contract} className="text-[7.5px] mt-0.5 self-center" />
               </div>
-              <div className="bg-slate-950 text-white rounded-lg p-1.5 text-center border border-slate-800 shadow-2xs flex flex-col justify-center">
-                <span className="text-amber-400 text-[7.5px] uppercase font-black block leading-tight">Couverture Assurance</span>
-                <span className="text-[9.5px] font-black text-white block leading-tight mt-0.5">{insurance.packLabel}</span>
-                <span className="text-[6.8px] text-slate-300 block">Franchise : {formatFranchise(insurance)}</span>
+              <div className="rounded-lg border border-[#0b1638] bg-[#0b1220] px-1.5 py-2 flex flex-col justify-center">
+                <span className="block text-[9px] font-black uppercase text-[#fcd34d]">Couverture assurance</span>
+                <span className="block text-[13.5px] font-black leading-tight text-[#ffffff] mt-0.5">{insurance.packLabel}</span>
+                <span className="block text-[8.5px] leading-tight text-balance text-[#cbd5e1] mt-0.5">Franchise : {formatFranchise(insurance)}</span>
               </div>
             </div>
-          </div>
+          </Section>
 
           {/* 4. SIGNATURES */}
-          <div className="border-2 border-slate-900 rounded-xl bg-white p-2 shadow-xs">
-            <SectionBar
-              index="4"
-              tone="slate"
-              icon={<Shield className="w-3 h-3 text-amber-300" />}
-              title="Signatures — « Lu et approuvé »"
-              arabic="توقيعات الأطراف مسبوقة بعبارة قرئ وصودق عليه"
-            />
-
-            <div className={`grid ${signatureCols} gap-2.5`}>
-              <div className="border-2 border-amber-500/60 rounded-xl p-2 flex flex-col justify-between min-h-[104px] bg-amber-50/40 shadow-2xs relative">
-                <div className="text-[8.5px] font-black uppercase text-amber-950 bg-amber-100 border border-amber-300/80 px-2 py-0.5 rounded-md text-center z-10 relative">
+          <Section
+            tone="slate"
+            strong
+            index="4"
+            icon={<Shield className="w-3 h-3" />}
+            title="Signatures — « Lu et approuvé »"
+            arabic="توقيعات الأطراف مسبوقة بعبارة قرئ وصودق عليه"
+          >
+            <div className={`grid ${signatureCols} gap-2`}>
+              <div className="relative rounded-xl border-2 border-[#e5b94a] bg-[#fefbf1] p-1.5 flex flex-col justify-between min-h-[150px]">
+                <div className="relative z-10 rounded-md border border-[#ecd08a] bg-[#fbecc4] px-2 py-0.5 text-center text-[9.5px] font-black uppercase text-[#78350f]">
                   Pour Sté {companySettings.name} • خاتم الوكالة
                 </div>
-                <div className="relative flex items-center justify-center py-1 z-0 flex-1">
+                <div className="relative z-0 flex-1 flex items-center justify-center py-1">
                   <CompanyStamp size={secondDriver ? 'sm' : 'md'} rotation={-1.5} />
                   {contract.agencySignature && (
-                    <img src={contract.agencySignature} alt="Signature Agence" className="absolute max-h-[50px] max-w-[130px] object-contain z-10" />
+                    <img src={contract.agencySignature} alt="Signature Agence" className="absolute z-10 max-h-[50px] max-w-[130px] object-contain" />
                   )}
                 </div>
-                <div className="text-[7.5px] text-slate-500 text-center z-10 font-medium">
-                  {contract.agencySignedBy ? (
-                    <span className="font-semibold text-slate-700">Signé par {contract.agencySignedBy}</span>
-                  ) : displayManagerName ? (
-                    <span className="font-semibold text-slate-700">Responsable : {displayManagerName}</span>
-                  ) : (
-                    'Visa & Cachet légal agence'
-                  )}
+                <div className="relative z-10 text-center text-[8.5px] font-bold text-[#334155]">
+                  {contract.agencySignedBy
+                    ? `Signé par ${contract.agencySignedBy}`
+                    : displayManagerName
+                    ? `Responsable : ${displayManagerName}`
+                    : 'Visa & cachet légal agence'}
                 </div>
               </div>
 
-              <div className="border-2 border-blue-900/40 rounded-xl p-2 flex flex-col justify-between min-h-[104px] bg-blue-50/40 shadow-2xs">
-                <div className="text-[8.5px] font-black uppercase text-blue-950 bg-blue-100 border border-blue-300/80 px-2 py-0.5 rounded-md text-center">
+              <div className="rounded-xl border-2 border-[#9db2e6] bg-[#f6f8fe] p-1.5 flex flex-col justify-between min-h-[150px]">
+                <div className="rounded-md border border-[#c7d4f3] bg-[#dfe7fb] px-2 py-0.5 text-center text-[9.5px] font-black uppercase text-[#1e3a8a]">
                   Le Locataire • توقيع المكتري
                 </div>
-                <div className="flex flex-col items-center justify-center flex-1 py-1">
+                <div className="flex-1 flex flex-col items-center justify-center py-1">
                   {contract.clientSignature ? (
                     <img src={contract.clientSignature} alt="Signature locataire" className="max-h-[50px] max-w-[170px] object-contain" />
                   ) : (
                     <>
-                      <span className="text-[8px] text-slate-400 italic">Mention manuscrite obligatoire :</span>
-                      <span className="text-[8.5px] font-semibold text-slate-700 italic">« Lu et approuvé, bon pour accord »</span>
+                      <span className="text-[8.5px] italic text-[#64748b]">Mention manuscrite obligatoire :</span>
+                      <span className="text-[9.5px] font-bold italic text-[#334155]">« Lu et approuvé, bon pour accord »</span>
                     </>
                   )}
                 </div>
-                <div className="text-center text-[7.5px] text-slate-500 font-medium truncate">
-                  <span className="font-mono font-bold text-slate-800">{contract.clientSignedName || clientFullName}</span>
+                <div className="text-center font-mono leading-tight">
+                  <span className="block truncate text-[8.5px] font-black text-[#0b1220]">{contract.clientSignedName || clientFullName}</span>
                   {contract.clientSignedAt && (
-                    <span className="block text-[6.5px] text-emerald-700 font-mono truncate">
+                    <span className="block text-[7.5px] text-[#047857]">
                       ✓ Signé le {new Date(contract.clientSignedAt).toLocaleDateString('fr-FR')} à{' '}
                       {new Date(contract.clientSignedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                      {contract.signatureCertId ? ` • Réf. ${contract.signatureCertId}` : ''}
                     </span>
+                  )}
+                  {contract.clientSignedAt && contract.signatureCertId && (
+                    <span className="block truncate text-[7.5px] text-[#047857]">Réf. {contract.signatureCertId}</span>
                   )}
                 </div>
               </div>
 
               {secondDriver && (
-                <div className="border-2 border-purple-900/30 rounded-xl p-2 flex flex-col justify-between min-h-[104px] bg-purple-50/40 shadow-2xs">
-                  <div className="text-[8.5px] font-black uppercase text-purple-950 bg-purple-100 border border-purple-300/80 px-2 py-0.5 rounded-md text-center">
+                <div className="rounded-xl border-2 border-[#9db2e6] bg-[#f6f8fe] p-1.5 flex flex-col justify-between min-h-[150px]">
+                  <div className="rounded-md border border-[#c7d4f3] bg-[#dfe7fb] px-2 py-0.5 text-center text-[9.5px] font-black uppercase text-[#1e3a8a]">
                     2ème Conducteur • السائق الإضافي
                   </div>
-                  <div className="flex flex-col items-center justify-center flex-1 py-1">
+                  <div className="flex-1 flex flex-col items-center justify-center py-1">
                     {contract.secondDriverSignature ? (
                       <img src={contract.secondDriverSignature} alt="Signature 2e conducteur" className="max-h-[50px] max-w-[170px] object-contain" />
                     ) : (
-                      <span className="text-[8.5px] font-semibold text-slate-700 italic">« Lu et approuvé »</span>
+                      <span className="text-[9.5px] font-bold italic text-[#334155]">« Lu et approuvé »</span>
                     )}
                   </div>
-                  <div className="text-center text-[7.5px] font-mono font-bold text-slate-800 truncate">
+                  <div className="text-center truncate font-mono text-[8.5px] font-black text-[#0b1220]">
                     {secondDriver.lastName.toUpperCase()} {secondDriver.firstName}
                   </div>
                 </div>
               )}
             </div>
-          </div>
+          </Section>
         </div>
 
         {/* PIED DE PAGE 1 */}
-        <div className="border-t-2 border-slate-900 pt-1.5 mt-1.5 text-center text-[8px] text-slate-700 leading-tight">
+        <div className="mt-1.5 pt-1.5 border-t-2 border-[#0b1220] text-center text-[8.5px] leading-tight text-[#334155]">
           <div>
-            <strong className="font-extrabold text-slate-950 uppercase tracking-wider">{companySettings.name}</strong> • SARL au
-            Capital de 100 000 MAD • IF : <strong className="text-slate-900">{companySettings.taxId}</strong> • RC :{' '}
-            <strong className="text-slate-900">{companySettings.rc}</strong> • ICE :{' '}
-            <strong className="text-slate-900">{companySettings.ice}</strong>
+            <strong className="font-black uppercase tracking-wider text-[#0b1220]">{companySettings.name}</strong> • SARL au Capital de 100 000 MAD
+            {legalIds.map(([label, value]) => (
+              <span key={label}>
+                {' '}
+                • {label} : <strong className="font-black text-[#0b1220]">{value}</strong>
+              </span>
+            ))}
             {companySettings.address && !companySettings.address.includes('ANNAKHIL') ? (
-              <span className="text-slate-600"> • Siège : {companySettings.address}</span>
+              <span className="text-[#475569]"> • Siège : {companySettings.address}</span>
             ) : null}
           </div>
-          <div className="text-slate-600 mt-0.5">
-            Tél : <strong className="text-slate-900">{activePhone}</strong> • Assistance :{' '}
-            <span className="font-bold text-slate-900 font-mono">{assistancePhone}</span> • {companySettings.website} •{' '}
-            {companySettings.email}
+          <div className="mt-0.5 text-[#475569]">
+            Tél : <strong className="font-black text-[#0b1220]">{activePhone}</strong> • Assistance :{' '}
+            <strong className="font-mono font-black text-[#0b1220]">{assistancePhone}</strong>
+            {contactItems.map((item) => (
+              <span key={item}> • {item}</span>
+            ))}
           </div>
-          <div className="flex justify-between items-center mt-1 pt-1 border-t border-slate-200 text-[8px] font-mono text-slate-600">
+          <div className="mt-1 pt-1 border-t border-[#dbe2ea] flex items-center justify-between font-mono text-[8px] text-[#475569]">
             <span>
-              Contrat N° <strong>{contract.contractNumber}</strong>
+              Contrat N° <strong className="font-black text-[#0b1220]">{contract.contractNumber}</strong>
             </span>
-            <span className="font-bold text-slate-950 bg-slate-100 px-2.5 py-0.5 rounded border border-slate-300">Page 1 / 2 (Recto)</span>
+            <span className="rounded border border-[#cbd5e1] bg-[#f1f5f9] px-2.5 py-0.5 font-black text-[#0b1220]">Page 1 / 2 (Recto)</span>
             <span>Conditions Générales au verso</span>
           </div>
         </div>
@@ -619,63 +725,64 @@ export const SignatureContractPdfLayout: React.FC<SignatureContractPdfLayoutProp
       {/* ========================================================================= */}
       {/* PAGE 2 : CONDITIONS GÉNÉRALES DE LOCATION (VERSO)                         */}
       {/* ========================================================================= */}
-      <div id={page2Id} className="a4-page contract-a4-page flex flex-col justify-between text-slate-900 border border-slate-300 print:border-none">
+      <div id={page2Id} className="a4-page contract-a4-page flex flex-col justify-between text-[#0b1220] border border-[#cbd5e1] print:border-none">
         <div className="flex flex-col">
-          <div className="pb-1 mb-1.5">
-            <div className="flex items-center justify-between gap-4">
-              <CompanyLogo size="xs" customHeight={46} variant="raw-image" className="h-[46px] w-auto max-w-[150px]" />
-              <div className="text-right flex flex-col items-end justify-center">
-                <div className="flex items-center gap-2 mb-0.5">
-                  <span className="text-[10px] font-black tracking-[0.2em] text-slate-950 uppercase">CONDITIONS GÉNÉRALES DE LOCATION</span>
-                  <span className="text-slate-300 font-light">|</span>
-                  <span className="text-[9.5px] font-arabic font-bold text-amber-700">شروط الكراء العامة</span>
-                </div>
-                <div className="text-[7.5px] font-mono text-slate-500 flex items-center gap-2">
-                  <span>Réf. Juridique V{termsVersion.version}</span>
-                  <span className="text-slate-300">•</span>
-                  <span className="text-slate-700 font-medium">Verso contractuel officiel indissociable</span>
-                </div>
+          <div className="flex items-center justify-between gap-4">
+            <CompanyLogo size="xs" customHeight={46} variant="raw-image" className="h-[46px] w-auto max-w-[150px]" />
+            <div className="flex flex-col items-end">
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-black uppercase tracking-[0.18em] text-[#0b1220]">Conditions générales de location</span>
+                <span className="text-[#cbd5e1]">|</span>
+                <span className="text-[10.5px] font-bold text-[#b45309]">شروط الكراء العامة</span>
+              </div>
+              <div className="mt-0.5 text-[8px] text-[#64748b]">
+                Réf. juridique V{termsVersion.version} <span className="text-[#cbd5e1]">•</span>{' '}
+                <span className="font-bold text-[#334155]">Verso contractuel officiel indissociable du recto</span>
               </div>
             </div>
-            <div className="h-[1.5px] bg-gradient-to-r from-slate-900 via-amber-700 to-slate-900 mt-1.5" />
           </div>
+          <div className="mt-1.5 h-[2px] rounded-full" style={{ backgroundImage: HEADER_RULE }} />
 
           {/* Rappel du contrat */}
-          <div className="bg-gradient-to-r from-slate-950 via-blue-950 to-slate-950 text-white border border-slate-800 rounded px-2.5 py-1 flex items-center justify-between text-[7.5px] font-mono shadow-2xs">
-            <div className="flex items-center gap-1">
-              <span className="text-amber-400 font-semibold uppercase">Contrat N° :</span>
-              <strong className="text-white font-bold bg-white/10 px-1.5 rounded border border-white/20">{contract.contractNumber}</strong>
-            </div>
-            <div className="border-l border-slate-700 pl-2 flex items-center gap-1">
-              <span className="text-slate-300">Locataire :</span>
-              <strong className="text-amber-300 font-bold">{clientFullName}</strong>
-            </div>
-            <div className="border-l border-slate-700 pl-2 flex items-center gap-1">
-              <span className="text-slate-300">Véhicule :</span>
-              <strong className="text-emerald-300 font-bold">
+          <div
+            className="mt-1.5 rounded-md px-2.5 py-1 flex items-center justify-between gap-2 text-[8.5px] text-[#cbd5e1]"
+            style={{ backgroundImage: DARK_BAND }}
+          >
+            <span className="whitespace-nowrap">
+              Contrat N° <strong className="font-mono font-black text-[#fcd34d]">{contract.contractNumber}</strong>
+            </span>
+            <span className="truncate border-l border-[#475569] pl-2">
+              Locataire : <strong className="font-black text-[#ffffff]">{clientFullName}</strong>
+            </span>
+            <span className="truncate border-l border-[#475569] pl-2">
+              Véhicule :{' '}
+              <strong className="font-black text-[#ffffff]">
                 {vehicle.brand} {vehicle.model}
-              </strong>
-              <span className="text-slate-400">({formatPlateFrench(vehicle.plate)})</span>
-            </div>
-            <div className="border-l border-slate-700 pl-2 flex items-center gap-1">
-              <span className="text-slate-300">Période :</span>
-              <strong className="text-white">{formattedStartDate}</strong> au <strong className="text-white">{formattedEndDate}</strong>
-            </div>
+              </strong>{' '}
+              ({formatPlateFrench(vehicle.plate)})
+            </span>
+            <span className="whitespace-nowrap border-l border-[#475569] pl-2">
+              Du <strong className="font-mono font-black text-[#ffffff]">{formattedStartDate}</strong> au{' '}
+              <strong className="font-mono font-black text-[#ffffff]">{formattedEndDate}</strong>
+            </span>
           </div>
 
-          {/* Articles en deux colonnes */}
-          <div className="grid grid-cols-2 gap-x-4 text-[8.7px] leading-[1.45] text-slate-800 mt-2">
-            {[col1Clauses, col2Clauses].map((clauses, colIdx) => (
-              <div key={colIdx} className="space-y-1.5">
+          {/* Articles en deux colonnes de longueur voisine */}
+          <div
+            className="mt-2 grid grid-cols-2 gap-x-4 text-[#1e293b]"
+            style={{ fontSize: `${termsFontSize}px`, lineHeight: TERMS_LINE_HEIGHT }}
+          >
+            {clauseColumns.map((clauses, colIdx) => (
+              <div key={colIdx}>
                 {clauses.map((clause) => (
-                  <div key={clause.number} className="border-b border-slate-200/90 pb-0.5">
-                    <div className="font-bold text-slate-950 flex items-center gap-1 mb-0.5">
-                      <span className="inline-flex items-center justify-center bg-blue-950 text-amber-300 border border-blue-900 rounded text-[6.5px] font-mono font-bold px-1.5 shrink-0">
+                  <div key={clause.number} className="mb-[0.55em] pb-[0.3em] border-b border-[#e2e8f0]">
+                    <div className="flex items-center gap-[0.5em] mb-[0.15em]">
+                      <span className="shrink-0 rounded bg-[#172554] px-[0.6em] font-mono text-[0.78em] font-black leading-[1.6] text-[#fcd34d]">
                         Art. {clause.number}
                       </span>
-                      <span className="uppercase text-[8.3px] font-black text-slate-900 tracking-tight">{clause.title}</span>
+                      <span className="text-[0.96em] font-black uppercase tracking-tight text-[#0b1220]">{clause.title}</span>
                     </div>
-                    <p className="text-slate-700 text-justify leading-snug">{clause.content}</p>
+                    <p className="text-justify">{clause.content}</p>
                   </div>
                 ))}
               </div>
@@ -683,85 +790,88 @@ export const SignatureContractPdfLayout: React.FC<SignatureContractPdfLayoutProp
           </div>
         </div>
 
-        <div className="border-t-2 border-slate-900 pt-1.5 mt-1 space-y-1.5">
+        <div className="mt-1 pt-1.5 border-t-2 border-[#0b1220] space-y-1.5">
           {/* Frais particuliers */}
-          <div className="grid grid-cols-6 gap-1 text-[6.8px] font-mono">
-            {[
-              ['Franchise Sinistre', formatFranchise(insurance), 'bg-slate-100 border-slate-300 text-slate-950'],
-              ['Retard Restitution', 'Tarif/j + 50%', 'bg-amber-50 border-amber-300 text-amber-950'],
-              ['Frais Dossier PV', '150 DH / infr.', 'bg-blue-50 border-blue-300 text-blue-950'],
-              ['Carburant Écart', 'Pompe + 100 DH', 'bg-emerald-50 border-emerald-300 text-emerald-950'],
-              ['Nettoyage Spécial', '250 à 500 DH', 'bg-purple-50 border-purple-300 text-purple-950'],
-              ['Perte Clés/Doc', 'Facture constr.', 'bg-rose-50 border-rose-300 text-rose-950'],
-            ].map(([label, value, tone]) => (
-              <div key={label} className={`border rounded p-1 shadow-2xs ${tone}`}>
-                <span className="block uppercase font-bold text-[5.8px] opacity-80">{label} :</span>
-                <strong className="font-black">{value}</strong>
+          <div className="grid grid-cols-7 gap-1 text-[8px]">
+            {(
+              [
+                ['Franchise sinistre', formatFranchise(insurance), 'col-span-2 bg-[#f1f5f9] border-[#cbd5e1]'],
+                ['Retard restitution', 'Tarif/j + 50 %', 'bg-[#fdf7e7] border-[#ecd08a]'],
+                ['Frais de dossier PV', '150 DH / infraction', 'bg-[#f1f5fd] border-[#c7d4f3]'],
+                ['Écart de carburant', 'Pompe + 100 DH', 'bg-[#eefaf5] border-[#b9e3d3]'],
+                ['Nettoyage spécial', '250 à 500 DH', 'bg-[#f6f3fd] border-[#d9cff5]'],
+                ['Perte clés / papiers', 'Facture constructeur', 'bg-[#fef2f2] border-[#fecaca]'],
+              ] as const
+            ).map(([label, value, tone]) => (
+              <div key={label} className={`rounded border px-1.5 py-1 leading-tight ${tone}`}>
+                <span className="block text-[7.5px] font-bold uppercase text-[#475569]">{label}</span>
+                <strong className="block font-black text-[#0b1220]">{value}</strong>
               </div>
             ))}
           </div>
 
-          <div className="grid grid-cols-3 gap-1 text-[6.8px] leading-tight">
-            <div className="bg-blue-50/60 border border-blue-200/80 rounded p-1">
-              <span className="font-black text-blue-950 block uppercase text-[6.2px]">1. Sécurité &amp; Code Routier</span>
-              <p className="text-slate-700">Ceinture obligatoire, zéro alcool, respect des radars (Loi 52-05).</p>
+          <div className="grid grid-cols-3 gap-1 text-[8px] leading-tight text-[#334155]">
+            <div className="rounded border border-[#c7d4f3] bg-[#f1f5fd] px-1.5 py-1">
+              <span className="block text-[7.5px] font-black uppercase text-[#1e3a8a]">1. Sécurité &amp; code de la route</span>
+              Ceinture obligatoire, zéro alcool, respect des radars (Loi 52-05).
             </div>
-            <div className="bg-amber-50/60 border border-amber-200/80 rounded p-1">
-              <span className="font-black text-amber-950 block uppercase text-[6.2px]">2. Pistes &amp; Territoire</span>
-              <p className="text-slate-700">Voies goudronnées uniquement. Pistes non carrossables et plages interdites.</p>
+            <div className="rounded border border-[#ecd08a] bg-[#fdf7e7] px-1.5 py-1">
+              <span className="block text-[7.5px] font-black uppercase text-[#78350f]">2. Pistes &amp; territoire</span>
+              Voies goudronnées uniquement. Pistes non carrossables et plages interdites.
             </div>
-            <div className="bg-emerald-50/60 border border-emerald-200/80 rounded p-1">
-              <span className="font-black text-emerald-950 block uppercase text-[6.2px]">3. Sinistre &amp; Déclaration</span>
-              <p className="text-slate-700">Constat ou PV de police obligatoire sous 24h ouvrées. Avis immédiat agence.</p>
+            <div className="rounded border border-[#b9e3d3] bg-[#eefaf5] px-1.5 py-1">
+              <span className="block text-[7.5px] font-black uppercase text-[#065f46]">3. Sinistre &amp; déclaration</span>
+              Constat ou PV de police obligatoire sous 24 h ouvrées. Avis immédiat à l'agence.
             </div>
           </div>
 
-          <div className="bg-emerald-50/70 border border-emerald-300/80 px-2 py-1 rounded text-[6.8px] text-slate-800 leading-tight shadow-2xs flex items-start gap-1">
-            <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0 mt-0.5" />
+          <div className="rounded border border-[#a7f3d0] bg-[#ecfdf5] px-2 py-1 flex items-start gap-1.5 text-[8px] leading-tight text-[#1e293b]">
+            <CheckCircle2 className="w-3 h-3 shrink-0 mt-px text-[#059669]" />
             <p>
-              <strong className="text-emerald-950 uppercase">Attestation d'adhésion sans réserve : </strong>
-              Le locataire et les conducteurs agréés attestent avoir pris connaissance des {termsVersion.clauses.length} articles des
-              CGV de la Sté {companySettings.name} (contrat n° <strong className="text-slate-950 font-mono">{contract.contractNumber}</strong>),
-              en approuver toutes les clauses et confirmer l'exactitude des déclarations du recto.
+              <strong className="font-black uppercase text-[#064e3b]">Attestation d'adhésion sans réserve : </strong>
+              le locataire et les conducteurs agréés attestent avoir pris connaissance des {termsVersion.clauses.length} articles des
+              conditions générales de la Sté {companySettings.name} (contrat n°{' '}
+              <strong className="font-mono font-black text-[#0b1220]">{contract.contractNumber}</strong>), en approuver toutes les clauses et
+              confirmer l'exactitude des déclarations du recto.
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="border-2 border-blue-900/30 rounded p-1.5 bg-blue-50/30 flex flex-col justify-between min-h-[76px] shadow-2xs">
-              <div className="flex justify-between items-center border-b border-blue-200/80 pb-0.5">
-                <span className="text-[7.5px] font-black uppercase text-blue-950">Paraphe &amp; Signature du Locataire</span>
-                <span className="text-[7px] font-bold text-blue-900 font-arabic">توقيع ومصادقة المكتري</span>
+          <div className="grid grid-cols-2 gap-2.5">
+            <div className="rounded-lg border-2 border-[#9db2e6] bg-[#f6f8fe] p-1.5 flex flex-col justify-between min-h-[78px]">
+              <div className="flex items-center justify-between border-b border-[#c7d4f3] pb-0.5">
+                <span className="text-[8.5px] font-black uppercase text-[#1e3a8a]">Paraphe &amp; signature du locataire</span>
+                <span className="text-[8.5px] font-bold text-[#1e3a8a]">توقيع ومصادقة المكتري</span>
               </div>
               <div className="flex-1 flex items-center justify-center py-0.5">
                 {contract.clientSignature ? (
                   <img src={contract.clientSignature} alt="Paraphe électronique" className="max-h-[34px] max-w-[140px] object-contain" />
                 ) : (
-                  <span className="text-[7px] font-semibold text-slate-700 italic">« Lu et approuvé, bon pour accord »</span>
+                  <span className="text-[8.5px] font-bold italic text-[#334155]">« Lu et approuvé, bon pour accord »</span>
                 )}
               </div>
-              <div className="text-[6.5px] font-mono text-slate-500 text-center border-t border-dashed border-slate-200 pt-0.5">{clientFullName}</div>
+              <div className="border-t border-dashed border-[#cbd5e1] pt-0.5 text-center font-mono text-[8px] font-bold text-[#334155]">{clientFullName}</div>
             </div>
 
-            <div className="border-2 border-amber-500/40 rounded p-1.5 bg-amber-50/30 flex flex-col justify-between min-h-[76px] relative overflow-hidden shadow-2xs">
-              <div className="flex justify-between items-center border-b border-amber-200/80 pb-0.5 z-10 relative">
-                <span className="text-[7.5px] font-black uppercase text-amber-950">Pour Sté {companySettings.name}</span>
-                <span className="text-[7px] font-bold text-amber-900 font-arabic">خاتم وتأشيرة الوكالة</span>
+            <div className="relative overflow-hidden rounded-lg border-2 border-[#e5b94a] bg-[#fefbf1] p-1.5 flex flex-col justify-between min-h-[78px]">
+              <div className="relative z-10 flex items-center justify-between border-b border-[#ecd08a] pb-0.5">
+                <span className="text-[8.5px] font-black uppercase text-[#78350f]">Pour Sté {companySettings.name}</span>
+                <span className="text-[8.5px] font-bold text-[#78350f]">خاتم وتأشيرة الوكالة</span>
               </div>
-              <div className="relative flex items-center justify-center py-0.5 z-0 flex-1">
+              <div className="relative z-0 flex-1 flex items-center justify-center py-0.5">
                 <CompanyStamp size="xs" rotation={-1.5} />
               </div>
-              <div className="text-[6.5px] text-slate-500 text-center z-10 font-medium border-t border-slate-200 pt-0.5">
+              <div className="relative z-10 border-t border-[#ecd08a] pt-0.5 text-center text-[8px] font-bold text-[#334155]">
                 Visa légal agence • Fait à Casablanca, le {formattedStartDate}
               </div>
             </div>
           </div>
 
-          <div className="flex justify-between items-center text-[7px] text-slate-600 font-mono border-t border-slate-200 pt-0.5">
+          <div className="pt-0.5 border-t border-[#dbe2ea] flex items-center justify-between font-mono text-[8px] text-[#475569]">
             <span>
-              Réf. Contrat : <strong className="text-slate-900">{contract.contractNumber}</strong>
+              Réf. Contrat : <strong className="font-black text-[#0b1220]">{contract.contractNumber}</strong>
             </span>
-            <span>Document contractuel officiel recto-verso — Opposable aux tiers</span>
-            <span className="font-bold text-slate-950 bg-slate-100 px-2 rounded border border-slate-300">Page 2 / 2 (Verso)</span>
+            <span>Document contractuel officiel recto-verso — opposable aux tiers</span>
+            <span className="rounded border border-[#cbd5e1] bg-[#f1f5f9] px-2 font-black text-[#0b1220]">Page 2 / 2 (Verso)</span>
           </div>
         </div>
       </div>
