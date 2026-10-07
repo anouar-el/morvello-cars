@@ -626,32 +626,24 @@ html.light [class*="hover:bg-slate-750"]:hover {
 
 /* 10. CONTRATS ET RÉCÉPISSÉS IMPRIMABLES (A4 / Reçus) */
 html.light .contract-a4-page,
-html.light .a4-page,
-html.light #caution-receipt-print {
+html.light .a4-page {
   background-color: #ffffff !important;
   color: #0f172a !important;
 }
 
-html.light #caution-receipt-print .text-slate-700,
-html.light #caution-receipt-print .text-slate-600 {
-  color: #0f172a !important;
-}
-
-html.light #caution-receipt-print .text-slate-500 {
-  color: #475569 !important;
-}
-
 /*
- * LA FEUILLE A4 DU CONTRAT NE SUIT PAS LE THÈME DE L'APPLICATION.
- * C'est du papier : son aperçu, et le PDF capturé depuis cet aperçu, doivent être identiques en
- * thème sombre et en thème clair. Le thème clair l'atteignait par deux mécanismes, neutralisés ici.
+ * LA FEUILLE A4 DU CONTRAT ET LE REÇU DE CAUTION NE SUIVENT PAS LE THÈME DE L'APPLICATION.
+ * C'est du papier : l'aperçu, l'impression et le PDF capturé depuis l'aperçu doivent être
+ * identiques en thème sombre et en thème clair. Le thème clair les atteignait par deux
+ * mécanismes, neutralisés ici.
  */
 
 /*
- * a) La palette remappée par `html.light` : la feuille retrouve les valeurs Tailwind d'origine.
+ * a) La palette remappée par `html.light` : le document retrouve les valeurs Tailwind d'origine.
  *    À TENIR À JOUR : toute variable remappée dans `html.light` doit être rétablie ici.
  */
-html.light .a4-page {
+html.light .a4-page,
+html.light #caution-receipt-print {
   --color-slate-950: oklch(12.9% 0.042 264.695);
   --color-slate-900: oklch(20.8% 0.042 265.755);
   --color-slate-800: oklch(27.9% 0.041 260.031);
@@ -724,14 +716,18 @@ html.light .a4-page {
 
 /*
  * b) Les couleurs forcées par les règles `html.light …` de ce fichier. `revert-layer` écarte,
- *    pour tout le contenu de la feuille, les déclarations hors couche (donc celles du thème) et
+ *    pour tout le contenu du document, les déclarations hors couche (donc celles du thème) et
  *    rend la main aux utilitaires Tailwind.
  *    `:is(*, #_)` ne sélectionne rien de plus que `*` : il donne à cette règle la priorité d'un
  *    identifiant, au-dessus de toute règle de thème écrite avec des classes.
  *    `:not([style])` : une déclaration `!important` l'emporte aussi sur un style en ligne et
  *    effacerait les couleurs qu'un élément porte dans son attribut `style`.
+ *    Le reçu est inclus lui-même, pas seulement son contenu : son fond et sa couleur viennent de
+ *    ses propres classes, alors que la feuille A4 reçoit les siens de la règle ci-dessus.
  */
-html.light .a4-page :is(*, #_):not([style]) {
+html.light .a4-page :is(*, #_):not([style]),
+html.light #caution-receipt-print:not([style]),
+html.light #caution-receipt-print :is(*, #_):not([style]) {
   color: revert-layer !important;
   background-color: revert-layer !important;
   border-color: revert-layer !important;
