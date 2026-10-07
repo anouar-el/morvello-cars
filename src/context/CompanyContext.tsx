@@ -12,6 +12,7 @@ import {
 import { initialCompanySettings, initialAuditLogs } from '../data/mockData';
 import { initialTermsVersion } from '../data/termsData';
 import { syncCompanySettings } from '../lib/recordSync';
+import { pathForTab, tabForPath } from '../utils/tabRoutes';
 
 export type CloudSyncStatus = 'idle' | 'syncing' | 'synced' | 'error';
 
@@ -120,7 +121,31 @@ export const CompanyProvider: React.FC<{
     return saved ? JSON.parse(saved) : initialAuditLogs;
   });
 
-  const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
+  // The active section mirrors the address bar: each section has its own URL, the browser's
+  // Back/Forward buttons move between sections, and a reload or a shared link reopens the same one.
+  const [activeTab, setActiveTabState] = useState<ActiveTab>(() => tabForPath(window.location.pathname));
+
+  const setActiveTab = useCallback((tab: ActiveTab) => {
+    setActiveTabState(tab);
+    const path = pathForTab(tab);
+    if (window.location.pathname !== path) {
+      window.history.pushState(null, '', path);
+    }
+  }, []);
+
+  useEffect(() => {
+    // An unknown address shows the dashboard: say so in the address bar. Query string and hash are
+    // kept, as a sign-in redirect may still be carrying its tokens there.
+    const canonical = pathForTab(tabForPath(window.location.pathname));
+    if (window.location.pathname !== canonical) {
+      window.history.replaceState(null, '', canonical + window.location.search + window.location.hash);
+    }
+
+    const onPopState = () => setActiveTabState(tabForPath(window.location.pathname));
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
   const [cloudSyncStatus, setCloudSyncStatus] = useState<CloudSyncStatus>('idle');
   const [lastCloudSync, setLastCloudSync] = useState<string | null>(() => {
     return localStorage.getItem(STORAGE_KEYS.LAST_CLOUD_SYNC);
