@@ -624,7 +624,7 @@ html.light [class*="hover:bg-slate-750"]:hover {
   color: #020617 !important;
 }
 
-/* 10. FIDÉLITÉ DES CONTRATS ET RÉCÉPISSÉS IMPRIMABLES (A4 / Reçus) */
+/* 10. CONTRATS ET RÉCÉPISSÉS IMPRIMABLES (A4 / Reçus) */
 html.light .contract-a4-page,
 html.light .a4-page,
 html.light #caution-receipt-print {
@@ -632,41 +632,110 @@ html.light #caution-receipt-print {
   color: #0f172a !important;
 }
 
-html.light .contract-a4-page .text-slate-900,
-html.light .contract-a4-page .text-slate-800,
-html.light .contract-a4-page .text-slate-700,
 html.light #caution-receipt-print .text-slate-700,
 html.light #caution-receipt-print .text-slate-600 {
   color: #0f172a !important;
 }
 
-html.light .contract-a4-page .text-slate-600,
-html.light .contract-a4-page .text-slate-500,
 html.light #caution-receipt-print .text-slate-500 {
   color: #475569 !important;
 }
 
-html.light .contract-a4-page .text-slate-400 {
-  color: #64748b !important;
+/*
+ * LA FEUILLE A4 DU CONTRAT NE SUIT PAS LE THÈME DE L'APPLICATION.
+ * C'est du papier : son aperçu, et le PDF capturé depuis cet aperçu, doivent être identiques en
+ * thème sombre et en thème clair. Le thème clair l'atteignait par deux mécanismes, neutralisés ici.
+ */
+
+/*
+ * a) La palette remappée par `html.light` : la feuille retrouve les valeurs Tailwind d'origine.
+ *    À TENIR À JOUR : toute variable remappée dans `html.light` doit être rétablie ici.
+ */
+html.light .a4-page {
+  --color-slate-950: oklch(12.9% 0.042 264.695);
+  --color-slate-900: oklch(20.8% 0.042 265.755);
+  --color-slate-800: oklch(27.9% 0.041 260.031);
+  --color-slate-700: oklch(37.2% 0.044 257.287);
+  --color-slate-600: oklch(44.6% 0.043 257.281);
+  --color-slate-500: oklch(55.4% 0.046 257.417);
+  --color-slate-400: oklch(70.4% 0.04 256.788);
+  --color-slate-300: oklch(86.9% 0.022 252.894);
+  --color-slate-200: oklch(92.9% 0.013 255.508);
+  --color-slate-100: oklch(96.8% 0.007 247.896);
+  --color-slate-50: oklch(98.4% 0.003 247.858);
+  --color-amber-200: oklch(92.4% 0.12 95.746);
+  --color-amber-300: oklch(87.9% 0.169 91.605);
+  --color-amber-400: oklch(82.8% 0.189 84.429);
+  --color-amber-500: oklch(76.9% 0.188 70.08);
+  --color-yellow-200: oklch(94.5% 0.129 101.54);
+  --color-yellow-300: oklch(90.5% 0.182 98.111);
+  --color-yellow-400: oklch(85.2% 0.199 91.936);
+  --color-yellow-500: oklch(79.5% 0.184 86.047);
+  --color-orange-200: oklch(90.1% 0.076 70.697);
+  --color-orange-300: oklch(83.7% 0.128 66.29);
+  --color-orange-400: oklch(75% 0.183 55.934);
+  --color-orange-500: oklch(70.5% 0.213 47.604);
+  --color-emerald-200: oklch(90.5% 0.093 164.15);
+  --color-emerald-300: oklch(84.5% 0.143 164.978);
+  --color-emerald-400: oklch(76.5% 0.177 163.223);
+  --color-emerald-500: oklch(69.6% 0.17 162.48);
+  --color-green-200: oklch(92.5% 0.084 155.995);
+  --color-green-300: oklch(87.1% 0.15 154.449);
+  --color-green-400: oklch(79.2% 0.209 151.711);
+  --color-green-500: oklch(72.3% 0.219 149.579);
+  --color-blue-200: oklch(88.2% 0.059 254.128);
+  --color-blue-300: oklch(80.9% 0.105 251.813);
+  --color-blue-400: oklch(70.7% 0.165 254.624);
+  --color-blue-500: oklch(62.3% 0.214 259.815);
+  --color-sky-200: oklch(90.1% 0.058 230.902);
+  --color-sky-300: oklch(82.8% 0.111 230.318);
+  --color-sky-400: oklch(74.6% 0.16 232.661);
+  --color-sky-500: oklch(68.5% 0.169 237.323);
+  --color-cyan-200: oklch(91.7% 0.08 205.041);
+  --color-cyan-300: oklch(86.5% 0.127 207.078);
+  --color-cyan-400: oklch(78.9% 0.154 211.53);
+  --color-cyan-500: oklch(71.5% 0.143 215.221);
+  --color-teal-200: oklch(91% 0.096 180.426);
+  --color-teal-300: oklch(85.5% 0.138 181.071);
+  --color-teal-400: oklch(77.7% 0.152 181.912);
+  --color-teal-500: oklch(70.4% 0.14 182.503);
+  --color-indigo-200: oklch(87% 0.065 274.039);
+  --color-indigo-300: oklch(78.5% 0.115 274.713);
+  --color-indigo-400: oklch(67.3% 0.182 276.935);
+  --color-indigo-500: oklch(58.5% 0.233 277.117);
+  --color-purple-200: oklch(90.2% 0.063 306.703);
+  --color-purple-300: oklch(82.7% 0.119 306.383);
+  --color-purple-400: oklch(71.4% 0.203 305.504);
+  --color-purple-500: oklch(62.7% 0.265 303.9);
+  --color-rose-200: oklch(89.2% 0.058 10.001);
+  --color-rose-300: oklch(81% 0.117 11.638);
+  --color-rose-400: oklch(71.2% 0.194 13.428);
+  --color-rose-500: oklch(64.5% 0.246 16.439);
+  --color-red-200: oklch(88.5% 0.062 18.334);
+  --color-red-300: oklch(80.8% 0.114 19.571);
+  --color-red-400: oklch(70.4% 0.191 22.216);
+  --color-red-500: oklch(63.7% 0.237 25.331);
+  --color-blue-950: oklch(28.2% 0.091 267.935);
+  --color-emerald-950: oklch(26.2% 0.051 172.552);
+  --color-amber-950: oklch(27.9% 0.077 45.635);
+  --color-rose-950: oklch(27.1% 0.105 12.094);
+  --color-purple-950: oklch(29.1% 0.149 302.717);
 }
 
-/* En-têtes et bandeaux contrastés dans les contrats (prestige / corporate) */
-html.light .contract-a4-page [class*="bg-gradient-"],
-html.light .contract-a4-page [class*="bg-gradient-"] span,
-html.light .contract-a4-page [class*="bg-gradient-"] strong,
-html.light .contract-a4-page [class*="bg-gradient-"] h2,
-html.light .contract-a4-page [class*="bg-gradient-"] div {
-  color: #ffffff;
-}
-
-html.light .contract-a4-page [class*="bg-gradient-"] .text-amber-300,
-html.light .contract-a4-page [class*="bg-gradient-"] .text-amber-400 {
-  color: #fde047 !important;
-}
-
-html.light .contract-a4-page [class*="bg-gradient-"] .text-blue-200,
-html.light .contract-a4-page [class*="bg-gradient-"] .text-blue-300 {
-  color: #93c5fd !important;
+/*
+ * b) Les couleurs forcées par les règles `html.light …` de ce fichier. `revert-layer` écarte,
+ *    pour tout le contenu de la feuille, les déclarations hors couche (donc celles du thème) et
+ *    rend la main aux utilitaires Tailwind.
+ *    `:is(*, #_)` ne sélectionne rien de plus que `*` : il donne à cette règle la priorité d'un
+ *    identifiant, au-dessus de toute règle de thème écrite avec des classes.
+ *    `:not([style])` : une déclaration `!important` l'emporte aussi sur un style en ligne et
+ *    effacerait les couleurs qu'un élément porte dans son attribut `style`.
+ */
+html.light .a4-page :is(*, #_):not([style]) {
+  color: revert-layer !important;
+  background-color: revert-layer !important;
+  border-color: revert-layer !important;
+  box-shadow: revert-layer !important;
 }
 
 /* iOS Safari zooms the whole page when a focused field has a font-size under 16px */
