@@ -73,6 +73,20 @@ export function clearSyncError(): void {
 }
 
 /**
+ * Without a session the database returns no rows (RLS) and refuses every write, so the round trip
+ * is skipped: the login page used to fire nine empty reads and a rejected write on every visit.
+ * If the session cannot be read, the request goes ahead as before.
+ */
+async function hasSupabaseSession(): Promise<boolean> {
+  try {
+    const { data } = await supabase.auth.getSession();
+    return Boolean(data?.session);
+  } catch {
+    return true;
+  }
+}
+
+/**
  * Fetches the authoritative Morvello Cars agency state from Supabase PostgreSQL.
  *
  * ARCHITECTURAL DESIGN (PROBLEM #2 RESOLUTION):
@@ -87,7 +101,7 @@ export function clearSyncError(): void {
  *   Sensitive operational data (clients, contracts, deposits) is NEVER read from or dependent on `agency_data`.
  */
 export async function fetchRemoteAgencyDataFromSupabase(): Promise<MorvelloCloudData | null> {
-  if (!isSupabaseConfigured) {
+  if (!isSupabaseConfigured || !(await hasSupabaseSession())) {
     return null;
   }
 
@@ -331,7 +345,7 @@ export async function saveRemoteAgencyDataToSupabase(
   payload: Partial<MorvelloCloudData>,
   userId?: string
 ): Promise<boolean> {
-  if (!isSupabaseConfigured) {
+  if (!isSupabaseConfigured || !(await hasSupabaseSession())) {
     return false;
   }
 

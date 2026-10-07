@@ -5,15 +5,19 @@ const mock = vi.hoisted(() => ({
   unsubscribe: vi.fn(),
   from: vi.fn(),
   removeChannel: vi.fn(),
+  getSession: vi.fn(),
 }));
 
 vi.mock('./supabase', () => ({
   isSupabaseConfigured: true,
   supabase: {
-    auth: { onAuthStateChange: (callback: any) => {
-      mock.authCallback = callback;
-      return { data: { subscription: { unsubscribe: mock.unsubscribe } } };
-    } },
+    auth: {
+      getSession: mock.getSession,
+      onAuthStateChange: (callback: any) => {
+        mock.authCallback = callback;
+        return { data: { subscription: { unsubscribe: mock.unsubscribe } } };
+      },
+    },
     from: mock.from,
     channel: () => {
       const channel = { on: () => channel, subscribe: () => channel };
@@ -23,13 +27,21 @@ vi.mock('./supabase', () => ({
   },
 }));
 
-import { subscribeToRemoteAgencyDataFromSupabase } from './supabaseSync';
+import {
+  fetchRemoteAgencyDataFromSupabase,
+  saveRemoteAgencyDataToSupabase,
+  subscribeToRemoteAgencyDataFromSupabase,
+} from './supabaseSync';
 
 afterEach(() => { vi.useRealTimers(); vi.clearAllMocks(); });
+
+const signedIn = () => Promise.resolve({ data: { session: { user: { id: 'authenticated-user' } } }, error: null });
+const signedOut = () => Promise.resolve({ data: { session: null }, error: null });
 
 describe('Supabase authentication refresh', () => {
   function setup() {
     vi.useFakeTimers();
+    mock.getSession.mockImplementation(signedIn);
     mock.from.mockImplementation((table: string) => {
       const result = { data: table === 'profiles'
         ? [{ id: 'authenticated-user', name: 'QA', role: 'manager' }]
@@ -75,5 +87,36 @@ describe('Supabase authentication refresh', () => {
     expect(onData).not.toHaveBeenCalled();
     expect(mock.unsubscribe).toHaveBeenCalledOnce();
     expect(mock.removeChannel).toHaveBeenCalledOnce();
+  });
+
+  it('sends nothing to the database while nobody is signed in', async () => {
+    const { stop } = setup();
+    mock.getSession.mockImplementation(signedOut);
+
+    await expect(fetchRemoteAgencyDataFromSupabase()).resolves.toBeNull();
+    await expect(saveRemoteAgencyDataToSupabase({ vehicles: [], companySettings: {} as any })).resolves.toBe(false);
+
+    expect(mock.from).not.toHaveBeenCalled();
+    stop();
+  });
+
+  it('reads the database once a session exists', async () => {
+    const { stop } = setup();
+
+    const data = await fetchRemoteAgencyDataFromSupabase();
+
+    expect(mock.from).toHaveBeenCalledWith('contracts');
+    expect(data?.users?.[0].id).toBe('authenticated-user');
+    stop();
+  });
+
+  it('does not block the read when the session itself cannot be read', async () => {
+    const { stop } = setup();
+    mock.getSession.mockImplementation(() => Promise.reject(new Error('storage unavailable')));
+
+    await fetchRemoteAgencyDataFromSupabase();
+
+    expect(mock.from).toHaveBeenCalledWith('contracts');
+    stop();
   });
 });
