@@ -505,8 +505,8 @@ export const VehiclesList: React.FC = () => {
         users={users}
         canDelete={canUserDeleteVehicles}
         onClose={() => setEditingVehicle(null)}
-        onSave={(id, updatedData) => {
-          updateVehicle(id, updatedData);
+        onSave={(id, updatedData, options) => {
+          updateVehicle(id, updatedData, options);
           triggerToast('Véhicule mis à jour avec succès !');
         }}
         onDeleteRequest={(v) => {

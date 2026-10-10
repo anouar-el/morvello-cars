@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { PropagationScopeSelect, usePropagationScope } from './PropagationScopeSelect';
 import { useApp } from '../context/AppContext';
 import { Client, DocumentType } from '../types';
 import { ClientDocumentUpload } from './ClientDocumentUpload';
@@ -83,6 +84,7 @@ export const ClientsList: React.FC = () => {
 
   // Edit client modal state
   const [editingClient, setEditingClient] = useState<Client | null>(null);
+  const [propagateScope, setPropagateScope] = usePropagationScope();
   const [editSuccessMsg, setEditSuccessMsg] = useState<string>('');
   const [editClientForm, setEditClientForm] = useState<{
     firstName: string;
@@ -157,7 +159,7 @@ export const ClientsList: React.FC = () => {
       notes: editClientForm.notes.trim(),
     };
 
-    updateClient(editingClient.id, updatedData);
+    updateClient(editingClient.id, updatedData, { propagate: propagateScope });
 
     if (selectedClientDetail && selectedClientDetail.id === editingClient.id) {
       setSelectedClientDetail({
@@ -1574,6 +1576,12 @@ export const ClientsList: React.FC = () => {
                   placeholder="Informations particulières, habitudes de location..."
                 />
               </div>
+
+              <PropagationScopeSelect
+                value={propagateScope}
+                onChange={setPropagateScope}
+                subject="de ce client (nom, téléphone, pièces d'identité…)"
+              />
 
               <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-800">
                 <button

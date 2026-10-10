@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { PropagationScopeSelect, usePropagationScope } from '../PropagationScopeSelect';
+import type { PropagationScope } from '../../utils/snapshotPropagation';
 import { User, Vehicle, FuelType, VehicleStatus, Contract, VehicleCategory } from '../../types';
 import { VEHICLE_CATEGORIES, getCategoryLabel, inferVehicleCategory } from '../../data/insurancePacks';
 import {
@@ -21,7 +23,7 @@ interface VehicleEditModalProps {
   users: User[];
   canDelete: boolean;
   onClose: () => void;
-  onSave: (id: string, updatedData: Partial<Vehicle>) => void;
+  onSave: (id: string, updatedData: Partial<Vehicle>, options?: { propagate: PropagationScope }) => void;
   onDeleteRequest: (vehicle: Vehicle) => void;
   onOpenMaintenanceModal?: (vehicle: Vehicle) => void;
 }
@@ -38,6 +40,7 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
   onOpenMaintenanceModal,
 }) => {
   const isAdmin = currentUser.role === 'admin';
+  const [propagateScope, setPropagateScope] = usePropagationScope();
   const managers = users.filter((u) => u.role === 'manager');
 
   const [form, setForm] = useState<{
@@ -132,7 +135,7 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
       insuranceCategory: form.insuranceCategory || null,
       assignedManagerId: form.assignedManagerId || undefined,
       assignedManagerName: assignedUser ? assignedUser.name : form.assignedManagerId ? undefined : undefined,
-    });
+    }, { propagate: propagateScope });
 
     onClose();
   };
@@ -489,6 +492,12 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
               className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white focus:border-amber-500 focus:outline-none"
             />
           </div>
+
+          <PropagationScopeSelect
+            value={propagateScope}
+            onChange={setPropagateScope}
+            subject="de ce véhicule (marque, modèle, plaque…)"
+          />
 
           <div className="flex items-center justify-between pt-4 border-t border-slate-800">
             {canDelete ? (

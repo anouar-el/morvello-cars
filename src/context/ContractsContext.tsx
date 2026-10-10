@@ -27,6 +27,7 @@ import { formatPlateFrench } from '../utils/plateUtils';
 import { generateStableId } from '../utils/idUtils';
 import { shouldRecordDeposit } from '../utils/depositUtils';
 import { isVehicleAvailableForPeriod } from '../utils/vehicleStatusUtils';
+import type { ContractSnapshotChange } from '../utils/snapshotPropagation';
 import {
   getNextAvailableContractNumber,
   findDuplicateContractNumbers,
@@ -45,6 +46,10 @@ export interface ContractsContextType {
 
   setSelectedContract: (contract: Contract | null) => void;
   setContractsList: (contracts: Contract[]) => void;
+  /** Mise à jour fonctionnelle (événements temps réel, base autoritaire) : sans repli sur les données de démo. */
+  setContractsListByUpdater: (updater: (prev: Contract[]) => Contract[]) => void;
+  /** Répercute une modification client/véhicule sur les snapshots des contrats concernés (+ écriture en base). */
+  applySnapshotChanges: (changes: ContractSnapshotChange[], reason: string) => void;
   startEditingContract: (contract: Contract, onNavigate?: () => void) => void;
   clearEditingData: () => void;
   duplicateContract: (contract: Contract, onNavigate?: () => void) => void;
@@ -518,7 +523,9 @@ export const ContractsProvider: React.FC<{
 
     const updatedContracts = contracts.map((c) => {
       if (c.id === id) {
-        const merged: Contract = { ...c, ...data };
+        // updatedAt local avancé : évite un faux « conflit » si l'on modifie deux fois de suite
+        // avant que l'écho temps réel ne ramène l'horodatage de la base.
+        const merged: Contract = { ...c, ...data, updatedAt: new Date().toISOString() } as Contract;
         if (data.depositAmount !== undefined) {
           const numDeposit = Number(data.depositAmount);
           merged.depositAmount = numDeposit;
@@ -1072,6 +1079,41 @@ export const ContractsProvider: React.FC<{
     setContracts(sortContractsByNumber(normalized, 'desc'));
   };
 
+  const setContractsListByUpdater = (updater: (prev: Contract[]) => Contract[]) => {
+    setContracts((prev) => sortContractsByNumber(updater(prev).map(normalizeContractFinancials), 'desc'));
+  };
+
+  const applySnapshotChanges = (changes: ContractSnapshotChange[], reason: string) => {
+    if (changes.length === 0) return;
+    const byId = new Map(changes.map((ch) => [ch.contractId, ch]));
+    const now = new Date().toISOString();
+
+    setContracts((prev) =>
+      prev.map((c) => {
+        const ch = byId.get(c.id);
+        return ch ? ({ ...c, [ch.snapshotKey]: ch.snapshot, updatedAt: now } as Contract) : c;
+      })
+    );
+    setPdfModalContract((current) => {
+      const ch = current ? byId.get(current.id) : undefined;
+      return current && ch ? ({ ...current, [ch.snapshotKey]: ch.snapshot } as Contract) : current;
+    });
+
+    // Un patch ciblé par contrat : la fusion atomique côté base ne touche que cette clé.
+    for (const ch of changes) {
+      syncUpdateContract(ch.contractId, { [ch.snapshotKey]: ch.snapshot } as Partial<Contract>).catch((err) =>
+        console.warn('Record-level sync snapshot propagation note:', err)
+      );
+    }
+
+    logAction(
+      'Répercussion sur contrats',
+      'contract',
+      'system',
+      `${changes.length} contrat(s) mis à jour : ${reason}`
+    );
+  };
+
   return (
     <ContractsContext.Provider
       value={{
@@ -1083,6 +1125,8 @@ export const ContractsProvider: React.FC<{
         editingContractData,
         setSelectedContract,
         setContractsList,
+        setContractsListByUpdater,
+        applySnapshotChanges,
         startEditingContract,
         clearEditingData,
         duplicateContract,

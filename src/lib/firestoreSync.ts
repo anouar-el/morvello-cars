@@ -6,6 +6,7 @@ import {
   saveRemoteAgencyDataToSupabase,
   subscribeToRemoteAgencyDataFromSupabase,
   saveUserProfileToSupabase,
+  RemoteRowEvent,
 } from './supabaseSync';
 import {
   Client,
@@ -41,6 +42,11 @@ export interface MorvelloCloudData {
   auditLogs?: AuditLog[];
   updatedAt?: string;
   updatedBy?: string;
+  /**
+   * Par table : true si la lecture a réussi, donc si la liste distante (même vide) fait foi.
+   * Une table à false ne doit jamais écraser l'état local.
+   */
+  authoritative?: Partial<Record<'vehicles' | 'clients' | 'drivers' | 'contracts' | 'deposits', boolean>>;
 }
 
 export async function fetchRemoteAgencyData(): Promise<MorvelloCloudData | null> {
@@ -72,10 +78,13 @@ export async function saveRemoteAgencyData(data: Partial<MorvelloCloudData>): Pr
  */
 export function subscribeToRemoteAgencyData(
   onData: (data: MorvelloCloudData) => void,
-  onError?: (err: any) => void
+  onError?: (err: any) => void,
+  onRowEvent?: (event: RemoteRowEvent) => void
 ): () => void {
-  return subscribeToRemoteAgencyDataFromSupabase(onData, onError);
+  return subscribeToRemoteAgencyDataFromSupabase(onData, onError, onRowEvent);
 }
+
+export type { RemoteRowEvent };
 
 /**
  * Sync individual user profile and RBAC role in Supabase profiles.

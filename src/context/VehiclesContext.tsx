@@ -114,7 +114,7 @@ export const VehiclesProvider: React.FC<{
     const existing = vehicles.find((v) => v.id === id);
     const updatedVehicles = vehicles.map((v) => {
       if (v.id === id) {
-        const updated = { ...v, ...data };
+        const updated = { ...v, ...data, updatedAt: new Date().toISOString() } as Vehicle;
         if (data.plate) updated.plate = formatPlateFrench(data.plate);
         return updated;
       }
