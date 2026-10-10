@@ -13,6 +13,7 @@ import {
 } from '../types';
 import { initialContracts } from '../data/mockData';
 import {
+  allocateContractNumber,
   syncCreateContract,
   syncUpdateContract,
   syncDeleteContract,
@@ -267,11 +268,21 @@ export const ContractsProvider: React.FC<{
     }
 
     // 2. GÉNÉRATION SÉCURISÉE DU NUMÉRO DE CONTRAT
-    const { formattedContractNumber, nextSequence } = getNextAvailableContractNumber(
-      contracts,
-      companySettings
+    // Le calcul local sert de suggestion ; la base réserve le numéro définitif de façon atomique
+    // (deux postes simultanés n'obtiennent plus le même numéro). Repli local si indisponible.
+    const localNumber = getNextAvailableContractNumber(contracts, companySettings);
+    let contractNumber = localNumber.formattedContractNumber;
+    let nextSequence = localNumber.nextSequence;
+
+    const allocated = await allocateContractNumber(
+      localNumber.prefix,
+      localNumber.year,
+      localNumber.nextSequence
     );
-    const contractNumber = formattedContractNumber;
+    if (allocated) {
+      contractNumber = allocated.contractNumber;
+      nextSequence = allocated.sequence;
+    }
 
     let assignedManagerId = contractData.assignedManagerId;
     let assignedManagerName = contractData.assignedManagerName;
