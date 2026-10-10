@@ -1730,13 +1730,17 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
         : null);
     const currentAuthEmail = (sessionUser?.email || '').toLowerCase().trim();
 
-    const isCurrentAdmin =
-      currentAuthEmail?.includes('anouar') ||
+    // Même règle que la fonction SQL is_admin() : rôle « admin » ou compte historique usr-1.
+    // Plus aucun privilège déduit d'un fragment d'e-mail ; la RLS reste l'autorité côté base.
+    const isCurrentAdmin = Boolean(
       payload.users?.some(
         (u) =>
-          (u.id === currentAuthUid || u.firebaseUid === currentAuthUid) &&
-          u.role === 'admin'
-      );
+          (u.id === currentAuthUid ||
+            u.firebaseUid === currentAuthUid ||
+            (currentAuthEmail && u.email?.toLowerCase().trim() === currentAuthEmail)) &&
+          (u.role === 'admin' || u.legacyId === 'usr-1')
+      )
+    );
 
     const currentUser = payload.users?.find(
       (u) =>
