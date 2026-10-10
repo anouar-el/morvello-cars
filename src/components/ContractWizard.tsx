@@ -311,14 +311,10 @@ export const ContractWizard: React.FC = () => {
             setManagerDisplayName(mgr?.name || '');
           }
         } else if (!assignedManagerId) {
-          const firstMgr = users.find((u) => u.role === 'manager') || users[0];
-          if (firstMgr) {
-            setAssignedManagerId(firstMgr.id);
-            setManagerPhone(firstMgr.phone || companySettings.phone1);
-            if (!managerDisplayName) {
-              setManagerDisplayName(firstMgr.name || '');
-            }
-          }
+          // Véhicule sans responsable et auteur non manager (administrateur) : on ne choisit PAS un
+          // manager au hasard (l'ancien « premier manager de la liste » affectait des contrats à tort).
+          // Le contrat reste non affecté, donc géré par l'administrateur, sauf choix explicite.
+          setManagerPhone(companySettings.phone1);
         }
       }
     }
