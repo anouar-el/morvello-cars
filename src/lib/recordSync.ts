@@ -1342,6 +1342,66 @@ export async function syncDeletePayment(
 }
 
 // ==============================================================================
+// NUMÉROTATION ATOMIQUE DES CONTRATS
+// ==============================================================================
+
+export interface AllocatedContractNumber {
+  contractNumber: string;
+  sequence: number;
+  prefix: string;
+  year: number;
+}
+
+/**
+ * Réserve un numéro de contrat côté base (fonction SQL `allocate_contract_number`), de façon
+ * atomique entre tous les postes. Retourne `null` si la réservation n'est pas possible (base non
+ * configurée, hors ligne, migration SQL pas encore appliquée) : l'appelant utilise alors le calcul
+ * local, protégé en dernier recours par la contrainte UNIQUE de contracts.contract_number.
+ *
+ * `minSequence` = numéro suggéré par le calcul local ; la base n'attribue jamais en dessous.
+ */
+export async function allocateContractNumber(
+  prefix: string,
+  year: number,
+  minSequence: number
+): Promise<AllocatedContractNumber | null> {
+  if (!isSupabaseConfigured) return null;
+
+  try {
+    const { data, error } = await supabase.rpc('allocate_contract_number', {
+      p_prefix: prefix,
+      p_year: year,
+      p_min_sequence: Math.max(1, Math.floor(minSequence) || 1),
+    });
+
+    if (error) {
+      const missing =
+        error.code === 'PGRST202' ||
+        error.message?.toLowerCase().includes('could not find the function') ||
+        error.message?.includes('schema cache');
+      if (!missing) {
+        console.warn('[RecordSync] allocate_contract_number refusée, repli local :', error.message);
+      }
+      return null;
+    }
+
+    const sequence = Number(data?.sequence);
+    const contractNumber = typeof data?.contract_number === 'string' ? data.contract_number : '';
+    if (!data?.success || !Number.isFinite(sequence) || !contractNumber) return null;
+
+    return {
+      contractNumber,
+      sequence,
+      prefix: String(data.prefix || prefix),
+      year: Number(data.year) || year,
+    };
+  } catch (err) {
+    console.warn('[RecordSync] allocate_contract_number indisponible, repli local :', err);
+    return null;
+  }
+}
+
+// ==============================================================================
 // 6. ISOLATED AGENCY CONFIGURATION & SETTINGS (STEP 9)
 // ==============================================================================
 
