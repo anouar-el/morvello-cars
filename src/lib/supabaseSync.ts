@@ -827,7 +827,12 @@ export function resolveAssignedManagerForSupabase(
   existingDbId: string | null | undefined,
   currentAuthUid: string | null,
   currentAuthEmail: string | null,
-  users?: Array<{ id: string; legacyId?: string; email?: string; firebaseUid?: string; supabaseUid?: string }>
+  users?: Array<{ id: string; legacyId?: string; email?: string; firebaseUid?: string; supabaseUid?: string }>,
+  /**
+   * L'auteur de l'écriture est un administrateur : il gère toute la flotte, donc une ligne sans
+   * responsable reste NON affectée (NULL) au lieu d'être attribuée à l'admin qui l'a enregistrée.
+   */
+  writerIsAdmin: boolean = false
 ): string | null {
   if (currentAuthUid) {
     // 1. Déjà assigné directement à l'UID Supabase connecté
@@ -867,8 +872,10 @@ export function resolveAssignedManagerForSupabase(
     return existingDbId;
   }
 
-  // Valeur locale ou repli sur l'utilisateur connecté
-  return assignedId && assignedId.trim() !== '' ? assignedId : currentAuthUid || null;
+  // Valeur locale ; repli sur l'utilisateur connecté UNIQUEMENT s'il n'est pas admin (un manager
+  // ne peut écrire que des lignes qui lui sont affectées, cf. RLS can_assign_manager).
+  if (assignedId && assignedId.trim() !== '') return assignedId;
+  return writerIsAdmin ? null : currentAuthUid || null;
 }
 
 // ==============================================================================
@@ -930,7 +937,8 @@ export async function saveVehicleRecordToSupabase(
       existing?.assigned_manager_id,
       currentAuthUid,
       currentAuthEmail,
-      options?.allUsers
+      options?.allUsers,
+      options?.currentUser?.role === 'admin'
     );
 
     const createdBy =
@@ -1073,7 +1081,8 @@ export async function saveContractRecordToSupabase(
       existing?.assigned_manager_id,
       currentAuthUid,
       currentAuthEmail,
-      options?.allUsers
+      options?.allUsers,
+      options?.currentUser?.role === 'admin'
     );
 
     const createdBy = existing?.created_by || contract.createdBy || currentAuthUid || 'system';
@@ -1281,7 +1290,8 @@ export async function saveClientRecordToSupabase(
       existing?.assigned_manager_id,
       currentAuthUid,
       currentAuthEmail,
-      options?.allUsers
+      options?.allUsers,
+      options?.currentUser?.role === 'admin'
     );
 
     const createdBy = existing?.created_by || (client as any).createdBy || currentAuthUid || 'system';
@@ -1456,7 +1466,8 @@ export async function saveDepositRecordToSupabase(
       existing?.assigned_manager_id,
       currentAuthUid,
       currentAuthEmail,
-      options?.allUsers
+      options?.allUsers,
+      options?.currentUser?.role === 'admin'
     );
 
     const createdBy = existing?.created_by || deposit.createdBy || (deposit as any).receivedBy || currentAuthUid || 'system';
@@ -1780,7 +1791,8 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
           existing?.assigned_manager_id,
           currentAuthUid,
           currentAuthEmail,
-          payload.users
+          payload.users,
+          isCurrentAdmin
         );
         const createdBy =
           existing?.created_by ||
@@ -1870,7 +1882,8 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
           existing?.assigned_manager_id,
           currentAuthUid,
           currentAuthEmail,
-          payload.users
+          payload.users,
+          isCurrentAdmin
         );
         const createdBy = existing?.created_by || (c as any).createdBy || currentAuthUid || 'system';
 
@@ -1956,7 +1969,8 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
           existing?.assigned_manager_id,
           currentAuthUid,
           currentAuthEmail,
-          payload.users
+          payload.users,
+          isCurrentAdmin
         );
         const createdBy = existing?.created_by || cnt.createdBy || currentAuthUid || 'system';
 
@@ -2087,7 +2101,8 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
           existing?.assigned_manager_id,
           currentAuthUid,
           currentAuthEmail,
-          payload.users
+          payload.users,
+          isCurrentAdmin
         );
 
         const createdBy =

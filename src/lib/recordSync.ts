@@ -366,7 +366,9 @@ export async function syncCreateVehicle(
       vehicle.assignedManagerName,
       null,
       authUid,
-      authEmail
+      authEmail,
+      undefined,
+      currentUser?.role === 'admin'
     );
 
     const payload = {
@@ -446,7 +448,9 @@ export async function syncUpdateVehicle(
         patch.assignedManagerName,
         null,
         authUid,
-        authEmail
+        authEmail,
+        undefined,
+        currentUser?.role === 'admin'
       );
     }
 
@@ -600,7 +604,9 @@ export async function syncCreateClient(
       undefined,
       null,
       authUid,
-      authEmail
+      authEmail,
+      undefined,
+      currentUser?.role === 'admin'
     );
 
     const payload = {
@@ -970,7 +976,9 @@ export async function syncCreateContract(
       contract.assignedManagerName,
       null,
       authUid,
-      authEmail
+      authEmail,
+      undefined,
+      currentUser?.role === 'admin'
     );
 
     const contractPayload = {
