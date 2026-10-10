@@ -32,6 +32,7 @@ export interface ClientsDriversContextType {
   setClientsList: (clients: Client[]) => void;
   setClientsListByUpdater: (updater: (prev: Client[]) => Client[]) => void;
   setDriversList: (drivers: Driver[]) => void;
+  setDriversListByUpdater: (updater: (prev: Driver[]) => Driver[]) => void;
 }
 
 const STORAGE_KEYS = {
@@ -243,6 +244,7 @@ export const ClientsDriversProvider: React.FC<{
         setClientsList,
         setClientsListByUpdater: setClients,
         setDriversList,
+        setDriversListByUpdater: setDrivers,
       }}
     >
       {children}

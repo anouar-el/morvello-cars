@@ -73,6 +73,40 @@ export function clearSyncError(): void {
 }
 
 /**
+ * Demande un rafraîchissement complet depuis la base (ex. après un conflit ou un refus RLS) : la base
+ * fait foi, donc la modification locale optimiste est automatiquement annulée par ce rafraîchissement.
+ * Sans abonnement actif, la demande est ignorée.
+ */
+let activeRefetch: (() => void) | null = null;
+
+export function requestRemoteRefresh(): void {
+  try {
+    activeRefetch?.();
+  } catch (e) {
+    console.warn('[Supabase Sync] requestRemoteRefresh notice:', e);
+  }
+}
+
+function stableStringify(value: any): string {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
+  const keys = Object.keys(value)
+    .filter((k) => value[k] !== undefined)
+    .sort();
+  return `{${keys.map((k) => `${JSON.stringify(k)}:${stableStringify(value[k])}`).join(',')}}`;
+}
+
+/** Deux documents `data` sont équivalents hors horodatage de modification et ordre des clés. */
+export function isSameBusinessData(a: any, b: any): boolean {
+  if (!a || !b) return false;
+  const strip = (o: any) => {
+    const { updatedAt, updated_at, ...rest } = o || {};
+    return rest;
+  };
+  return stableStringify(strip(a)) === stableStringify(strip(b));
+}
+
+/**
  * Without a session the database returns no rows (RLS) and refuses every write, so the round trip
  * is skipped: the login page used to fire nine empty reads and a rejected write on every visit.
  * If the session cannot be read, the request goes ahead as before.
@@ -84,6 +118,97 @@ async function hasSupabaseSession(): Promise<boolean> {
   } catch {
     return true;
   }
+}
+
+// Mappeurs ligne SQL -> entité applicative (partagés par le fetch complet et les événements temps réel)
+const asData = (row: any) => (row?.data && typeof row.data === 'object' ? row.data : {});
+
+export function mapVehicleRow(row: any): Vehicle {
+  const d = asData(row);
+  return {
+    ...d,
+    id: row.id,
+    brand: row.brand || d.brand || '',
+    model: row.model || d.model || '',
+    plate: row.plate || d.plate || '',
+    fuelType: row.fuel_type || d.fuelType || 'Essence',
+    status: row.status || d.status || 'available',
+    currentKm: Number(row.current_km ?? d.currentKm ?? 0),
+    dailyRate: Number(row.daily_rate ?? d.dailyRate ?? 0),
+    assignedManagerId: row.assigned_manager_id || d.assignedManagerId,
+    createdBy: row.created_by || d.createdBy,
+    approvalStatus: row.approval_status || d.approvalStatus || 'approved',
+    updatedAt: row.updated_at || d.updatedAt,
+  };
+}
+
+export function mapClientRow(row: any): Client {
+  const d = asData(row);
+  return {
+    ...d,
+    id: row.id,
+    firstName: row.first_name || d.firstName || '',
+    lastName: row.last_name || d.lastName || '',
+    docType: row.doc_type || d.docType || 'CIN',
+    docNumber: row.doc_number || d.docNumber || '',
+    phone: row.phone || d.phone || '',
+    email: row.email || d.email || '',
+    contractCount: Number(row.contract_count ?? d.contractCount ?? 0),
+    assignedManagerId: row.assigned_manager_id || d.assignedManagerId,
+    createdBy: row.created_by || d.createdBy,
+    updatedAt: row.updated_at || d.updatedAt,
+  };
+}
+
+export function mapDriverRow(row: any): Driver {
+  const d = asData(row);
+  return {
+    ...d,
+    id: row.id,
+    name: row.name || d.name || '',
+    licenseNumber: row.driving_license || d.licenseNumber || '',
+    phone: row.phone || d.phone || '',
+    email: row.email || d.email || '',
+    assignedManagerId: row.assigned_manager_id || d.assignedManagerId,
+    createdBy: row.created_by || d.createdBy,
+  };
+}
+
+export function mapContractRow(row: any): Contract {
+  const d = asData(row);
+  return {
+    ...d,
+    id: row.id,
+    contractNumber: row.contract_number || d.contractNumber || '',
+    status: row.status || d.status || 'draft',
+    clientId: row.client_id || d.clientId || '',
+    vehicleId: row.vehicle_id || d.vehicleId || '',
+    startDate: row.start_date || d.startDate || '',
+    endDate: row.end_date || d.endDate || '',
+    totalAmount: Number(row.total_amount ?? d.totalAmount ?? 0),
+    depositAmount: Number(row.deposit_amount ?? d.depositAmount ?? 0),
+    assignedManagerId: row.assigned_manager_id || d.assignedManagerId,
+    assignedManagerName: row.assigned_manager_name || d.assignedManagerName,
+    managerDisplayName: row.manager_display_name || d.managerDisplayName,
+    managerPhone: row.manager_phone || d.managerPhone,
+    createdBy: row.created_by || d.createdBy,
+    updatedAt: row.updated_at || d.updatedAt,
+  };
+}
+
+export function mapDepositRow(row: any): DepositRecord {
+  const d = asData(row);
+  return {
+    ...d,
+    id: row.id,
+    contractId: row.contract_id || d.contractId || '',
+    clientName: row.client_name || d.clientName || '',
+    amount: Number(row.amount ?? d.amount ?? 0),
+    status: row.status || d.status || 'pending',
+    assignedManagerId: row.assigned_manager_id || d.assignedManagerId,
+    createdBy: row.created_by || d.createdBy,
+    updatedAt: row.updated_at || d.updatedAt,
+  };
 }
 
 /**
@@ -162,89 +287,21 @@ export async function fetchRemoteAgencyDataFromSupabase(): Promise<MorvelloCloud
     const aiSettings = agencyDataObj?.aiSettings;
 
     // 3. Mapping des tables normalisées (filtrées nativement par les politiques RLS PostgreSQL)
-    const vehicles: Vehicle[] = (vehiclesRes.data || []).map((row: any) => {
-      const d = row.data && typeof row.data === 'object' ? row.data : {};
-      return {
-        ...d,
-        id: row.id,
-        brand: row.brand || d.brand || '',
-        model: row.model || d.model || '',
-        plate: row.plate || d.plate || '',
-        fuelType: row.fuel_type || d.fuelType || 'Essence',
-        status: row.status || d.status || 'available',
-        currentKm: Number(row.current_km ?? d.currentKm ?? 0),
-        dailyRate: Number(row.daily_rate ?? d.dailyRate ?? 0),
-        assignedManagerId: row.assigned_manager_id || d.assignedManagerId,
-        createdBy: row.created_by || d.createdBy,
-        approvalStatus: row.approval_status || d.approvalStatus || 'approved',
-      };
-    });
+    const vehicles: Vehicle[] = (vehiclesRes.data || []).map(mapVehicleRow);
+    const clients: Client[] = (clientsRes.data || []).map(mapClientRow);
+    const drivers: Driver[] = (driversRes.data || []).map(mapDriverRow);
+    const contracts: Contract[] = (contractsRes.data || []).map(mapContractRow);
+    const deposits: DepositRecord[] = (depositsRes.data || []).map(mapDepositRow);
 
-    const clients: Client[] = (clientsRes.data || []).map((row: any) => {
-      const d = row.data && typeof row.data === 'object' ? row.data : {};
-      return {
-        ...d,
-        id: row.id,
-        firstName: row.first_name || d.firstName || '',
-        lastName: row.last_name || d.lastName || '',
-        docType: row.doc_type || d.docType || 'CIN',
-        docNumber: row.doc_number || d.docNumber || '',
-        phone: row.phone || d.phone || '',
-        email: row.email || d.email || '',
-        contractCount: Number(row.contract_count ?? d.contractCount ?? 0),
-        assignedManagerId: row.assigned_manager_id || d.assignedManagerId,
-        createdBy: row.created_by || d.createdBy,
-      };
-    });
-
-    const drivers: Driver[] = (driversRes.data || []).map((row: any) => {
-      const d = row.data && typeof row.data === 'object' ? row.data : {};
-      return {
-        ...d,
-        id: row.id,
-        name: row.name || d.name || '',
-        licenseNumber: row.driving_license || d.licenseNumber || '',
-        phone: row.phone || d.phone || '',
-        email: row.email || d.email || '',
-        assignedManagerId: row.assigned_manager_id || d.assignedManagerId,
-        createdBy: row.created_by || d.createdBy,
-      };
-    });
-
-    const contracts: Contract[] = (contractsRes.data || []).map((row: any) => {
-      const d = row.data && typeof row.data === 'object' ? row.data : {};
-      return {
-        ...d,
-        id: row.id,
-        contractNumber: row.contract_number || d.contractNumber || '',
-        status: row.status || d.status || 'draft',
-        clientId: row.client_id || d.clientId || '',
-        vehicleId: row.vehicle_id || d.vehicleId || '',
-        startDate: row.start_date || d.startDate || '',
-        endDate: row.end_date || d.endDate || '',
-        totalAmount: Number(row.total_amount ?? d.totalAmount ?? 0),
-        depositAmount: Number(row.deposit_amount ?? d.depositAmount ?? 0),
-        assignedManagerId: row.assigned_manager_id || d.assignedManagerId,
-        assignedManagerName: row.assigned_manager_name || d.assignedManagerName,
-        managerDisplayName: row.manager_display_name || d.managerDisplayName,
-        managerPhone: row.manager_phone || d.managerPhone,
-        createdBy: row.created_by || d.createdBy,
-      };
-    });
-
-    const deposits: DepositRecord[] = (depositsRes.data || []).map((row: any) => {
-      const d = row.data && typeof row.data === 'object' ? row.data : {};
-      return {
-        ...d,
-        id: row.id,
-        contractId: row.contract_id || d.contractId || '',
-        clientName: row.client_name || d.clientName || '',
-        amount: Number(row.amount ?? d.amount ?? 0),
-        status: row.status || d.status || 'pending',
-        assignedManagerId: row.assigned_manager_id || d.assignedManagerId,
-        createdBy: row.created_by || d.createdBy,
-      };
-    });
+    // Une table dont la lecture a échoué ne doit jamais être interprétée comme « vide » :
+    // elle est exclue du remplacement autoritaire côté client.
+    const authoritative = {
+      vehicles: !vehiclesRes.error,
+      clients: !clientsRes.error,
+      drivers: !driversRes.error,
+      contracts: !contractsRes.error,
+      deposits: !depositsRes.error,
+    };
 
     // 3. Extraction des profils utilisateurs :
     // - Profils complets (avec rôle et permissions RBAC) retournés pour l'utilisateur connecté ou l'administrateur
@@ -322,6 +379,7 @@ export async function fetchRemoteAgencyDataFromSupabase(): Promise<MorvelloCloud
       auditLogs: auditLogs.length > 0 ? auditLogs : undefined,
       updatedAt: agencyDataRes.data?.updated_at || new Date().toISOString(),
       updatedBy: agencyDataRes.data?.updated_by || 'supabase',
+      authoritative,
     };
   } catch (err: any) {
     if (isAbortException(err)) return null;
@@ -426,9 +484,28 @@ export async function saveRemoteAgencyDataToSupabase(
  * Subscribes to changes on normalized tables and agency_data to maintain
  * synchronized, RLS-filtered state across multiple workstations.
  */
+export type RealtimeEntityTable = 'vehicles' | 'clients' | 'drivers' | 'contracts' | 'deposits';
+
+/** Événement ligne par ligne : un enregistrement inséré/modifié (`upsert`) ou supprimé (`delete`). */
+export interface RemoteRowEvent {
+  table: RealtimeEntityTable;
+  type: 'upsert' | 'delete';
+  id: string;
+  record?: Vehicle | Client | Driver | Contract | DepositRecord;
+}
+
+const ROW_MAPPERS: Record<RealtimeEntityTable, (row: any) => any> = {
+  vehicles: mapVehicleRow,
+  clients: mapClientRow,
+  drivers: mapDriverRow,
+  contracts: mapContractRow,
+  deposits: mapDepositRow,
+};
+
 export function subscribeToRemoteAgencyDataFromSupabase(
   onData: (data: MorvelloCloudData) => void,
-  onError?: (err: any) => void
+  onError?: (err: any) => void,
+  onRowEvent?: (event: RemoteRowEvent) => void
 ): () => void {
   if (!isSupabaseConfigured) {
     return () => {};
@@ -438,6 +515,7 @@ export function subscribeToRemoteAgencyDataFromSupabase(
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     let disposed = false;
     let sessionRevision = 0;
+    let hasBeenSubscribed = false;
     const triggerRefetch = () => {
       if (disposed) return;
       if (debounceTimer) clearTimeout(debounceTimer);
@@ -453,6 +531,7 @@ export function subscribeToRemoteAgencyDataFromSupabase(
         }
       }, 300);
     };
+    activeRefetch = triggerRefetch;
 
     // RLS reads before login are empty. Re-fetch after authentication even if
     // no database row changes. Defer the request outside the auth callback.
@@ -462,42 +541,63 @@ export function subscribeToRemoteAgencyDataFromSupabase(
       if (session?.user) triggerRefetch();
     });
 
+    // Applique l'événement ligne par ligne (sans tout relire). Si le contenu de l'événement est
+    // inutilisable, ou si aucun gestionnaire ligne n'est fourni, on retombe sur le refetch complet.
+    const handleEntityChange = (table: RealtimeEntityTable) => (payload: any) => {
+      if (disposed) return;
+      try {
+        if (!onRowEvent) {
+          triggerRefetch();
+          return;
+        }
+        const eventType = payload?.eventType;
+        if (eventType === 'DELETE') {
+          const id = payload?.old?.id;
+          if (id) onRowEvent({ table, type: 'delete', id: String(id) });
+          else triggerRefetch();
+        } else if ((eventType === 'INSERT' || eventType === 'UPDATE') && payload?.new?.id) {
+          onRowEvent({
+            table,
+            type: 'upsert',
+            id: String(payload.new.id),
+            record: ROW_MAPPERS[table](payload.new),
+          });
+        } else {
+          triggerRefetch();
+        }
+        // Les champs dérivés (compteurs de contrats d'un client, statut d'un véhicule) sont recalculés
+        // par la réconciliation du refetch complet : on le planifie après un événement de contrat.
+        if (table === 'contracts') triggerRefetch();
+      } catch (rowErr) {
+        console.warn('[Supabase Realtime] Row event notice:', rowErr);
+        triggerRefetch();
+      }
+    };
+
     const channel = supabase
       .channel('public:morvello_realtime_sync')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'agency_data' },
-        triggerRefetch
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'contracts' },
-        triggerRefetch
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'vehicles' },
-        triggerRefetch
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'clients' },
-        triggerRefetch
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'deposits' },
-        triggerRefetch
-      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'agency_data' }, triggerRefetch)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, triggerRefetch)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'contracts' }, handleEntityChange('contracts'))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'vehicles' }, handleEntityChange('vehicles'))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'clients' }, handleEntityChange('clients'))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'drivers' }, handleEntityChange('drivers'))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'deposits' }, handleEntityChange('deposits'))
       .subscribe((status, err) => {
         if (err && onError) {
           onError(err);
+        }
+        if (status === 'SUBSCRIBED') {
+          // Après une reconnexion, des événements ont pu être manqués : resynchronisation complète.
+          if (hasBeenSubscribed) triggerRefetch();
+          hasBeenSubscribed = true;
         }
       });
 
     return () => {
       disposed = true;
       sessionRevision += 1;
+      if (activeRefetch === triggerRefetch) activeRefetch = null;
       authListener.subscription.unsubscribe();
       if (debounceTimer) clearTimeout(debounceTimer);
       try {
@@ -635,18 +735,25 @@ export function extractMissingColumnFromError(error: any): string | null {
   return null;
 }
 
+interface ExistingRow {
+  id: string;
+  assigned_manager_id?: string | null;
+  created_by?: string | null;
+  data?: any;
+}
+
 /**
  * Lit les identifiants et métadonnées existants de façon résiliente aux colonnes manquantes
  */
 async function fetchExistingRows(
   table: string,
   ids: string[]
-): Promise<Map<string, { id: string; assigned_manager_id?: string | null; created_by?: string | null }>> {
-  const map = new Map<string, { id: string; assigned_manager_id?: string | null; created_by?: string | null }>();
+): Promise<Map<string, ExistingRow>> {
+  const map = new Map<string, ExistingRow>();
   if (!ids.length) return map;
 
   const requestWithManagerCol = !isColumnMissing(table, 'assigned_manager_id');
-  const cols = requestWithManagerCol ? 'id, assigned_manager_id, created_by' : 'id, created_by';
+  const cols = requestWithManagerCol ? 'id, assigned_manager_id, created_by, data' : 'id, created_by, data';
 
   try {
     let res = await supabase.from(table).select(cols).in('id', ids);
@@ -654,7 +761,7 @@ async function fetchExistingRows(
       if (res.error.code === 'PGRST204' || res.error.message?.includes('schema cache')) {
         const missing = extractMissingColumnFromError(res.error) || 'assigned_manager_id';
         markColumnMissing(table, missing);
-        const retryRes = await supabase.from(table).select('id, created_by').in('id', ids);
+        const retryRes = await supabase.from(table).select('id, created_by, data').in('id', ids);
         if (retryRes.data) {
           retryRes.data.forEach((r: any) => map.set(r.id, r));
         }
@@ -1678,6 +1785,15 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
           currentAuthUid ||
           'system';
 
+        const vehicleData = {
+          ...v,
+          assignedManagerId: assignedMgrId,
+          createdBy: createdBy,
+        };
+        // Ligne inchangée : on ne la réécrit pas (sinon updated_at serait réinitialisé et
+        // provoquerait de faux conflits chez les autres utilisateurs).
+        if (existing && isSameBusinessData(existing.data, vehicleData)) continue;
+
         const { error: vehicleErr } = await resilientUpsert('vehicles', {
           id: v.id,
           brand: v.brand,
@@ -1690,11 +1806,7 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
           assigned_manager_id: assignedMgrId,
           created_by: createdBy,
           approval_status: v.approvalStatus || 'approved',
-          data: {
-            ...v,
-            assignedManagerId: assignedMgrId,
-            createdBy: createdBy,
-          },
+          data: vehicleData,
           updated_at: new Date().toISOString(),
         });
 
@@ -1763,6 +1875,7 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
           assignedManagerId: assignedMgrId,
           createdBy: createdBy,
         };
+        if (existing && isSameBusinessData(existing.data, clientPayload)) continue;
 
         const { error: clientUpsertErr } = await resilientUpsert('clients', {
           id: c.id,
@@ -1880,6 +1993,13 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
           }
         }
 
+        const contractData = {
+          ...cnt,
+          assignedManagerId: assignedMgrId,
+          createdBy: createdBy,
+        };
+        if (existing && isSameBusinessData(existing.data, contractData)) continue;
+
         const { error: contractErr } = await resilientUpsert('contracts', {
           id: cnt.id,
           contract_number: cnt.contractNumber,
@@ -1892,11 +2012,7 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
           deposit_amount: cnt.depositAmount,
           assigned_manager_id: assignedMgrId,
           created_by: createdBy,
-          data: {
-            ...cnt,
-            assignedManagerId: assignedMgrId,
-            createdBy: createdBy,
-          },
+          data: contractData,
           updated_at: new Date().toISOString(),
         });
 
@@ -1977,6 +2093,13 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
           currentAuthUid ||
           'system';
 
+        const depositData = {
+          ...dep,
+          assignedManagerId: assignedMgrId,
+          createdBy: createdBy,
+        };
+        if (existing && isSameBusinessData(existing.data, depositData)) continue;
+
         const { error: depositErr } = await resilientUpsert('deposits', {
           id: dep.id,
           contract_id: dep.contractId,
@@ -1986,11 +2109,7 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
           method: dep.method,
           assigned_manager_id: assignedMgrId,
           created_by: createdBy,
-          data: {
-            ...dep,
-            assignedManagerId: assignedMgrId,
-            createdBy: createdBy,
-          },
+          data: depositData,
           updated_at: new Date().toISOString(),
         });
 

@@ -32,8 +32,25 @@ import {
   initialDeposits,
 } from '../data/mockData';
 import { initialTermsVersion } from '../data/termsData';
-import { fetchRemoteAgencyData, saveRemoteAgencyData, subscribeToRemoteAgencyData } from '../lib/firestoreSync';
-import { syncUpdateDeposit } from '../lib/recordSync';
+import {
+  fetchRemoteAgencyData,
+  saveRemoteAgencyData,
+  subscribeToRemoteAgencyData,
+  MorvelloCloudData,
+  RemoteRowEvent,
+} from '../lib/firestoreSync';
+import { syncUpdateDeposit, isPendingCreate } from '../lib/recordSync';
+import { mergeAuthoritative, upsertById, removeById } from '../utils/syncMerge';
+import {
+  PropagationScope,
+  DEFAULT_PROPAGATION_SCOPE,
+  planClientPropagation,
+  planVehiclePropagation,
+  isContractInScope,
+  contractBelongsToClient,
+  buildDepositClientPatch,
+  buildDepositVehiclePatch,
+} from '../utils/snapshotPropagation';
 import { isAbortException } from '../initErrorHandling';
 import { resolveClientManagerAndVehicle, ClientManagerAssignment } from '../utils/clientManagerUtils';
 import {
@@ -111,11 +128,15 @@ export interface AppContextType {
   deleteTermsClause: (number: string) => void;
 
   addClient: (client: Omit<Client, 'id' | 'createdAt' | 'contractCount'>) => Client;
-  updateClient: (id: string, data: Partial<Client>) => void;
+  /**
+   * options.propagate : répercussion sur les contrats/cautions qui portent une copie de la fiche
+   * 'open' (défaut) = contrats non clôturés · 'all' = tous · 'none' = garder les valeurs d'origine.
+   */
+  updateClient: (id: string, data: Partial<Client>, options?: { propagate?: PropagationScope }) => void;
   deleteClient: (id: string) => { success: boolean; error?: string };
   addDriver: (driver: Omit<Driver, 'id' | 'createdAt'>) => Driver;
   addVehicle: (vehicle: Omit<Vehicle, 'id'>) => Vehicle;
-  updateVehicle: (id: string, data: Partial<Vehicle>) => void;
+  updateVehicle: (id: string, data: Partial<Vehicle>, options?: { propagate?: PropagationScope }) => void;
   approveVehicle: (vehicleId: string, assignedManagerId?: string) => void;
   rejectVehicle: (vehicleId: string, reason?: string) => void;
   assignVehicleManager: (vehicleId: string, managerId: string, managerName: string) => void;
@@ -196,6 +217,132 @@ export interface AppContextType {
   getClientAssignedManager: (client: Client) => ClientManagerAssignment;
 }
 
+interface SyncContexts {
+  vehiclesCtx: ReturnType<typeof useVehicles>;
+  clientsDrivers: ReturnType<typeof useClientsDrivers>;
+  contractsCtx: ReturnType<typeof useContracts>;
+  depositsCtx: ReturnType<typeof useDeposits>;
+  company: ReturnType<typeof useCompany>;
+  auth: ReturnType<typeof useAuth>;
+}
+
+const sameDocNumber = (a: Client, b: Client) =>
+  !!a.docNumber && !!b.docNumber && a.docNumber.trim().toUpperCase() === b.docNumber.trim().toUpperCase();
+
+/**
+ * Applique l'état distant : la base fait foi (liste distante = liste locale), sauf créations locales
+ * en attente d'écriture. Une table dont la lecture a échoué n'est jamais traitée comme vide.
+ */
+function applyRemoteAgencyState(remote: MorvelloCloudData, ctx: SyncContexts): void {
+  const ok = remote.authoritative || {};
+  const users = remote.users && remote.users.length > 0 ? remote.users : ctx.auth.users;
+
+  // 1. Contrats
+  let effectiveContracts = ctx.contractsCtx.contracts;
+  if (ok.contracts !== false) {
+    const remoteContracts = remote.contracts || [];
+    effectiveContracts = mergeAuthoritative(
+      remoteContracts,
+      ctx.contractsCtx.contracts,
+      (id) => isPendingCreate('contracts', id),
+      (r, l) => !!r.contractNumber && r.contractNumber === l.contractNumber
+    );
+    ctx.contractsCtx.setContractsListByUpdater((prev) =>
+      mergeAuthoritative(
+        remoteContracts,
+        prev,
+        (id) => isPendingCreate('contracts', id),
+        (r, l) => !!r.contractNumber && r.contractNumber === l.contractNumber
+      )
+    );
+  }
+
+  // 2. Véhicules (+ statut réconcilié avec les contrats)
+  let effectiveVehicles = ctx.vehiclesCtx.vehicles;
+  if (ok.vehicles !== false) {
+    const remoteVehicles = remote.vehicles || [];
+    const plateMatch = (r: Vehicle, l: Vehicle) =>
+      !!r.plate && !!l.plate && r.plate.trim().toUpperCase() === l.plate.trim().toUpperCase();
+    const merged = mergeAuthoritative(
+      remoteVehicles,
+      ctx.vehiclesCtx.vehicles,
+      (id) => isPendingCreate('vehicles', id),
+      plateMatch
+    );
+    effectiveVehicles = reconcileVehiclesWithContracts(merged, effectiveContracts);
+    ctx.vehiclesCtx.setVehiclesListByUpdater(() => effectiveVehicles);
+  }
+
+  // 3. Clients (+ réconciliation avec les contrats : compteurs, documents, véhicule loué)
+  if (ok.clients !== false) {
+    const remoteClients = remote.clients || [];
+    const merged = mergeAuthoritative(
+      remoteClients,
+      ctx.clientsDrivers.clients,
+      (id) => isPendingCreate('clients', id),
+      sameDocNumber
+    );
+    const reconciled = reconcileClientsWithContracts(merged, effectiveContracts, effectiveVehicles, users);
+    ctx.clientsDrivers.setClientsListByUpdater(() => reconciled);
+  }
+
+  // 4. Cautions
+  if (ok.deposits !== false) {
+    const remoteDeposits = remote.deposits || [];
+    ctx.depositsCtx.setDepositsListByUpdater((prev) =>
+      mergeAuthoritative(remoteDeposits, prev, (id) => isPendingCreate('deposits', id))
+    );
+  }
+
+  // 5. Conducteurs
+  if (ok.drivers !== false) {
+    const remoteDrivers = remote.drivers || [];
+    ctx.clientsDrivers.setDriversListByUpdater((prev) =>
+      mergeAuthoritative(remoteDrivers, prev, (id) => isPendingCreate('drivers', id))
+    );
+  }
+
+  // 6. Configuration d'agence
+  if (remote.companySettings) {
+    ctx.company.setCompanySettingsList(
+      reconcileCompanySettingsWithContracts(remote.companySettings, effectiveContracts)
+    );
+  }
+  if (remote.termsVersion) ctx.company.setTermsVersionList(remote.termsVersion);
+  if (remote.aiSettings) ctx.company.setAiSettingsList(remote.aiSettings);
+  if (remote.auditLogs && remote.auditLogs.length > 0) ctx.company.setAuditLogsList(remote.auditLogs);
+  if (remote.users && remote.users.length > 0) ctx.auth.setUsersList(remote.users);
+}
+
+/** Applique un événement temps réel sur UNE ligne (insertion/modification/suppression). */
+function applyRemoteRowEvent(event: RemoteRowEvent, ctx: SyncContexts): void {
+  const apply = <T extends { id: string }>(prev: T[]): T[] => {
+    if (event.type === 'delete') return removeById(prev, event.id);
+    const incoming = event.record as unknown as T;
+    // On garde les champs purement locaux (ex. champs dérivés) et on laisse la base écraser le reste.
+    const current = prev.find((p) => p.id === event.id);
+    return upsertById(prev, current ? { ...current, ...incoming } : incoming);
+  };
+
+  switch (event.table) {
+    case 'contracts':
+      ctx.contractsCtx.setContractsListByUpdater((prev) => apply<Contract>(prev));
+      break;
+    case 'clients':
+      ctx.clientsDrivers.setClientsListByUpdater((prev) => apply<Client>(prev));
+      break;
+    case 'vehicles':
+      ctx.vehiclesCtx.setVehiclesListByUpdater((prev) => apply<Vehicle>(prev));
+      break;
+    case 'drivers':
+      ctx.clientsDrivers.setDriversListByUpdater((prev) => apply<Driver>(prev));
+      break;
+    case 'deposits':
+      ctx.depositsCtx.setDepositsListByUpdater((prev) => apply<DepositRecord>(prev));
+      break;
+  }
+}
+
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 const AppContextInner: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -212,119 +359,12 @@ const AppContextInner: React.FC<{ children: React.ReactNode }> = ({ children }) 
     try {
       const remote = await fetchRemoteAgencyData();
 
-      // Intelligent Bidirectional Reconciliation:
-      // Preserves existing local items (e.g. contracts or clients created in this browser)
-      // while pulling remote cloud records so no data is ever lost across browsers.
-      let shouldPushBack = false;
-
-      // 1. Contracts Merge
-      const localContracts = contractsCtx.contracts;
-      const remoteContracts = remote?.contracts || [];
-      const mergedContracts = [...remoteContracts];
-      for (const lc of localContracts) {
-        if (!mergedContracts.some((rc) => rc.id === lc.id || (rc.contractNumber && rc.contractNumber === lc.contractNumber))) {
-          mergedContracts.push(lc);
-          shouldPushBack = true;
-        }
-      }
-      if (mergedContracts.length > 0) {
-        contractsCtx.setContractsList(mergedContracts);
-      }
-
-      // 2. Vehicles Merge & Reconcile with active contracts
-      const localVehicles = vehiclesCtx.vehicles;
-      const remoteVehicles = remote?.vehicles || [];
-      const mergedVehicles = [...remoteVehicles];
-      for (const lv of localVehicles) {
-        if (!mergedVehicles.some((rv) => rv.id === lv.id || (rv.plate && lv.plate && rv.plate.trim().toUpperCase() === lv.plate.trim().toUpperCase()))) {
-          mergedVehicles.push(lv);
-          shouldPushBack = true;
-        }
-      }
-      const rawVehicles = mergedVehicles.length > 0 ? mergedVehicles : localVehicles;
-      const reconciledVehicles = reconcileVehiclesWithContracts(rawVehicles, mergedContracts);
-      if (reconciledVehicles.length > 0) {
-        vehiclesCtx.setVehiclesList(reconciledVehicles);
-      }
-
-      // 3. Clients Merge & Reconcile with contracts
-      const localClients = clientsDrivers.clients;
-      const remoteClients = remote?.clients || [];
-      const mergedClients = [...remoteClients];
-      for (const lcli of localClients) {
-        if (!mergedClients.some((rcli) => rcli.id === lcli.id || (rcli.docNumber && lcli.docNumber && rcli.docNumber.trim().toUpperCase() === lcli.docNumber.trim().toUpperCase()))) {
-          mergedClients.push(lcli);
-          shouldPushBack = true;
-        }
-      }
-      const rawClients = mergedClients.length > 0 ? mergedClients : localClients;
-      const reconciledClients = reconcileClientsWithContracts(
-        rawClients,
-        mergedContracts,
-        rawVehicles,
-        remote?.users || auth.users
-      );
-      if (reconciledClients.length > mergedClients.length) {
-        shouldPushBack = true;
-      }
-      if (reconciledClients.length > 0) {
-        clientsDrivers.setClientsList(reconciledClients);
-      }
-
-      // 4. Deposits Merge
-      const localDeposits = depositsCtx.deposits;
-      const remoteDeposits = remote?.deposits || [];
-      const mergedDeposits = [...remoteDeposits];
-      for (const ld of localDeposits) {
-        if (!mergedDeposits.some((rd) => rd.id === ld.id)) {
-          mergedDeposits.push(ld);
-          shouldPushBack = true;
-        }
-      }
-      if (mergedDeposits.length > 0) {
-        depositsCtx.setDepositsList(mergedDeposits);
-      }
-
-      // 5. Drivers
-      if (remote?.drivers && remote.drivers.length > 0) {
-        clientsDrivers.setDriversList(remote.drivers);
-      }
-
-      // 6. Company Settings
-      const activeSettings = remote?.companySettings || company.companySettings;
-      const reconciledSettings = reconcileCompanySettingsWithContracts(
-        activeSettings,
-        mergedContracts
-      );
-      company.setCompanySettingsList(reconciledSettings);
-
-      if (remote?.termsVersion) {
-        company.setTermsVersionList(remote.termsVersion);
-      }
-      if (remote?.aiSettings) {
-        company.setAiSettingsList(remote.aiSettings);
-      }
-      if (remote?.auditLogs && remote.auditLogs.length > 0) {
-        company.setAuditLogsList(remote.auditLogs);
-      }
-      if (remote?.users && remote.users.length > 0) {
-        auth.setUsersList(remote.users);
-      }
-
-      // If local browser held records that cloud lacked, or if cloud was not populated:
-      if (shouldPushBack || !remote || remoteContracts.length < mergedContracts.length) {
-        saveRemoteAgencyData({
-          vehicles: reconciledVehicles,
-          clients: reconciledClients,
-          drivers: clientsDrivers.drivers,
-          contracts: mergedContracts,
-          deposits: mergedDeposits,
-          companySettings: reconciledSettings,
-          termsVersion: remote?.termsVersion || company.termsVersion,
-          aiSettings: remote?.aiSettings || company.aiSettings,
-          auditLogs: remote?.auditLogs || company.auditLogs,
-          users: remote?.users || auth.users,
-        }).catch((err) => console.warn('Automatic cloud synchronization push notice:', err));
+      // LA BASE FAIT FOI : la liste distante (filtrée par RLS) remplace l'état local. Les
+      // enregistrements présents seulement en local sont conservés uniquement s'ils sont des
+      // créations dont l'écriture n'a pas encore abouti. Plus de « push-back » automatique :
+      // il ressuscitait les éléments supprimés par un autre utilisateur.
+      if (remote) {
+        applyRemoteAgencyState(remote, contextsRef.current);
       }
 
       const syncTime = new Date().toISOString();
@@ -337,7 +377,7 @@ const AppContextInner: React.FC<{ children: React.ReactNode }> = ({ children }) 
       company.setCloudSyncStatus('error');
       return false;
     }
-  }, [company, auth, vehiclesCtx, clientsDrivers, depositsCtx, contractsCtx]);
+  }, [company]);
 
   const pushToCloud = useCallback(async (): Promise<boolean> => {
     company.setCloudSyncStatus('syncing');
@@ -395,7 +435,8 @@ const AppContextInner: React.FC<{ children: React.ReactNode }> = ({ children }) 
     };
   });
 
-  // Real-time multi-workstation sync using Firestore onSnapshot
+  // Synchronisation temps réel multi-postes (Supabase Realtime) : les événements sont appliqués
+  // ligne par ligne ; un refetch complet ne sert qu'à la reconnexion, aux conflits et aux champs dérivés.
   useEffect(() => {
     let active = true;
 
@@ -405,105 +446,11 @@ const AppContextInner: React.FC<{ children: React.ReactNode }> = ({ children }) 
       console.warn('Initial cloud sync notice:', err);
     });
 
-    // Subscribe to real-time Firestore updates across all agency workstations
     const unsubscribe = subscribeToRemoteAgencyData(
       (remote) => {
         if (!active || !remote) return;
         const ctx = contextsRef.current;
-
-        let effectiveContracts = ctx.contractsCtx.contracts;
-        if (remote.contracts && remote.contracts.length > 0) {
-          const current = ctx.contractsCtx.contracts;
-          const merged = [...remote.contracts];
-          for (const c of current) {
-            if (!merged.some((m) => m.id === c.id || (m.contractNumber && m.contractNumber === c.contractNumber))) {
-              merged.push(c);
-            }
-          }
-          effectiveContracts = merged;
-          ctx.contractsCtx.setContractsList(merged);
-        }
-
-        if (remote.clients && remote.clients.length > 0) {
-          const current = ctx.clientsDrivers.clients;
-          const merged = [...remote.clients];
-          for (const c of current) {
-            if (!merged.some((m) => m.id === c.id || (m.docNumber && c.docNumber && m.docNumber.trim().toUpperCase() === c.docNumber.trim().toUpperCase()))) {
-              merged.push(c);
-            }
-          }
-          const reconciledCli = reconcileClientsWithContracts(
-            merged,
-            effectiveContracts,
-            ctx.vehiclesCtx.vehicles,
-            ctx.auth.users
-          );
-          ctx.clientsDrivers.setClientsList(reconciledCli);
-        } else if (effectiveContracts.length > 0) {
-          const current = ctx.clientsDrivers.clients;
-          const reconciledCli = reconcileClientsWithContracts(
-            current,
-            effectiveContracts,
-            ctx.vehiclesCtx.vehicles,
-            ctx.auth.users
-          );
-          ctx.clientsDrivers.setClientsList(reconciledCli);
-        }
-
-        if (remote.vehicles && remote.vehicles.length > 0) {
-          const current = ctx.vehiclesCtx.vehicles;
-          const merged = [...remote.vehicles];
-          for (const v of current) {
-            if (!merged.some((m) => m.id === v.id || (m.plate && v.plate && m.plate.trim().toUpperCase() === v.plate.trim().toUpperCase()))) {
-              merged.push(v);
-            }
-          }
-          const reconciled = reconcileVehiclesWithContracts(merged, effectiveContracts);
-          ctx.vehiclesCtx.setVehiclesList(reconciled);
-        } else {
-          const current = ctx.vehiclesCtx.vehicles;
-          const reconciled = reconcileVehiclesWithContracts(current, effectiveContracts);
-          ctx.vehiclesCtx.setVehiclesList(reconciled);
-        }
-
-        if (remote.deposits && remote.deposits.length > 0) {
-          const current = ctx.depositsCtx.deposits;
-          const merged = [...remote.deposits];
-          for (const d of current) {
-            if (!merged.some((m) => m.id === d.id)) {
-              merged.push(d);
-            }
-          }
-          ctx.depositsCtx.setDepositsList(merged);
-        }
-
-        if (remote.drivers && remote.drivers.length > 0) {
-          ctx.clientsDrivers.setDriversList(remote.drivers);
-        }
-
-        if (remote.companySettings) {
-          const contractsForReconcile =
-            remote.contracts && remote.contracts.length > 0
-              ? remote.contracts
-              : ctx.contractsCtx.contracts;
-          const reconciled = reconcileCompanySettingsWithContracts(
-            remote.companySettings,
-            contractsForReconcile
-          );
-          ctx.company.setCompanySettingsList(reconciled);
-        }
-        if (remote.termsVersion) {
-          ctx.company.setTermsVersionList(remote.termsVersion);
-        }
-        if (remote.aiSettings) {
-          ctx.company.setAiSettingsList(remote.aiSettings);
-        }
-        if (remote.auditLogs && remote.auditLogs.length > 0) {
-          ctx.company.setAuditLogsList(remote.auditLogs);
-        }
-        if (remote.users && remote.users.length > 0) {
-          ctx.auth.setUsersList(remote.users);
-        }
+        applyRemoteAgencyState(remote, ctx);
 
         const syncTime = remote.updatedAt || new Date().toISOString();
         ctx.company.setLastCloudSync(syncTime);
@@ -512,8 +459,12 @@ const AppContextInner: React.FC<{ children: React.ReactNode }> = ({ children }) 
       },
       (err) => {
         if (!active || isAbortException(err)) return;
-        console.warn('Real-time Firestore sync notice:', err);
+        console.warn('Real-time sync notice:', err);
         contextsRef.current.company.setCloudSyncStatus('error');
+      },
+      (event) => {
+        if (!active) return;
+        applyRemoteRowEvent(event, contextsRef.current);
       }
     );
 
@@ -608,6 +559,67 @@ const AppContextInner: React.FC<{ children: React.ReactNode }> = ({ children }) 
       syncContractDeposit(updated, data.depositAmount);
     }
     return updated;
+  };
+
+  // Modification d'une fiche client, avec répercussion (au choix) sur les contrats et cautions
+  // qui en portent une copie. Les autres postes reçoivent les contrats mis à jour en temps réel.
+  const updateClient = (id: string, data: Partial<Client>, options?: { propagate?: PropagationScope }) => {
+    const scope = options?.propagate ?? DEFAULT_PROPAGATION_SCOPE;
+    const existing = clientsDrivers.clients.find((c) => c.id === id);
+    clientsDrivers.updateClient(id, data);
+    if (!existing || scope === 'none') return;
+
+    const changes = planClientPropagation(contractsCtx.contracts, id, existing.docNumber, data, scope);
+    if (changes.length > 0) {
+      const name = `${data.firstName ?? existing.firstName} ${data.lastName ?? existing.lastName}`.trim();
+      contractsCtx.applySnapshotChanges(changes, `fiche client « ${name} » modifiée`);
+    }
+
+    // Cautions rattachées aux contrats concernés (nom, téléphone du client)
+    if (data.firstName === undefined && data.lastName === undefined && data.phone === undefined) return;
+    const scopedContractIds = new Set(
+      contractsCtx.contracts
+        .filter((c) => contractBelongsToClient(c, id, existing.docNumber) && isContractInScope(c, scope))
+        .map((c) => c.id)
+    );
+    for (const dep of depositsCtx.deposits) {
+      if (!scopedContractIds.has(dep.contractId)) continue;
+      const patch = buildDepositClientPatch(data, dep);
+      const differs = Object.entries(patch).some(([k, v]) => (dep as any)[k] !== v);
+      if (differs) depositsCtx.updateDeposit(dep.id, patch);
+    }
+  };
+
+  // Modification d'un véhicule, avec répercussion (au choix) sur les contrats et cautions.
+  const updateVehicle = (id: string, data: Partial<Vehicle>, options?: { propagate?: PropagationScope }) => {
+    const scope = options?.propagate ?? DEFAULT_PROPAGATION_SCOPE;
+    const existing = vehiclesCtx.vehicles.find((v) => v.id === id);
+    vehiclesCtx.updateVehicle(id, data);
+    if (!existing || scope === 'none') return;
+
+    const patch: Partial<Vehicle> = data.plate ? { ...data, plate: formatPlateFrench(data.plate) } : data;
+    const changes = planVehiclePropagation(contractsCtx.contracts, id, patch, scope);
+    if (changes.length > 0) {
+      const label = `${patch.brand ?? existing.brand} ${patch.model ?? existing.model} [${patch.plate ?? existing.plate}]`;
+      contractsCtx.applySnapshotChanges(changes, `véhicule ${label} modifié`);
+    }
+
+    if (patch.brand === undefined && patch.model === undefined && patch.plate === undefined) return;
+    const depPatch = buildDepositVehiclePatch({
+      brand: patch.brand ?? existing.brand,
+      model: patch.model ?? existing.model,
+      plate: patch.plate ?? existing.plate,
+    });
+    const scopedContractIds = new Set(
+      contractsCtx.contracts
+        .filter((c) => (c.vehicleId === id || c.vehicleSnapshot?.id === id) && isContractInScope(c, scope))
+        .map((c) => c.id)
+    );
+    for (const dep of depositsCtx.deposits) {
+      if (!scopedContractIds.has(dep.contractId)) continue;
+      const differs = Object.entries(depPatch).some(([k, v]) => (dep as any)[k] !== v);
+      if (differs) depositsCtx.updateDeposit(dep.id, depPatch);
+    }
   };
 
   const updateDepositAndSyncContract = useCallback((id: string, data: Partial<DepositRecord>) => {
@@ -761,7 +773,7 @@ const AppContextInner: React.FC<{ children: React.ReactNode }> = ({ children }) 
         updateTermsClause: (number, data) => company.updateTermsClause(number, data, auth.currentUser?.name),
         deleteTermsClause: (number) => company.deleteTermsClause(number, auth.currentUser?.name),
         addClient: clientsDrivers.addClient,
-        updateClient: clientsDrivers.updateClient,
+        updateClient,
         deleteClient: (id) =>
           clientsDrivers.deleteClient(
             id,
@@ -781,7 +793,7 @@ const AppContextInner: React.FC<{ children: React.ReactNode }> = ({ children }) 
           ),
         addDriver: clientsDrivers.addDriver,
         addVehicle: (vehicle) => vehiclesCtx.addVehicle(vehicle, auth.currentUser),
-        updateVehicle: vehiclesCtx.updateVehicle,
+        updateVehicle,
         approveVehicle: vehiclesCtx.approveVehicle,
         rejectVehicle: vehiclesCtx.rejectVehicle,
         assignVehicleManager: vehiclesCtx.assignVehicleManager,

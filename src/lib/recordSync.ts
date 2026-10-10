@@ -11,7 +11,12 @@ import {
   ContractInspection,
   User,
 } from '../types';
-import { resolveAssignedManagerForSupabase, reportSyncError, clearSyncError } from './supabaseSync';
+import {
+  resolveAssignedManagerForSupabase,
+  reportSyncError,
+  clearSyncError,
+  requestRemoteRefresh,
+} from './supabaseSync';
 import { resolveCanonicalUserId } from '../utils/identityMapping';
 
 // ==============================================================================
@@ -149,7 +154,193 @@ function parsePostgrestError(err: any): { message: string; code: string } {
   return { message, code };
 }
 
-// Mirror single record write to Firestore if authenticated in Firebase
+// ==============================================================================
+// CRÉATIONS EN ATTENTE (« pending »)
+// ==============================================================================
+// Un enregistrement créé localement mais pas encore (ou pas) écrit en base reste visible
+// jusqu'à ce que l'écriture réussisse. Tout le reste est remplacé par la base, qui fait foi.
+const STORAGE_PENDING_KEY = 'morvello_pending_creates_v1';
+
+function loadPendingCreates(): Set<string> {
+  if (typeof window === 'undefined') return new Set();
+  try {
+    const raw = localStorage.getItem(STORAGE_PENDING_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    return new Set(Array.isArray(arr) ? arr : []);
+  } catch {
+    return new Set();
+  }
+}
+
+const pendingCreates: Set<string> = loadPendingCreates();
+
+function persistPendingCreates(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(STORAGE_PENDING_KEY, JSON.stringify(Array.from(pendingCreates)));
+  } catch {
+    // Ignore storage error
+  }
+}
+
+export function markPendingCreate(table: string, id: string): void {
+  pendingCreates.add(`${table}:${id}`);
+  persistPendingCreates();
+}
+
+export function clearPendingCreate(table: string, id: string): void {
+  if (pendingCreates.delete(`${table}:${id}`)) persistPendingCreates();
+}
+
+export function isPendingCreate(table: string, id: string): boolean {
+  return pendingCreates.has(`${table}:${id}`);
+}
+
+// ==============================================================================
+// ÉCHEC D'ÉCRITURE : ANNULATION DE LA MODIFICATION OPTIMISTE + ALERTE
+// ==============================================================================
+// Les contextes appliquent la modification localement avant l'écriture. Si l'écriture échoue
+// (conflit, refus RLS, enregistrement supprimé…), on alerte l'utilisateur et on recharge la base :
+// comme la base fait foi, la modification locale est annulée sur tous les points d'appel.
+function reportWriteFailure(
+  table: string,
+  entityId: string,
+  res: { status: SyncStatus; error?: string; code?: string },
+  timestamp: string
+): void {
+  let message: string;
+  if (res.status === 'CONFLICT') {
+    message =
+      'Conflit : cet enregistrement a été modifié entre-temps par un autre utilisateur. ' +
+      'Votre modification a été annulée et les données ont été rafraîchies — veuillez la refaire.';
+  } else if (res.status === 'DENIED') {
+    message = `${res.error || 'Permission refusée.'} Votre modification a été annulée.`;
+  } else {
+    message = `Modification non enregistrée : ${res.error || 'erreur de synchronisation.'}`;
+  }
+  reportSyncError({ table, entityId, code: res.code, message, timestamp });
+  requestRemoteRefresh();
+}
+
+const CONFLICT_TOLERANCE_MS = 1500;
+
+interface AtomicUpdateOutcome {
+  success: boolean;
+  status: SyncStatus;
+  error: string;
+  code?: string;
+}
+
+const OK_OUTCOME: AtomicUpdateOutcome = { success: true, status: 'SYNCED', error: '' };
+
+/**
+ * Mise à jour fusionnée ATOMIQUE d'une ligne (colonnes + document JSON `data`) :
+ *  - refuse si la ligne a été modifiée par un autre utilisateur depuis `expectedUpdatedAt` (CONFLICT) ;
+ *  - l'UPDATE est conditionné à `updated_at` lu juste avant : si quelqu'un écrit entre-temps, 0 ligne
+ *    est modifiée, et on relit/fusionne à nouveau au lieu d'écraser (plus de « dernier écrit gagne »).
+ */
+async function atomicMergeUpdate(opts: {
+  table: 'vehicles' | 'clients' | 'contracts' | 'deposits';
+  id: string;
+  expectedUpdatedAt?: string;
+  timestamp: string;
+  buildFields: (currentData: Record<string, any>) => Record<string, any>;
+}): Promise<AtomicUpdateOutcome> {
+  const { table, id, expectedUpdatedAt, timestamp, buildFields } = opts;
+  const MAX_ATTEMPTS = 4;
+
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    const { data: row, error: readErr } = await supabase
+      .from(table)
+      .select('updated_at, data')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (readErr) {
+      const parsed = parsePostgrestError(readErr);
+      return { success: false, status: parsed.code === '42501' ? 'DENIED' : 'SYNC_FAILED', error: parsed.message, code: parsed.code };
+    }
+    if (!row) {
+      return {
+        success: false,
+        status: 'SYNC_FAILED',
+        error: 'Enregistrement introuvable : il a peut-être été supprimé par un autre utilisateur.',
+        code: 'NOT_FOUND',
+      };
+    }
+
+    if (attempt === 0 && expectedUpdatedAt && row.updated_at) {
+      const dbTime = new Date(row.updated_at).getTime();
+      const expectedTime = new Date(expectedUpdatedAt).getTime();
+      if (!Number.isNaN(dbTime) && !Number.isNaN(expectedTime) && dbTime - expectedTime > CONFLICT_TOLERANCE_MS) {
+        return {
+          success: false,
+          status: 'CONFLICT',
+          error: `Conflit de modification simultanée (dernière modification à ${row.updated_at}).`,
+          code: 'CONCURRENCY_CONFLICT',
+        };
+      }
+    }
+
+    const fields = buildFields(row.data && typeof row.data === 'object' ? row.data : {});
+    let query = supabase.from(table).update(fields).eq('id', id);
+    query = row.updated_at ? query.eq('updated_at', row.updated_at) : query.is('updated_at', null);
+    const { data: updatedRows, error } = await query.select('id');
+
+    if (error) {
+      const parsed = parsePostgrestError(error);
+      return { success: false, status: parsed.code === '42501' ? 'DENIED' : 'SYNC_FAILED', error: parsed.message, code: parsed.code };
+    }
+    if (updatedRows && updatedRows.length > 0) {
+      return OK_OUTCOME;
+    }
+
+    // 0 ligne modifiée : soit une écriture concurrente (on recommence), soit un refus RLS silencieux.
+    const { data: again } = await supabase.from(table).select('updated_at').eq('id', id).maybeSingle();
+    if (!again || (again.updated_at ?? null) === (row.updated_at ?? null)) {
+      return {
+        success: false,
+        status: 'DENIED',
+        error: 'Permission refusée par la politique de sécurité (RLS). Cette opération dépasse votre périmètre autorisé.',
+        code: '42501',
+      };
+    }
+  }
+
+  return {
+    success: false,
+    status: 'CONFLICT',
+    error: 'Conflit de modification simultanée : trop de modifications concurrentes sur cet enregistrement.',
+    code: 'CONCURRENCY_CONFLICT',
+  };
+}
+
+/**
+ * Suppression avec vérification réelle : un DELETE bloqué par la RLS ne renvoie aucune erreur
+ * mais supprime 0 ligne. Si la ligne existe encore, c'est un refus ; si elle a déjà disparu
+ * (supprimée par un autre utilisateur), la suppression est considérée comme réussie.
+ */
+async function deleteRowChecked(
+  table: 'vehicles' | 'clients' | 'contracts' | 'deposits',
+  id: string
+): Promise<AtomicUpdateOutcome> {
+  const { data: deleted, error } = await supabase.from(table).delete().eq('id', id).select('id');
+  if (error) {
+    const parsed = parsePostgrestError(error);
+    return { success: false, status: parsed.code === '42501' ? 'DENIED' : 'SYNC_FAILED', error: parsed.message, code: parsed.code };
+  }
+  if (deleted && deleted.length > 0) return OK_OUTCOME;
+
+  const { data: stillThere } = await supabase.from(table).select('id').eq('id', id).maybeSingle();
+  if (!stillThere) return OK_OUTCOME;
+  return {
+    success: false,
+    status: 'DENIED',
+    error: 'Suppression refusée par la politique de sécurité (RLS). Cet enregistrement dépasse votre périmètre autorisé.',
+    code: '42501',
+  };
+}
+
 // ==============================================================================
 // 1. RECORD-LEVEL VEHICLES (STEP 5)
 // ==============================================================================
@@ -198,6 +389,7 @@ export async function syncCreateVehicle(
       updated_at: timestamp,
     };
 
+    markPendingCreate('vehicles', vehicle.id);
     const { error } = await supabase.from('vehicles').insert(payload);
     if (error) {
       const parsed = parsePostgrestError(error);
@@ -206,7 +398,7 @@ export async function syncCreateVehicle(
       return { success: false, status, error: parsed.message, code: parsed.code, timestamp };
     }
 
-    // Mirror to Firestore without sending entire array from client
+    clearPendingCreate('vehicles', vehicle.id);
 
     notifySyncEvent({ table: 'vehicles', entityId: vehicle.id, operation: 'create', status: 'SYNCED', timestamp });
     return { success: true, status: 'SYNCED', data: vehicle, timestamp };
@@ -231,25 +423,6 @@ export async function syncUpdateVehicle(
   }
 
   try {
-    // Optimistic Concurrency Check (STEP 12)
-    if (expectedUpdatedAt) {
-      const { data: existing } = await supabase
-        .from('vehicles')
-        .select('updated_at')
-        .eq('id', vehicleId)
-        .maybeSingle();
-
-      if (existing?.updated_at) {
-        const existingTime = new Date(existing.updated_at).getTime();
-        const expectedTime = new Date(expectedUpdatedAt).getTime();
-        if (existingTime - expectedTime > 1500) {
-          const conflictMsg = `Conflit de modification simultanée sur le véhicule ${vehicleId}. Une mise à jour a été effectuée à ${existing.updated_at}.`;
-          notifySyncEvent({ table: 'vehicles', entityId: vehicleId, operation: 'update', status: 'CONFLICT', error: conflictMsg, timestamp });
-          return { success: false, status: 'CONFLICT', error: conflictMsg, code: 'CONCURRENCY_CONFLICT', timestamp };
-        }
-      }
-    }
-
     const sessionRes = await supabase.auth.getSession();
     const authUid = sessionRes.data?.session?.user?.id || null;
     const authEmail = sessionRes.data?.session?.user?.email || null;
@@ -277,22 +450,21 @@ export async function syncUpdateVehicle(
       );
     }
 
-    // Preserve full vehicle in data jsonb
-    const { data: currentFull } = await supabase
-      .from('vehicles')
-      .select('data')
-      .eq('id', vehicleId)
-      .maybeSingle();
-
-    const mergedData = { ...(currentFull?.data || {}), ...patch, updatedAt: timestamp };
-    updateFields.data = mergedData;
-
-    const { error } = await supabase.from('vehicles').update(updateFields).eq('id', vehicleId);
-    if (error) {
-      const parsed = parsePostgrestError(error);
-      const status: SyncStatus = parsed.code === '42501' ? 'DENIED' : 'SYNC_FAILED';
-      notifySyncEvent({ table: 'vehicles', entityId: vehicleId, operation: 'update', status, error: parsed.message, timestamp });
-      return { success: false, status, error: parsed.message, code: parsed.code, timestamp };
+    // Fusion atomique du document JSON complet du véhicule + contrôle de conflit
+    const outcome = await atomicMergeUpdate({
+      table: 'vehicles',
+      id: vehicleId,
+      expectedUpdatedAt,
+      timestamp,
+      buildFields: (current) => ({
+        ...updateFields,
+        data: { ...current, ...patch, updatedAt: timestamp },
+      }),
+    });
+    if (!outcome.success) {
+      notifySyncEvent({ table: 'vehicles', entityId: vehicleId, operation: 'update', status: outcome.status, error: outcome.error, timestamp });
+      reportWriteFailure('vehicles', vehicleId, outcome, timestamp);
+      return { success: false, status: outcome.status, error: outcome.error, code: outcome.code, timestamp };
     }
 
     notifySyncEvent({ table: 'vehicles', entityId: vehicleId, operation: 'update', status: 'SYNCED', timestamp });
@@ -319,12 +491,11 @@ export async function syncDeleteVehicle(
   }
 
   try {
-    const { error } = await supabase.from('vehicles').delete().eq('id', vehicleId);
-    if (error) {
-      const parsed = parsePostgrestError(error);
-      const status: SyncStatus = parsed.code === '42501' ? 'DENIED' : 'SYNC_FAILED';
-      notifySyncEvent({ table: 'vehicles', entityId: vehicleId, operation: 'delete', status, error: parsed.message, timestamp });
-      return { success: false, status, error: parsed.message, code: parsed.code, timestamp };
+    const outcome = await deleteRowChecked('vehicles', vehicleId);
+    if (!outcome.success) {
+      notifySyncEvent({ table: 'vehicles', entityId: vehicleId, operation: 'delete', status: outcome.status, error: outcome.error, timestamp });
+      reportWriteFailure('vehicles', vehicleId, outcome, timestamp);
+      return { success: false, status: outcome.status, error: outcome.error, code: outcome.code, timestamp };
     }
 
     notifySyncEvent({ table: 'vehicles', entityId: vehicleId, operation: 'delete', status: 'SYNCED', timestamp });
@@ -448,6 +619,7 @@ export async function syncCreateClient(
       updated_at: timestamp,
     };
 
+    markPendingCreate('clients', client.id);
     const { error } = await supabase.from('clients').insert(payload);
     if (error) {
       const parsed = parsePostgrestError(error);
@@ -456,6 +628,7 @@ export async function syncCreateClient(
       return { success: false, status, error: parsed.message, code: parsed.code, timestamp };
     }
 
+    clearPendingCreate('clients', client.id);
     notifySyncEvent({ table: 'clients', entityId: client.id, operation: 'create', status: 'SYNCED', timestamp });
     return { success: true, status: 'SYNCED', data: client, timestamp };
   } catch (err: any) {
@@ -479,24 +652,6 @@ export async function syncUpdateClient(
   }
 
   try {
-    if (expectedUpdatedAt) {
-      const { data: existing } = await supabase
-        .from('clients')
-        .select('updated_at')
-        .eq('id', clientId)
-        .maybeSingle();
-
-      if (existing?.updated_at) {
-        const existingTime = new Date(existing.updated_at).getTime();
-        const expectedTime = new Date(expectedUpdatedAt).getTime();
-        if (existingTime - expectedTime > 1500) {
-          const conflictMsg = `Conflit de modification simultanée sur le client ${clientId}.`;
-          notifySyncEvent({ table: 'clients', entityId: clientId, operation: 'update', status: 'CONFLICT', error: conflictMsg, timestamp });
-          return { success: false, status: 'CONFLICT', error: conflictMsg, code: 'CONCURRENCY_CONFLICT', timestamp };
-        }
-      }
-    }
-
     const updateFields: Record<string, any> = {
       updated_at: timestamp,
     };
@@ -509,21 +664,20 @@ export async function syncUpdateClient(
     if (patch.email !== undefined) updateFields.email = patch.email;
     if (patch.contractCount !== undefined) updateFields.contract_count = patch.contractCount;
 
-    const { data: currentFull } = await supabase
-      .from('clients')
-      .select('data')
-      .eq('id', clientId)
-      .maybeSingle();
-
-    const mergedData = { ...(currentFull?.data || {}), ...patch, updatedAt: timestamp };
-    updateFields.data = mergedData;
-
-    const { error } = await supabase.from('clients').update(updateFields).eq('id', clientId);
-    if (error) {
-      const parsed = parsePostgrestError(error);
-      const status: SyncStatus = parsed.code === '42501' ? 'DENIED' : 'SYNC_FAILED';
-      notifySyncEvent({ table: 'clients', entityId: clientId, operation: 'update', status, error: parsed.message, timestamp });
-      return { success: false, status, error: parsed.message, code: parsed.code, timestamp };
+    const outcome = await atomicMergeUpdate({
+      table: 'clients',
+      id: clientId,
+      expectedUpdatedAt,
+      timestamp,
+      buildFields: (current) => ({
+        ...updateFields,
+        data: { ...current, ...patch, updatedAt: timestamp },
+      }),
+    });
+    if (!outcome.success) {
+      notifySyncEvent({ table: 'clients', entityId: clientId, operation: 'update', status: outcome.status, error: outcome.error, timestamp });
+      reportWriteFailure('clients', clientId, outcome, timestamp);
+      return { success: false, status: outcome.status, error: outcome.error, code: outcome.code, timestamp };
     }
 
     notifySyncEvent({ table: 'clients', entityId: clientId, operation: 'update', status: 'SYNCED', timestamp });
@@ -549,12 +703,11 @@ export async function syncDeleteClient(
   }
 
   try {
-    const { error } = await supabase.from('clients').delete().eq('id', clientId);
-    if (error) {
-      const parsed = parsePostgrestError(error);
-      const status: SyncStatus = parsed.code === '42501' ? 'DENIED' : 'SYNC_FAILED';
-      notifySyncEvent({ table: 'clients', entityId: clientId, operation: 'delete', status, error: parsed.message, timestamp });
-      return { success: false, status, error: parsed.message, code: parsed.code, timestamp };
+    const outcome = await deleteRowChecked('clients', clientId);
+    if (!outcome.success) {
+      notifySyncEvent({ table: 'clients', entityId: clientId, operation: 'delete', status: outcome.status, error: outcome.error, timestamp });
+      reportWriteFailure('clients', clientId, outcome, timestamp);
+      return { success: false, status: outcome.status, error: outcome.error, code: outcome.code, timestamp };
     }
 
     notifySyncEvent({ table: 'clients', entityId: clientId, operation: 'delete', status: 'SYNCED', timestamp });
@@ -595,11 +748,13 @@ export async function syncCreateDriver(
       updated_at: timestamp,
     };
 
+    markPendingCreate('drivers', driver.id);
     const { error } = await supabase.from('drivers').insert(payload);
     if (error) {
       const parsed = parsePostgrestError(error);
       return { success: false, status: 'SYNC_FAILED', error: parsed.message, code: parsed.code, timestamp };
     }
+    clearPendingCreate('drivers', driver.id);
     return { success: true, status: 'SYNCED', data: driver, timestamp };
   } catch (err: any) {
     return { success: false, status: 'SYNC_FAILED', error: err?.message, timestamp };
@@ -648,6 +803,7 @@ export async function syncCreateContract(
   if (!isSupabaseConfigured) {
     return { success: true, status: 'SYNCED', data: contract, timestamp };
   }
+  markPendingCreate('contracts', contract.id);
 
   try {
     const sessionRes = await supabase.auth.getSession();
@@ -714,6 +870,7 @@ export async function syncCreateContract(
       if (related?.nextContractNumber) {
         syncUpdateNextContractSequence(related.nextContractNumber).catch(() => {});
       }
+      clearPendingCreate('contracts', contract.id);
       clearSyncError();
       notifySyncEvent({ table: 'contracts', entityId: contract.id, operation: 'create', status: 'SYNCED', timestamp });
       return { success: true, status: 'SYNCED', data: contract, timestamp };
@@ -880,6 +1037,7 @@ export async function syncCreateContract(
       await syncUpdateNextContractSequence(related.nextContractNumber);
     }
 
+    clearPendingCreate('contracts', contract.id);
     clearSyncError();
     notifySyncEvent({ table: 'contracts', entityId: contract.id, operation: 'create', status: 'SYNCED', timestamp });
     return { success: true, status: 'SYNCED', data: contract, timestamp };
@@ -910,24 +1068,6 @@ export async function syncUpdateContract(
   }
 
   try {
-    if (expectedUpdatedAt) {
-      const { data: existing } = await supabase
-        .from('contracts')
-        .select('updated_at')
-        .eq('id', contractId)
-        .maybeSingle();
-
-      if (existing?.updated_at) {
-        const existingTime = new Date(existing.updated_at).getTime();
-        const expectedTime = new Date(expectedUpdatedAt).getTime();
-        if (existingTime - expectedTime > 1500) {
-          const conflictMsg = `Conflit de modification simultanée sur le contrat ${contractId}.`;
-          notifySyncEvent({ table: 'contracts', entityId: contractId, operation: 'update', status: 'CONFLICT', error: conflictMsg, timestamp });
-          return { success: false, status: 'CONFLICT', error: conflictMsg, code: 'CONCURRENCY_CONFLICT', timestamp };
-        }
-      }
-    }
-
     const updateFields: Record<string, any> = {
       updated_at: timestamp,
     };
@@ -940,21 +1080,20 @@ export async function syncUpdateContract(
     if (patch.managerDisplayName !== undefined) updateFields.manager_display_name = patch.managerDisplayName?.trim() || null;
     if (patch.managerPhone !== undefined) updateFields.manager_phone = patch.managerPhone?.trim() || null;
 
-    const { data: currentFull } = await supabase
-      .from('contracts')
-      .select('data')
-      .eq('id', contractId)
-      .maybeSingle();
-
-    const mergedData = { ...(currentFull?.data || {}), ...patch, updatedAt: timestamp };
-    updateFields.data = mergedData;
-
-    const { error } = await supabase.from('contracts').update(updateFields).eq('id', contractId);
-    if (error) {
-      const parsed = parsePostgrestError(error);
-      const status: SyncStatus = parsed.code === '42501' ? 'DENIED' : 'SYNC_FAILED';
-      notifySyncEvent({ table: 'contracts', entityId: contractId, operation: 'update', status, error: parsed.message, timestamp });
-      return { success: false, status, error: parsed.message, code: parsed.code, timestamp };
+    const outcome = await atomicMergeUpdate({
+      table: 'contracts',
+      id: contractId,
+      expectedUpdatedAt,
+      timestamp,
+      buildFields: (current) => ({
+        ...updateFields,
+        data: { ...current, ...patch, updatedAt: timestamp },
+      }),
+    });
+    if (!outcome.success) {
+      notifySyncEvent({ table: 'contracts', entityId: contractId, operation: 'update', status: outcome.status, error: outcome.error, timestamp });
+      reportWriteFailure('contracts', contractId, outcome, timestamp);
+      return { success: false, status: outcome.status, error: outcome.error, code: outcome.code, timestamp };
     }
 
     notifySyncEvent({ table: 'contracts', entityId: contractId, operation: 'update', status: 'SYNCED', timestamp });
@@ -980,12 +1119,11 @@ export async function syncDeleteContract(
   }
 
   try {
-    const { error } = await supabase.from('contracts').delete().eq('id', contractId);
-    if (error) {
-      const parsed = parsePostgrestError(error);
-      const status: SyncStatus = parsed.code === '42501' ? 'DENIED' : 'SYNC_FAILED';
-      notifySyncEvent({ table: 'contracts', entityId: contractId, operation: 'delete', status, error: parsed.message, timestamp });
-      return { success: false, status, error: parsed.message, code: parsed.code, timestamp };
+    const outcome = await deleteRowChecked('contracts', contractId);
+    if (!outcome.success) {
+      notifySyncEvent({ table: 'contracts', entityId: contractId, operation: 'delete', status: outcome.status, error: outcome.error, timestamp });
+      reportWriteFailure('contracts', contractId, outcome, timestamp);
+      return { success: false, status: outcome.status, error: outcome.error, code: outcome.code, timestamp };
     }
 
     notifySyncEvent({ table: 'contracts', entityId: contractId, operation: 'delete', status: 'SYNCED', timestamp });
@@ -1058,11 +1196,13 @@ export async function syncCreateDeposit(
       updated_at: timestamp,
     };
 
+    markPendingCreate('deposits', deposit.id);
     const { error } = await supabase.from('deposits').upsert(payload, { onConflict: 'id' });
     if (error) {
       const parsed = parsePostgrestError(error);
       return { success: false, status: 'SYNC_FAILED', error: parsed.message, code: parsed.code, timestamp };
     }
+    clearPendingCreate('deposits', deposit.id);
 
     return { success: true, status: 'SYNCED', data: deposit, timestamp };
   } catch (err: any) {
@@ -1088,19 +1228,19 @@ export async function syncUpdateDeposit(
     if (patch.status !== undefined) updateFields.status = patch.status;
     if (patch.method !== undefined) updateFields.method = patch.method;
 
-    const { data: currentFull } = await supabase
-      .from('deposits')
-      .select('data')
-      .eq('id', depositId)
-      .maybeSingle();
-
-    const mergedData = { ...(currentFull?.data || {}), ...patch, updatedAt: timestamp };
-    updateFields.data = mergedData;
-
-    const { error } = await supabase.from('deposits').update(updateFields).eq('id', depositId);
-    if (error) {
-      const parsed = parsePostgrestError(error);
-      return { success: false, status: 'SYNC_FAILED', error: parsed.message, code: parsed.code, timestamp };
+    const outcome = await atomicMergeUpdate({
+      table: 'deposits',
+      id: depositId,
+      expectedUpdatedAt,
+      timestamp,
+      buildFields: (current) => ({
+        ...updateFields,
+        data: { ...current, ...patch, updatedAt: timestamp },
+      }),
+    });
+    if (!outcome.success) {
+      reportWriteFailure('deposits', depositId, outcome, timestamp);
+      return { success: false, status: outcome.status, error: outcome.error, code: outcome.code, timestamp };
     }
 
     return { success: true, status: 'SYNCED', timestamp };
@@ -1119,10 +1259,10 @@ export async function syncDeleteDeposit(
   if (!isSupabaseConfigured) return { success: true, status: 'SYNCED', data: depositId, timestamp };
 
   try {
-    const { error } = await supabase.from('deposits').delete().eq('id', depositId);
-    if (error) {
-      const parsed = parsePostgrestError(error);
-      return { success: false, status: 'SYNC_FAILED', error: parsed.message, code: parsed.code, timestamp };
+    const outcome = await deleteRowChecked('deposits', depositId);
+    if (!outcome.success) {
+      reportWriteFailure('deposits', depositId, outcome, timestamp);
+      return { success: false, status: outcome.status, error: outcome.error, code: outcome.code, timestamp };
     }
 
     return { success: true, status: 'SYNCED', data: depositId, timestamp };

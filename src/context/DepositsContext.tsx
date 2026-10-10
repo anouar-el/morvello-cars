@@ -20,6 +20,7 @@ export interface DepositsContextType {
   deleteDeposit: (depositId: string, actorName?: string) => Promise<boolean>;
   addDepositRecord: (deposit: DepositRecord) => void;
   setDepositsList: (deposits: DepositRecord[]) => void;
+  setDepositsListByUpdater: (updater: (prev: DepositRecord[]) => DepositRecord[]) => void;
 }
 
 const STORAGE_KEY = 'morvello_deposits_v1';
@@ -46,8 +47,9 @@ export const DepositsProvider: React.FC<{
   };
 
   const updateDeposit = (id: string, data: Partial<DepositRecord>) => {
-    const updated = deposits.map((d) => (d.id === id ? { ...d, ...data } : d));
-    setDeposits(updated);
+    // Mise à jour fonctionnelle : plusieurs cautions peuvent être modifiées dans le même rendu
+    // (répercussion d'une modification client/véhicule).
+    setDeposits((prev) => prev.map((d) => (d.id === id ? { ...d, ...data } : d)));
     syncUpdateDeposit(id, data).catch((err) =>
       console.warn('Record-level sync updateDeposit note:', err)
     );
@@ -205,6 +207,7 @@ export const DepositsProvider: React.FC<{
         deleteDeposit,
         addDepositRecord,
         setDepositsList,
+        setDepositsListByUpdater: setDeposits,
       }}
     >
       {children}
