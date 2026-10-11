@@ -122,7 +122,13 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
           </div>
           <div>
             <span className="text-[10px] text-slate-500 block">Tarif journalier :</span>
-            <strong className="text-amber-400 font-mono">{vehicle.dailyRate || 400} MAD / j</strong>
+            {vehicle.dailyRate ? (
+              <strong className="text-amber-400 font-mono">{vehicle.dailyRate} MAD / j</strong>
+            ) : (
+              <strong className="text-rose-400 font-mono" title="Aucun tarif enregistré : à renseigner dans la fiche véhicule">
+                Non défini
+              </strong>
+            )}
           </div>
           <div>
             <span className="text-[10px] text-slate-500 block">Année & Couleur :</span>
