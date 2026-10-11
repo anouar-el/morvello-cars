@@ -166,8 +166,8 @@ export const DepositsProvider: React.FC<{
     const existing = deposits.find((d) => d.id === depositId);
     if (!existing) return false;
 
-    const updated = deposits.filter((d) => d.id !== depositId);
-    setDeposits(updated);
+    // Mise à jour fonctionnelle : plusieurs cautions peuvent être supprimées dans le même rendu.
+    setDeposits((prev) => prev.filter((d) => d.id !== depositId));
 
     try {
       await syncDeleteDeposit(depositId);

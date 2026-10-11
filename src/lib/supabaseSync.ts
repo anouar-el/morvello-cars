@@ -181,7 +181,9 @@ export function mapContractRow(row: any): Contract {
     id: row.id,
     contractNumber: row.contract_number || d.contractNumber || '',
     status: row.status || d.status || 'draft',
-    clientId: row.client_id || d.clientId || '',
+    // La colonne fait foi : elle passe à NULL quand le client est supprimé (ON DELETE SET NULL). Retomber
+    // sur le JSON ferait réapparaître le client supprimé via la copie figée dans le contrat.
+    clientId: ('client_id' in row ? row.client_id : d.clientId) || '',
     vehicleId: row.vehicle_id || d.vehicleId || '',
     startDate: row.start_date || d.startDate || '',
     endDate: row.end_date || d.endDate || '',
@@ -1785,6 +1787,9 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
 
       for (const v of targetVehicles) {
         const existing = existingVehicleMap.get(v.id);
+        // Ligne absente de la base : supprimée (par un autre poste ou par vous). La synchro globale ne recrée
+        // JAMAIS une ligne, sinon une copie locale périmée ressuscite les éléments supprimés.
+        if (!existing) continue;
         const assignedMgrId = resolveAssignedManagerForSupabase(
           v.assignedManagerId,
           v.assignedManagerName,
@@ -1876,6 +1881,9 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
 
       for (const c of targetClients) {
         const existing = existingClientMap.get(c.id);
+        // Ligne absente de la base : supprimée (par un autre poste ou par vous). La synchro globale ne recrée
+        // JAMAIS une ligne, sinon une copie locale périmée ressuscite les éléments supprimés.
+        if (!existing) continue;
         const assignedMgrId = resolveAssignedManagerForSupabase(
           c.assignedManagerId,
           c.assignedManagerName,
@@ -1963,6 +1971,9 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
 
       for (const cnt of targetContracts) {
         const existing = existingContractMap.get(cnt.id);
+        // Ligne absente de la base : supprimée (par un autre poste ou par vous). La synchro globale ne recrée
+        // JAMAIS une ligne, sinon une copie locale périmée ressuscite les éléments supprimés.
+        if (!existing) continue;
         const assignedMgrId = resolveAssignedManagerForSupabase(
           cnt.assignedManagerId,
           cnt.assignedManagerName,
@@ -2088,6 +2099,9 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
 
       for (const dep of targetDeposits) {
         const existing = existingDepositMap.get(dep.id);
+        // Ligne absente de la base : supprimée (par un autre poste ou par vous). La synchro globale ne recrée
+        // JAMAIS une ligne, sinon une copie locale périmée ressuscite les éléments supprimés.
+        if (!existing) continue;
 
         const matchedContract = payload.contracts?.find(
           (cnt) => cnt.id === dep.contractId || cnt.contractNumber === dep.contractNumber
