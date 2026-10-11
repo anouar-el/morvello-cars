@@ -36,6 +36,7 @@ import { formatPlateFrench } from '../utils/plateUtils';
 import { sortContractsByNumber } from '../utils/contractNumberUtils';
 import { InspectionManagerModal } from './InspectionManagerModal';
 import { DigitalSignatureModal } from './DigitalSignatureModal';
+import { ENABLE_DIGITAL_SIGNATURE } from '../config/features';
 import { ContractPaymentsModal } from './ContractPaymentsModal';
 import { isContractOwnedByManager } from '../utils/managerScopeUtils';
 
@@ -622,7 +623,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                             <ShieldCheck className="w-2.5 h-2.5 text-emerald-400" />
                             Signé e-Sign
                           </span>
-                        ) : (
+                        ) : ENABLE_DIGITAL_SIGNATURE ? (
                           <span
                             className="inline-flex items-center gap-1 text-[8.5px] font-medium text-slate-400 bg-slate-800/80 border border-slate-700/60 px-1.5 py-0.2 rounded"
                             title="Signature numérique en attente"
@@ -630,7 +631,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                             <PenTool className="w-2 h-2 text-slate-500" />
                             À signer
                           </span>
-                        )}
+                        ) : null}
                       </div>
                     </td>
 
@@ -824,22 +825,24 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                           <Eye className="w-4 h-4" />
                         </button>
 
-                        {/* 1b. Signature Numérique Directe */}
-                        <button
-                          onClick={() => setSigningContract(cnt)}
-                          className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
-                            cnt.clientSignature
-                              ? 'bg-emerald-950/60 hover:bg-emerald-900 text-emerald-400 border-emerald-500/40'
-                              : 'bg-slate-800 hover:bg-amber-500/20 text-slate-300 hover:text-amber-400 border-slate-700 hover:border-amber-500/40'
-                          }`}
-                          title={
-                            cnt.clientSignature
-                              ? 'Signature électronique certifiée présente (cliquer pour gérer)'
-                              : 'Recueillir la signature numérique sur écran'
-                          }
-                        >
-                          <PenTool className="w-4 h-4" />
-                        </button>
+                        {/* 1b. Signature Numérique Directe (masquée : ENABLE_DIGITAL_SIGNATURE) */}
+                        {ENABLE_DIGITAL_SIGNATURE && (
+                          <button
+                            onClick={() => setSigningContract(cnt)}
+                            className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
+                              cnt.clientSignature
+                                ? 'bg-emerald-950/60 hover:bg-emerald-900 text-emerald-400 border-emerald-500/40'
+                                : 'bg-slate-800 hover:bg-amber-500/20 text-slate-300 hover:text-amber-400 border-slate-700 hover:border-amber-500/40'
+                            }`}
+                            title={
+                              cnt.clientSignature
+                                ? 'Signature électronique certifiée présente (cliquer pour gérer)'
+                                : 'Recueillir la signature numérique sur écran'
+                            }
+                          >
+                            <PenTool className="w-4 h-4" />
+                          </button>
+                        )}
 
                         {/* 1c. Règlements & Paiements Clients */}
                         <button
@@ -1003,12 +1006,12 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                           <ShieldCheck className="w-2.5 h-2.5" />
                           Signé
                         </span>
-                      ) : (
+                      ) : ENABLE_DIGITAL_SIGNATURE ? (
                         <span className="inline-flex items-center gap-1 text-[8.5px] font-medium text-slate-400 bg-slate-800/80 border border-slate-700/60 px-1.5 py-0.2 rounded">
                           <PenTool className="w-2 h-2 text-slate-500" />
                           À signer
                         </span>
-                      )}
+                      ) : null}
                     </div>
                   </div>
 
@@ -1074,7 +1077,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                   </div>
 
                   {/* MOBILE ACTION BUTTONS (LARGE TOUCH TARGETS) */}
-                  <div className="grid grid-cols-4 gap-1.5 pt-1">
+                  <div className={`grid ${canUserDeleteContracts ? 'grid-cols-4' : 'grid-cols-3'} gap-1.5 pt-1`}>
                     {/* 1. Voir PDF */}
                     <button
                       type="button"
@@ -1085,19 +1088,21 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                       <span>PDF A4</span>
                     </button>
 
-                    {/* 2. Signature e-Sign */}
-                    <button
-                      type="button"
-                      onClick={() => setSigningContract(cnt)}
-                      className={`flex flex-col items-center justify-center p-2 rounded-xl text-[10px] font-semibold border transition-colors cursor-pointer ${
-                        cnt.clientSignature
-                          ? 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-                          : 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border-amber-500/30'
-                      }`}
-                    >
-                      <PenTool className="w-4 h-4 mb-0.5" />
-                      <span>{cnt.clientSignature ? 'Signé' : 'Signer'}</span>
-                    </button>
+                    {/* 2. Signature e-Sign (masquée : ENABLE_DIGITAL_SIGNATURE) */}
+                    {ENABLE_DIGITAL_SIGNATURE && (
+                      <button
+                        type="button"
+                        onClick={() => setSigningContract(cnt)}
+                        className={`flex flex-col items-center justify-center p-2 rounded-xl text-[10px] font-semibold border transition-colors cursor-pointer ${
+                          cnt.clientSignature
+                            ? 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                            : 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border-amber-500/30'
+                        }`}
+                      >
+                        <PenTool className="w-4 h-4 mb-0.5" />
+                        <span>{cnt.clientSignature ? 'Signé' : 'Signer'}</span>
+                      </button>
+                    )}
 
                     {/* 3. Photos / Inspection */}
                     <button
@@ -1132,6 +1137,22 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                       >
                         <Edit3 className="w-4 h-4 mb-0.5" />
                         <span>Modifier</span>
+                      </button>
+                    )}
+
+                    {/* 5. Supprimer définitivement (Gérant / permission canDeleteContracts) */}
+                    {canUserDeleteContracts && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDeleteContractError(null);
+                          setContractToDelete(cnt);
+                        }}
+                        className="flex flex-col items-center justify-center p-2 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 text-[10px] font-semibold transition-colors cursor-pointer"
+                        title="Supprimer définitivement ce contrat"
+                      >
+                        <Trash2 className="w-4 h-4 mb-0.5" />
+                        <span>Supprimer</span>
                       </button>
                     )}
                   </div>
