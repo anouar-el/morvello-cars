@@ -61,8 +61,9 @@ const PERMISSION_DEFINITIONS: PermissionMeta[] = [
   },
   {
     key: 'canDeleteContracts',
-    label: 'Supprimer définitivement des contrats (Gérant seul)',
-    description: 'Permet de supprimer un contrat et ses données associées. Réservé au Gérant de la société.',
+    label: 'Supprimer définitivement des contrats',
+    description:
+      'Permet de supprimer un contrat de son périmètre et ses données associées. Action irréversible, tracée dans le journal d’audit.',
     category: 'contracts',
   },
   {
@@ -308,7 +309,7 @@ export const PermissionsManager: React.FC = () => {
       canCreateContracts: true,
       canEditContracts: true,
       canCancelContracts: true,
-      canDeleteContracts: user.role === 'admin',
+      canDeleteContracts: true,
       canValidateContracts: true,
       canExportData: true,
       canManageDeposits: true,
