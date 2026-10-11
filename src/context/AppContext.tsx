@@ -590,6 +590,50 @@ const AppContextInner: React.FC<{ children: React.ReactNode }> = ({ children }) 
     }
   };
 
+  // Suppression d'un client. Ses contrats restent comme historique (la base met leur client_id à NULL) ;
+  // on les détache aussi en local pour que la réconciliation ne recrée pas le client à partir de la copie
+  // figée dans le contrat.
+  const deleteClient = (id: string) => {
+    const result = clientsDrivers.deleteClient(id, auth.currentUser, (clientId, docNumber) => {
+      const activeContract = contractsCtx.contracts.find(
+        (c) =>
+          (c.clientId === clientId ||
+            (docNumber && c.clientSnapshot?.docNumber?.toLowerCase() === docNumber?.toLowerCase())) &&
+          (c.status === 'active' || c.status === 'draft')
+      );
+      return {
+        isBlocked: !!activeContract,
+        contractNumber: activeContract?.contractNumber,
+      };
+    });
+
+    if (result.success) {
+      contractsCtx.setContractsListByUpdater((prev) =>
+        prev.some((c) => c.clientId === id) ? prev.map((c) => (c.clientId === id ? { ...c, clientId: '' } : c)) : prev
+      );
+    }
+    return result;
+  };
+
+  // Suppression d'un contrat : ses cautions partent avec lui (aucune clé étrangère ne le fait en base).
+  const deleteContract = (id: string) => {
+    const target = contractsCtx.contracts.find((c) => c.id === id);
+    const result = contractsCtx.deleteContract(id, auth.currentUser, auth.hasPermission, (vId) =>
+      vehiclesCtx.releaseVehicle(vId)
+    );
+
+    if (result.success && target) {
+      for (const dep of depositsCtx.deposits) {
+        const linked =
+          dep.contractId === id || (!!target.contractNumber && dep.contractNumber === target.contractNumber);
+        if (linked) {
+          void depositsCtx.deleteDeposit(dep.id, auth.currentUser?.name);
+        }
+      }
+    }
+    return result;
+  };
+
   // Modification d'un véhicule, avec répercussion (au choix) sur les contrats et cautions.
   const updateVehicle = (id: string, data: Partial<Vehicle>, options?: { propagate?: PropagationScope }) => {
     const scope = options?.propagate ?? DEFAULT_PROPAGATION_SCOPE;
@@ -774,23 +818,7 @@ const AppContextInner: React.FC<{ children: React.ReactNode }> = ({ children }) 
         deleteTermsClause: (number) => company.deleteTermsClause(number, auth.currentUser?.name),
         addClient: clientsDrivers.addClient,
         updateClient,
-        deleteClient: (id) =>
-          clientsDrivers.deleteClient(
-            id,
-            auth.currentUser,
-            (clientId, docNumber) => {
-              const activeContract = contractsCtx.contracts.find(
-                (c) =>
-                  (c.clientId === clientId ||
-                    (docNumber && c.clientSnapshot?.docNumber?.toLowerCase() === docNumber?.toLowerCase())) &&
-                  (c.status === 'active' || c.status === 'draft')
-              );
-              return {
-                isBlocked: !!activeContract,
-                contractNumber: activeContract?.contractNumber,
-              };
-            }
-          ),
+        deleteClient,
         addDriver: clientsDrivers.addDriver,
         addVehicle: (vehicle) => vehiclesCtx.addVehicle(vehicle, auth.currentUser),
         updateVehicle,
@@ -837,10 +865,7 @@ const AppContextInner: React.FC<{ children: React.ReactNode }> = ({ children }) 
           ),
         cancelContract: (id, reason) =>
           contractsCtx.cancelContract(id, reason, (vId) => vehiclesCtx.releaseVehicle(vId)),
-        deleteContract: (id) =>
-          contractsCtx.deleteContract(id, auth.currentUser, auth.hasPermission, (vId) =>
-            vehiclesCtx.releaseVehicle(vId)
-          ),
+        deleteContract,
         duplicateContract: (contract) =>
           contractsCtx.duplicateContract(contract, () => company.setActiveTab('new_contract')),
         clearDuplicateData: contractsCtx.clearDuplicateData,

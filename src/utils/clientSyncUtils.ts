@@ -32,7 +32,11 @@ export function reconcileClientsWithContracts(
 
   for (const contract of contracts) {
     const snap = contract.clientSnapshot;
-    const clientId = contract.clientId || snap?.id;
+    // Contrat détaché de son client (client supprimé, la base a mis client_id à NULL) : le contrat
+    // reste comme historique, mais on ne recrée PAS le client à partir de sa copie figée.
+    if (!contract.clientId) continue;
+
+    const clientId = contract.clientId;
     const docNumber = snap?.docNumber;
 
     if (!snap && !clientId) continue;
