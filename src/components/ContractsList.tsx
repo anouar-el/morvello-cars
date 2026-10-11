@@ -932,7 +932,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                           </button>
                         )}
 
-                        {/* 7. Supprimer définitivement (Gérant seul) */}
+                        {/* 7. Supprimer définitivement (permission canDeleteContracts) */}
                         {canUserDeleteContracts && (
                           <button
                             onClick={() => {
@@ -940,7 +940,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                               setContractToDelete(cnt);
                             }}
                             className="p-1.5 bg-slate-800 hover:bg-rose-600/30 text-slate-500 hover:text-rose-400 border border-slate-700 hover:border-rose-500/40 rounded-lg transition-colors cursor-pointer"
-                            title="Supprimer définitivement ce contrat (Gérant)"
+                            title="Supprimer définitivement ce contrat"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
