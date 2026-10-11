@@ -198,9 +198,9 @@ export const DashboardFleetRadar: React.FC<DashboardFleetRadarProps> = ({
               <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between">
                 <div>
                   <span className="text-xs font-bold text-amber-400 font-mono">
-                    {veh.dailyRate || 450} DH
+                    {veh.dailyRate ? `${veh.dailyRate} DH` : 'Tarif non défini'}
                   </span>
-                  <span className="text-[10px] text-slate-500"> / jour</span>
+                  {veh.dailyRate ? <span className="text-[10px] text-slate-500"> / jour</span> : null}
                 </div>
 
                 {veh.status === 'available' ? (

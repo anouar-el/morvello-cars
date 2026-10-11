@@ -92,7 +92,8 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
         fuelType: vehicle.fuelType || 'Diesel',
         status: activeContract ? 'rented' : (vehicle.status || 'available'),
         currentKm: vehicle.currentKm ?? 0,
-        dailyRate: vehicle.dailyRate ?? 400,
+        // Un tarif à 0 n'est pas un tarif : on propose la valeur par défaut au lieu de 0.
+        dailyRate: vehicle.dailyRate || 400,
         year: vehicle.year ?? 2024,
         color: vehicle.color || '',
         notes: vehicle.notes || '',
@@ -106,7 +107,11 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
         insuranceCategory: vehicle.insuranceCategory || '',
       });
     }
-  }, [vehicle, activeContract]);
+    // Le formulaire n'est (ré)initialisé que lorsqu'on ouvre un AUTRE véhicule, ou quand son statut
+    // loué/non loué bascule. Dépendre de l'objet `vehicle` ou `activeContract` effaçait la saisie en
+    // cours à chaque mise à jour temps réel des contrats (nouvelle référence d'objet à chaque rafraîchissement).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vehicle?.id, Boolean(activeContract)]);
 
   if (!vehicle) return null;
 
@@ -328,7 +333,8 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
               <label className="block text-slate-300 font-semibold mb-1">Tarif / Jour (MAD)</label>
               <input
                 type="number"
-                min={0}
+                min={1}
+                required
                 value={form.dailyRate}
                 onChange={(e) => setForm({ ...form, dailyRate: Number(e.target.value) })}
                 className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-amber-400 font-mono font-bold focus:border-amber-500 focus:outline-none"
