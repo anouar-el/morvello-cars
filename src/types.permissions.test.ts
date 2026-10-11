@@ -122,9 +122,9 @@ describe('Role & Permissions Logic', () => {
 
     it('strictly forbids critical administrative actions to Manager by default', () => {
       const managerPerms = DEFAULT_PERMISSIONS_BY_ROLE.manager;
-      // Cannot cancel or delete contracts (requires admin approval)
+      // Cannot cancel contracts (requires admin approval) ; may delete contracts of their scope
       expect(managerPerms.canCancelContracts).toBe(false);
-      expect(managerPerms.canDeleteContracts).toBe(false);
+      expect(managerPerms.canDeleteContracts).toBe(true);
       // Cannot approve or directly bypass vehicle validation
       expect(managerPerms.canDirectAddVehicles).toBe(false);
       expect(managerPerms.canApproveVehicles).toBe(false);
@@ -154,8 +154,8 @@ describe('Role & Permissions Logic', () => {
     it('strictly forbids ALL sensitive destructive and administrative permissions to Agent', () => {
       const agentPerms = DEFAULT_PERMISSIONS_BY_ROLE.agent;
 
-      // No delete permissions
-      expect(agentPerms.canDeleteContracts).toBe(false);
+      // No delete permissions on vehicles and clients (contracts may be deleted within their scope)
+      expect(agentPerms.canDeleteContracts).toBe(true);
       expect(agentPerms.canDeleteVehicles).toBe(false);
       expect(agentPerms.canDeleteClients).toBe(false);
 
@@ -206,7 +206,7 @@ describe('Role & Permissions Logic', () => {
 
       expect(checkUserPermission(agentWithEdit, 'canEditContracts')).toBe(true);
       // Other restricted permissions remain false
-      expect(checkUserPermission(agentWithEdit, 'canDeleteContracts')).toBe(false);
+      expect(checkUserPermission(agentWithEdit, 'canDeleteVehicles')).toBe(false);
       expect(checkUserPermission(agentWithEdit, 'canManagePermissions')).toBe(false);
     });
 

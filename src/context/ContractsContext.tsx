@@ -967,7 +967,7 @@ export const ContractsProvider: React.FC<{
     if (!isGerant && !canDelete) {
       return {
         success: false,
-        error: 'Action non autorisée : seul le Gérant a le droit de supprimer définitivement un contrat.',
+        error: "Action non autorisée : vous n'avez pas la permission de supprimer définitivement un contrat.",
       };
     }
 

@@ -1113,12 +1113,12 @@ CREATE POLICY "contracts_update" ON public.contracts
     AND public.can_assign_manager(assigned_manager_id, created_by)
   );
 
--- Suppression définitive d'un contrat strictement réservée au Gérant / Administrateur (cf. trg_protect_contract_deletion).
+-- Suppression définitive d'un contrat : l'administrateur, ou un responsable pour les contrats de son
+-- périmètre (cf. trg_protect_contract_deletion pour la permission canDeleteContracts).
 CREATE POLICY "contracts_delete" ON public.contracts
   FOR DELETE TO authenticated
   USING (
-    public.is_admin()
-    AND public.is_same_agency(agency_id)
+    public.can_access_record(assigned_manager_id, created_by, agency_id)
   );
 
 -- Policies DEPOSITS
@@ -1811,7 +1811,7 @@ CREATE TRIGGER trg_protect_contract_updates
   FOR EACH ROW
   EXECUTE FUNCTION public.trg_protect_contract_updates();
 
--- Suppression de contrat strictement réservée au Gérant / Administrateur.
+-- Suppression de contrat : permission canDeleteContracts (vraie par défaut), périmètre garanti par la RLS.
 CREATE OR REPLACE FUNCTION public.trg_protect_contract_deletion()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -1825,8 +1825,11 @@ BEGIN
   IF auth.uid() IS NOT NULL THEN
     SELECT * INTO v_caller FROM public.profiles WHERE id = auth.uid()::text;
     v_is_admin := (v_caller.role = 'admin' OR v_caller.legacy_id = 'usr-1' OR v_caller.local_id = 'usr-1');
-    IF NOT v_is_admin THEN
-      RAISE EXCEPTION 'Action non autorisée : seul le Gérant / Administrateur est habilité à supprimer définitivement un contrat (contrat %).',
+    -- Tout utilisateur peut supprimer un contrat de son périmètre (cf. policy contracts_delete),
+    -- sauf si l'administrateur lui a retiré la permission canDeleteContracts.
+    IF NOT v_is_admin
+       AND NOT COALESCE((v_caller.permissions ->> 'canDeleteContracts')::boolean, true) THEN
+      RAISE EXCEPTION 'Action non autorisée : vous n''avez pas la permission de supprimer définitivement un contrat (contrat %).',
         OLD.contract_number;
     END IF;
   END IF;
