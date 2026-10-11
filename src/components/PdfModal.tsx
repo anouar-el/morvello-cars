@@ -1,3 +1,4 @@
+import { ENABLE_DIGITAL_SIGNATURE } from '../config/features';
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { ContractPdfDocument } from './ContractPdfDocument';
@@ -319,28 +320,30 @@ export const PdfModal: React.FC = () => {
             </button>
           )}
 
-          {/* Action: Signature Numérique Interactive */}
-          <button
-            onClick={() => setIsSignatureModalOpen(true)}
-            className={`flex items-center gap-1.5 font-bold text-xs px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg transition-all cursor-pointer shadow-md shrink-0 ${
-              pdfModalContract.clientSignature
-                ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/50 hover:bg-emerald-900/60'
-                : 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 shadow-amber-500/20 active:scale-95'
-            }`}
-            title="Recueillir la signature numérique sur écran tactile ou souris"
-          >
-            {pdfModalContract.clientSignature ? (
-              <>
-                <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                <span>Signé ✓</span>
-              </>
-            ) : (
-              <>
-                <PenTool className="w-4 h-4" />
-                <span>Signer</span>
-              </>
-            )}
-          </button>
+          {/* Action: Signature Numérique Interactive (masquée : ENABLE_DIGITAL_SIGNATURE) */}
+          {ENABLE_DIGITAL_SIGNATURE && (
+            <button
+              onClick={() => setIsSignatureModalOpen(true)}
+              className={`flex items-center gap-1.5 font-bold text-xs px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg transition-all cursor-pointer shadow-md shrink-0 ${
+                pdfModalContract.clientSignature
+                  ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/50 hover:bg-emerald-900/60'
+                  : 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 shadow-amber-500/20 active:scale-95'
+              }`}
+              title="Recueillir la signature numérique sur écran tactile ou souris"
+            >
+              {pdfModalContract.clientSignature ? (
+                <>
+                  <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                  <span>Signé ✓</span>
+                </>
+              ) : (
+                <>
+                  <PenTool className="w-4 h-4" />
+                  <span>Signer</span>
+                </>
+              )}
+            </button>
+          )}
 
           {/* Action: Ouvrir dans un nouvel onglet */}
           <button
