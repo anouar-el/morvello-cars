@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { Contract, ContractStatus } from '../types';
 import {
@@ -24,6 +24,7 @@ import {
   Fuel,
   Gauge,
   Trash2,
+  MoreHorizontal,
   AlertTriangle,
   PenTool,
   ShieldCheck,
@@ -80,6 +81,8 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
 
   // Contract Deletion Modal (Gérant only)
   const [contractToDelete, setContractToDelete] = useState<Contract | null>(null);
+  // Menu « ⋯ » d'une ligne du tableau (positionné en `fixed` pour ne pas être coupé par le défilement du tableau)
+  const [rowMenu, setRowMenu] = useState<{ contractId: string; top: number; right: number } | null>(null);
   const [deleteContractError, setDeleteContractError] = useState<string | null>(null);
   const [successToastMsg, setSuccessToastMsg] = useState<string>('');
 
@@ -183,6 +186,34 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
   });
 
   const sortedContracts = sortContractsByNumber(filteredContracts, sortOrder);
+
+  // Le créateur n'est affiché dans chaque ligne que s'il varie : sinon c'est du bruit répété.
+  const showCreator = new Set(sortedContracts.map((c) => c.createdBy)).size > 1;
+
+  const openRowMenu = (e: React.MouseEvent<HTMLButtonElement>, cnt: Contract) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setRowMenu((current) =>
+      current?.contractId === cnt.id
+        ? null
+        : { contractId: cnt.id, top: rect.bottom + 4, right: Math.max(8, window.innerWidth - rect.right) }
+    );
+  };
+
+  useEffect(() => {
+    if (!rowMenu) return;
+    const close = () => setRowMenu(null);
+    const onKey = (ev: KeyboardEvent) => {
+      if (ev.key === 'Escape') close();
+    };
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('resize', close);
+    window.addEventListener('scroll', close, true);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('resize', close);
+      window.removeEventListener('scroll', close, true);
+    };
+  }, [rowMenu]);
 
   const getStatusBadge = (status: ContractStatus) => {
     switch (status) {
@@ -597,11 +628,12 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                           </span>
                         )}
                       </div>
-                      <div className="text-[10px] text-slate-500 mt-0.5">
-                        {new Date(cnt.createdAt).toLocaleDateString('fr-FR')} • {cnt.createdBy}
-                      </div>
-                      <div className="text-[9px] text-slate-600 font-mono">
-                        Conditions V{cnt.termsVersion}
+                      <div
+                        className="text-[10px] text-slate-500 mt-0.5"
+                        title={`Conditions V${cnt.termsVersion} • créé par ${cnt.createdBy}`}
+                      >
+                        {new Date(cnt.createdAt).toLocaleDateString('fr-FR')}
+                        {showCreator ? ` • ${cnt.createdBy}` : ''}
                       </div>
                       <div className="mt-1 flex flex-wrap items-center gap-1">
                         <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded border font-mono ${
@@ -643,9 +675,9 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                       <div className="text-[10px] text-slate-400">
                         {cnt.clientSnapshot.docType} : <span className="font-mono text-slate-300">{cnt.clientSnapshot.docNumber}</span>
                       </div>
-                      <div className="text-[10px] text-amber-400/90 font-medium">
-                        {cnt.clientSnapshot.phone ? `📞 ${cnt.clientSnapshot.phone}` : <span className="text-slate-500 italic">📞 Tél non renseigné</span>}
-                      </div>
+                      {cnt.clientSnapshot.phone ? (
+                        <div className="text-[10px] text-amber-400/90 font-medium">📞 {cnt.clientSnapshot.phone}</div>
+                      ) : null}
                       {(cnt.clientSnapshot.licenseDocUrl || cnt.clientSnapshot.cinDocUrl) && (
                         <div className="text-[9px] text-emerald-400 font-mono mt-0.5">
                           ✓ Documents archivés
@@ -689,15 +721,22 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
 
                     {/* DATES & DURÉE */}
                     <td className="px-4 py-3.5">
-                      <div className="text-slate-200">
-                        Du <strong>{new Date(cnt.startDate).toLocaleDateString('fr-FR')}</strong> ({cnt.startTime})
-                      </div>
-                      <div className="text-slate-200">
-                        Au <strong>{new Date(cnt.prolongation?.isActive ? cnt.prolongation.newEndDate : cnt.endDate).toLocaleDateString('fr-FR')}</strong> ({cnt.prolongation?.isActive ? cnt.prolongation.newEndTime : cnt.endTime})
-                      </div>
-                      <div className="text-[10px] text-slate-400 mt-0.5">
-                        Total : <span className="text-amber-400 font-semibold">{cnt.totalDays} jour(s)</span>
-                      </div>
+                      {(() => {
+                        const endDate = cnt.prolongation?.isActive ? cnt.prolongation.newEndDate : cnt.endDate;
+                        const endTime = cnt.prolongation?.isActive ? cnt.prolongation.newEndTime : cnt.endTime;
+                        const fmt = (d: string) =>
+                          new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
+                        return (
+                          <div
+                            className="text-slate-200 whitespace-nowrap"
+                            title={`Du ${new Date(cnt.startDate).toLocaleDateString('fr-FR')} à ${cnt.startTime} au ${new Date(endDate).toLocaleDateString('fr-FR')} à ${endTime}`}
+                          >
+                            <strong>{fmt(cnt.startDate)}</strong> → <strong>{fmt(endDate)}</strong>
+                            <span className="text-slate-500">/{new Date(endDate).getFullYear()}</span>
+                            <div className="text-[10px] text-amber-400 font-semibold mt-0.5">{cnt.totalDays} j</div>
+                          </div>
+                        );
+                      })()}
                     </td>
 
                     {/* KM & CARBURANT */}
@@ -738,7 +777,10 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                         const isPartiallyPaid = !isZeroTotal && paid > 0 && remaining > 0;
 
                         return (
-                          <div className="space-y-1">
+                          <div
+                            className="space-y-1"
+                            title={`Tarif : ${pricePerDay} MAD/j × ${totalDays} j • Encaissé : ${paid.toLocaleString('fr-FR')} MAD • Reste : ${remaining.toLocaleString('fr-FR')} MAD • ${cnt.payments?.length || 0} versement(s)`}
+                          >
                             <div className="flex items-center justify-between gap-1 text-[11px]">
                               <span className="font-mono text-slate-300 font-bold">
                                 {total.toLocaleString('fr-FR')} MAD
@@ -762,31 +804,19 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                               )}
                             </div>
 
-                            <div className="text-[10px] font-mono text-slate-400 flex items-center justify-between">
-                              <span>Tarif : {pricePerDay} MAD/j × {totalDays}j</span>
-                            </div>
-
-                            <div className="text-[10px] font-mono flex items-center justify-between">
-                              <span className={paid > 0 ? 'text-emerald-400 font-semibold' : 'text-slate-400'}>
-                                Encaissé: {paid.toLocaleString('fr-FR')}
-                              </span>
-                              <span className={remaining > 0 ? 'text-rose-400 font-bold' : isZeroTotal ? 'text-slate-400' : 'text-emerald-400 font-semibold'}>
-                                Reste: {remaining.toLocaleString('fr-FR')}
-                              </span>
-                            </div>
-
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-1.5">
+                              {remaining > 0 && (
+                                <span className="text-[10px] font-mono text-rose-400 font-bold">
+                                  Reste {remaining.toLocaleString('fr-FR')}
+                                </span>
+                              )}
                               <button
                                 type="button"
                                 onClick={() => setPaymentsModalContract(cnt)}
-                                className="flex-1 text-left flex items-center justify-between text-[9.5px] text-amber-400/90 hover:text-amber-300 hover:bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 transition-colors cursor-pointer"
-                                title="Gérer les règlements, modifier le tarif journalier ou le total"
+                                className="p-1 text-amber-400/90 hover:text-amber-300 hover:bg-amber-500/10 rounded border border-amber-500/20 transition-colors cursor-pointer"
+                                title={`Gérer les règlements (${cnt.payments?.length || 0} versement(s)), modifier le tarif ou le total`}
                               >
-                                <span className="flex items-center gap-1 font-semibold">
-                                  <Banknote className="w-2.5 h-2.5" />
-                                  {cnt.payments?.length || 0} versement(s)
-                                </span>
-                                <span className="text-amber-400 font-bold">Gérer &gt;</span>
+                                <Banknote className="w-3 h-3" />
                               </button>
 
                               {remaining > 0 && hasPermission('canCreateContracts') && (
@@ -801,7 +831,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                                   className="text-[9px] font-bold bg-emerald-500/20 hover:bg-emerald-500 text-emerald-300 hover:text-slate-950 border border-emerald-500/40 px-1.5 py-0.5 rounded transition-all cursor-pointer whitespace-nowrap"
                                   title={`Solder immédiatement le reliquat de ${remaining.toLocaleString('fr-FR')} MAD`}
                                 >
-                                  Solder ({remaining.toLocaleString('fr-FR')})
+                                  Solder
                                 </button>
                               )}
                             </div>
@@ -813,10 +843,9 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                     {/* STATUT */}
                     <td className="px-4 py-3.5">{getStatusBadge(cnt.status)}</td>
 
-                    {/* ACTIONS */}
+                    {/* ACTIONS : 2 actions visibles (PDF, Restituer) + menu « ⋯ » pour le reste */}
                     <td className="px-4 py-3.5 text-right">
                       <div className="flex items-center justify-end gap-1.5">
-                        {/* 1. Aperçu PDF A4 2 pages */}
                         <button
                           onClick={() => openPdfModal(cnt)}
                           className="p-1.5 bg-slate-800 hover:bg-amber-500/20 text-slate-300 hover:text-amber-400 border border-slate-700 hover:border-amber-500/40 rounded-lg transition-colors cursor-pointer"
@@ -825,80 +854,6 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                           <Eye className="w-4 h-4" />
                         </button>
 
-                        {/* 1b. Signature Numérique Directe (masquée : ENABLE_DIGITAL_SIGNATURE) */}
-                        {ENABLE_DIGITAL_SIGNATURE && (
-                          <button
-                            onClick={() => setSigningContract(cnt)}
-                            className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
-                              cnt.clientSignature
-                                ? 'bg-emerald-950/60 hover:bg-emerald-900 text-emerald-400 border-emerald-500/40'
-                                : 'bg-slate-800 hover:bg-amber-500/20 text-slate-300 hover:text-amber-400 border-slate-700 hover:border-amber-500/40'
-                            }`}
-                            title={
-                              cnt.clientSignature
-                                ? 'Signature électronique certifiée présente (cliquer pour gérer)'
-                                : 'Recueillir la signature numérique sur écran'
-                            }
-                          >
-                            <PenTool className="w-4 h-4" />
-                          </button>
-                        )}
-
-                        {/* 1c. Règlements & Paiements Clients */}
-                        <button
-                          onClick={() => setPaymentsModalContract(cnt)}
-                          className="p-1.5 bg-slate-800 hover:bg-emerald-500/20 text-slate-300 hover:text-emerald-400 border border-slate-700 hover:border-emerald-500/40 rounded-lg transition-colors cursor-pointer"
-                          title="Gérer les règlements clients, acomptes et solde"
-                        >
-                          <Banknote className="w-4 h-4" />
-                        </button>
-
-                        {/* 2. Modifier le contrat (Actif ou Brouillon) */}
-                        {(cnt.status === 'active' || cnt.status === 'draft') && hasPermission('canEditContracts') && (
-                          <button
-                            onClick={() => startEditingContract(cnt)}
-                            className="p-1.5 bg-slate-800 hover:bg-blue-500/20 text-slate-300 hover:text-blue-400 border border-slate-700 hover:border-blue-500/40 rounded-lg transition-colors cursor-pointer"
-                            title="Modifier ce contrat complet"
-                          >
-                            <Edit3 className="w-4 h-4" />
-                          </button>
-                        )}
-
-                        {/* 2b. Modifier Carburant & KM Départ rapide */}
-                        {(cnt.status === 'active' || cnt.status === 'draft') && hasPermission('canEditContracts') && (
-                          <button
-                            onClick={() => openFuelEdit(cnt)}
-                            className="p-1.5 bg-slate-800 hover:bg-amber-500/20 text-slate-300 hover:text-amber-400 border border-slate-700 hover:border-amber-500/40 rounded-lg transition-colors cursor-pointer"
-                            title="Modifier le carburant & KM de départ"
-                          >
-                            <Fuel className="w-4 h-4" />
-                          </button>
-                        )}
-
-                        {/* 3. Imprimer */}
-                        <button
-                          onClick={() => openPdfModal(cnt)}
-                          className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 rounded-lg transition-colors cursor-pointer"
-                          title="Imprimer le contrat A4"
-                        >
-                          <Printer className="w-4 h-4" />
-                        </button>
-
-                        {/* 3b. Photos & État des Lieux Carrosserie */}
-                        <button
-                          onClick={() => setInspectionContract(cnt)}
-                          className="p-1.5 bg-slate-800 hover:bg-amber-500/20 text-slate-300 hover:text-amber-400 border border-slate-700 hover:border-amber-500/40 rounded-lg transition-colors cursor-pointer relative"
-                          title="Photos et fiche d'état des lieux du véhicule"
-                        >
-                          <Camera className="w-4 h-4" />
-                          {cnt.inspection?.photos?.length ? (
-                            <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-amber-500 text-slate-950 font-bold text-[8px] rounded-full flex items-center justify-center">
-                              {cnt.inspection.photos.length}
-                            </span>
-                          ) : null}
-                        </button>
-
-                        {/* 4. Restituer / Check-in */}
                         {cnt.status === 'active' && hasPermission('canValidateContracts') && (
                           <button
                             onClick={() => onOpenCheckInModal(cnt)}
@@ -910,41 +865,20 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                           </button>
                         )}
 
-                        {/* 5. Dupliquer (Section 23) */}
-                        {hasPermission('canCreateContracts') && (
-                          <button
-                            onClick={() => duplicateContract(cnt)}
-                            className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 rounded-lg transition-colors cursor-pointer"
-                            title="Dupliquer ce contrat pour une nouvelle location"
-                          >
-                            <Copy className="w-4 h-4" />
-                          </button>
-                        )}
-
-                        {/* 6. Annuler (Permission canCancelContracts) */}
-                        {cnt.status === 'active' && hasPermission('canCancelContracts') && (
-                          <button
-                            onClick={() => handleCancel(cnt)}
-                            className="p-1.5 bg-slate-800 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 border border-slate-700 rounded-lg transition-colors cursor-pointer"
-                            title="Annuler le contrat"
-                          >
-                            <XCircle className="w-4 h-4" />
-                          </button>
-                        )}
-
-                        {/* 7. Supprimer définitivement (permission canDeleteContracts) */}
-                        {canUserDeleteContracts && (
-                          <button
-                            onClick={() => {
-                              setDeleteContractError(null);
-                              setContractToDelete(cnt);
-                            }}
-                            className="p-1.5 bg-slate-800 hover:bg-rose-600/30 text-slate-500 hover:text-rose-400 border border-slate-700 hover:border-rose-500/40 rounded-lg transition-colors cursor-pointer"
-                            title="Supprimer définitivement ce contrat"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          onClick={(e) => openRowMenu(e, cnt)}
+                          aria-haspopup="menu"
+                          aria-expanded={rowMenu?.contractId === cnt.id}
+                          className={`p-1.5 border rounded-lg transition-colors cursor-pointer ${
+                            rowMenu?.contractId === cnt.id
+                              ? 'bg-amber-500/20 text-amber-400 border-amber-500/40'
+                              : 'bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border-slate-700'
+                          }`}
+                          title="Plus d'actions"
+                        >
+                          <MoreHorizontal className="w-4 h-4" />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -1162,6 +1096,105 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
           )}
         </div>
       </div>
+
+      {/* MENU « ⋯ » D'UNE LIGNE (actions secondaires) */}
+      {rowMenu &&
+        (() => {
+          const menuContract = sortedContracts.find((c) => c.id === rowMenu.contractId);
+          if (!menuContract) return null;
+          const editable =
+            (menuContract.status === 'active' || menuContract.status === 'draft') && hasPermission('canEditContracts');
+          const itemClass =
+            'w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs text-slate-200 hover:bg-slate-800 transition-colors cursor-pointer';
+          const run = (action: () => void) => () => {
+            setRowMenu(null);
+            action();
+          };
+          return (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setRowMenu(null)} aria-hidden="true" />
+              <div
+                role="menu"
+                style={{ position: 'fixed', top: rowMenu.top, right: rowMenu.right }}
+                className="z-50 w-60 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl py-1.5 overflow-hidden"
+              >
+                <div className="px-3 pb-1.5 text-[10px] font-mono font-bold text-amber-400 border-b border-slate-800">
+                  {menuContract.contractNumber}
+                </div>
+
+                <button role="menuitem" className={itemClass} onClick={run(() => setPaymentsModalContract(menuContract))}>
+                  <Banknote className="w-4 h-4 text-emerald-400" />
+                  <span>Règlements & paiements</span>
+                </button>
+
+                {editable && (
+                  <button role="menuitem" className={itemClass} onClick={run(() => startEditingContract(menuContract))}>
+                    <Edit3 className="w-4 h-4 text-blue-400" />
+                    <span>Modifier le contrat</span>
+                  </button>
+                )}
+
+                {editable && (
+                  <button role="menuitem" className={itemClass} onClick={run(() => openFuelEdit(menuContract))}>
+                    <Fuel className="w-4 h-4 text-amber-400" />
+                    <span>Carburant & km de départ</span>
+                  </button>
+                )}
+
+                <button role="menuitem" className={itemClass} onClick={run(() => setInspectionContract(menuContract))}>
+                  <Camera className="w-4 h-4 text-amber-400" />
+                  <span>
+                    Photos & état des lieux
+                    {menuContract.inspection?.photos?.length ? ` (${menuContract.inspection.photos.length})` : ''}
+                  </span>
+                </button>
+
+                <button role="menuitem" className={itemClass} onClick={run(() => openPdfModal(menuContract))}>
+                  <Printer className="w-4 h-4 text-slate-300" />
+                  <span>Imprimer le contrat</span>
+                </button>
+
+                {ENABLE_DIGITAL_SIGNATURE && (
+                  <button role="menuitem" className={itemClass} onClick={run(() => setSigningContract(menuContract))}>
+                    <PenTool className="w-4 h-4 text-amber-400" />
+                    <span>{menuContract.clientSignature ? 'Gérer la signature' : 'Signer'}</span>
+                  </button>
+                )}
+
+                {hasPermission('canCreateContracts') && (
+                  <button role="menuitem" className={itemClass} onClick={run(() => duplicateContract(menuContract))}>
+                    <Copy className="w-4 h-4 text-slate-300" />
+                    <span>Dupliquer</span>
+                  </button>
+                )}
+
+                {menuContract.status === 'active' && hasPermission('canCancelContracts') && (
+                  <button role="menuitem" className={itemClass} onClick={run(() => handleCancel(menuContract))}>
+                    <XCircle className="w-4 h-4 text-rose-400" />
+                    <span>Annuler le contrat</span>
+                  </button>
+                )}
+
+                {canUserDeleteContracts && (
+                  <>
+                    <div className="my-1 border-t border-slate-800" />
+                    <button
+                      role="menuitem"
+                      className={`${itemClass} text-rose-300 hover:bg-rose-500/10`}
+                      onClick={run(() => {
+                        setDeleteContractError(null);
+                        setContractToDelete(menuContract);
+                      })}
+                    >
+                      <Trash2 className="w-4 h-4 text-rose-400" />
+                      <span>Supprimer définitivement</span>
+                    </button>
+                  </>
+                )}
+              </div>
+            </>
+          );
+        })()}
 
       {/* MODAL ÉTAT DES LIEUX & PHOTOS */}
       <InspectionManagerModal
