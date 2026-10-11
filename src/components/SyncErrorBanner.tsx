@@ -202,6 +202,8 @@ export const SyncErrorBanner: React.FC = () => {
   };
 
   const tableLabel = tableLabels[syncError.table] || syncError.table;
+  // Colonne réellement signalée par PostgREST (le texte ne doit pas être figé sur une colonne).
+  const missingColumn = syncError.message?.match(/'([^']+)' column/i)?.[1];
 
   const activeSqlScript = isRls ? FIX_RLS_SQL_SCRIPT : FIX_SQL_SCRIPT;
 
@@ -280,7 +282,7 @@ export const SyncErrorBanner: React.FC = () => {
 
             <p className="text-xs text-slate-300 leading-snug">
               {isSchemaCache
-                ? `La colonne 'assigned_manager_id' est absente ou non indexée dans le cache PostgREST. Le mode de repli sécurisé a sauvegardé les données dans 'data' (JSONB).`
+                ? `La colonne '${missingColumn ?? 'inconnue'}' est absente ou non indexée dans le cache PostgREST. Le mode de repli sécurisé a sauvegardé les données dans 'data' (JSONB).`
                 : isRls
                 ? `La politique RLS Supabase interdit l'écriture sur cette fiche pour le compte actuel.`
                 : syncError.message}

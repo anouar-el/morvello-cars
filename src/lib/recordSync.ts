@@ -224,6 +224,14 @@ function reportWriteFailure(
 
 const CONFLICT_TOLERANCE_MS = 1500;
 
+/** Nom de la colonne signalée absente par PostgREST (PGRST204 / « schema cache »), sinon null. */
+export function extractMissingColumn(error: { code?: string; message?: string } | null | undefined): string | null {
+  if (!error) return null;
+  const isSchemaCache = error.code === 'PGRST204' || error.message?.toLowerCase().includes('schema cache');
+  if (!isSchemaCache) return null;
+  return error.message?.match(/Could not find the '([^']+)' column/i)?.[1] ?? null;
+}
+
 interface AtomicUpdateOutcome {
   success: boolean;
   status: SyncStatus;
@@ -247,7 +255,10 @@ async function atomicMergeUpdate(opts: {
   buildFields: (currentData: Record<string, any>) => Record<string, any>;
 }): Promise<AtomicUpdateOutcome> {
   const { table, id, expectedUpdatedAt, timestamp, buildFields } = opts;
-  const MAX_ATTEMPTS = 4;
+  const MAX_ATTEMPTS = 6;
+  // Colonnes absentes du cache de schéma PostgREST (PGRST204) : on les retire et on réessaie.
+  // Leur valeur reste enregistrée dans le document JSON `data`, donc rien n'est perdu.
+  const droppedColumns = new Set<string>();
 
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     const { data: row, error: readErr } = await supabase
@@ -283,11 +294,18 @@ async function atomicMergeUpdate(opts: {
     }
 
     const fields = buildFields(row.data && typeof row.data === 'object' ? row.data : {});
+    for (const column of droppedColumns) delete fields[column];
     let query = supabase.from(table).update(fields).eq('id', id);
     query = row.updated_at ? query.eq('updated_at', row.updated_at) : query.is('updated_at', null);
     const { data: updatedRows, error } = await query.select('id');
 
     if (error) {
+      const missingColumn = extractMissingColumn(error);
+      if (missingColumn && missingColumn !== 'data' && missingColumn in fields && !droppedColumns.has(missingColumn)) {
+        droppedColumns.add(missingColumn);
+        console.warn(`[RecordSync] Colonne '${missingColumn}' absente de '${table}' : repli sur le document JSON.`);
+        continue;
+      }
       const parsed = parsePostgrestError(error);
       return { success: false, status: parsed.code === '42501' ? 'DENIED' : 'SYNC_FAILED', error: parsed.message, code: parsed.code };
     }
