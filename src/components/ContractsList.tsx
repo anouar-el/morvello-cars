@@ -82,7 +82,10 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
   // Contract Deletion Modal (Gérant only)
   const [contractToDelete, setContractToDelete] = useState<Contract | null>(null);
   // Menu « ⋯ » d'une ligne du tableau (positionné en `fixed` pour ne pas être coupé par le défilement du tableau)
-  const [rowMenu, setRowMenu] = useState<{ contractId: string; top: number; right: number } | null>(null);
+  // `sheet` : sur mobile le menu s'ouvre en feuille depuis le bas de l'écran.
+  const [rowMenu, setRowMenu] = useState<{ contractId: string; top: number; right: number; sheet?: boolean } | null>(
+    null
+  );
   const [deleteContractError, setDeleteContractError] = useState<string | null>(null);
   const [successToastMsg, setSuccessToastMsg] = useState<string>('');
 
@@ -197,6 +200,10 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
         ? null
         : { contractId: cnt.id, top: rect.bottom + 4, right: Math.max(8, window.innerWidth - rect.right) }
     );
+  };
+
+  const openMobileSheet = (cnt: Contract) => {
+    setRowMenu({ contractId: cnt.id, top: 0, right: 0, sheet: true });
   };
 
   useEffect(() => {
@@ -424,7 +431,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
 
         {/* Super Admin Manager Filter */}
         {!isManager && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0 w-full lg:w-auto">
             <label className="text-xs text-slate-400 font-mono flex items-center gap-1 shrink-0">
               <Filter className="w-3.5 h-3.5 text-amber-400" />
               Responsable :
@@ -432,7 +439,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
             <select
               value={managerFilter}
               onChange={(e) => setManagerFilter(e.target.value)}
-              className="bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-amber-500"
+              className="min-w-0 flex-1 lg:flex-none max-w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-amber-500"
             >
               <option value="all">Tous ({contracts.length})</option>
               {(users || [])
@@ -1010,86 +1017,67 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                     </div>
                   </div>
 
-                  {/* MOBILE ACTION BUTTONS (LARGE TOUCH TARGETS) */}
-                  <div className={`grid ${canUserDeleteContracts ? 'grid-cols-4' : 'grid-cols-3'} gap-1.5 pt-1`}>
-                    {/* 1. Voir PDF */}
-                    <button
-                      type="button"
-                      onClick={() => openPdfModal(cnt)}
-                      className="flex flex-col items-center justify-center p-2 rounded-xl bg-blue-500/15 hover:bg-blue-500/25 text-blue-300 border border-blue-500/30 text-[10px] font-semibold transition-colors cursor-pointer"
-                    >
-                      <Eye className="w-4 h-4 mb-0.5" />
-                      <span>PDF A4</span>
-                    </button>
+                  {/* ACTIONS MOBILE : actions principales + « Plus » (feuille avec toutes les autres) */}
+                  {(() => {
+                    const mobileEditable =
+                      (cnt.status === 'active' || cnt.status === 'draft') && hasPermission('canEditContracts');
+                    const canCheckIn = cnt.status === 'active' && hasPermission('canValidateContracts');
+                    const tile =
+                      'flex-1 min-w-0 flex flex-col items-center justify-center gap-0.5 p-2 rounded-xl border text-[10px] font-semibold transition-colors cursor-pointer';
+                    return (
+                      <div className="flex gap-1.5 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => openPdfModal(cnt)}
+                          className={`${tile} bg-blue-500/15 hover:bg-blue-500/25 text-blue-300 border-blue-500/30`}
+                        >
+                          <Eye className="w-4 h-4" />
+                          <span className="truncate">PDF A4</span>
+                        </button>
 
-                    {/* 2. Signature e-Sign (masquée : ENABLE_DIGITAL_SIGNATURE) */}
-                    {ENABLE_DIGITAL_SIGNATURE && (
-                      <button
-                        type="button"
-                        onClick={() => setSigningContract(cnt)}
-                        className={`flex flex-col items-center justify-center p-2 rounded-xl text-[10px] font-semibold border transition-colors cursor-pointer ${
-                          cnt.clientSignature
-                            ? 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-                            : 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border-amber-500/30'
-                        }`}
-                      >
-                        <PenTool className="w-4 h-4 mb-0.5" />
-                        <span>{cnt.clientSignature ? 'Signé' : 'Signer'}</span>
-                      </button>
-                    )}
+                        <button
+                          type="button"
+                          onClick={() => setPaymentsModalContract(cnt)}
+                          className={`${tile} bg-slate-800 hover:bg-slate-700 text-emerald-300 border-slate-700`}
+                        >
+                          <Banknote className="w-4 h-4" />
+                          <span className="truncate">Paiements</span>
+                        </button>
 
-                    {/* 3. Photos / Inspection */}
-                    <button
-                      type="button"
-                      onClick={() => setInspectionContract(cnt)}
-                      className="flex flex-col items-center justify-center p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[10px] font-semibold transition-colors cursor-pointer relative"
-                    >
-                      <Camera className="w-4 h-4 mb-0.5" />
-                      {cnt.inspection?.photos?.length ? (
-                        <span className="absolute top-1 right-2 text-[8px] font-bold bg-amber-500 text-slate-950 px-1 rounded-full">
-                          {cnt.inspection.photos.length}
-                        </span>
-                      ) : null}
-                      <span>Photos</span>
-                    </button>
+                        {mobileEditable && (
+                          <button
+                            type="button"
+                            onClick={() => startEditingContract(cnt)}
+                            className={`${tile} bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700`}
+                          >
+                            <Edit3 className="w-4 h-4" />
+                            <span className="truncate">Modifier</span>
+                          </button>
+                        )}
 
-                    {/* 4. Action contextuelle (Restituer si actif, sinon Modifier) */}
-                    {cnt.status === 'active' && hasPermission('canValidateContracts') ? (
-                      <button
-                        type="button"
-                        onClick={() => onOpenCheckInModal(cnt)}
-                        className="flex flex-col items-center justify-center p-2 rounded-xl bg-emerald-600/30 hover:bg-emerald-600/40 text-emerald-300 border border-emerald-500/40 text-[10px] font-bold transition-colors cursor-pointer"
-                      >
-                        <CheckSquare className="w-4 h-4 mb-0.5" />
-                        <span>Restituer</span>
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => startEditingContract(cnt)}
-                        className="flex flex-col items-center justify-center p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[10px] font-semibold transition-colors cursor-pointer"
-                      >
-                        <Edit3 className="w-4 h-4 mb-0.5" />
-                        <span>Modifier</span>
-                      </button>
-                    )}
+                        {canCheckIn && (
+                          <button
+                            type="button"
+                            onClick={() => onOpenCheckInModal(cnt)}
+                            className={`${tile} bg-emerald-600/30 hover:bg-emerald-600/40 text-emerald-300 border-emerald-500/40 font-bold`}
+                          >
+                            <CheckSquare className="w-4 h-4" />
+                            <span className="truncate">Restituer</span>
+                          </button>
+                        )}
 
-                    {/* 5. Supprimer définitivement (Gérant / permission canDeleteContracts) */}
-                    {canUserDeleteContracts && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setDeleteContractError(null);
-                          setContractToDelete(cnt);
-                        }}
-                        className="flex flex-col items-center justify-center p-2 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 text-[10px] font-semibold transition-colors cursor-pointer"
-                        title="Supprimer définitivement ce contrat"
-                      >
-                        <Trash2 className="w-4 h-4 mb-0.5" />
-                        <span>Supprimer</span>
-                      </button>
-                    )}
-                  </div>
+                        <button
+                          type="button"
+                          onClick={() => openMobileSheet(cnt)}
+                          aria-haspopup="menu"
+                          className={`${tile} bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700`}
+                        >
+                          <MoreHorizontal className="w-4 h-4" />
+                          <span className="truncate">Plus</span>
+                        </button>
+                      </div>
+                    );
+                  })()}
                 </div>
               );
             })
@@ -1104,22 +1092,33 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
           if (!menuContract) return null;
           const editable =
             (menuContract.status === 'active' || menuContract.status === 'draft') && hasPermission('canEditContracts');
-          const itemClass =
-            'w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs text-slate-200 hover:bg-slate-800 transition-colors cursor-pointer';
+          const isSheet = Boolean(rowMenu.sheet);
+          const itemClass = `w-full flex items-center gap-3 px-4 text-left text-slate-200 hover:bg-slate-800 transition-colors cursor-pointer ${
+            isSheet ? 'py-3.5 text-sm' : 'py-2 text-xs'
+          }`;
           const run = (action: () => void) => () => {
             setRowMenu(null);
             action();
           };
           return (
             <>
-              <div className="fixed inset-0 z-40" onClick={() => setRowMenu(null)} aria-hidden="true" />
+              <div
+                className={`fixed inset-0 ${isSheet ? 'z-[60] bg-slate-950/60' : 'z-40'}`}
+                onClick={() => setRowMenu(null)}
+                aria-hidden="true"
+              />
               <div
                 role="menu"
-                style={{ position: 'fixed', top: rowMenu.top, right: rowMenu.right }}
-                className="z-50 w-60 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl py-1.5 overflow-hidden"
+                style={isSheet ? undefined : { position: 'fixed', top: rowMenu.top, right: rowMenu.right }}
+                className={
+                  isSheet
+                    ? 'fixed inset-x-0 bottom-0 z-[70] max-h-[80vh] overflow-y-auto bg-slate-900 border-t border-slate-700 rounded-t-2xl shadow-2xl pb-6 pt-2'
+                    : 'z-50 w-60 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl py-1.5 overflow-hidden'
+                }
               >
-                <div className="px-3 pb-1.5 text-[10px] font-mono font-bold text-amber-400 border-b border-slate-800">
-                  {menuContract.contractNumber}
+                {isSheet && <div className="w-12 h-1.5 bg-slate-700 rounded-full mx-auto mb-2" />}
+                <div className="px-4 pb-2 text-[11px] font-mono font-bold text-amber-400 border-b border-slate-800">
+                  {menuContract.contractNumber} • {menuContract.clientSnapshot.lastName} {menuContract.clientSnapshot.firstName}
                 </div>
 
                 <button role="menuitem" className={itemClass} onClick={run(() => setPaymentsModalContract(menuContract))}>
