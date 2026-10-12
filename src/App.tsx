@@ -159,7 +159,7 @@ function MainAppContent() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col antialiased selection:bg-amber-500 selection:text-slate-950 relative">
+    <div className="min-h-screen w-full max-w-full overflow-x-clip bg-slate-950 text-slate-100 flex flex-col antialiased selection:bg-amber-500 selection:text-slate-950 relative">
       {/* NAVBAR */}
       <Navbar onOpenNotifications={() => setIsNotificationsOpen(true)} />
 
