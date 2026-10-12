@@ -4,6 +4,22 @@
   * {
     box-sizing: border-box;
   }
+
+  /*
+   * Mobile : la page ne doit jamais défiler latéralement. Un champ (select, input…) plus large que son
+   * conteneur faisait déborder tout le document et obligeait à « glisser » l'écran pour voir la suite.
+   */
+  html {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  select,
+  input,
+  textarea {
+    max-width: 100%;
+    min-width: 0;
+  }
 }
 
 /* ========================================================================= */

@@ -409,14 +409,14 @@ export const VehiclesList: React.FC = () => {
 
         {/* ADMIN FILTER BY MANAGER */}
         {isAdmin && (
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 min-w-0 w-full md:w-auto">
             <span className="text-xs text-slate-400 whitespace-nowrap hidden lg:inline">
               Responsable :
             </span>
             <select
               value={managerFilter}
               onChange={(e) => setManagerFilter(e.target.value)}
-              className="bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:border-amber-500 focus:outline-none cursor-pointer"
+              className="min-w-0 flex-1 md:flex-none max-w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:border-amber-500 focus:outline-none cursor-pointer"
             >
               <option value="all">Tous les responsables</option>
               {managers.map((m) => (
