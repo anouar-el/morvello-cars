@@ -21,6 +21,7 @@ import {
 import { formatPlateFrench } from '../utils/plateUtils';
 import { getVehicleHealthSummary, getTodayDateString } from '../utils/vehicleExpiryUtils';
 import { DashboardAlertsBanner } from './DashboardAlertsBanner';
+import { RemindersPanel } from './RemindersPanel';
 import { getScopedDataForUser } from '../utils/managerScopeUtils';
 
 interface DashboardProps {
@@ -209,6 +210,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCheckInModal, onOpen
         onOpenCheckInModal={onOpenCheckInModal}
         onOpenAllAlerts={onOpenAllAlerts}
       />
+
+      {/* 2.6 RELANCES CLIENTS (WhatsApp prêt à envoyer) */}
+      {currentUser && <RemindersPanel contracts={scopedContracts} userId={currentUser.id} />}
 
       {/* 3. CONTRATS EN COURS & RESTITUTIONS PRIORITAIRES */}
       <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-4">
