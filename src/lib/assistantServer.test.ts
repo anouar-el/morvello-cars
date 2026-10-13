@@ -7,6 +7,7 @@ import {
   sanitizeAssistantSettings,
   sanitizeHistory,
   sanitizeMessage,
+  streamFromModels,
   toPublicError,
   withTimeout,
   wrapDataBlock,
@@ -120,6 +121,80 @@ describe('withTimeout', () => {
   it('rejette une promesse trop lente', async () => {
     const slow = new Promise((resolve) => setTimeout(() => resolve('late'), 300));
     await expect(withTimeout(slow, 20)).rejects.toThrow('AI_TIMEOUT');
+  });
+});
+
+async function* chunks(...parts: (string | Error)[]) {
+  for (const p of parts) {
+    if (p instanceof Error) throw p;
+    yield { text: p };
+  }
+}
+
+describe('streamFromModels', () => {
+  it('émet les morceaux dans l\'ordre et retourne le texte complet', async () => {
+    const received: string[] = [];
+    const out = await streamFromModels({
+      models: ['m1'],
+      timeoutMs: 500,
+      startStream: async () => chunks('Bon', 'jour', ' !'),
+      onDelta: (t) => received.push(t),
+    });
+    expect(received).toEqual(['Bon', 'jour', ' !']);
+    expect(out).toEqual({ model: 'm1', text: 'Bonjour !' });
+  });
+
+  it('passe au modèle suivant si le premier échoue avant tout texte', async () => {
+    const received: string[] = [];
+    const out = await streamFromModels({
+      models: ['m1', 'm2'],
+      timeoutMs: 500,
+      startStream: async (m) => (m === 'm1' ? chunks(new Error('503')) : chunks('ok')),
+      onDelta: (t) => received.push(t),
+    });
+    expect(out.model).toBe('m2');
+    expect(received).toEqual(['ok']);
+  });
+
+  it('passe au modèle suivant si le flux est vide', async () => {
+    const out = await streamFromModels({
+      models: ['m1', 'm2'],
+      timeoutMs: 500,
+      startStream: async (m) => (m === 'm1' ? chunks() : chunks('texte')),
+      onDelta: () => {},
+    });
+    expect(out.model).toBe('m2');
+  });
+
+  it('ne change plus de modèle une fois du texte envoyé (pas de doublon)', async () => {
+    const received: string[] = [];
+    await expect(
+      streamFromModels({
+        models: ['m1', 'm2'],
+        timeoutMs: 500,
+        startStream: async (m) => (m === 'm1' ? chunks('début', new Error('coupure')) : chunks('autre')),
+        onDelta: (t) => received.push(t),
+      })
+    ).rejects.toThrow('coupure');
+    expect(received).toEqual(['début']);
+  });
+
+  it('applique un délai à l\'ouverture du flux', async () => {
+    const never = new Promise<AsyncIterable<{ text?: string }>>(() => {});
+    await expect(
+      streamFromModels({ models: ['m1'], timeoutMs: 30, startStream: () => never, onDelta: () => {} })
+    ).rejects.toThrow('AI_TIMEOUT');
+  });
+
+  it('échoue avec la dernière erreur si tous les modèles échouent', async () => {
+    await expect(
+      streamFromModels({
+        models: ['m1', 'm2'],
+        timeoutMs: 500,
+        startStream: async (m) => chunks(new Error(`fail-${m}`)),
+        onDelta: () => {},
+      })
+    ).rejects.toThrow('fail-m2');
   });
 });
 

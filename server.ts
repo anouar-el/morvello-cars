@@ -19,6 +19,7 @@ import {
   sanitizeAssistantSettings,
   sanitizeHistory,
   sanitizeMessage,
+  streamFromModels,
   toPublicError,
   withTimeout,
   wrapDataBlock,
@@ -1353,6 +1354,45 @@ TON ET FORMAT DES SORTIES :
     const startedAt = Date.now();
     let usedModel = '';
 
+    // Mode flux : le texte part vers le navigateur au fur et à mesure (une ligne JSON par événement),
+    // ce qui divise le temps d'attente ressenti. Sans `stream: true`, réponse JSON classique ci-dessous.
+    if (req.body?.stream === true) {
+      res.status(200);
+      res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache, no-transform');
+      res.setHeader('X-Accel-Buffering', 'no');
+      res.flushHeaders?.();
+      const send = (event: Record<string, unknown>) => {
+        res.write(`${JSON.stringify(event)}\n`);
+        // Le middleware `compression` met en mémoire tampon : sans ce vidage le texte n'arriverait qu'à la fin.
+        (res as unknown as { flush?: () => void }).flush?.();
+      };
+
+      try {
+        const out = await streamFromModels({
+          models: modelsToTry,
+          timeoutMs: ASSISTANT_LIMITS.modelTimeoutMs,
+          startStream: (modelName) =>
+            ai.models.generateContentStream({
+              model: modelName,
+              contents,
+              config: { systemInstruction: systemPrompt, temperature: 0.4 },
+            }),
+          onDelta: (text) => send({ type: 'delta', text }),
+        });
+        console.info(
+          `[Agent chat] uid=${callerId} role=${callerRole} model=${out.model} source=${dataSource} stream=1 ` +
+            `latencyMs=${Date.now() - startedAt} vehicles=${accessibleVehicles.length} contracts=${accessibleContracts.length}`
+        );
+        send({ type: 'done', dataSource });
+      } catch (streamErr: any) {
+        console.error('Agent chat stream error:', streamErr);
+        send({ type: 'error', error: toPublicError(streamErr).message });
+      }
+      res.end();
+      return;
+    }
+
     for (const modelName of modelsToTry) {
       try {
         // Délai maximal par modèle : un modèle qui ne répond pas ne bloque plus toute la chaîne de repli.
@@ -1406,6 +1446,16 @@ TON ET FORMAT DES SORTIES :
     // Le détail reste dans les journaux serveur ; l'utilisateur reçoit un message sans information interne.
     console.error('Agent chat API error:', error);
     const publicError = toPublicError(error);
+    if (res.headersSent) {
+      // Flux déjà ouvert : on ne peut plus changer le code HTTP, on clôt proprement avec une ligne d'erreur.
+      try {
+        res.write(`${JSON.stringify({ type: 'error', error: publicError.message })}\n`);
+      } catch {
+        // connexion déjà fermée
+      }
+      res.end();
+      return;
+    }
     res.status(publicError.status).json({
       success: false,
       error: publicError.message,

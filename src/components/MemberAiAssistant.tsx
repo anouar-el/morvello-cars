@@ -3,6 +3,7 @@ import { useApp } from '../context/AppContext';
 import { AgentChatMessage } from '../types';
 import { isAbortException } from '../initErrorHandling';
 import { getScopedDataForUser } from '../utils/managerScopeUtils';
+import { buildAssistantDigest } from '../lib/aiAssistantContext';
 import { getActiveAuthToken, endTerminatedSession, SESSION_TERMINATED } from '../lib/authToken';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -37,6 +38,9 @@ interface MemberAiAssistantProps {
   onClose?: () => void;
   isExpanded?: boolean;
   onToggleExpand?: () => void;
+  /** Question à poser dès l'ouverture (ex. « Demander à l'assistant » depuis un contrat). */
+  initialPrompt?: string | null;
+  onInitialPromptHandled?: () => void;
 }
 
 const nowTime = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -68,11 +72,14 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
   onClose,
   isExpanded = false,
   onToggleExpand,
+  initialPrompt = null,
+  onInitialPromptHandled,
 }) => {
   const { currentUser, vehicles, contracts, clients, deposits, users, aiSettings, setActiveTab } = useApp();
 
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [streamingId, setStreamingId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
@@ -136,7 +143,7 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
 
   // Métriques cloisonnées à l'utilisateur
   const isAdmin = currentUser.role === 'admin';
-  const { scopedVehicles: memberVehicles } = getScopedDataForUser(
+  const { scopedVehicles: memberVehicles, scopedContracts: memberContracts } = getScopedDataForUser(
     currentUser,
     vehicles,
     contracts,
@@ -211,14 +218,36 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
     },
   ];
 
-  const quickActionChips = [
-    { label: 'Briefing du jour', prompt: capabilityCards[0].prompt, icon: Calendar },
-    { label: 'Retours & retards', prompt: 'Quels véhicules doivent revenir aujourd’hui et demain, et lesquels sont en retard ? Donne le client, le téléphone et l’heure prévue.', icon: Clock },
-    { label: 'Cautions & soldes', prompt: capabilityCards[2].prompt, icon: ShieldCheck },
-    { label: 'Alertes flotte', prompt: capabilityCards[3].prompt, icon: AlertCircle },
-    { label: 'Véhicules dispo', prompt: capabilityCards[1].prompt, icon: Car },
-    { label: 'Accueil WhatsApp', prompt: capabilityCards[4].prompt, icon: MessageSquare },
-  ];
+  // Puces contextuelles : le nombre d'éléments à traiter est calculé sur les données réelles de
+  // l'utilisateur, et les sujets qui demandent une action passent en premier.
+  const digest = buildAssistantDigest(new Date(), memberVehicles, memberContracts);
+  const quickActionChips: { label: string; prompt: string; icon: typeof Calendar; count: number }[] = [
+    {
+      label: 'Briefing du jour',
+      prompt: capabilityCards[0].prompt,
+      icon: Calendar,
+      count: digest.departuresToday.length + digest.returnsToday.length,
+    },
+    {
+      label: 'Retours & retards',
+      prompt:
+        'Quels véhicules doivent revenir aujourd’hui et demain, et lesquels sont en retard ? Donne le client, le téléphone et l’heure prévue.',
+      icon: Clock,
+      count: digest.overdue.length,
+    },
+    {
+      label: 'Cautions & soldes',
+      prompt: capabilityCards[2].prompt,
+      icon: ShieldCheck,
+      count: digest.depositsNotCollected.length + digest.unpaidBalances.length,
+    },
+    { label: 'Alertes flotte', prompt: capabilityCards[3].prompt, icon: AlertCircle, count: digest.vehicleAlerts.length },
+    { label: 'Véhicules dispo', prompt: capabilityCards[1].prompt, icon: Car, count: 0 },
+    { label: 'Accueil WhatsApp', prompt: capabilityCards[4].prompt, icon: MessageSquare, count: 0 },
+  ]
+    .map((chip, order) => ({ chip, order }))
+    .sort((a, b) => Number(b.chip.count > 0) - Number(a.chip.count > 0) || a.order - b.order)
+    .map(({ chip }) => chip);
 
   const stopGenerating = () => {
     abortControllerRef.current?.abort();
@@ -288,6 +317,7 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
           deposits: scopedDeposits,
         },
         aiSettings,
+        stream: true,
       });
 
       let sentProvider: string | null = null;
@@ -329,6 +359,69 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
         throw new Error(
           `Connexion refusée par le serveur : ${second.error || 'Jeton invalide'}. Veuillez vous reconnecter.`
         );
+      }
+
+      // Réponse en flux (NDJSON) : le texte s'affiche au fur et à mesure.
+      if (res.ok && (res.headers.get('content-type') || '').includes('application/x-ndjson') && res.body) {
+        const streamId = `model-${Date.now()}`;
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let text = '';
+        let streamError: string | null = null;
+        let finished = false;
+
+        const handleLine = (line: string) => {
+          if (!line.trim()) return;
+          let evt: any;
+          try {
+            evt = JSON.parse(line);
+          } catch {
+            return;
+          }
+          if (evt.type === 'delta' && typeof evt.text === 'string') {
+            text += evt.text;
+            const snapshot = text;
+            setStreamingId(streamId);
+            setMessages((prev) =>
+              prev.some((m) => m.id === streamId)
+                ? prev.map((m) => (m.id === streamId ? { ...m, content: snapshot } : m))
+                : [
+                    ...prev,
+                    {
+                      id: streamId,
+                      role: 'model',
+                      content: snapshot,
+                      timestamp: nowTime(),
+                      createdAt: new Date().toISOString(),
+                    },
+                  ]
+            );
+          } else if (evt.type === 'error') {
+            streamError = typeof evt.error === 'string' ? evt.error : 'Réponse indisponible.';
+          } else if (evt.type === 'done') {
+            finished = true;
+          }
+        };
+
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+            lines.forEach(handleLine);
+          }
+          buffer += decoder.decode();
+          handleLine(buffer);
+        } finally {
+          setStreamingId(null);
+        }
+
+        if (streamError) throw new Error(streamError);
+        if (!text && !finished) throw new Error('Réponse indisponible.');
+        return;
       }
 
       let data: any = null;
@@ -390,6 +483,13 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
       inputRef.current?.focus();
     }
   };
+
+  useEffect(() => {
+    if (!initialPrompt || loading) return;
+    onInitialPromptHandled?.();
+    sendMessage(initialPrompt);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialPrompt]);
 
   const copyToClipboard = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
@@ -979,7 +1079,7 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
                 })}
 
                 {/* État de réflexion & chargement sophistiqué */}
-                {loading && (
+                {loading && !streamingId && (
                   <div className="flex flex-col items-start w-full animate-fade-in pl-7">
                     <div className="flex items-center gap-2 mb-2">
                       <div className="w-5 h-5 rounded-md bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
@@ -1040,6 +1140,11 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
             >
               <IconComp className="w-3 h-3 text-amber-400 shrink-0" />
               <span>{chip.label}</span>
+              {chip.count > 0 && (
+                <span className="ml-0.5 min-w-[18px] px-1 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-semibold text-center">
+                  {chip.count}
+                </span>
+              )}
             </button>
           );
         })}

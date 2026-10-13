@@ -13,6 +13,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { Contract } from './types';
 import { Bot, Loader2, Sparkles } from 'lucide-react';
 import { lazyView, preloadViewsWhenIdle } from './lazyView';
+import { ASK_ASSISTANT_EVENT } from './lib/askAssistant';
 
 // Everything but the login screen and the dashboard is split out of the initial bundle,
 // then preloaded in the background right after sign-in so tab navigation stays instant.
@@ -75,6 +76,18 @@ function MainAppContent() {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
   const [isAssistantExpanded, setIsAssistantExpanded] = useState(false);
+  const [assistantPrompt, setAssistantPrompt] = useState<string | null>(null);
+
+  useEffect(() => {
+    const onAsk = (e: Event) => {
+      const prompt = (e as CustomEvent<{ prompt?: string }>).detail?.prompt;
+      if (!prompt) return;
+      setAssistantPrompt(prompt);
+      if (activeTab !== 'ai_assistant') setIsAssistantOpen(true);
+    };
+    window.addEventListener(ASK_ASSISTANT_EVENT, onAsk);
+    return () => window.removeEventListener(ASK_ASSISTANT_EVENT, onAsk);
+  }, [activeTab]);
 
   const isSignedIn = Boolean(currentUser);
   useEffect(() => {
@@ -106,7 +119,7 @@ function MainAppContent() {
       case 'vehicles':
         return <VehiclesList />;
       case 'ai_assistant':
-        return <MemberAiAssistant />;
+        return <MemberAiAssistant initialPrompt={assistantPrompt} onInitialPromptHandled={() => setAssistantPrompt(null)} />;
       case 'terms':
         return <TermsManager />;
       case 'permissions':
@@ -220,6 +233,8 @@ function MainAppContent() {
                   onClose={() => setIsAssistantOpen(false)}
                   isExpanded={isAssistantExpanded}
                   onToggleExpand={() => setIsAssistantExpanded(!isAssistantExpanded)}
+                  initialPrompt={assistantPrompt}
+                  onInitialPromptHandled={() => setAssistantPrompt(null)}
                 />
               </Suspense>
             </ErrorBoundary>

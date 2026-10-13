@@ -32,7 +32,9 @@ import {
   DollarSign,
   RefreshCw,
   ArrowUpDown,
+  Sparkles,
 } from 'lucide-react';
+import { askAssistant } from '../lib/askAssistant';
 import { formatPlateFrench } from '../utils/plateUtils';
 import { sortContractsByNumber } from '../utils/contractNumberUtils';
 import { InspectionManagerModal } from './InspectionManagerModal';
@@ -1151,6 +1153,19 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                 <button role="menuitem" className={itemClass} onClick={run(() => openPdfModal(menuContract))}>
                   <Printer className="w-4 h-4 text-slate-300" />
                   <span>Imprimer le contrat</span>
+                </button>
+
+                <button
+                  role="menuitem"
+                  className={itemClass}
+                  onClick={run(() =>
+                    askAssistant(
+                      `Fais le point sur le contrat ${menuContract.contractNumber} (${menuContract.clientSnapshot.firstName} ${menuContract.clientSnapshot.lastName}) : statut, dates, solde restant, caution et prochaine action à mener. Propose ensuite un message WhatsApp adapté au client.`
+                    )
+                  )}
+                >
+                  <Sparkles className="w-4 h-4 text-amber-400" />
+                  <span>Demander à l’assistant</span>
                 </button>
 
                 {ENABLE_DIGITAL_SIGNATURE && (
