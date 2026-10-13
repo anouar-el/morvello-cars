@@ -127,6 +127,56 @@ export function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   });
 }
 
+export interface StreamChunk {
+  text?: string;
+}
+
+export interface StreamModelsOptions {
+  models: string[];
+  /** Ouvre le flux d'un modèle (ex. ai.models.generateContentStream). */
+  startStream: (model: string) => Promise<AsyncIterable<StreamChunk>>;
+  /** Appelé à chaque morceau de texte reçu, dès qu'il arrive. */
+  onDelta: (text: string) => void;
+  timeoutMs: number;
+}
+
+/**
+ * Lit la réponse en flux en essayant les modèles dans l'ordre.
+ *  - Tant qu'aucun texte n'a été envoyé, un échec (ouverture, délai, flux vide) passe au modèle suivant.
+ *  - Dès qu'un texte est parti vers l'utilisateur, on ne change plus de modèle (ce serait un doublon) :
+ *    l'échec est remonté tel quel.
+ * Le délai s'applique à l'ouverture du flux ET à chaque morceau.
+ */
+export async function streamFromModels(opts: StreamModelsOptions): Promise<{ model: string; text: string }> {
+  let lastError: unknown = null;
+
+  for (const model of opts.models) {
+    let emitted = false;
+    let text = '';
+    try {
+      const stream = await withTimeout(opts.startStream(model), opts.timeoutMs);
+      const iterator = stream[Symbol.asyncIterator]();
+      let step = await withTimeout(iterator.next(), opts.timeoutMs);
+      while (!step.done) {
+        const piece = step.value?.text;
+        if (piece) {
+          emitted = true;
+          text += piece;
+          opts.onDelta(piece);
+        }
+        step = await withTimeout(iterator.next(), opts.timeoutMs);
+      }
+      if (emitted) return { model, text };
+      lastError = new Error('Flux vide');
+    } catch (err) {
+      if (emitted) throw err;
+      lastError = err;
+    }
+  }
+
+  throw lastError || new Error('Aucun modèle disponible');
+}
+
 /** Message d'erreur montré à l'utilisateur : jamais le texte brut d'une erreur serveur ou fournisseur. */
 export function toPublicError(err: unknown): { status: number; message: string } {
   const raw = String((err as { message?: string } | null)?.message || err || '').toLowerCase();
