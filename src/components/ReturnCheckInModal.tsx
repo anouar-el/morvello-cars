@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { formatPlateFrench } from '../utils/plateUtils';
 
+import { useI18n } from '../i18n/I18nContext';
 interface ReturnCheckInModalProps {
   contract: Contract | null;
   onClose: () => void;
@@ -50,6 +51,7 @@ export const ReturnCheckInModal: React.FC<ReturnCheckInModalProps> = ({
   onClose,
   onOpenDetailedInspection,
 }) => {
+  const { t } = useI18n();
   const { completeContract, updateContractInspection, deductDeposit, releaseDeposit, deposits, currentUser } = useApp();
 
   if (!contract) return null;
@@ -120,7 +122,7 @@ export const ReturnCheckInModal: React.FC<ReturnCheckInModalProps> = ({
 
   const handleAddDamagePhoto = () => {
     if (!damagePhotoUrl) {
-      alert('Veuillez sélectionner ou capturer une photo du dommage.');
+      alert(t('Veuillez sélectionner ou capturer une photo du dommage.'));
       return;
     }
 
@@ -157,7 +159,7 @@ export const ReturnCheckInModal: React.FC<ReturnCheckInModalProps> = ({
     e.preventDefault();
 
     if (returnKm < contract.departureKm) {
-      alert('Le kilométrage de retour ne peut pas être inférieur au kilométrage de départ !');
+      alert(t('Le kilométrage de retour ne peut pas être inférieur au kilométrage de départ !'));
       return;
     }
 
@@ -221,13 +223,13 @@ export const ReturnCheckInModal: React.FC<ReturnCheckInModalProps> = ({
             </div>
             <div>
               <h2 className="text-base font-bold text-white flex items-center gap-2">
-                Restitution & Check-in Véhicule
+                {t('Restitution & Check-in Véhicule')}
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono font-semibold uppercase">
-                  Protocole Entrant
+                  {t('Protocole Entrant')}
                 </span>
               </h2>
               <p className="text-xs text-amber-400 font-mono font-semibold">
-                Contrat N° {contract.contractNumber} • {contract.clientSnapshot.lastName} {contract.clientSnapshot.firstName}
+                {t('Contrat N° {contractNumber} • {lastName} {firstName}', { contractNumber: contract.contractNumber, lastName: contract.clientSnapshot.lastName, firstName: contract.clientSnapshot.firstName })}
               </p>
             </div>
           </div>
@@ -242,22 +244,22 @@ export const ReturnCheckInModal: React.FC<ReturnCheckInModalProps> = ({
         {/* INFO SUMMARY */}
         <div className="bg-slate-950/70 p-3.5 rounded-xl border border-slate-800 text-xs grid grid-cols-2 sm:grid-cols-4 gap-3 text-slate-300">
           <div>
-            <span className="text-slate-500 block">Véhicule :</span>
+            <span className="text-slate-500 block">{t('Véhicule :')}</span>
             <strong className="text-amber-400">
               {contract.vehicleSnapshot.brand} {contract.vehicleSnapshot.model}
             </strong>
           </div>
           <div>
-            <span className="text-slate-500 block">Immatriculation :</span>
+            <span className="text-slate-500 block">{t('Immatriculation :')}</span>
             <span className="font-mono text-white font-bold">{formatPlateFrench(contract.vehicleSnapshot.plate)}</span>
           </div>
           <div>
-            <span className="text-slate-500 block">KM Départ :</span>
-            <span className="font-mono text-white">{contract.departureKm.toLocaleString()} KM</span>
+            <span className="text-slate-500 block">{t('KM Départ :')}</span>
+            <span className="font-mono text-white">{t('{departureKm} KM', { departureKm: contract.departureKm.toLocaleString() })}</span>
           </div>
           <div>
-            <span className="text-slate-500 block">Carburant Départ :</span>
-            <span className="font-mono text-emerald-400 font-bold">{contract.departureFuel || '8/8 (Plein)'}</span>
+            <span className="text-slate-500 block">{t('Carburant Départ :')}</span>
+            <span className="font-mono text-emerald-400 font-bold">{contract.departureFuel || t('8/8 (Plein)')}</span>
           </div>
         </div>
 
@@ -267,61 +269,61 @@ export const ReturnCheckInModal: React.FC<ReturnCheckInModalProps> = ({
           <div className="bg-slate-950/50 border border-slate-800 rounded-xl p-4 space-y-3">
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
               <Gauge className="w-4 h-4 text-amber-400" />
-              1. Relevé Compteur & Carburant
+              {t('1. Relevé Compteur & Carburant')}
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-slate-300 font-medium mb-1">
-                  Kilométrage au Retour (Compteur) *
+                  {t('Kilométrage au Retour (Compteur) *')}
                 </label>
                 <div className="relative">
-                  <Gauge className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+                  <Gauge className="w-4 h-4 absolute start-3 top-2.5 text-slate-400" />
                   <input
                     type="number"
                     value={returnKm}
                     onChange={(e) => setReturnKm(Number(e.target.value))}
                     min={contract.departureKm}
                     required
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-white font-mono font-bold text-sm focus:border-amber-500 focus:outline-none"
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl ps-9 pe-3 py-2 text-white font-mono font-bold text-sm focus:border-amber-500 focus:outline-none"
                   />
                 </div>
                 <div className="flex justify-between items-center text-[11px] mt-1 text-slate-400">
-                  <span>Distance parcourue :</span>
+                  <span>{t('Distance parcourue :')}</span>
                   <span className="font-bold text-emerald-400 font-mono">
-                    {kmDriven >= 0 ? `+${kmDriven.toLocaleString()} KM` : 'Invalide'}
+                    {kmDriven >= 0 ? t('+{kmDriven} KM', { kmDriven: kmDriven.toLocaleString() }) : t('Invalide')}
                   </span>
                 </div>
               </div>
 
               <div>
                 <label className="block text-slate-300 font-medium mb-1">
-                  Niveau de Carburant au Retour *
+                  {t('Niveau de Carburant au Retour *')}
                 </label>
                 <div className="relative">
-                  <Fuel className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+                  <Fuel className="w-4 h-4 absolute start-3 top-2.5 text-slate-400" />
                   <select
                     value={fuelLevel}
                     onChange={(e) => setFuelLevel(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-white focus:border-amber-500 focus:outline-none cursor-pointer"
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl ps-9 pe-3 py-2 text-white focus:border-amber-500 focus:outline-none cursor-pointer"
                   >
-                    <option value="8/8 (Plein)">8/8 — Plein complet (Conforme départ)</option>
-                    <option value="7/8">7/8 — Presque plein (-1/8)</option>
-                    <option value="6/8 (3/4)">6/8 (3/4) — Manquant</option>
-                    <option value="4/8 (1/2)">4/8 (1/2) — Moitié réservoir</option>
-                    <option value="2/8 (1/4)">2/8 (1/4) — Quart de réservoir</option>
-                    <option value="Réserve (Manquant)">Réserve — Carburant à facturer</option>
+                    <option value="8/8 (Plein)">{t('8/8 — Plein complet (Conforme départ)')}</option>
+                    <option value="7/8">{t('7/8 — Presque plein (-1/8)')}</option>
+                    <option value="6/8 (3/4)">{t('6/8 (3/4) — Manquant')}</option>
+                    <option value="4/8 (1/2)">{t('4/8 (1/2) — Moitié réservoir')}</option>
+                    <option value="2/8 (1/4)">{t('2/8 (1/4) — Quart de réservoir')}</option>
+                    <option value="Réserve (Manquant)">{t('Réserve — Carburant à facturer')}</option>
                   </select>
                 </div>
                 <span className="text-[10px] text-slate-400 mt-1 block">
-                  Départ enregistré : <strong className="text-amber-400">{contract.departureFuel || '8/8 (Plein)'}</strong>
+                  {t('Départ enregistré :')} <strong className="text-amber-400">{contract.departureFuel || t('8/8 (Plein)')}</strong>
                 </span>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3 pt-1">
               <div>
-                <label className="block text-slate-300 font-medium mb-1">Date réelle de retour</label>
+                <label className="block text-slate-300 font-medium mb-1">{t('Date réelle de retour')}</label>
                 <input
                   type="date"
                   value={returnDate}
@@ -331,7 +333,7 @@ export const ReturnCheckInModal: React.FC<ReturnCheckInModalProps> = ({
                 />
               </div>
               <div>
-                <label className="block text-slate-300 font-medium mb-1">Heure de retour</label>
+                <label className="block text-slate-300 font-medium mb-1">{t('Heure de retour')}</label>
                 <input
                   type="time"
                   value={returnTime}
@@ -347,7 +349,7 @@ export const ReturnCheckInModal: React.FC<ReturnCheckInModalProps> = ({
           <div className="bg-slate-950/50 border border-slate-800 rounded-xl p-4 space-y-3">
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
               <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              2. Contrôle Équipements & État Général
+              {t('2. Contrôle Équipements & État Général')}
             </h3>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
@@ -358,7 +360,7 @@ export const ReturnCheckInModal: React.FC<ReturnCheckInModalProps> = ({
                   onChange={(e) => setChecklist({ ...checklist, spareWheel: e.target.checked })}
                   className="rounded text-amber-500 focus:ring-0 w-4 h-4"
                 />
-                <span className="text-[11px] text-slate-300">Roue de secours</span>
+                <span className="text-[11px] text-slate-300">{t('Roue de secours')}</span>
               </label>
               <label className="flex items-center gap-2 p-2 bg-slate-900/80 border border-slate-800 rounded-lg cursor-pointer hover:border-slate-700">
                 <input
@@ -367,7 +369,7 @@ export const ReturnCheckInModal: React.FC<ReturnCheckInModalProps> = ({
                   onChange={(e) => setChecklist({ ...checklist, jack: e.target.checked })}
                   className="rounded text-amber-500 focus:ring-0 w-4 h-4"
                 />
-                <span className="text-[11px] text-slate-300">Cric & Manivelle</span>
+                <span className="text-[11px] text-slate-300">{t('Cric & Manivelle')}</span>
               </label>
               <label className="flex items-center gap-2 p-2 bg-slate-900/80 border border-slate-800 rounded-lg cursor-pointer hover:border-slate-700">
                 <input
@@ -376,7 +378,7 @@ export const ReturnCheckInModal: React.FC<ReturnCheckInModalProps> = ({
                   onChange={(e) => setChecklist({ ...checklist, triangle: e.target.checked })}
                   className="rounded text-amber-500 focus:ring-0 w-4 h-4"
                 />
-                <span className="text-[11px] text-slate-300">Triangle & Gilet</span>
+                <span className="text-[11px] text-slate-300">{t('Triangle & Gilet')}</span>
               </label>
               <label className="flex items-center gap-2 p-2 bg-slate-900/80 border border-slate-800 rounded-lg cursor-pointer hover:border-slate-700">
                 <input
@@ -385,7 +387,7 @@ export const ReturnCheckInModal: React.FC<ReturnCheckInModalProps> = ({
                   onChange={(e) => setChecklist({ ...checklist, documentsPresent: e.target.checked })}
                   className="rounded text-amber-500 focus:ring-0 w-4 h-4"
                 />
-                <span className="text-[11px] text-slate-300">Papiers du véhicule</span>
+                <span className="text-[11px] text-slate-300">{t('Papiers du véhicule')}</span>
               </label>
             </div>
 
@@ -397,7 +399,7 @@ export const ReturnCheckInModal: React.FC<ReturnCheckInModalProps> = ({
                   onChange={(e) => setChecklist({ ...checklist, cleanInterior: e.target.checked })}
                   className="rounded text-amber-500 focus:ring-0 w-4 h-4"
                 />
-                <span className="text-[11px] text-slate-300">Propreté intérieure conforme (Pas de pressing requis)</span>
+                <span className="text-[11px] text-slate-300">{t('Propreté intérieure conforme (Pas de pressing requis)')}</span>
               </label>
               <label className="flex items-center gap-2 p-2 bg-slate-900/80 border border-slate-800 rounded-lg cursor-pointer">
                 <input
@@ -406,7 +408,7 @@ export const ReturnCheckInModal: React.FC<ReturnCheckInModalProps> = ({
                   onChange={(e) => setChecklist({ ...checklist, cleanExterior: e.target.checked })}
                   className="rounded text-amber-500 focus:ring-0 w-4 h-4"
                 />
-                <span className="text-[11px] text-slate-300">Propreté extérieure acceptable</span>
+                <span className="text-[11px] text-slate-300">{t('Propreté extérieure acceptable')}</span>
               </label>
             </div>
           </div>
@@ -416,7 +418,7 @@ export const ReturnCheckInModal: React.FC<ReturnCheckInModalProps> = ({
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
                 <Camera className="w-4 h-4 text-purple-400" />
-                3. Constat Carrosserie & Signalement de Nouveaux Dommages
+                {t('3. Constat Carrosserie & Signalement de Nouveaux Dommages')}
               </h3>
               {onOpenDetailedInspection && (
                 <button
@@ -424,7 +426,7 @@ export const ReturnCheckInModal: React.FC<ReturnCheckInModalProps> = ({
                   onClick={() => onOpenDetailedInspection(contract)}
                   className="text-[11px] text-amber-400 hover:text-amber-300 font-semibold flex items-center gap-1 cursor-pointer"
                 >
-                  Ouvrir Schéma Interactif 2D <ArrowRight className="w-3 h-3" />
+                  {t('Ouvrir Schéma Interactif 2D')} <ArrowRight className="w-3 h-3 rtl:rotate-180" />
                 </button>
               )}
             </div>
@@ -440,7 +442,7 @@ export const ReturnCheckInModal: React.FC<ReturnCheckInModalProps> = ({
                   onChange={() => setChecklist({ ...checklist, bodyCondition: 'conforme' })}
                   className="text-emerald-500"
                 />
-                <span className="text-xs text-emerald-400 font-semibold">Aucun nouveau dommage (Conforme)</span>
+                <span className="text-xs text-emerald-400 font-semibold">{t('Aucun nouveau dommage (Conforme)')}</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
@@ -454,7 +456,7 @@ export const ReturnCheckInModal: React.FC<ReturnCheckInModalProps> = ({
                   }}
                   className="text-rose-400"
                 />
-                <span className="text-xs text-rose-400 font-semibold">Nouveaux dommages constatés !</span>
+                <span className="text-xs text-rose-400 font-semibold">{t('Nouveaux dommages constatés !')}</span>
               </label>
             </div>
 
@@ -464,63 +466,63 @@ export const ReturnCheckInModal: React.FC<ReturnCheckInModalProps> = ({
                 <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                   <span className="text-xs font-bold text-rose-300 flex items-center gap-1.5">
                     <AlertTriangle className="w-4 h-4 text-rose-400" />
-                    Enregistrer un nouveau dommage au retour
+                    {t('Enregistrer un nouveau dommage au retour')}
                   </span>
                   <button
                     type="button"
                     onClick={() => setIsAddingDamage(false)}
                     className="text-slate-400 hover:text-white text-xs"
                   >
-                    Fermer
+                    {t('Fermer')}
                   </button>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                   <div>
-                    <label className="block text-[11px] text-slate-300 mb-1">Zone touchée</label>
+                    <label className="block text-[11px] text-slate-300 mb-1">{t('Zone touchée')}</label>
                     <select
                       value={damageZone}
                       onChange={(e) => setDamageZone(e.target.value)}
                       className="w-full bg-slate-950 border border-slate-700 rounded-lg p-1.5 text-xs text-white"
                     >
                       {VEHICLE_ZONES.map((z) => (
-                        <option key={z.id} value={z.id}>{z.label}</option>
+                        <option key={z.id} value={z.id}>{t(z.label)}</option>
                       ))}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[11px] text-slate-300 mb-1">Nature du dommage</label>
+                    <label className="block text-[11px] text-slate-300 mb-1">{t('Nature du dommage')}</label>
                     <select
                       value={damageType}
                       onChange={(e) => setDamageType(e.target.value)}
                       className="w-full bg-slate-950 border border-slate-700 rounded-lg p-1.5 text-xs text-white"
                     >
                       {DEFECT_TYPES.map((d) => (
-                        <option key={d.id} value={d.id}>{d.label}</option>
+                        <option key={d.id} value={d.id}>{t(d.label)}</option>
                       ))}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[11px] text-slate-300 mb-1">Gravité constatée</label>
+                    <label className="block text-[11px] text-slate-300 mb-1">{t('Gravité constatée')}</label>
                     <select
                       value={damageSeverity}
                       onChange={(e) => setDamageSeverity(e.target.value as any)}
                       className="w-full bg-slate-950 border border-slate-700 rounded-lg p-1.5 text-xs text-white"
                     >
-                      <option value="minor">Mineure (Rayure superficielle)</option>
-                      <option value="medium">Moyenne (Frottement appuyé / Enfoncement)</option>
-                      <option value="major">Majeure (Choc / Remplacement requis)</option>
+                      <option value="minor">{t('Mineure (Rayure superficielle)')}</option>
+                      <option value="medium">{t('Moyenne (Frottement appuyé / Enfoncement)')}</option>
+                      <option value="major">{t('Majeure (Choc / Remplacement requis)')}</option>
                     </select>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-[11px] text-slate-300 mb-1">Détails précis / Localisation</label>
+                  <label className="block text-[11px] text-slate-300 mb-1">{t('Détails précis / Localisation')}</label>
                   <input
                     type="text"
                     value={damageNotes}
                     onChange={(e) => setDamageNotes(e.target.value)}
-                    placeholder="Ex: Éraflure 12 cm sur bas de portière arrière gauche..."
+                    placeholder={t('Ex: Éraflure 12 cm sur bas de portière arrière gauche...')}
                     className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white"
                   />
                 </div>
@@ -529,14 +531,14 @@ export const ReturnCheckInModal: React.FC<ReturnCheckInModalProps> = ({
                   <label className="flex-1 w-full flex items-center justify-center gap-2 border-2 border-dashed border-slate-700 hover:border-amber-500 rounded-xl p-3 cursor-pointer bg-slate-950/60 transition-colors">
                     <UploadCloud className="w-4 h-4 text-amber-400" />
                     <span className="text-xs text-slate-300">
-                      {damagePhotoUrl ? 'Changer la photo' : 'Importer la photo du dommage'}
+                      {damagePhotoUrl ? t('Changer la photo') : t('Importer la photo du dommage')}
                     </span>
                     <input type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
                   </label>
 
                   {damagePhotoUrl && (
                     <div className="w-16 h-12 rounded-lg border border-slate-700 overflow-hidden shrink-0">
-                      <img src={damagePhotoUrl} alt="Aperçu dommage" className="w-full h-full object-cover" />
+                      <img src={damagePhotoUrl} alt={t('Aperçu dommage')} className="w-full h-full object-cover" />
                     </div>
                   )}
 
@@ -546,7 +548,7 @@ export const ReturnCheckInModal: React.FC<ReturnCheckInModalProps> = ({
                     disabled={!damagePhotoUrl}
                     className="w-full sm:w-auto px-4 py-2 bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white font-bold rounded-xl text-xs transition-colors cursor-pointer"
                   >
-                    Ajouter au constat
+                    {t('Ajouter au constat')}
                   </button>
                 </div>
               </div>
@@ -557,7 +559,7 @@ export const ReturnCheckInModal: React.FC<ReturnCheckInModalProps> = ({
                 className="w-full py-2 px-3 border border-dashed border-slate-700 hover:border-slate-600 rounded-xl text-slate-400 hover:text-slate-200 text-xs flex items-center justify-center gap-2 cursor-pointer"
               >
                 <Camera className="w-3.5 h-3.5 text-amber-400" />
-                <span>+ Ajouter une photo de dommage de retour</span>
+                <span>{t('+ Ajouter une photo de dommage de retour')}</span>
               </button>
             )}
 
@@ -565,7 +567,7 @@ export const ReturnCheckInModal: React.FC<ReturnCheckInModalProps> = ({
             {returnPhotos.length > 0 && (
               <div className="space-y-2 pt-2">
                 <span className="text-[11px] font-bold text-slate-300 block">
-                  {returnPhotos.length} photo(s) de dommage rattachée(s) au retour :
+                  {t('{returnPhotosCount} photo(s) de dommage rattachée(s) au retour :', { returnPhotosCount: returnPhotos.length })}
                 </span>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {returnPhotos.map((photo) => (
@@ -576,7 +578,7 @@ export const ReturnCheckInModal: React.FC<ReturnCheckInModalProps> = ({
                       <div className="flex items-center gap-2.5 overflow-hidden">
                         <img
                           src={photo.url}
-                          alt="Dommage"
+                          alt={t('Dommage')}
                           className="w-10 h-10 rounded-lg object-cover border border-slate-700 shrink-0"
                         />
                         <div className="overflow-hidden">
@@ -588,7 +590,7 @@ export const ReturnCheckInModal: React.FC<ReturnCheckInModalProps> = ({
                         type="button"
                         onClick={() => handleDeletePhoto(photo.id)}
                         className="p-1 text-slate-500 hover:text-rose-400 transition-colors"
-                        title="Supprimer la photo"
+                        title={t('Supprimer la photo')}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -605,10 +607,10 @@ export const ReturnCheckInModal: React.FC<ReturnCheckInModalProps> = ({
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center justify-between">
                 <span className="flex items-center gap-1.5">
                   <FileCheck className="w-4 h-4 text-amber-400" />
-                  4. Gestion de la Caution Associée
+                  {t('4. Gestion de la Caution Associée')}
                 </span>
                 <span className="font-mono text-amber-400 font-bold">
-                  {associatedDeposit.amount.toLocaleString()} MAD ({associatedDeposit.methodDetails || associatedDeposit.method})
+                  {t('{amount} MAD (', { amount: associatedDeposit.amount.toLocaleString() })}{associatedDeposit.methodDetails || associatedDeposit.method})
                 </span>
               </h3>
 
@@ -626,8 +628,8 @@ export const ReturnCheckInModal: React.FC<ReturnCheckInModalProps> = ({
                     onChange={() => setCautionAction('release_full')}
                     className="sr-only"
                   />
-                  <div className="font-bold text-white">Libérer 100%</div>
-                  <div className="text-[10px] text-slate-400 mt-0.5">Véhicule conforme, restitution complète</div>
+                  <div className="font-bold text-white">{t('Libérer 100%')}</div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">{t('Véhicule conforme, restitution complète')}</div>
                 </label>
 
                 <label className={`p-2.5 rounded-xl border cursor-pointer transition-all ${
@@ -647,8 +649,8 @@ export const ReturnCheckInModal: React.FC<ReturnCheckInModalProps> = ({
                     }}
                     className="sr-only"
                   />
-                  <div className="font-bold text-white">Retenue Carburant</div>
-                  <div className="text-[10px] text-slate-400 mt-0.5">Déduire frais carburant et rendre le solde</div>
+                  <div className="font-bold text-white">{t('Retenue Carburant')}</div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">{t('Déduire frais carburant et rendre le solde')}</div>
                 </label>
 
                 <label className={`p-2.5 rounded-xl border cursor-pointer transition-all ${
@@ -668,15 +670,15 @@ export const ReturnCheckInModal: React.FC<ReturnCheckInModalProps> = ({
                     }}
                     className="sr-only"
                   />
-                  <div className="font-bold text-white">Retenue Dommage</div>
-                  <div className="text-[10px] text-slate-400 mt-0.5">Retenue pour dégradation constatée</div>
+                  <div className="font-bold text-white">{t('Retenue Dommage')}</div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">{t('Retenue pour dégradation constatée')}</div>
                 </label>
               </div>
 
               {(cautionAction === 'deduct_fuel' || cautionAction === 'deduct_damage') && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                   <div>
-                    <label className="block text-[11px] text-slate-300 mb-1">Montant à retenir (MAD) *</label>
+                    <label className="block text-[11px] text-slate-300 mb-1">{t('Montant à retenir (MAD) *')}</label>
                     <input
                       type="number"
                       value={deductionAmount}
@@ -686,7 +688,7 @@ export const ReturnCheckInModal: React.FC<ReturnCheckInModalProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] text-slate-300 mb-1">Motif de la retenue</label>
+                    <label className="block text-[11px] text-slate-300 mb-1">{t('Motif de la retenue')}</label>
                     <input
                       type="text"
                       value={deductionReason}
@@ -701,7 +703,7 @@ export const ReturnCheckInModal: React.FC<ReturnCheckInModalProps> = ({
 
           {/* REMARQUES */}
           <div>
-            <label className="block text-slate-300 font-medium mb-1">Remarques & Observations Finales</label>
+            <label className="block text-slate-300 font-medium mb-1">{t('Remarques & Observations Finales')}</label>
             <textarea
               rows={2}
               value={returnNotes}
@@ -714,7 +716,7 @@ export const ReturnCheckInModal: React.FC<ReturnCheckInModalProps> = ({
           <div className="bg-emerald-500/10 border border-emerald-500/30 p-3 rounded-xl text-xs text-emerald-300 flex items-start gap-2.5">
             <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
             <span>
-              La validation mettra immédiatement à jour le kilométrage du véhicule à <strong className="font-mono">{returnKm.toLocaleString()} KM</strong>, basculera son statut à <strong className="text-white">Disponible</strong> dans le parc Morvello et archivera le contrat en <strong className="text-white">Terminé</strong>.
+              {t('La validation mettra immédiatement à jour le kilométrage du véhicule à')} <strong className="font-mono">{t('{returnKm} KM', { returnKm: returnKm.toLocaleString() })}</strong>{t(', basculera son statut à')} <strong className="text-white">{t('Disponible')}</strong> {t('dans le parc Morvello et archivera le contrat en')} <strong className="text-white">{t('Terminé')}</strong>.
             </span>
           </div>
 
@@ -725,14 +727,14 @@ export const ReturnCheckInModal: React.FC<ReturnCheckInModalProps> = ({
               onClick={onClose}
               className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl transition-colors cursor-pointer"
             >
-              Annuler
+              {t('Annuler')}
             </button>
             <button
               type="submit"
               className="px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-slate-950 text-xs font-bold rounded-xl shadow-lg shadow-emerald-500/20 transition-all active:scale-95 cursor-pointer flex items-center gap-2"
             >
               <CheckCircle2 className="w-4 h-4" />
-              <span>Valider la Restitution & Clôturer</span>
+              <span>{t('Valider la Restitution & Clôturer')}</span>
             </button>
           </div>
         </form>

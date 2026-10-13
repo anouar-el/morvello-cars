@@ -25,7 +25,9 @@ import { WizardStep4Review } from './wizard/WizardStep4Review';
 import { getNextAvailableContractNumber } from '../utils/contractNumberUtils';
 import { isVehicleAvailableForPeriod } from '../utils/vehicleStatusUtils';
 
+import { useI18n } from '../i18n/I18nContext';
 export const ContractWizard: React.FC = () => {
+  const { t } = useI18n();
   const {
     clients,
     drivers,
@@ -467,7 +469,7 @@ export const ContractWizard: React.FC = () => {
           currentVehicle
         );
         if (!avail.available) {
-          throw new Error(avail.conflictReason || 'Véhicule indisponible pour cette période.');
+          throw new Error(avail.conflictReason || t('Véhicule indisponible pour cette période.'));
         }
       }
 
@@ -699,7 +701,7 @@ export const ContractWizard: React.FC = () => {
       setCreatedContractResult(newContract);
     } catch (err: any) {
       console.error('[ContractWizard] Erreur lors de la création du contrat:', err);
-      setSubmitError(err?.message || 'Erreur lors de la création et synchronisation du contrat.');
+      setSubmitError(err?.message || t('Erreur lors de la création et synchronisation du contrat.'));
     } finally {
       setIsSubmitting(false);
     }
@@ -735,10 +737,10 @@ export const ContractWizard: React.FC = () => {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-amber-500/30 pb-4 mb-4 bg-amber-950/20 p-4 rounded-xl border">
             <div>
               <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest font-mono">
-                Mode Édition / Modification Contractuelle
+                {t('Mode Édition / Modification Contractuelle')}
               </span>
               <h1 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
-                <span>Modification du Contrat</span>
+                <span>{t('Modification du Contrat')}</span>
                 <span className="text-amber-400 font-mono font-extrabold">
                   {editingContractData?.contractNumber}
                 </span>
@@ -751,19 +753,19 @@ export const ContractWizard: React.FC = () => {
               }}
               className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white px-3 py-1.5 rounded-lg border border-slate-700 transition-colors cursor-pointer self-start sm:self-auto"
             >
-              Annuler la modification
+              {t('Annuler la modification')}
             </button>
           </div>
         ) : (
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-4 mb-4">
             <div>
               <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest font-mono">
-                Parcours de Création • Morvello Cars V1
+                {t('Parcours de Création • Morvello Cars V1')}
               </span>
-              <h1 className="text-xl font-bold text-white tracking-tight">Nouveau Contrat de Location</h1>
+              <h1 className="text-xl font-bold text-white tracking-tight">{t('Nouveau Contrat de Location')}</h1>
             </div>
             <div className="text-xs text-slate-400 flex items-center gap-2 font-mono">
-              <span>N° automatique garanti unique :</span>
+              <span>{t('N° automatique garanti unique :')}</span>
               <span className="bg-slate-800 text-amber-400 px-2 py-0.5 rounded font-bold border border-slate-700">
                 {upcomingContractNumber}
               </span>
@@ -931,9 +933,9 @@ export const ContractWizard: React.FC = () => {
           <div className="p-4 bg-rose-950/60 border border-rose-500/50 rounded-xl text-rose-200 text-xs sm:text-sm flex items-start gap-3 mt-4 animate-in fade-in duration-200">
             <AlertTriangle className="w-5 h-5 shrink-0 text-rose-400 mt-0.5" />
             <div className="space-y-1">
-              <p className="font-bold text-rose-300">Échec de validation ou synchronisation du contrat :</p>
+              <p className="font-bold text-rose-300">{t('Échec de validation ou synchronisation du contrat :')}</p>
               <p>{submitError}</p>
-              <p className="text-[11px] text-rose-400">Veuillez corriger le problème ou vérifier la disponibilité du véhicule avant de réessayer.</p>
+              <p className="text-[11px] text-rose-400">{t('Veuillez corriger le problème ou vérifier la disponibilité du véhicule avant de réessayer.')}</p>
             </div>
           </div>
         )}
@@ -948,9 +950,9 @@ export const ContractWizard: React.FC = () => {
                 disabled={isSubmitting}
                 className="flex items-center gap-1 sm:gap-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 hover:text-white text-xs font-semibold px-3 sm:px-4 py-2 rounded-lg transition-colors cursor-pointer"
               >
-                <ChevronLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                <span className="hidden sm:inline">Précédent</span>
-                <span className="sm:hidden">Retour</span>
+                <ChevronLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4 rtl:rotate-180" />
+                <span className="hidden sm:inline">{t('Précédent')}</span>
+                <span className="sm:hidden">{t('Retour')}</span>
               </button>
             ) : (
               <button
@@ -962,7 +964,7 @@ export const ContractWizard: React.FC = () => {
                 disabled={isSubmitting}
                 className="text-xs text-slate-500 hover:text-slate-300 font-medium px-2 py-1 cursor-pointer"
               >
-                {isEditMode ? 'Annuler modif.' : 'Annuler'}
+                {isEditMode ? t('Annuler modif.') : t('Annuler')}
               </button>
             )}
           </div>
@@ -979,8 +981,8 @@ export const ContractWizard: React.FC = () => {
                 }
                 className="flex items-center gap-1.5 sm:gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 disabled:opacity-40 disabled:pointer-events-none text-slate-950 font-bold text-xs px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-lg shadow-md shadow-amber-500/20 transition-all cursor-pointer"
               >
-                <span>Suivant</span>
-                <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <span>{t('Suivant')}</span>
+                <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 rtl:rotate-180" />
               </button>
             ) : (
               <button
@@ -992,13 +994,13 @@ export const ContractWizard: React.FC = () => {
                 {isSubmitting ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin shrink-0" />
-                    <span>Synchronisation sécurisée...</span>
+                    <span>{t('Synchronisation sécurisée...')}</span>
                   </>
                 ) : (
                   <>
                     <CheckCircle2 className="w-4 h-4 shrink-0" />
-                    <span className="hidden sm:inline">{isEditMode ? 'Enregistrer les modifications' : 'Générer le contrat 2 pages A4'}</span>
-                    <span className="sm:hidden">{isEditMode ? 'Enregistrer' : 'Générer Contrat A4'}</span>
+                    <span className="hidden sm:inline">{isEditMode ? t('Enregistrer les modifications') : t('Générer le contrat 2 pages A4')}</span>
+                    <span className="sm:hidden">{isEditMode ? t('Enregistrer') : t('Générer Contrat A4')}</span>
                   </>
                 )}
               </button>

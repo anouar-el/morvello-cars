@@ -23,6 +23,7 @@ import {
   PenLine,
 } from 'lucide-react';
 
+import { useI18n } from '../../i18n/I18nContext';
 interface WizardStep4ReviewProps {
   termsVersion: TermsVersion;
   clientMode: 'existing' | 'new';
@@ -88,20 +89,21 @@ export const WizardStep4Review: React.FC<WizardStep4ReviewProps> = ({
   setSelectedTemplateId,
   currentUser,
 }) => {
+  const { t } = useI18n();
   return (
     <div className="space-y-4 animate-in fade-in duration-150">
       <div className="border-b border-slate-800 pb-3 flex items-center justify-between">
         <div>
           <h2 className="text-base font-bold text-white flex items-center gap-2">
             <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-            Étape 4 : Récapitulatif & Validation Avant Génération A4
+            {t('Étape 4 : Récapitulatif & Validation Avant Génération A4')}
           </h2>
           <p className="text-xs text-slate-400">
-            Vérifiez attentivement les données du contrat avant de générer le document officiel 2 pages.
+            {t('Vérifiez attentivement les données du contrat avant de générer le document officiel 2 pages.')}
           </p>
         </div>
         <span className="text-xs font-mono font-bold bg-amber-500/20 text-amber-400 border border-amber-500/40 px-2.5 py-1 rounded">
-          Conditions V{termsVersion.version}
+          {t('Conditions V{version}', { version: termsVersion.version })}
         </span>
       </div>
 
@@ -109,11 +111,11 @@ export const WizardStep4Review: React.FC<WizardStep4ReviewProps> = ({
         {/* LOCATAIRE & CONDUCTEURS SUMMARY */}
         <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800 space-y-2">
           <h3 className="text-[11px] font-bold text-amber-400 uppercase tracking-wider">
-            1. Locataire & Conducteurs
+            {t('1. Locataire & Conducteurs')}
           </h3>
           <div className="space-y-1 text-slate-300">
             <p>
-              Locataire Principal :{' '}
+              {t('Locataire Principal :')}{' '}
               <strong className="text-white uppercase">
                 {clientMode === 'existing'
                   ? `${currentClient?.lastName} ${currentClient?.firstName}`
@@ -121,45 +123,45 @@ export const WizardStep4Review: React.FC<WizardStep4ReviewProps> = ({
               </strong>
             </p>
             <p>
-              Document :{' '}
+              {t('Document :')}{' '}
               <span className="font-mono text-white">
                 {clientMode === 'existing' ? currentClient?.docNumber : newClientForm.docNumber} (
                 {clientMode === 'existing' ? currentClient?.docType : newClientForm.docType})
               </span>
             </p>
             <p>
-              Permis :{' '}
+              {t('Permis :')}{' '}
               <span className="font-mono text-white">
                 {clientMode === 'existing' ? currentClient?.drivingLicense : newClientForm.drivingLicense}
               </span>
             </p>
             <p>
-              Téléphone :{' '}
+              {t('Téléphone :')}{' '}
               <span className="text-amber-400">
                 {(clientMode === 'existing' ? currentClient?.phone : newClientForm.phone) || (
-                  <span className="text-slate-500 italic">Non renseigné</span>
+                  <span className="text-slate-500 italic">{t('Non renseigné')}</span>
                 )}
               </span>
             </p>
 
             <div className="pt-2 mt-2 border-t border-slate-800/80 flex flex-wrap gap-2 text-[11px]">
-              <span className="text-slate-400">Documents :</span>
+              <span className="text-slate-400">{t('Documents :')}</span>
               {(clientMode === 'existing' ? currentClient?.licenseDocUrl : newClientForm.licenseDocUrl) ? (
                 <span className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded text-[10px] font-mono">
-                  ✓ Permis joint
+                  {t('✓ Permis joint')}
                 </span>
               ) : (
                 <span className="bg-slate-800 text-slate-500 px-2 py-0.5 rounded text-[10px] font-mono">
-                  Permis non joint
+                  {t('Permis non joint')}
                 </span>
               )}
               {(clientMode === 'existing' ? currentClient?.cinDocUrl : newClientForm.cinDocUrl) ? (
                 <span className="bg-blue-500/15 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded text-[10px] font-mono">
-                  ✓ CIN/Passeport joint
+                  {t('✓ CIN/Passeport joint')}
                 </span>
               ) : (
                 <span className="bg-slate-800 text-slate-500 px-2 py-0.5 rounded text-[10px] font-mono">
-                  CIN non jointe
+                  {t('CIN non jointe')}
                 </span>
               )}
             </div>
@@ -167,13 +169,13 @@ export const WizardStep4Review: React.FC<WizardStep4ReviewProps> = ({
             {hasSecondDriver ? (
               <div className="pt-2 mt-2 border-t border-slate-800 text-[11px]">
                 <span className="text-amber-400 font-bold block mb-0.5">
-                  + 2ème Conducteur Agréé :
+                  {t('+ 2ème Conducteur Agréé :')}
                 </span>
                 {secondDriverSource === 'driver' && (
                   <p className="text-slate-200">
                     {drivers.find((d) => d.id === selectedSecondDriverId)?.lastName}{' '}
                     {drivers.find((d) => d.id === selectedSecondDriverId)?.firstName} (
-                    {drivers.find((d) => d.id === selectedSecondDriverId)?.docNumber} - Permis :{' '}
+                    {drivers.find((d) => d.id === selectedSecondDriverId)?.docNumber} {t('- Permis :')}{' '}
                     {drivers.find((d) => d.id === selectedSecondDriverId)?.drivingLicense})
                   </p>
                 )}
@@ -186,14 +188,13 @@ export const WizardStep4Review: React.FC<WizardStep4ReviewProps> = ({
                 )}
                 {secondDriverSource === 'new' && (
                   <p className="text-slate-200">
-                    {newSecondDriverForm.lastName} {newSecondDriverForm.firstName} (
-                    {newSecondDriverForm.docNumber} - Permis : {newSecondDriverForm.drivingLicense})
+                    {t('{lastName} {firstName} ( {docNumber} - Permis : {drivingLicense})', { lastName: newSecondDriverForm.lastName, firstName: newSecondDriverForm.firstName, docNumber: newSecondDriverForm.docNumber, drivingLicense: newSecondDriverForm.drivingLicense })}
                   </p>
                 )}
               </div>
             ) : (
               <p className="text-[10.5px] text-slate-500 italic pt-1">
-                2ème Conducteur : Aucun (Conducteur unique)
+                {t('2ème Conducteur : Aucun (Conducteur unique)')}
               </p>
             )}
           </div>
@@ -202,29 +203,29 @@ export const WizardStep4Review: React.FC<WizardStep4ReviewProps> = ({
         {/* VÉHICULE SUMMARY */}
         <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800 space-y-2">
           <h3 className="text-[11px] font-bold text-amber-400 uppercase tracking-wider">
-            2. Véhicule Attribué
+            {t('2. Véhicule Attribué')}
           </h3>
           <div className="space-y-1 text-slate-300">
             <p>
-              Marque & Modèle :{' '}
+              {t('Marque & Modèle :')}{' '}
               <strong className="text-white uppercase">
                 {currentVehicle?.brand} {currentVehicle?.model}
               </strong>
             </p>
             <p>
-              Immatriculation :{' '}
+              {t('Immatriculation :')}{' '}
               <span className="font-mono font-bold text-amber-400 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-700">
                 {currentVehicle?.plate}
               </span>
             </p>
             <p>
-              Motorisation : <span className="text-white">{currentVehicle?.fuelType}</span>
+              {t('Motorisation :')} <span className="text-white">{currentVehicle?.fuelType}</span>
             </p>
             <p>
-              KM Départ : <strong className="font-mono text-white">{departureKm.toLocaleString()} KM</strong>
+              {t('KM Départ :')} <strong className="font-mono text-white">{t('{departureKm} KM', { departureKm: departureKm.toLocaleString() })}</strong>
             </p>
             <p>
-              Carburant Départ : <strong className="font-mono text-amber-400">{departureFuel}</strong>
+              {t('Carburant Départ :')} <strong className="font-mono text-amber-400">{departureFuel}</strong>
             </p>
           </div>
         </div>
@@ -232,35 +233,35 @@ export const WizardStep4Review: React.FC<WizardStep4ReviewProps> = ({
         {/* LOCATION DURATION SUMMARY */}
         <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800 space-y-2">
           <h3 className="text-[11px] font-bold text-amber-400 uppercase tracking-wider">
-            3. Période & Tarification
+            {t('3. Période & Tarification')}
           </h3>
           <div className="space-y-1 text-slate-300">
             <p>
-              Départ :{' '}
+              {t('Départ :')}{' '}
               <strong className="text-white">
                 {new Date(startDate).toLocaleDateString('fr-FR')} à {startTime}
               </strong>
             </p>
             <p>
-              Retour :{' '}
+              {t('Retour :')}{' '}
               <strong className="text-white">
                 {new Date(endDate).toLocaleDateString('fr-FR')} à {endTime}
               </strong>
             </p>
             <p>
-              Durée : <strong className="text-amber-400 font-mono">{totalDays} jour(s)</strong>
+              {t('Durée :')} <strong className="text-amber-400 font-mono">{t('{totalDays} jour(s)', { totalDays })}</strong>
             </p>
             <p>
-              Total : <strong className="text-amber-400 font-mono">{totalAmount.toLocaleString()} MAD</strong> • Caution :{' '}
-              <strong className="font-mono text-white">{depositAmount.toLocaleString()} MAD</strong>
+              {t('Total :')} <strong className="text-amber-400 font-mono">{t('{totalAmount} MAD', { totalAmount: totalAmount.toLocaleString() })}</strong> {t('• Caution :')}{' '}
+              <strong className="font-mono text-white">{t('{depositAmount} MAD', { depositAmount: depositAmount.toLocaleString() })}</strong>
               {depositAmount > 0 && (
-                <span className={`ml-1.5 text-[10px] font-bold ${depositCollected ? 'text-emerald-400' : 'text-rose-400'}`}>
-                  {depositCollected ? '✓ Prise' : 'Non prise'}
+                <span className={`ms-1.5 text-[10px] font-bold ${depositCollected ? 'text-emerald-400' : 'text-rose-400'}`}>
+                  {depositCollected ? t('✓ Prise') : t('Non prise')}
                 </span>
               )}
             </p>
             <p>
-              Assurance : <strong className="text-sky-300">{insurance.packLabel}</strong> • Franchise :{' '}
+              {t('Assurance :')} <strong className="text-sky-300">{insurance.packLabel}</strong> {t('• Franchise :')}{' '}
               <strong className="font-mono text-white">{formatFranchise(insurance)}</strong>
             </p>
           </div>
@@ -269,7 +270,7 @@ export const WizardStep4Review: React.FC<WizardStep4ReviewProps> = ({
         {/* MANAGER & CONTACT SUMMARY */}
         <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800 space-y-2">
           <h3 className="text-[11px] font-bold text-amber-400 uppercase tracking-wider flex items-center justify-between">
-            <span>4. Manager & Tél. PDF</span>
+            <span>{t('4. Manager & Tél. PDF')}</span>
             <Phone className="w-3.5 h-3.5 text-amber-400" />
           </h3>
           <div className="space-y-1 text-slate-300">
@@ -282,23 +283,23 @@ export const WizardStep4Review: React.FC<WizardStep4ReviewProps> = ({
               return (
                 <>
                   <p>
-                    Responsable :{' '}
+                    {t('Responsable :')}{' '}
                     <strong className="text-white">{officialName}</strong>
                   </p>
                   {hasCustomDisplay ? (
                     <p>
-                      Nom affiché sur contrat :{' '}
+                      {t('Nom affiché sur contrat :')}{' '}
                       <strong className="text-amber-400 font-semibold">{trimmedDisplay}</strong>
                     </p>
                   ) : null}
                   <div>
-                    <span className="text-slate-400 block text-[11px]">GSM Contrat Imprimé :</span>
+                    <span className="text-slate-400 block text-[11px]">{t('GSM Contrat Imprimé :')}</span>
                     <span className="font-mono text-amber-400 font-bold block mt-0.5 text-xs bg-slate-900 px-2 py-1 rounded border border-slate-800">
                       {managerPhone || assignedUser?.phone || companySettings.phone1}
                     </span>
                   </div>
                   <p className="text-[10px] text-slate-500 italic pt-1">
-                    Numéro direct et nom d'affichage imprimés sur l'en-tête du contrat A4.
+                    {t("Numéro direct et nom d'affichage imprimés sur l'en-tête du contrat A4.")}
                   </p>
                 </>
               );
@@ -313,18 +314,18 @@ export const WizardStep4Review: React.FC<WizardStep4ReviewProps> = ({
           <div className="flex items-center gap-2">
             <Layers className="w-4 h-4 text-amber-400" />
             <span className="text-white font-bold text-xs uppercase tracking-wide">
-              Modèle de Contrat Appliqué pour l'Impression A4
+              {t("Modèle de Contrat Appliqué pour l'Impression A4")}
             </span>
           </div>
           <span className="text-[10px] text-slate-400 font-mono">
             {currentUser?.assignedContractTemplate === selectedTemplateId
-              ? 'Attribué à votre compte'
-              : 'Sélection personnalisée'}
+              ? t('Attribué à votre compte')
+              : t('Sélection personnalisée')}
           </span>
         </div>
 
         <p className="text-xs text-slate-400">
-          Sélectionnez la maquette contractuelle haute définition à utiliser pour la génération du document A4 (Recto / Verso) :
+          {t('Sélectionnez la maquette contractuelle haute définition à utiliser pour la génération du document A4 (Recto / Verso) :')}
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
@@ -335,7 +336,7 @@ export const WizardStep4Review: React.FC<WizardStep4ReviewProps> = ({
                 key={tmpl.id}
                 type="button"
                 onClick={() => setSelectedTemplateId(tmpl.id)}
-                className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                className={`p-3 rounded-xl border text-start transition-all cursor-pointer flex flex-col justify-between ${
                   isSelected
                     ? tmpl.id === 'prestige'
                       ? 'bg-amber-500/15 border-amber-400 ring-1 ring-amber-400 text-white'
@@ -361,12 +362,12 @@ export const WizardStep4Review: React.FC<WizardStep4ReviewProps> = ({
                       )}
                       <span className="font-bold text-xs text-white">
                         {tmpl.id === 'standard'
-                          ? 'Standard Morvello'
+                          ? t('Standard Morvello')
                           : tmpl.id === 'prestige'
-                          ? 'Prestige VIP'
+                          ? t('Prestige VIP')
                           : tmpl.id === 'signature'
-                          ? 'Signature Moderne'
-                          : 'Corporate B2B'}
+                          ? t('Signature Moderne')
+                          : t('Corporate B2B')}
                       </span>
                     </div>
                     {isSelected && (
@@ -392,7 +393,7 @@ export const WizardStep4Review: React.FC<WizardStep4ReviewProps> = ({
                     {tmpl.badge}
                   </span>
                   {tmpl.id === currentUser?.assignedContractTemplate && (
-                    <span className="text-amber-400 font-mono text-[9px]">Votre modèle</span>
+                    <span className="text-amber-400 font-mono text-[9px]">{t('Votre modèle')}</span>
                   )}
                 </div>
               </button>
@@ -404,7 +405,7 @@ export const WizardStep4Review: React.FC<WizardStep4ReviewProps> = ({
       <div className="bg-amber-500/10 border border-amber-500/30 p-3 rounded-xl text-xs text-amber-300 flex items-start gap-2">
         <Shield className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
         <p>
-          En validant ce contrat, les données seront archivées, le numéro de contrat sera attribué et le document A4 officiel (2 pages Recto/Verso) sera prêt pour impression immédiate avec le cachet officiel Morvello Cars.
+          {t('En validant ce contrat, les données seront archivées, le numéro de contrat sera attribué et le document A4 officiel (2 pages Recto/Verso) sera prêt pour impression immédiate avec le cachet officiel Morvello Cars.')}
         </p>
       </div>
     </div>

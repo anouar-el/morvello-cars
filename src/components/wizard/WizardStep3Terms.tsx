@@ -3,6 +3,7 @@ import { User as UserIcon, Calendar, Gauge, Fuel, Phone, AlertTriangle, ShieldCh
 import { User, CompanySettings, ContractInsurance, InsurancePackId } from '../../types';
 import { FRANCHISE_DAMAGE_RATE_PERCENT, INSURANCE_PACKS, getPackTerms } from '../../data/insurancePacks';
 
+import { useI18n } from '../../i18n/I18nContext';
 interface WizardStep3TermsProps {
   startDate: string;
   setStartDate: (v: string) => void;
@@ -82,15 +83,16 @@ export const WizardStep3Terms: React.FC<WizardStep3TermsProps> = ({
   totalAmount,
   vehicleAvailability,
 }) => {
+  const { t } = useI18n();
   return (
     <div className="space-y-4 animate-in fade-in duration-150">
       <div className="border-b border-slate-800 pb-3">
         <h2 className="text-base font-bold text-white flex items-center gap-2">
           <Calendar className="w-5 h-5 text-amber-400" />
-          Étape 3 : Durée de la Location, Kilométrage Départ & Tarification
+          {t('Étape 3 : Durée de la Location, Kilométrage Départ & Tarification')}
         </h2>
         <p className="text-xs text-slate-400">
-          Définissez les dates et heures de sortie/retour, le relevé compteur et les montants financiers.
+          {t('Définissez les dates et heures de sortie/retour, le relevé compteur et les montants financiers.')}
         </p>
       </div>
 
@@ -98,7 +100,7 @@ export const WizardStep3Terms: React.FC<WizardStep3TermsProps> = ({
         <div className="p-3.5 bg-rose-950/50 border border-rose-500/50 rounded-xl text-rose-200 text-xs flex items-start gap-2.5">
           <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
           <div>
-            <p className="font-bold text-rose-300">Véhicule indisponible sur cette période :</p>
+            <p className="font-bold text-rose-300">{t('Véhicule indisponible sur cette période :')}</p>
             <p>{vehicleAvailability.conflictReason}</p>
           </div>
         </div>
@@ -108,12 +110,12 @@ export const WizardStep3Terms: React.FC<WizardStep3TermsProps> = ({
         {/* DÉPART */}
         <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800 space-y-3">
           <div className="flex items-center justify-between text-emerald-400 font-bold border-b border-slate-800 pb-1.5">
-            <span className="uppercase text-[11px]">Date & Heure de Sortie (Départ)</span>
-            <span className="text-[10px] font-arabic">تاريخ وساعة الخروج</span>
+            <span className="uppercase text-[11px]">{t('Date & Heure de Sortie (Départ)')}</span>
+            <span className="text-[10px] font-arabic">{t('تاريخ وساعة الخروج')}</span>
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="block text-slate-400 mb-1">Date départ *</label>
+              <label className="block text-slate-400 mb-1">{t('Date départ *')}</label>
               <input
                 type="date"
                 value={startDate}
@@ -122,7 +124,7 @@ export const WizardStep3Terms: React.FC<WizardStep3TermsProps> = ({
               />
             </div>
             <div>
-              <label className="block text-slate-400 mb-1">Heure départ *</label>
+              <label className="block text-slate-400 mb-1">{t('Heure départ *')}</label>
               <input
                 type="time"
                 value={startTime}
@@ -134,9 +136,9 @@ export const WizardStep3Terms: React.FC<WizardStep3TermsProps> = ({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-slate-400 mb-1 font-medium">KM Départ (Relevé compteur) *</label>
+              <label className="block text-slate-400 mb-1 font-medium">{t('KM Départ (Relevé compteur) *')}</label>
               <div className="relative">
-                <Gauge className="w-4 h-4 absolute left-3 top-2.5 text-slate-500" />
+                <Gauge className="w-4 h-4 absolute start-3 top-2.5 text-slate-500" />
                 <input
                   type="number"
                   value={departureKm === 0 ? '' : departureKm}
@@ -145,28 +147,28 @@ export const WizardStep3Terms: React.FC<WizardStep3TermsProps> = ({
                     setDepartureKm(raw === '' ? 0 : Math.max(0, Number(raw)));
                   }}
                   placeholder="0"
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-9 pr-3 py-2 text-white font-mono font-bold focus:border-amber-500 focus:outline-none"
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg ps-9 pe-3 py-2 text-white font-mono font-bold focus:border-amber-500 focus:outline-none"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-slate-400 mb-1 font-medium">Carburant au Départ *</label>
+              <label className="block text-slate-400 mb-1 font-medium">{t('Carburant au Départ *')}</label>
               <div className="relative">
-                <Fuel className="w-4 h-4 absolute left-3 top-2.5 text-amber-400" />
+                <Fuel className="w-4 h-4 absolute start-3 top-2.5 text-amber-400" />
                 <select
                   value={departureFuel}
                   onChange={(e) => setDepartureFuel(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-9 pr-3 py-2 text-white font-mono font-semibold focus:border-amber-500 focus:outline-none cursor-pointer"
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg ps-9 pe-3 py-2 text-white font-mono font-semibold focus:border-amber-500 focus:outline-none cursor-pointer"
                 >
-                  <option value="8/8 (Plein)">8/8 (Plein complet)</option>
+                  <option value="8/8 (Plein)">{t('8/8 (Plein complet)')}</option>
                   <option value="7/8">7/8</option>
                   <option value="6/8 (3/4)">6/8 (3/4)</option>
                   <option value="5/8">5/8</option>
                   <option value="4/8 (1/2)">4/8 (1/2)</option>
                   <option value="3/8">3/8</option>
                   <option value="2/8 (1/4)">2/8 (1/4)</option>
-                  <option value="1/8 (Réserve)">1/8 (Réserve)</option>
+                  <option value="1/8 (Réserve)">{t('1/8 (Réserve)')}</option>
                 </select>
               </div>
             </div>
@@ -176,12 +178,12 @@ export const WizardStep3Terms: React.FC<WizardStep3TermsProps> = ({
         {/* RETOUR */}
         <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800 space-y-3">
           <div className="flex items-center justify-between text-amber-400 font-bold border-b border-slate-800 pb-1.5">
-            <span className="uppercase text-[11px]">Date & Heure de Restitution (Retour)</span>
-            <span className="text-[10px] font-arabic">تاريخ وساعة الدخول</span>
+            <span className="uppercase text-[11px]">{t('Date & Heure de Restitution (Retour)')}</span>
+            <span className="text-[10px] font-arabic">{t('تاريخ وساعة الدخول')}</span>
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="block text-slate-400 mb-1">Date retour *</label>
+              <label className="block text-slate-400 mb-1">{t('Date retour *')}</label>
               <input
                 type="date"
                 value={endDate}
@@ -190,7 +192,7 @@ export const WizardStep3Terms: React.FC<WizardStep3TermsProps> = ({
               />
             </div>
             <div>
-              <label className="block text-slate-400 mb-1">Heure retour *</label>
+              <label className="block text-slate-400 mb-1">{t('Heure retour *')}</label>
               <input
                 type="time"
                 value={endTime}
@@ -202,7 +204,7 @@ export const WizardStep3Terms: React.FC<WizardStep3TermsProps> = ({
 
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="block text-slate-400 mb-1 font-medium">Prix par jour (MAD)</label>
+              <label className="block text-slate-400 mb-1 font-medium">{t('Prix par jour (MAD)')}</label>
               <input
                 type="number"
                 value={pricePerDay}
@@ -216,7 +218,7 @@ export const WizardStep3Terms: React.FC<WizardStep3TermsProps> = ({
               />
             </div>
             <div>
-              <label className="block text-slate-400 mb-1 font-medium">Caution (MAD) · selon pack</label>
+              <label className="block text-slate-400 mb-1 font-medium">{t('Caution (MAD) · selon pack')}</label>
               <input
                 type="number"
                 value={depositAmount}
@@ -229,7 +231,7 @@ export const WizardStep3Terms: React.FC<WizardStep3TermsProps> = ({
                 className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono focus:border-amber-500 focus:outline-none"
               />
               {depositAmount > 0 && (
-                <div className="grid grid-cols-2 gap-1 mt-1.5" role="radiogroup" aria-label="Caution prise ou non prise">
+                <div className="grid grid-cols-2 gap-1 mt-1.5" role="radiogroup" aria-label={t('Caution prise ou non prise')}>
                   <button
                     type="button"
                     role="radio"
@@ -241,7 +243,7 @@ export const WizardStep3Terms: React.FC<WizardStep3TermsProps> = ({
                         : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-600'
                     }`}
                   >
-                    ✓ Prise
+                    {t('✓ Prise')}
                   </button>
                   <button
                     type="button"
@@ -254,7 +256,7 @@ export const WizardStep3Terms: React.FC<WizardStep3TermsProps> = ({
                         : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-600'
                     }`}
                   >
-                    Non prise
+                    {t('Non prise')}
                   </button>
                 </div>
               )}
@@ -268,10 +270,10 @@ export const WizardStep3Terms: React.FC<WizardStep3TermsProps> = ({
         <div className="flex items-center justify-between text-sky-400 font-bold border-b border-slate-800 pb-1.5">
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-4 h-4" />
-            <span className="uppercase text-[11px]">Pack d'assurance</span>
+            <span className="uppercase text-[11px]">{t("Pack d'assurance")}</span>
           </div>
           <span className="text-[10px] text-slate-400 font-normal">
-            Gamme du véhicule : <strong className="text-white">{insurance.categoryLabel}</strong>
+            {t('Gamme du véhicule :')} <strong className="text-white">{insurance.categoryLabel}</strong>
           </span>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
@@ -283,7 +285,7 @@ export const WizardStep3Terms: React.FC<WizardStep3TermsProps> = ({
                 key={pack.id}
                 type="button"
                 onClick={() => onInsurancePackChange(pack.id)}
-                className={`text-left p-3 rounded-xl border transition-all cursor-pointer ${
+                className={`text-start p-3 rounded-xl border transition-all cursor-pointer ${
                   isSelected
                     ? 'bg-sky-500/15 border-sky-400 ring-1 ring-sky-400'
                     : 'bg-slate-900 border-slate-800 hover:border-slate-700'
@@ -296,16 +298,16 @@ export const WizardStep3Terms: React.FC<WizardStep3TermsProps> = ({
                 <p className="text-[10.5px] text-slate-400 mt-1 leading-snug">{pack.coverage}</p>
                 <div className="mt-2 pt-2 border-t border-slate-800 grid grid-cols-3 gap-1 text-[10px] font-mono">
                   <div>
-                    <span className="block text-slate-500">Franchise min.</span>
+                    <span className="block text-slate-500">{t('Franchise min.')}</span>
                     <strong className="text-white">{terms.franchiseMad.toLocaleString('fr-FR')}</strong>
                   </div>
                   <div>
-                    <span className="block text-slate-500">Dépôt</span>
+                    <span className="block text-slate-500">{t('Dépôt')}</span>
                     <strong className="text-white">{terms.depositMad.toLocaleString('fr-FR')}</strong>
                   </div>
                   <div>
-                    <span className="block text-slate-500">Suppl./j</span>
-                    <strong className="text-amber-400">{terms.dailySupplementMad === 0 ? 'Inclus' : `+${terms.dailySupplementMad}`}</strong>
+                    <span className="block text-slate-500">{t('Suppl./j')}</span>
+                    <strong className="text-amber-400">{terms.dailySupplementMad === 0 ? t('Inclus') : `+${terms.dailySupplementMad}`}</strong>
                   </div>
                 </div>
               </button>
@@ -313,9 +315,7 @@ export const WizardStep3Terms: React.FC<WizardStep3TermsProps> = ({
           })}
         </div>
         <p className="text-[10.5px] text-slate-500">
-          Montants en MAD. Franchise = {FRANCHISE_DAMAGE_RATE_PERCENT} % du montant des dégâts, avec pour minimum le montant du pack
-          (imprimée sur le contrat). Le supplément journalier reste interne et
-          s'ajoute au total facturé. La caution est pré-remplie selon le pack et reste modifiable.
+          {t("Montants en MAD. Franchise = {FRANCHISE_DAMAGE_RATE_PERCENT} % du montant des dégâts, avec pour minimum le montant du pack (imprimée sur le contrat). Le supplément journalier reste interne et s'ajoute au total facturé. La caution est pré-remplie selon le pack et reste modifiable.", { FRANCHISE_DAMAGE_RATE_PERCENT })}
         </p>
       </div>
 
@@ -329,15 +329,15 @@ export const WizardStep3Terms: React.FC<WizardStep3TermsProps> = ({
               onChange={(e) => setHasProlongation(e.target.checked)}
               className="rounded border-slate-700 text-amber-500 focus:ring-0 w-4 h-4 cursor-pointer"
             />
-            <span>Activer une Prolongation de contrat (التمديد)</span>
+            <span>{t('Activer une Prolongation de contrat (التمديد)')}</span>
           </label>
-          <span className="text-[10px] text-slate-500">Ne modifie pas silencieusement la date initiale</span>
+          <span className="text-[10px] text-slate-500">{t('Ne modifie pas silencieusement la date initiale')}</span>
         </div>
 
         {hasProlongation && (
           <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-800 animate-in fade-in duration-150">
             <div>
-              <label className="block text-slate-400 mb-1 font-medium">Nouvelle date d'échéance</label>
+              <label className="block text-slate-400 mb-1 font-medium">{t("Nouvelle date d'échéance")}</label>
               <input
                 type="date"
                 value={prolongationDate}
@@ -346,7 +346,7 @@ export const WizardStep3Terms: React.FC<WizardStep3TermsProps> = ({
               />
             </div>
             <div>
-              <label className="block text-slate-400 mb-1 font-medium">Nouvelle heure d'échéance</label>
+              <label className="block text-slate-400 mb-1 font-medium">{t("Nouvelle heure d'échéance")}</label>
               <input
                 type="time"
                 value={prolongationTime}
@@ -363,20 +363,20 @@ export const WizardStep3Terms: React.FC<WizardStep3TermsProps> = ({
         <div className="flex items-center justify-between text-amber-400 font-bold border-b border-slate-800 pb-1.5">
           <div className="flex items-center gap-2">
             <Phone className="w-4 h-4 text-amber-400" />
-            <span className="uppercase text-[11px]">Manager Référent &amp; Coordonnées Directes (En-tête PDF)</span>
+            <span className="uppercase text-[11px]">{t('Manager Référent & Coordonnées Directes (En-tête PDF)')}</span>
           </div>
-          <span className="text-[10px] text-slate-400 font-mono">Personnalisation Contrat</span>
+          <span className="text-[10px] text-slate-400 font-mono">{t('Personnalisation Contrat')}</span>
         </div>
 
         <p className="text-[11px] text-slate-400">
-          Ces coordonnées apparaîtront sur l'en-tête du contrat PDF pour que le locataire puisse identifier et joindre directement son interlocuteur.
+          {t("Ces coordonnées apparaîtront sur l'en-tête du contrat PDF pour que le locataire puisse identifier et joindre directement son interlocuteur.")}
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
           {/* 1. Responsable / Manager officiel */}
           <div>
             <label className="block text-slate-400 mb-1 font-medium text-xs">
-              Collaborateur / Manager en charge *
+              {t('Collaborateur / Manager en charge *')}
             </label>
             <select
               value={assignedManagerId}
@@ -394,7 +394,7 @@ export const WizardStep3Terms: React.FC<WizardStep3TermsProps> = ({
               }}
               className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white text-xs font-semibold focus:border-amber-500 focus:outline-none cursor-pointer"
             >
-              <option value="">Sélectionner un responsable...</option>
+              <option value="">{t('Sélectionner un responsable...')}</option>
               {users.map((u) => (
                 <option key={u.id} value={u.id}>
                   {u.name} ({u.role.toUpperCase()}) {u.phone ? `• ${u.phone}` : ''}
@@ -406,42 +406,42 @@ export const WizardStep3Terms: React.FC<WizardStep3TermsProps> = ({
           {/* 2. Nom d'affichage sur contrat (surnom / display name) */}
           <div>
             <label className="block text-slate-400 mb-1 font-medium text-xs flex items-center justify-between">
-              <span>Nom affiché sur le contrat</span>
-              <span className="text-[10px] text-amber-400 font-mono">Optionnel</span>
+              <span>{t('Nom affiché sur le contrat')}</span>
+              <span className="text-[10px] text-amber-400 font-mono">{t('Optionnel')}</span>
             </label>
             <div className="relative">
               <input
                 type="text"
                 value={managerDisplayName}
                 onChange={(e) => setManagerDisplayName(e.target.value)}
-                placeholder="Ex: Ahmed"
-                className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-8 pr-3 py-2 text-amber-300 text-xs font-semibold focus:border-amber-500 focus:outline-none"
+                placeholder={t('Ex: Ahmed')}
+                className="w-full bg-slate-900 border border-slate-700 rounded-lg ps-8 pe-3 py-2 text-amber-300 text-xs font-semibold focus:border-amber-500 focus:outline-none"
               />
-              <UserIcon className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
+              <UserIcon className="w-3.5 h-3.5 text-slate-500 absolute start-2.5 top-1/2 -translate-y-1/2" />
             </div>
             <p className="text-[10px] text-slate-500 mt-1 leading-tight">
-              Optional. This name will appear on the contract instead of the manager's official name.
+              {t("Optional. This name will appear on the contract instead of the manager's official name.")}
             </p>
           </div>
 
           {/* 3. Téléphone direct imprimé */}
           <div>
             <label className="block text-slate-400 mb-1 font-medium text-xs flex items-center justify-between">
-              <span>Téléphone Manager sur contrat</span>
-              <span className="text-[10px] text-slate-500 font-mono">Ligne directe</span>
+              <span>{t('Téléphone Manager sur contrat')}</span>
+              <span className="text-[10px] text-slate-500 font-mono">{t('Ligne directe')}</span>
             </label>
             <div className="relative">
               <input
                 type="tel"
                 value={managerPhone}
                 onChange={(e) => setManagerPhone(e.target.value)}
-                placeholder="Ex: +212 661-458920"
-                className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-8 pr-3 py-2 text-amber-300 font-mono text-xs font-bold focus:border-amber-500 focus:outline-none"
+                placeholder={t('Ex: +212 661-458920')}
+                className="w-full bg-slate-900 border border-slate-700 rounded-lg ps-8 pe-3 py-2 text-amber-300 font-mono text-xs font-bold focus:border-amber-500 focus:outline-none"
               />
-              <Phone className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
+              <Phone className="w-3.5 h-3.5 text-slate-500 absolute start-2.5 top-1/2 -translate-y-1/2" />
             </div>
             <p className="text-[10px] text-slate-500 mt-1 leading-tight">
-              Numéro de téléphone direct enregistré sur ce contrat.
+              {t('Numéro de téléphone direct enregistré sur ce contrat.')}
             </p>
           </div>
         </div>
@@ -450,15 +450,15 @@ export const WizardStep3Terms: React.FC<WizardStep3TermsProps> = ({
       {/* SUMMARY STATS ROW */}
       <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 flex items-center justify-between text-xs">
         <div className="text-slate-400">
-          Durée calculée : <strong className="text-white text-sm font-mono">{totalDays} jour(s)</strong>
+          {t('Durée calculée :')} <strong className="text-white text-sm font-mono">{t('{totalDays} jour(s)', { totalDays })}</strong>
         </div>
         <div className="text-slate-400">
-          Montant total calculé :{' '}
-          <strong className="text-amber-400 text-sm font-mono">{totalAmount.toLocaleString('fr-FR')} MAD</strong>
-          <span className="text-[11px] text-slate-400 ml-1.5 font-mono">
+          {t('Montant total calculé :')}{' '}
+          <strong className="text-amber-400 text-sm font-mono">{t('{totalAmount} MAD', { totalAmount: totalAmount.toLocaleString('fr-FR') })}</strong>
+          <span className="text-[11px] text-slate-400 ms-1.5 font-mono">
             {insurance.dailySupplementMad > 0
-              ? `((${pricePerDay} + ${insurance.dailySupplementMad} ${insurance.packLabel}) MAD/j × ${totalDays}j)`
-              : `(${pricePerDay} MAD/j × ${totalDays}j)`}
+              ? t('(({pricePerDay} + {dailySupplementMad} {packLabel}) MAD/j × {totalDays}j)', { pricePerDay, dailySupplementMad: insurance.dailySupplementMad, packLabel: insurance.packLabel, totalDays })
+              : t('({pricePerDay} MAD/j × {totalDays}j)', { pricePerDay, totalDays })}
           </span>
         </div>
       </div>

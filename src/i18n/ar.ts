@@ -1,9 +1,11 @@
+import { AR_LOT2 } from './ar.lot2';
+
 /*
  * Dictionnaire arabe (arabe standard simple). La clé est le texte français tel qu'il apparaît dans le code.
  * Convention : un terme métier ambigu garde le mot français entre parenthèses, par exemple « الضمان (Caution) ».
  * Les paramètres {nom} sont conservés tels quels. Un texte absent s'affiche en français.
  */
-export const AR: Record<string, string> = {
+const AR_LOT1: Record<string, string> = {
   // Navigation
   Dashboard: 'لوحة القيادة',
   Contrats: 'العقود',
@@ -200,3 +202,6 @@ export const AR: Record<string, string> = {
   'Marquer comme déjà relancé': 'تعليم كـ تم التذكير',
   Fait: 'تم',
 };
+
+/** Dictionnaire complet : un lot ultérieur peut surcharger une traduction d'un lot précédent. */
+export const AR: Record<string, string> = { ...AR_LOT1, ...AR_LOT2 };

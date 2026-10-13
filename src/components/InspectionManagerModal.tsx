@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { formatPlateFrench } from '../utils/plateUtils';
 
+import { useI18n } from '../i18n/I18nContext';
 interface InspectionManagerModalProps {
   contract: Contract | null;
   isOpen: boolean;
@@ -327,6 +328,7 @@ export const InspectionManagerModal: React.FC<InspectionManagerModalProps> = ({
   isOpen,
   onClose,
 }) => {
+  const { t } = useI18n();
   const { updateContractInspection, currentUser } = useApp();
 
   const [activePhase, setActivePhase] = useState<'departure' | 'return'>('departure');
@@ -423,7 +425,7 @@ export const InspectionManagerModal: React.FC<InspectionManagerModalProps> = ({
 
   const handleSavePhoto = () => {
     if (!photoDataUrl) {
-      alert('Veuillez importer une photo du défaut.');
+      alert(t('Veuillez importer une photo du défaut.'));
       return;
     }
 
@@ -454,7 +456,7 @@ export const InspectionManagerModal: React.FC<InspectionManagerModalProps> = ({
   };
 
   const handleDeletePhoto = (photoId: string) => {
-    if (!confirm('Supprimer cette photo d’état des lieux ?')) return;
+    if (!confirm(t('Supprimer cette photo d’état des lieux ?'))) return;
     setInspectionState((prev) => ({
       ...prev,
       photos: prev.photos.filter((p) => p.id !== photoId),
@@ -482,13 +484,13 @@ export const InspectionManagerModal: React.FC<InspectionManagerModalProps> = ({
             </div>
             <div>
               <h3 className="text-sm sm:text-base font-bold text-white tracking-wide flex items-center gap-2">
-                État des Lieux avec Photos & Contrôle Carrosserie
+                {t('État des Lieux avec Photos & Contrôle Carrosserie')}
                 <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full font-mono">
                   {plate}
                 </span>
               </h3>
               <p className="text-xs text-slate-400">
-                Contrat N° {contract.contractNumber} • {contract.clientSnapshot.lastName}{' '}
+                {t('Contrat N° {contractNumber} • {lastName}', { contractNumber: contract.contractNumber, lastName: contract.clientSnapshot.lastName })}{' '}
                 {contract.clientSnapshot.firstName}
               </p>
             </div>
@@ -513,9 +515,9 @@ export const InspectionManagerModal: React.FC<InspectionManagerModalProps> = ({
               }`}
             >
               <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>Inspection DÉPART</span>
+              <span>{t('Inspection DÉPART')}</span>
               <span className="text-[10px] px-1.5 py-0.2 rounded-full font-mono bg-slate-950/40">
-                {inspectionState.photos.filter((p) => p.phase === 'departure').length} photos
+                {inspectionState.photos.filter((p) => p.phase === 'departure').length} {t('photos')}
               </span>
             </button>
 
@@ -528,9 +530,9 @@ export const InspectionManagerModal: React.FC<InspectionManagerModalProps> = ({
               }`}
             >
               <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>Inspection RETOUR</span>
+              <span>{t('Inspection RETOUR')}</span>
               <span className="text-[10px] px-1.5 py-0.2 rounded-full font-mono bg-slate-950/40">
-                {inspectionState.photos.filter((p) => p.phase === 'return').length} photos
+                {inspectionState.photos.filter((p) => p.phase === 'return').length} {t('photos')}
               </span>
             </button>
           </div>
@@ -540,7 +542,7 @@ export const InspectionManagerModal: React.FC<InspectionManagerModalProps> = ({
             className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs px-3.5 py-1.5 rounded-lg shadow-sm transition-all cursor-pointer"
           >
             <Plus className="w-4 h-4" />
-            <span>Attacher une Photo de Défaut</span>
+            <span>{t('Attacher une Photo de Défaut')}</span>
           </button>
         </div>
 
@@ -552,10 +554,10 @@ export const InspectionManagerModal: React.FC<InspectionManagerModalProps> = ({
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-amber-400 font-bold uppercase text-[11px]">
                 <Fuel className="w-4 h-4" />
-                <span>Carburant & Kilométrage ({activePhase === 'departure' ? 'Départ' : 'Retour'})</span>
+                <span>{t('Carburant & Kilométrage (')}{activePhase === 'departure' ? t('Départ') : t('Retour')})</span>
               </div>
               <div>
-                <label className="block text-slate-400 mb-1">Niveau de carburant :</label>
+                <label className="block text-slate-400 mb-1">{t('Niveau de carburant :')}</label>
                 <select
                   value={activePhase === 'departure' ? inspectionState.departureFuel : inspectionState.returnFuel}
                   onChange={(e) =>
@@ -566,18 +568,18 @@ export const InspectionManagerModal: React.FC<InspectionManagerModalProps> = ({
                   }
                   className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-mono"
                 >
-                  <option value="8/8">8/8 (Plein Complet)</option>
+                  <option value="8/8">{t('8/8 (Plein Complet)')}</option>
                   <option value="7/8">7/8</option>
                   <option value="6/8">6/8 (3/4)</option>
                   <option value="5/8">5/8</option>
                   <option value="4/8">4/8 (1/2)</option>
                   <option value="3/8">3/8</option>
                   <option value="2/8">2/8 (1/4)</option>
-                  <option value="1/8">1/8 (Réserve)</option>
+                  <option value="1/8">{t('1/8 (Réserve)')}</option>
                 </select>
               </div>
               <div>
-                <label className="block text-slate-400 mb-1">Relevé Kilométrique :</label>
+                <label className="block text-slate-400 mb-1">{t('Relevé Kilométrique :')}</label>
                 <input
                   type="number"
                   value={activePhase === 'departure' ? inspectionState.departureKm : inspectionState.returnKm || ''}
@@ -587,7 +589,7 @@ export const InspectionManagerModal: React.FC<InspectionManagerModalProps> = ({
                       [activePhase === 'departure' ? 'departureKm' : 'returnKm']: Number(e.target.value),
                     }))
                   }
-                  placeholder="KM au compteur"
+                  placeholder={t('KM au compteur')}
                   className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-mono"
                 />
               </div>
@@ -596,7 +598,7 @@ export const InspectionManagerModal: React.FC<InspectionManagerModalProps> = ({
             {/* CHECKLIST */}
             <div className="space-y-2 md:col-span-2">
               <span className="text-amber-400 font-bold uppercase text-[11px] block">
-                Contrôle des Équipements de bord ({activePhase === 'departure' ? 'Sortie' : 'Entrée'})
+                {t('Contrôle des Équipements de bord (')}{activePhase === 'departure' ? t('Sortie') : t('Entrée')})
               </span>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {[
@@ -638,7 +640,7 @@ export const InspectionManagerModal: React.FC<InspectionManagerModalProps> = ({
                         }}
                         className="rounded border-slate-700 text-amber-500 focus:ring-0"
                       />
-                      <span className="text-[11px] font-medium">{item.label}</span>
+                      <span className="text-[11px] font-medium">{t(item.label)}</span>
                     </label>
                   );
                 })}
@@ -652,7 +654,7 @@ export const InspectionManagerModal: React.FC<InspectionManagerModalProps> = ({
               <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                 <h4 className="text-xs font-bold text-amber-400 uppercase flex items-center gap-2">
                   <Camera className="w-4 h-4" />
-                  Nouvelle Photo de Carrosserie — {activePhase === 'departure' ? 'Départ' : 'Retour'}
+                  {t('Nouvelle Photo de Carrosserie —')} {activePhase === 'departure' ? t('Départ') : t('Retour')}
                 </h4>
                 <button
                   onClick={() => setIsAddingPhoto(false)}
@@ -664,7 +666,7 @@ export const InspectionManagerModal: React.FC<InspectionManagerModalProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Zone du véhicule *</label>
+                  <label className="block text-slate-300 font-semibold mb-1">{t('Zone du véhicule *')}</label>
                   <select
                     value={photoZone}
                     onChange={(e) => setPhotoZone(e.target.value)}
@@ -672,14 +674,14 @@ export const InspectionManagerModal: React.FC<InspectionManagerModalProps> = ({
                   >
                     {VEHICLE_ZONES.map((z) => (
                       <option key={z.id} value={z.id}>
-                        {z.label}
+                        {t(z.label)}
                       </option>
                     ))}
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Nature du défaut *</label>
+                  <label className="block text-slate-300 font-semibold mb-1">{t('Nature du défaut *')}</label>
                   <select
                     value={photoType}
                     onChange={(e) => setPhotoType(e.target.value)}
@@ -687,7 +689,7 @@ export const InspectionManagerModal: React.FC<InspectionManagerModalProps> = ({
                   >
                     {DEFECT_TYPES.map((d) => (
                       <option key={d.id} value={d.id}>
-                        {d.label}
+                        {t(d.label)}
                       </option>
                     ))}
                   </select>
@@ -695,13 +697,13 @@ export const InspectionManagerModal: React.FC<InspectionManagerModalProps> = ({
 
                 <div className="sm:col-span-2">
                   <label className="block text-slate-300 font-semibold mb-1">
-                    Description détaillée du défaut (taille, localisation précise) :
+                    {t('Description détaillée du défaut (taille, localisation précise) :')}
                   </label>
                   <input
                     type="text"
                     value={photoNotes}
                     onChange={(e) => setPhotoNotes(e.target.value)}
-                    placeholder="Ex: Rayure 8 cm au niveau de l'aile avant droite au-dessus du passage de roue"
+                    placeholder={t("Ex: Rayure 8 cm au niveau de l'aile avant droite au-dessus du passage de roue")}
                     className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white"
                   />
                 </div>
@@ -713,10 +715,10 @@ export const InspectionManagerModal: React.FC<InspectionManagerModalProps> = ({
                   <label className="flex flex-col items-center justify-center border-2 border-dashed border-slate-700 hover:border-amber-500/50 rounded-xl p-5 cursor-pointer bg-slate-900/50 hover:bg-slate-900/80 transition-colors">
                     <UploadCloud className="w-7 h-7 text-amber-400 mb-1.5" />
                     <span className="text-xs font-semibold text-slate-200">
-                      Cliquez pour importer une photo du défaut
+                      {t('Cliquez pour importer une photo du défaut')}
                     </span>
                     <span className="text-[11px] text-slate-500 mt-0.5">
-                      PNG, JPG ou capture photo smartphone / tablette
+                      {t('PNG, JPG ou capture photo smartphone / tablette')}
                     </span>
                     <input
                       type="file"
@@ -734,7 +736,7 @@ export const InspectionManagerModal: React.FC<InspectionManagerModalProps> = ({
                       <div className="flex items-center gap-2">
                         <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
                         <span className="text-xs font-bold text-emerald-400 uppercase tracking-wide">
-                          ✓ Photo sélectionnée prête à être rattachée
+                          {t('✓ Photo sélectionnée prête à être rattachée')}
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
@@ -742,10 +744,10 @@ export const InspectionManagerModal: React.FC<InspectionManagerModalProps> = ({
                           type="button"
                           onClick={() => setPhotoDataUrl(null)}
                           className="text-[11px] text-rose-400 hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
-                          title="Supprimer cette photo et en sélectionner une autre"
+                          title={t('Supprimer cette photo et en sélectionner une autre')}
                         >
                           <Trash2 className="w-3 h-3" />
-                          <span>Changer de photo</span>
+                          <span>{t('Changer de photo')}</span>
                         </button>
                         <button
                           type="button"
@@ -766,7 +768,7 @@ export const InspectionManagerModal: React.FC<InspectionManagerModalProps> = ({
                           className="text-[11px] text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
                         >
                           <ZoomIn className="w-3 h-3 text-amber-400" />
-                          <span>Agrandir</span>
+                          <span>{t('Agrandir')}</span>
                         </button>
                       </div>
                     </div>
@@ -791,13 +793,13 @@ export const InspectionManagerModal: React.FC<InspectionManagerModalProps> = ({
                     >
                       <img
                         src={photoDataUrl}
-                        alt="Schéma technique ou photo"
+                        alt={t('Schéma technique ou photo')}
                         className="w-full max-h-72 object-contain rounded-lg transition-transform group-hover:scale-[1.01]"
                       />
                       <div className="absolute inset-0 bg-black/30 group-hover:bg-black/10 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
                         <span className="bg-slate-900/90 text-white text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-lg border border-amber-500/40">
                           <ZoomIn className="w-3.5 h-3.5 text-amber-400" />
-                          Cliquer pour voir en plein écran
+                          {t('Cliquer pour voir en plein écran')}
                         </span>
                       </div>
                     </div>
@@ -805,20 +807,20 @@ export const InspectionManagerModal: React.FC<InspectionManagerModalProps> = ({
                     {/* Données de contrôle vérifiées */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 text-xs bg-slate-900/70 p-2.5 rounded-xl border border-slate-800">
                       <div>
-                        <span className="text-[10px] text-slate-500 uppercase block font-semibold">Véhicule</span>
+                        <span className="text-[10px] text-slate-500 uppercase block font-semibold">{t('Véhicule')}</span>
                         <span className="text-white font-bold">{contract.vehicleSnapshot.brand} {contract.vehicleSnapshot.model}</span>
                         <span className="block font-mono text-[11px] text-amber-400 font-bold">{plate}</span>
                       </div>
                       <div>
-                        <span className="text-[10px] text-slate-500 uppercase block font-semibold">Zone contrôlée</span>
-                        <span className="text-sky-300 font-semibold">{getZoneLabel(photoZone)}</span>
+                        <span className="text-[10px] text-slate-500 uppercase block font-semibold">{t('Zone contrôlée')}</span>
+                        <span className="text-sky-300 font-semibold">{t(getZoneLabel(photoZone))}</span>
                       </div>
                       <div>
-                        <span className="text-[10px] text-slate-500 uppercase block font-semibold">Type d'anomalie</span>
-                        <span className="text-amber-400 font-semibold">{getTypeLabel(photoType)}</span>
+                        <span className="text-[10px] text-slate-500 uppercase block font-semibold">{t("Type d'anomalie")}</span>
+                        <span className="text-amber-400 font-semibold">{t(getTypeLabel(photoType))}</span>
                       </div>
                       <div>
-                        <span className="text-[10px] text-slate-500 uppercase block font-semibold">Horodatage certifié</span>
+                        <span className="text-[10px] text-slate-500 uppercase block font-semibold">{t('Horodatage certifié')}</span>
                         <span className="text-slate-300 font-mono text-[11px]">{new Date().toLocaleDateString('fr-FR')} à {new Date().toLocaleTimeString('fr-FR')}</span>
                       </div>
                     </div>
@@ -832,14 +834,14 @@ export const InspectionManagerModal: React.FC<InspectionManagerModalProps> = ({
                   onClick={() => setIsAddingPhoto(false)}
                   className="px-3 py-1.5 rounded-lg text-xs text-slate-400 hover:text-white"
                 >
-                  Annuler
+                  {t('Annuler')}
                 </button>
                 <button
                   onClick={handleSavePhoto}
                   disabled={!photoDataUrl}
                   className="bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 font-bold text-xs px-4 py-1.5 rounded-lg transition-all cursor-pointer shadow-sm"
                 >
-                  Enregistrer la photo
+                  {t('Enregistrer la photo')}
                 </button>
               </div>
             </div>
@@ -849,9 +851,9 @@ export const InspectionManagerModal: React.FC<InspectionManagerModalProps> = ({
           <div>
             <div className="flex items-center justify-between mb-3">
               <h4 className="text-xs font-bold text-slate-200 uppercase flex items-center gap-2">
-                <span>Photos Relevées ({currentPhotos.length})</span>
+                <span>{t('Photos Relevées ({currentPhotosCount})', { currentPhotosCount: currentPhotos.length })}</span>
                 <span className="text-[11px] font-normal text-slate-400">
-                  — Phase {activePhase === 'departure' ? 'DÉPART' : 'RETOUR'}
+                  {t('— Phase')} {activePhase === 'departure' ? t('DÉPART') : t('RETOUR')}
                 </span>
               </h4>
             </div>
@@ -860,10 +862,10 @@ export const InspectionManagerModal: React.FC<InspectionManagerModalProps> = ({
               <div className="text-center py-10 bg-slate-950/40 border border-slate-800/80 rounded-xl">
                 <Car className="w-8 h-8 text-slate-600 mx-auto mb-2" />
                 <p className="text-xs text-slate-400">
-                  Aucune anomalie ni photo enregistrée pour la phase {activePhase === 'departure' ? 'départ' : 'retour'}.
+                  {t('Aucune anomalie ni photo enregistrée pour la phase')} {activePhase === 'departure' ? t('départ') : 'retour'}.
                 </p>
                 <p className="text-[11px] text-slate-500 mt-1">
-                  Le véhicule est considéré conforme et exempt de tout défaut majeur pour cette phase.
+                  {t('Le véhicule est considéré conforme et exempt de tout défaut majeur pour cette phase.')}
                 </p>
               </div>
             ) : (
@@ -886,11 +888,11 @@ export const InspectionManagerModal: React.FC<InspectionManagerModalProps> = ({
                       <div className="absolute inset-0 bg-black/30 group-hover:bg-black/10 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
                         <span className="bg-slate-900/90 text-white text-[10px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1 shadow-md border border-amber-500/40">
                           <ZoomIn className="w-3 h-3 text-amber-400" />
-                          Agrandir
+                          {t('Agrandir')}
                         </span>
                       </div>
-                      <span className="absolute top-2 left-2 bg-slate-900/90 text-amber-400 border border-amber-500/40 text-[9.5px] font-bold px-2 py-0.5 rounded-full shadow-sm">
-                        {getTypeLabel(photo.type)}
+                      <span className="absolute top-2 start-2 bg-slate-900/90 text-amber-400 border border-amber-500/40 text-[9.5px] font-bold px-2 py-0.5 rounded-full shadow-sm">
+                        {t(getTypeLabel(photo.type))}
                       </span>
                     </div>
 
@@ -898,7 +900,7 @@ export const InspectionManagerModal: React.FC<InspectionManagerModalProps> = ({
                     <div className="p-3 flex-1 flex flex-col justify-between space-y-2">
                       <div>
                         <div className="flex items-center justify-between text-[11px] font-semibold text-slate-200">
-                          <span className="text-sky-300 font-bold">{getZoneLabel(photo.zone)}</span>
+                          <span className="text-sky-300 font-bold">{t(getZoneLabel(photo.zone))}</span>
                           <span className="text-slate-500 font-mono text-[10px]">
                             {photo.timestamp.split(' ')[0]}
                           </span>
@@ -909,11 +911,11 @@ export const InspectionManagerModal: React.FC<InspectionManagerModalProps> = ({
                       </div>
 
                       <div className="flex items-center justify-between pt-2 border-t border-slate-850 text-[10px] text-slate-500">
-                        <span>Par : {photo.takenBy || 'Agent'}</span>
+                        <span>{t('Par : {takenBy}', { takenBy: photo.takenBy || 'Agent' })}</span>
                         <button
                           onClick={() => handleDeletePhoto(photo.id)}
                           className="text-red-400 hover:text-red-300 p-1 hover:bg-red-500/10 rounded transition-colors"
-                          title="Supprimer la photo"
+                          title={t('Supprimer la photo')}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -929,7 +931,7 @@ export const InspectionManagerModal: React.FC<InspectionManagerModalProps> = ({
         {/* FOOTER ACTIONS */}
         <div className="bg-slate-950 px-6 py-3.5 border-t border-slate-800 flex items-center justify-between">
           <div className="text-xs text-slate-400">
-            Total photos enregistrées :{' '}
+            {t('Total photos enregistrées :')}{' '}
             <strong className="text-white font-mono">{inspectionState.photos.length}</strong>
           </div>
           <div className="flex items-center gap-2">
@@ -937,7 +939,7 @@ export const InspectionManagerModal: React.FC<InspectionManagerModalProps> = ({
               onClick={onClose}
               className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white"
             >
-              Fermer
+              {t('Fermer')}
             </button>
             <button
               onClick={handleSaveAll}
@@ -946,12 +948,12 @@ export const InspectionManagerModal: React.FC<InspectionManagerModalProps> = ({
               {saveSuccess ? (
                 <>
                   <CheckCircle2 className="w-4 h-4 text-slate-950" />
-                  <span>Enregistré avec succès !</span>
+                  <span>{t('Enregistré avec succès !')}</span>
                 </>
               ) : (
                 <>
                   <Save className="w-4 h-4" />
-                  <span>Valider &amp; Enregistrer l'État des Lieux</span>
+                  <span>{t("Valider & Enregistrer l'État des Lieux")}</span>
                 </>
               )}
             </button>
@@ -971,9 +973,9 @@ export const InspectionManagerModal: React.FC<InspectionManagerModalProps> = ({
           >
             <div className="p-3.5 bg-slate-950 flex items-center justify-between border-b border-slate-800">
               <div className="text-xs text-white font-bold flex items-center gap-2">
-                <span className="text-amber-400 font-extrabold">{getZoneLabel(lightboxPhoto.zone)}</span>
+                <span className="text-amber-400 font-extrabold">{t(getZoneLabel(lightboxPhoto.zone))}</span>
                 <span className="text-slate-500">•</span>
-                <span className="text-slate-300">{getTypeLabel(lightboxPhoto.type)}</span>
+                <span className="text-slate-300">{t(getTypeLabel(lightboxPhoto.type))}</span>
               </div>
               <button
                 onClick={() => setLightboxPhoto(null)}
@@ -992,7 +994,7 @@ export const InspectionManagerModal: React.FC<InspectionManagerModalProps> = ({
             <div className="p-3.5 bg-slate-950 border-t border-slate-800 text-xs text-slate-300 flex items-center justify-between">
               <span className="font-medium text-slate-200">{lightboxPhoto.notes}</span>
               <span className="text-slate-400 font-mono text-[11px]">
-                {lightboxPhoto.timestamp} • {lightboxPhoto.takenBy || 'Agent'}
+                {lightboxPhoto.timestamp} • {lightboxPhoto.takenBy || t('Agent')}
               </span>
             </div>
           </div>

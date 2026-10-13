@@ -38,7 +38,9 @@ import {
 import { formatPlateFrench } from '../utils/plateUtils';
 import { isDepositOwnedByManager } from '../utils/managerScopeUtils';
 
+import { useI18n } from '../i18n/I18nContext';
 export const DepositsManagement: React.FC = () => {
+  const { t } = useI18n();
   const {
     deposits,
     releaseDeposit,
@@ -137,27 +139,27 @@ export const DepositsManagement: React.FC = () => {
         return (
           <span className="inline-flex items-center gap-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/30 px-2.5 py-1 rounded-full text-xs font-semibold">
             <CreditCard className="w-3.5 h-3.5" />
-            Empreinte TPE (CB)
+            {t('Empreinte TPE (CB)')}
           </span>
         );
       case 'cheque':
         return (
           <span className="inline-flex items-center gap-1.5 bg-amber-500/10 text-amber-400 border border-amber-500/30 px-2.5 py-1 rounded-full text-xs font-semibold">
             <FileCheck2 className="w-3.5 h-3.5" />
-            Chèque de Garantie
+            {t('Chèque de Garantie')}
           </span>
         );
       case 'cash':
         return (
           <span className="inline-flex items-center gap-1.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-full text-xs font-semibold">
             <Banknote className="w-3.5 h-3.5" />
-            Espèces (Séquestre)
+            {t('Espèces (Séquestre)')}
           </span>
         );
       default:
         return (
           <span className="inline-flex items-center gap-1.5 bg-slate-800 text-slate-300 border border-slate-700 px-2.5 py-1 rounded-full text-xs font-semibold">
-            Virement / Autre
+            {t('Virement / Autre')}
           </span>
         );
     }
@@ -169,28 +171,28 @@ export const DepositsManagement: React.FC = () => {
         return (
           <span className="inline-flex items-center gap-1.5 bg-amber-500/15 text-amber-400 border border-amber-500/30 px-2.5 py-1 rounded-full text-xs font-bold">
             <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
-            En cours (Détenue)
+            {t('En cours (Détenue)')}
           </span>
         );
       case 'released':
         return (
           <span className="inline-flex items-center gap-1.5 bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-full text-xs font-bold">
             <CheckCircle2 className="w-3.5 h-3.5" />
-            Restituée Intégralement
+            {t('Restituée Intégralement')}
           </span>
         );
       case 'partially_deducted':
         return (
           <span className="inline-flex items-center gap-1.5 bg-orange-500/15 text-orange-400 border border-orange-500/30 px-2.5 py-1 rounded-full text-xs font-bold">
             <MinusCircle className="w-3.5 h-3.5" />
-            Déduction Partielle
+            {t('Déduction Partielle')}
           </span>
         );
       case 'fully_retained':
         return (
           <span className="inline-flex items-center gap-1.5 bg-red-500/15 text-red-400 border border-red-500/30 px-2.5 py-1 rounded-full text-xs font-bold">
             <AlertTriangle className="w-3.5 h-3.5" />
-            Retenue Totale (Sinistre)
+            {t('Retenue Totale (Sinistre)')}
           </span>
         );
       default:
@@ -271,11 +273,11 @@ export const DepositsManagement: React.FC = () => {
       if (ok) {
         setDepositToDelete(null);
       } else {
-        setDeleteError('Impossible de supprimer cette caution. L’enregistrement est introuvable.');
+        setDeleteError(t('Impossible de supprimer cette caution. L’enregistrement est introuvable.'));
       }
     } catch (err: any) {
       console.error('Erreur lors de la suppression de caution:', err);
-      setDeleteError(err?.message || 'Une erreur est survenue lors de la suppression de la caution.');
+      setDeleteError(err?.message || t('Une erreur est survenue lors de la suppression de la caution.'));
     } finally {
       setIsDeleting(false);
     }
@@ -292,10 +294,10 @@ export const DepositsManagement: React.FC = () => {
             </div>
             <div>
               <h1 className="text-xl font-bold text-white tracking-wide">
-                Gestion & Suivi des Cautions
+                {t('Gestion & Suivi des Cautions')}
               </h1>
               <p className="text-xs text-slate-400">
-                Dépôts de garantie, empreintes TPE, chèques, restitutions & retenues contractuelles
+                {t('Dépôts de garantie, empreintes TPE, chèques, restitutions & retenues contractuelles')}
               </p>
             </div>
           </div>
@@ -307,56 +309,56 @@ export const DepositsManagement: React.FC = () => {
         {/* EN COURS */}
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm">
           <div className="flex items-center justify-between text-xs text-slate-400">
-            <span>Cautions Détenues (En cours)</span>
+            <span>{t('Cautions Détenues (En cours)')}</span>
             <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
           </div>
           <p className="font-mono text-xl sm:text-2xl font-bold text-amber-400 mt-2">
             {totalHeldAmount.toLocaleString('fr-FR')}{' '}
-            <span className="text-xs font-normal text-slate-400">MAD</span>
+            <span className="text-xs font-normal text-slate-400">{t('MAD')}</span>
           </p>
           <div className="text-[11px] text-slate-400 mt-1 flex items-center gap-2">
-            <span>{cardPreauthCount} CB</span> • <span>{chequeCount} Chèques</span> •{' '}
-            <span>{cashCount} Espèces</span>
+            <span>{t('{cardPreauthCount} CB', { cardPreauthCount })}</span> • <span>{t('{chequeCount} Chèques', { chequeCount })}</span> •{' '}
+            <span>{t('{cashCount} Espèces', { cashCount })}</span>
           </div>
         </div>
 
         {/* DÉDUCTIONS RETENUES */}
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm">
           <div className="flex items-center justify-between text-xs text-slate-400">
-            <span>Total Déductions & Pénalités</span>
+            <span>{t('Total Déductions & Pénalités')}</span>
             <MinusCircle className="w-4 h-4 text-orange-400" />
           </div>
           <p className="font-mono text-xl sm:text-2xl font-bold text-orange-400 mt-2">
             {totalDeductionsAmount.toLocaleString('fr-FR')}{' '}
-            <span className="text-xs font-normal text-slate-400">MAD</span>
+            <span className="text-xs font-normal text-slate-400">{t('MAD')}</span>
           </p>
-          <p className="text-[11px] text-slate-400 mt-1">Carburant, franchise dégâts, retards</p>
+          <p className="text-[11px] text-slate-400 mt-1">{t('Carburant, franchise dégâts, retards')}</p>
         </div>
 
         {/* RESTITUÉES */}
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm">
           <div className="flex items-center justify-between text-xs text-slate-400">
-            <span>Cautions Restituées</span>
+            <span>{t('Cautions Restituées')}</span>
             <CheckCircle2 className="w-4 h-4 text-emerald-400" />
           </div>
           <p className="font-mono text-xl sm:text-2xl font-bold text-emerald-400 mt-2">
             {totalReleasedAmount.toLocaleString('fr-FR')}{' '}
-            <span className="text-xs font-normal text-slate-400">MAD</span>
+            <span className="text-xs font-normal text-slate-400">{t('MAD')}</span>
           </p>
-          <p className="text-[11px] text-slate-400 mt-1">Restituées aux clients après inspection</p>
+          <p className="text-[11px] text-slate-400 mt-1">{t('Restituées aux clients après inspection')}</p>
         </div>
 
         {/* TOTAL DOSSIERS */}
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm">
           <div className="flex items-center justify-between text-xs text-slate-400">
-            <span>{isManager ? 'Mes Dossiers Cautions' : 'Dossiers de Cautions'}</span>
+            <span>{isManager ? t('Mes Dossiers Cautions') : t('Dossiers de Cautions')}</span>
             <FileText className="w-4 h-4 text-blue-400" />
           </div>
           <p className="font-mono text-xl sm:text-2xl font-bold text-white mt-2">
             {visibleDeposits.length}
           </p>
           <p className="text-[11px] text-slate-400 mt-1">
-            {visibleDeposits.filter((d) => d.status === 'held').length} actives sous contrat
+            {visibleDeposits.filter((d) => d.status === 'held').length} {t('actives sous contrat')}
           </p>
         </div>
       </div>
@@ -364,13 +366,13 @@ export const DepositsManagement: React.FC = () => {
       {/* FILTER & SEARCH BAR */}
       <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-3 flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
         <div className="relative flex-1">
-          <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+          <Search className="w-4 h-4 absolute start-3 top-3 text-slate-400" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Rechercher par client, N° contrat, immatriculation, véhicule..."
-            className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
+            placeholder={t('Rechercher par client, N° contrat, immatriculation, véhicule...')}
+            className="w-full bg-slate-950 border border-slate-700 rounded-xl ps-9 pe-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
           />
         </div>
 
@@ -403,10 +405,10 @@ export const DepositsManagement: React.FC = () => {
           onChange={(e) => setMethodFilter(e.target.value)}
           className="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
         >
-          <option value="all">Toutes méthodes</option>
-          <option value="preauth_card">Empreinte CB (TPE)</option>
-          <option value="check">Chèque</option>
-          <option value="cash">Espèces</option>
+          <option value="all">{t('Toutes méthodes')}</option>
+          <option value="preauth_card">{t('Empreinte CB (TPE)')}</option>
+          <option value="check">{t('Chèque')}</option>
+          <option value="cash">{t('Espèces')}</option>
         </select>
       </div>
 
@@ -414,23 +416,23 @@ export const DepositsManagement: React.FC = () => {
       <div className="bg-slate-900 border border-slate-800 rounded-xl shadow-md overflow-hidden">
         {/* DESKTOP TABLE ONLY */}
         <div className="hidden md:block overflow-x-auto">
-          <table className="w-full text-left text-xs text-slate-300">
+          <table className="w-full text-start text-xs text-slate-300">
             <thead className="bg-slate-950/70 text-slate-400 uppercase text-[10px] font-semibold border-b border-slate-800">
               <tr>
-                <th className="px-4 py-3.5">Contrat & Date</th>
-                <th className="px-4 py-3.5">Client & Contact</th>
-                <th className="px-4 py-3.5">Véhicule & Immat</th>
-                <th className="px-4 py-3.5">Mode de Garantie</th>
-                <th className="px-4 py-3.5">Montant Caution</th>
-                <th className="px-4 py-3.5">Statut & Déductions</th>
-                <th className="px-4 py-3.5 text-right">Actions</th>
+                <th className="px-4 py-3.5">{t('Contrat & Date')}</th>
+                <th className="px-4 py-3.5">{t('Client & Contact')}</th>
+                <th className="px-4 py-3.5">{t('Véhicule & Immat')}</th>
+                <th className="px-4 py-3.5">{t('Mode de Garantie')}</th>
+                <th className="px-4 py-3.5">{t('Montant Caution')}</th>
+                <th className="px-4 py-3.5">{t('Statut & Déductions')}</th>
+                <th className="px-4 py-3.5 text-end">{t('Actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800">
               {filteredDeposits.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="text-center py-12 text-slate-500 text-xs">
-                    Aucune caution ne correspond aux critères de recherche.
+                    {t('Aucune caution ne correspond aux critères de recherche.')}
                   </td>
                 </tr>
               ) : (
@@ -446,10 +448,10 @@ export const DepositsManagement: React.FC = () => {
                           {dep.contractNumber}
                         </div>
                         <div className="text-[10px] text-slate-500 mt-0.5">
-                          Enregistré le : {dep.receivedAt}
+                          {t('Enregistré le : {receivedAt}', { receivedAt: dep.receivedAt })}
                         </div>
                         <div className="text-[9px] text-slate-500">
-                          Agent : {dep.receivedBy}
+                          {t('Agent : {receivedBy}', { receivedBy: dep.receivedBy })}
                         </div>
                       </td>
 
@@ -482,11 +484,11 @@ export const DepositsManagement: React.FC = () => {
                       {/* MONTANT */}
                       <td className="px-4 py-3.5">
                         <div className="font-mono font-bold text-white text-sm">
-                          {dep.amount.toLocaleString('fr-FR')} MAD
+                          {t('{amount} MAD', { amount: dep.amount.toLocaleString('fr-FR') })}
                         </div>
                         {dep.refundedAmount !== undefined && dep.status !== 'held' && (
                           <div className="text-[10px] text-emerald-400 font-mono">
-                            Remboursé : {dep.refundedAmount.toLocaleString('fr-FR')} MAD
+                            {t('Remboursé : {refundedAmount} MAD', { refundedAmount: dep.refundedAmount.toLocaleString('fr-FR') })}
                           </div>
                         )}
                       </td>
@@ -501,7 +503,7 @@ export const DepositsManagement: React.FC = () => {
                                 key={ded.id}
                                 className="text-[10px] text-orange-300 font-mono flex items-center gap-1"
                               >
-                                <span>- {ded.amount} MAD</span>
+                                <span>{t('- {amount} MAD', { amount: ded.amount })}</span>
                                 <span className="text-slate-400 font-sans">({ded.label})</span>
                               </div>
                             ))}
@@ -509,23 +511,23 @@ export const DepositsManagement: React.FC = () => {
                         )}
                         {dep.releasedAt && (
                           <div className="text-[9.5px] text-slate-500 mt-1">
-                            Restitué le {dep.releasedAt} par {dep.releasedBy}
+                            {t('Restitué le {releasedAt} par {releasedBy}', { releasedAt: dep.releasedAt, releasedBy: dep.releasedBy })}
                           </div>
                         )}
                       </td>
 
                       {/* ACTIONS */}
-                      <td className="px-4 py-3.5 text-right">
+                      <td className="px-4 py-3.5 text-end">
                         <div className="flex items-center justify-end gap-1.5">
                           {/* 1. RESTITUER LA CAUTION (If held or partially deducted) */}
                           {dep.status === 'held' && (
                             <button
                               onClick={() => handleOpenReleaseModal(dep)}
                               className="px-2.5 py-1 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors"
-                              title="Restituer la caution au client"
+                              title={t('Restituer la caution au client')}
                             >
                               <RotateCcw className="w-3.5 h-3.5" />
-                              <span>Restituer</span>
+                              <span>{t('Restituer')}</span>
                             </button>
                           )}
 
@@ -534,10 +536,10 @@ export const DepositsManagement: React.FC = () => {
                             <button
                               onClick={() => handleOpenDeductModal(dep)}
                               className="px-2.5 py-1 rounded-lg bg-orange-600/20 hover:bg-orange-600/30 text-orange-300 border border-orange-500/40 text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors"
-                              title="Déduire un montant pour carburant manquant ou franchise"
+                              title={t('Déduire un montant pour carburant manquant ou franchise')}
                             >
                               <MinusCircle className="w-3.5 h-3.5" />
-                              <span>Déduire</span>
+                              <span>{t('Déduire')}</span>
                             </button>
                           )}
 
@@ -545,7 +547,7 @@ export const DepositsManagement: React.FC = () => {
                           <button
                             onClick={() => handleOpenEditModal(dep)}
                             className="p-1.5 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 hover:text-purple-200 border border-purple-500/30 text-xs transition-colors cursor-pointer"
-                            title="Modifier le montant ou le mode de garantie de la caution"
+                            title={t('Modifier le montant ou le mode de garantie de la caution')}
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
@@ -554,7 +556,7 @@ export const DepositsManagement: React.FC = () => {
                           <button
                             onClick={() => setReceiptDeposit(dep)}
                             className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-xs transition-colors cursor-pointer"
-                            title="Voir la décharge / reçu de caution"
+                            title={t('Voir la décharge / reçu de caution')}
                           >
                             <Printer className="w-3.5 h-3.5 text-amber-400" />
                           </button>
@@ -564,7 +566,7 @@ export const DepositsManagement: React.FC = () => {
                             <button
                               onClick={() => openPdfModal(matchingContract)}
                               className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-xs transition-colors cursor-pointer"
-                              title="Voir le contrat A4 complet"
+                              title={t('Voir le contrat A4 complet')}
                             >
                               <Eye className="w-3.5 h-3.5 text-blue-400" />
                             </button>
@@ -575,7 +577,7 @@ export const DepositsManagement: React.FC = () => {
                             <button
                               onClick={() => handleOpenDeleteModal(dep)}
                               className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 border border-rose-500/30 text-xs transition-colors cursor-pointer"
-                              title="Supprimer définitivement cette caution"
+                              title={t('Supprimer définitivement cette caution')}
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -596,7 +598,7 @@ export const DepositsManagement: React.FC = () => {
         <div className="md:hidden divide-y divide-slate-800">
           {filteredDeposits.length === 0 ? (
             <div className="text-center py-12 text-slate-500 text-xs">
-              Aucune caution ne correspond aux critères de recherche.
+              {t('Aucune caution ne correspond aux critères de recherche.')}
             </div>
           ) : (
             filteredDeposits.map((dep) => {
@@ -612,7 +614,7 @@ export const DepositsManagement: React.FC = () => {
                         {dep.contractNumber}
                       </div>
                       <div className="text-[10px] text-slate-500 mt-0.5">
-                        {dep.receivedAt} • Agent : {dep.receivedBy}
+                        {t('{receivedAt} • Agent : {receivedBy}', { receivedAt: dep.receivedAt, receivedBy: dep.receivedBy })}
                       </div>
                     </div>
                     <div>
@@ -623,20 +625,20 @@ export const DepositsManagement: React.FC = () => {
                   {/* MONTANT & MODE DE GARANTIE */}
                   <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-800 flex items-center justify-between">
                     <div>
-                      <span className="text-[9.5px] text-slate-400 uppercase font-bold block">Montant Caution</span>
+                      <span className="text-[9.5px] text-slate-400 uppercase font-bold block">{t('Montant Caution')}</span>
                       <div className="font-mono text-lg font-black text-white">
                         {dep.amount.toLocaleString('fr-FR')}{' '}
-                        <span className="text-xs font-semibold text-amber-400">MAD</span>
+                        <span className="text-xs font-semibold text-amber-400">{t('MAD')}</span>
                       </div>
                       {dep.refundedAmount !== undefined && dep.status !== 'held' && (
                         <div className="text-[10px] text-emerald-400 font-mono mt-0.5">
-                          Restitué : {dep.refundedAmount.toLocaleString('fr-FR')} MAD
+                          {t('Restitué : {refundedAmount} MAD', { refundedAmount: dep.refundedAmount.toLocaleString('fr-FR') })}
                         </div>
                       )}
                     </div>
 
-                    <div className="text-right">
-                      <span className="text-[9.5px] text-slate-400 uppercase font-bold block mb-1">Garantie</span>
+                    <div className="text-end">
+                      <span className="text-[9.5px] text-slate-400 uppercase font-bold block mb-1">{t('Garantie')}</span>
                       {getMethodBadge(dep.method, dep.methodDetails)}
                     </div>
                   </div>
@@ -644,7 +646,7 @@ export const DepositsManagement: React.FC = () => {
                   {/* CLIENT & VÉHICULE INFO */}
                   <div className="grid grid-cols-2 gap-2 text-xs bg-slate-950/40 p-2.5 rounded-xl border border-slate-800/80">
                     <div>
-                      <span className="text-[9.5px] text-slate-400 uppercase font-bold block">Locataire</span>
+                      <span className="text-[9.5px] text-slate-400 uppercase font-bold block">{t('Locataire')}</span>
                       <div className="font-bold text-white uppercase text-xs truncate">
                         {dep.clientName}
                       </div>
@@ -659,7 +661,7 @@ export const DepositsManagement: React.FC = () => {
                     </div>
 
                     <div>
-                      <span className="text-[9.5px] text-slate-400 uppercase font-bold block">Véhicule</span>
+                      <span className="text-[9.5px] text-slate-400 uppercase font-bold block">{t('Véhicule')}</span>
                       <div className="font-semibold text-white uppercase text-xs truncate">
                         {dep.vehicleName}
                       </div>
@@ -672,7 +674,7 @@ export const DepositsManagement: React.FC = () => {
                   {/* DÉDUCTIONS ÉVENTUELLES */}
                   {dep.deductions.length > 0 && (
                     <div className="p-2 bg-orange-500/10 border border-orange-500/30 rounded-lg text-[10.5px] text-orange-300">
-                      <span className="font-bold">Déductions ({totalDeducted.toLocaleString('fr-FR')} MAD) :</span>{' '}
+                      <span className="font-bold">{t('Déductions ({totalDeducted} MAD) :', { totalDeducted: totalDeducted.toLocaleString('fr-FR') })}</span>{' '}
                       {dep.deductions.map((d) => d.label).join(', ')}
                     </div>
                   )}
@@ -687,7 +689,7 @@ export const DepositsManagement: React.FC = () => {
                         className="flex-1 py-2 px-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-emerald-600/20 active:scale-95 transition-all cursor-pointer min-h-[38px]"
                       >
                         <RotateCcw className="w-3.5 h-3.5" />
-                        <span>Restituer</span>
+                        <span>{t('Restituer')}</span>
                       </button>
                     )}
 
@@ -699,7 +701,7 @@ export const DepositsManagement: React.FC = () => {
                         className="flex-1 py-2 px-2.5 rounded-xl bg-orange-600/25 hover:bg-orange-600/35 text-orange-300 border border-orange-500/40 font-bold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer min-h-[38px]"
                       >
                         <MinusCircle className="w-3.5 h-3.5" />
-                        <span>Déduire</span>
+                        <span>{t('Déduire')}</span>
                       </button>
                     )}
 
@@ -708,7 +710,7 @@ export const DepositsManagement: React.FC = () => {
                       type="button"
                       onClick={() => handleOpenEditModal(dep)}
                       className="p-2 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 border border-purple-500/30 text-xs transition-colors cursor-pointer min-h-[38px] min-w-[38px] flex items-center justify-center"
-                      title="Modifier la caution"
+                      title={t('Modifier la caution')}
                     >
                       <Edit2 className="w-4 h-4" />
                     </button>
@@ -718,7 +720,7 @@ export const DepositsManagement: React.FC = () => {
                       type="button"
                       onClick={() => setReceiptDeposit(dep)}
                       className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs transition-colors cursor-pointer min-h-[38px] min-w-[38px] flex items-center justify-center"
-                      title="Imprimer le reçu de caution"
+                      title={t('Imprimer le reçu de caution')}
                     >
                       <Printer className="w-4 h-4 text-amber-400" />
                     </button>
@@ -729,7 +731,7 @@ export const DepositsManagement: React.FC = () => {
                         type="button"
                         onClick={() => openPdfModal(matchingContract)}
                         className="p-2 rounded-xl bg-blue-500/15 hover:bg-blue-500/25 text-blue-300 border border-blue-500/30 text-xs transition-colors cursor-pointer min-h-[38px] min-w-[38px] flex items-center justify-center"
-                        title="Voir contrat A4"
+                        title={t('Voir contrat A4')}
                       >
                         <Eye className="w-4 h-4" />
                       </button>
@@ -740,8 +742,8 @@ export const DepositsManagement: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => handleOpenDeleteModal(dep)}
-                        className="p-2 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 border border-rose-500/30 text-xs transition-colors cursor-pointer min-h-[38px] min-w-[38px] flex items-center justify-center ml-auto"
-                        title="Supprimer la caution"
+                        className="p-2 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 border border-rose-500/30 text-xs transition-colors cursor-pointer min-h-[38px] min-w-[38px] flex items-center justify-center ms-auto"
+                        title={t('Supprimer la caution')}
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -762,7 +764,7 @@ export const DepositsManagement: React.FC = () => {
             <div className="bg-slate-950 px-5 py-4 border-b border-slate-800 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <RotateCcw className="w-5 h-5 text-emerald-400" />
-                <h3 className="text-sm font-bold text-white">Restitution de la Caution</h3>
+                <h3 className="text-sm font-bold text-white">{t('Restitution de la Caution')}</h3>
               </div>
               <button
                 onClick={() => setSelectedDepositForRelease(null)}
@@ -775,28 +777,28 @@ export const DepositsManagement: React.FC = () => {
             <div className="p-5 space-y-4 text-xs">
               <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-1">
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Contrat :</span>
+                  <span className="text-slate-400">{t('Contrat :')}</span>
                   <span className="font-mono font-bold text-amber-400">
                     {selectedDepositForRelease.contractNumber}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Client :</span>
+                  <span className="text-slate-400">{t('Client :')}</span>
                   <span className="font-semibold text-white">
                     {selectedDepositForRelease.clientName}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Montant initial bloqué :</span>
+                  <span className="text-slate-400">{t('Montant initial bloqué :')}</span>
                   <span className="font-mono font-bold text-white">
-                    {selectedDepositForRelease.amount.toLocaleString('fr-FR')} MAD
+                    {t('{amount} MAD', { amount: selectedDepositForRelease.amount.toLocaleString('fr-FR') })}
                   </span>
                 </div>
               </div>
 
               <div>
                 <label className="block text-slate-300 font-semibold mb-1">
-                  Montant à restituer au client (MAD) * :
+                  {t('Montant à restituer au client (MAD) * :')}
                 </label>
                 <input
                   type="number"
@@ -805,13 +807,13 @@ export const DepositsManagement: React.FC = () => {
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono font-bold text-sm focus:border-amber-500 focus:outline-none"
                 />
                 <p className="text-[10px] text-slate-500 mt-1">
-                  En cas d'empreinte bancaire, cette action correspond à l'annulation de la pré-autorisation TPE.
+                  {t("En cas d'empreinte bancaire, cette action correspond à l'annulation de la pré-autorisation TPE.")}
                 </p>
               </div>
 
               <div>
                 <label className="block text-slate-300 font-semibold mb-1">
-                  Observation / Motif de restitution :
+                  {t('Observation / Motif de restitution :')}
                 </label>
                 <textarea
                   value={releaseNotes}
@@ -826,14 +828,14 @@ export const DepositsManagement: React.FC = () => {
                   onClick={() => setSelectedDepositForRelease(null)}
                   className="px-3 py-1.5 rounded-lg text-slate-400 hover:text-white"
                 >
-                  Annuler
+                  {t('Annuler')}
                 </button>
                 <button
                   onClick={handleConfirmRelease}
                   className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2 rounded-xl flex items-center gap-1.5 shadow-md shadow-emerald-600/20 cursor-pointer"
                 >
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>Confirmer la Restitution</span>
+                  <span>{t('Confirmer la Restitution')}</span>
                 </button>
               </div>
             </div>
@@ -849,7 +851,7 @@ export const DepositsManagement: React.FC = () => {
             <div className="bg-slate-950 px-5 py-4 border-b border-slate-800 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <MinusCircle className="w-5 h-5 text-orange-400" />
-                <h3 className="text-sm font-bold text-white">Appliquer une Déduction sur Caution</h3>
+                <h3 className="text-sm font-bold text-white">{t('Appliquer une Déduction sur Caution')}</h3>
               </div>
               <button
                 onClick={() => setSelectedDepositForDeduct(null)}
@@ -862,21 +864,21 @@ export const DepositsManagement: React.FC = () => {
             <div className="p-5 space-y-4 text-xs">
               <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-1">
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Contrat :</span>
+                  <span className="text-slate-400">{t('Contrat :')}</span>
                   <span className="font-mono font-bold text-amber-400">
                     {selectedDepositForDeduct.contractNumber}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Solde caution disponible :</span>
+                  <span className="text-slate-400">{t('Solde caution disponible :')}</span>
                   <span className="font-mono font-bold text-white">
-                    {selectedDepositForDeduct.amount.toLocaleString('fr-FR')} MAD
+                    {t('{amount} MAD', { amount: selectedDepositForDeduct.amount.toLocaleString('fr-FR') })}
                   </span>
                 </div>
               </div>
 
               <div>
-                <label className="block text-slate-300 font-semibold mb-1">Motif de la déduction :</label>
+                <label className="block text-slate-300 font-semibold mb-1">{t('Motif de la déduction :')}</label>
                 <select
                   value={deductionCategory}
                   onChange={(e) => {
@@ -900,17 +902,17 @@ export const DepositsManagement: React.FC = () => {
                   }}
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white"
                 >
-                  <option value="carburant">Carburant manquant</option>
-                  <option value="degats_carrosserie">Dégâts carrosserie / Franchise</option>
-                  <option value="penalite_retard">Pénalité de retard de restitution</option>
-                  <option value="nettoyage">Frais de lavage / Pressing habitacle</option>
-                  <option value="amende_pv">Amende / Contravention</option>
-                  <option value="autre">Autre motif</option>
+                  <option value="carburant">{t('Carburant manquant')}</option>
+                  <option value="degats_carrosserie">{t('Dégâts carrosserie / Franchise')}</option>
+                  <option value="penalite_retard">{t('Pénalité de retard de restitution')}</option>
+                  <option value="nettoyage">{t('Frais de lavage / Pressing habitacle')}</option>
+                  <option value="amende_pv">{t('Amende / Contravention')}</option>
+                  <option value="autre">{t('Autre motif')}</option>
                 </select>
               </div>
 
               <div>
-                <label className="block text-slate-300 font-semibold mb-1">Libellé précis :</label>
+                <label className="block text-slate-300 font-semibold mb-1">{t('Libellé précis :')}</label>
                 <input
                   type="text"
                   value={deductionLabel}
@@ -921,7 +923,7 @@ export const DepositsManagement: React.FC = () => {
 
               <div>
                 <label className="block text-slate-300 font-semibold mb-1">
-                  Montant de la retenue (MAD) * :
+                  {t('Montant de la retenue (MAD) * :')}
                 </label>
                 <input
                   type="number"
@@ -939,7 +941,7 @@ export const DepositsManagement: React.FC = () => {
                   className="rounded border-slate-700 text-amber-500 focus:ring-0"
                 />
                 <span className="text-slate-300">
-                  Restituer immédiatement le solde restant ({Math.max(0, selectedDepositForDeduct.amount - deductionAmount)} MAD) au client
+                  {t('Restituer immédiatement le solde restant (')}{Math.max(0, selectedDepositForDeduct.amount - deductionAmount)} {t('MAD) au client')}
                 </span>
               </label>
 
@@ -948,14 +950,14 @@ export const DepositsManagement: React.FC = () => {
                   onClick={() => setSelectedDepositForDeduct(null)}
                   className="px-3 py-1.5 rounded-lg text-slate-400 hover:text-white"
                 >
-                  Annuler
+                  {t('Annuler')}
                 </button>
                 <button
                   onClick={handleConfirmDeduct}
                   className="bg-orange-600 hover:bg-orange-500 text-white font-bold px-4 py-2 rounded-xl flex items-center gap-1.5 shadow-md shadow-orange-600/20 cursor-pointer"
                 >
                   <MinusCircle className="w-4 h-4" />
-                  <span>Confirmer la Retenue</span>
+                  <span>{t('Confirmer la Retenue')}</span>
                 </button>
               </div>
             </div>
@@ -972,9 +974,9 @@ export const DepositsManagement: React.FC = () => {
               <div className="flex items-center gap-2">
                 <Edit2 className="w-5 h-5 text-purple-400" />
                 <div>
-                  <h3 className="text-sm font-bold text-white">Modifier la Caution</h3>
+                  <h3 className="text-sm font-bold text-white">{t('Modifier la Caution')}</h3>
                   <p className="text-[10px] text-slate-400 font-mono">
-                    Contrat : {selectedDepositForEdit.contractNumber}
+                    {t('Contrat : {contractNumber}', { contractNumber: selectedDepositForEdit.contractNumber })}
                   </p>
                 </div>
               </div>
@@ -989,22 +991,22 @@ export const DepositsManagement: React.FC = () => {
             <form onSubmit={handleConfirmEdit} className="p-5 space-y-4 text-xs">
               <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-1">
                 <div className="flex justify-between text-slate-400">
-                  <span>Client :</span>
+                  <span>{t('Client :')}</span>
                   <span className="font-bold text-white uppercase">{selectedDepositForEdit.clientName}</span>
                 </div>
                 <div className="flex justify-between text-slate-400">
-                  <span>Véhicule :</span>
+                  <span>{t('Véhicule :')}</span>
                   <span className="text-white font-mono">{selectedDepositForEdit.vehicleName} ({formatPlateFrench(selectedDepositForEdit.vehiclePlate)})</span>
                 </div>
                 <div className="flex justify-between text-slate-400">
-                  <span>Montant actuel :</span>
-                  <span className="font-bold text-purple-400 font-mono">{selectedDepositForEdit.amount.toLocaleString('fr-FR')} MAD</span>
+                  <span>{t('Montant actuel :')}</span>
+                  <span className="font-bold text-purple-400 font-mono">{t('{amount} MAD', { amount: selectedDepositForEdit.amount.toLocaleString('fr-FR') })}</span>
                 </div>
               </div>
 
               <div>
                 <label className="block text-slate-300 font-semibold mb-1">
-                  Nouveau Montant de la Caution (MAD) * :
+                  {t('Nouveau Montant de la Caution (MAD) * :')}
                 </label>
                 <input
                   type="number"
@@ -1015,48 +1017,48 @@ export const DepositsManagement: React.FC = () => {
                   required
                 />
                 <span className="text-[10px] text-slate-500 mt-1 block">
-                  Indiquez 0 MAD si dispense de caution ou garantie par convention.
+                  {t('Indiquez 0 MAD si dispense de caution ou garantie par convention.')}
                 </span>
               </div>
 
               <div>
                 <label className="block text-slate-300 font-semibold mb-1">
-                  Mode de Garantie / Règlement :
+                  {t('Mode de Garantie / Règlement :')}
                 </label>
                 <select
                   value={editMethod}
                   onChange={(e) => setEditMethod(e.target.value as DepositMethod)}
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white focus:border-purple-500 focus:outline-none"
                 >
-                  <option value="preauth_card">Empreinte Bancaire TPE (CB)</option>
-                  <option value="cheque">Chèque de Garantie</option>
-                  <option value="cash">Espèces (Séquestre)</option>
-                  <option value="virement">Virement Bancaire</option>
+                  <option value="preauth_card">{t('Empreinte Bancaire TPE (CB)')}</option>
+                  <option value="cheque">{t('Chèque de Garantie')}</option>
+                  <option value="cash">{t('Espèces (Séquestre)')}</option>
+                  <option value="virement">{t('Virement Bancaire')}</option>
                 </select>
               </div>
 
               <div>
                 <label className="block text-slate-300 font-semibold mb-1">
-                  Référence / Détails (N° Autorisation TPE, Banque, N° Chèque) :
+                  {t('Référence / Détails (N° Autorisation TPE, Banque, N° Chèque) :')}
                 </label>
                 <input
                   type="text"
                   value={editMethodDetails}
                   onChange={(e) => setEditMethodDetails(e.target.value)}
-                  placeholder="Ex: Empreinte TPE CB N° 849204, ou Chèque N° 004928"
+                  placeholder={t('Ex: Empreinte TPE CB N° 849204, ou Chèque N° 004928')}
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white focus:border-purple-500 focus:outline-none"
                 />
               </div>
 
               <div>
                 <label className="block text-slate-300 font-semibold mb-1">
-                  Notes / Motif de modification :
+                  {t('Notes / Motif de modification :')}
                 </label>
                 <textarea
                   value={editNotes}
                   onChange={(e) => setEditNotes(e.target.value)}
                   rows={2}
-                  placeholder="Justification de la modification de caution..."
+                  placeholder={t('Justification de la modification de caution...')}
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white focus:border-purple-500 focus:outline-none"
                 />
               </div>
@@ -1067,14 +1069,14 @@ export const DepositsManagement: React.FC = () => {
                   onClick={() => setSelectedDepositForEdit(null)}
                   className="px-3 py-1.5 rounded-lg text-slate-400 hover:text-white cursor-pointer"
                 >
-                  Annuler
+                  {t('Annuler')}
                 </button>
                 <button
                   type="submit"
                   className="bg-purple-600 hover:bg-purple-500 text-white font-bold px-4 py-2 rounded-xl flex items-center gap-1.5 shadow-md shadow-purple-600/20 cursor-pointer transition-colors"
                 >
                   <Save className="w-4 h-4" />
-                  <span>Enregistrer la Caution</span>
+                  <span>{t('Enregistrer la Caution')}</span>
                 </button>
               </div>
             </form>
@@ -1090,7 +1092,7 @@ export const DepositsManagement: React.FC = () => {
             <div className="bg-slate-950 px-5 py-4 border-b border-slate-800 flex items-center justify-between no-print">
               <div className="flex items-center gap-2">
                 <Printer className="w-5 h-5 text-amber-400" />
-                <h3 className="text-sm font-bold text-white">Quittance & Reçu Officiel de Caution</h3>
+                <h3 className="text-sm font-bold text-white">{t('Quittance & Reçu Officiel de Caution')}</h3>
               </div>
               <button onClick={() => setReceiptDeposit(null)} className="text-slate-400 hover:text-white">
                 <X className="w-5 h-5" />
@@ -1102,14 +1104,14 @@ export const DepositsManagement: React.FC = () => {
               <div className="border-b-2 border-amber-600 pb-3 flex items-start justify-between">
                 <div>
                   <h2 className="text-base font-black tracking-wider uppercase font-serif">
-                    Sté MORVELLO CARS
+                    {t('Sté MORVELLO CARS')}
                   </h2>
-                  <p className="text-[10px] text-slate-600">Location de Véhicules de Prestige & Tourisme</p>
-                  <p className="text-[9px] text-slate-500">ICE: 00366965500062 • RC: 664751 • Casablanca</p>
+                  <p className="text-[10px] text-slate-600">{t('Location de Véhicules de Prestige & Tourisme')}</p>
+                  <p className="text-[9px] text-slate-500">{t('ICE: 00366965500062 • RC: 664751 • Casablanca')}</p>
                 </div>
-                <div className="text-right">
+                <div className="text-end">
                   <span className="inline-block bg-slate-100 border border-slate-300 font-mono text-[10px] font-bold px-2 py-1 rounded">
-                    RÉCÉPISSÉ DE CAUTION
+                    {t('RÉCÉPISSÉ DE CAUTION')}
                   </span>
                   <p className="font-mono text-xs font-bold mt-1">{receiptDeposit.contractNumber}</p>
                 </div>
@@ -1117,47 +1119,47 @@ export const DepositsManagement: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded border border-slate-200">
                 <div>
-                  <span className="text-[10px] text-slate-500 uppercase font-bold">Locataire :</span>
+                  <span className="text-[10px] text-slate-500 uppercase font-bold">{t('Locataire :')}</span>
                   <p className="font-bold text-sm uppercase">{receiptDeposit.clientName}</p>
-                  <p className="text-xs text-slate-600 font-mono">Tél : {receiptDeposit.clientPhone}</p>
+                  <p className="text-xs text-slate-600 font-mono">{t('Tél : {clientPhone}', { clientPhone: receiptDeposit.clientPhone })}</p>
                 </div>
                 <div>
-                  <span className="text-[10px] text-slate-500 uppercase font-bold">Véhicule loué :</span>
+                  <span className="text-[10px] text-slate-500 uppercase font-bold">{t('Véhicule loué :')}</span>
                   <p className="font-bold text-sm uppercase">{receiptDeposit.vehicleName}</p>
                   <p className="font-mono font-bold text-amber-800 text-xs">
-                    Immatriculation : {formatPlateFrench(receiptDeposit.vehiclePlate)}
+                    {t('Immatriculation : {formatPlateFrench}', { formatPlateFrench: formatPlateFrench(receiptDeposit.vehiclePlate) })}
                   </p>
                 </div>
               </div>
 
               <div className="border border-slate-300 rounded overflow-hidden">
-                <table className="w-full text-left">
+                <table className="w-full text-start">
                   <thead className="bg-slate-100 border-b border-slate-300 text-[10px] uppercase font-bold text-slate-700">
                     <tr>
-                      <th className="p-2">Désignation</th>
-                      <th className="p-2 text-right">Montant</th>
+                      <th className="p-2">{t('Désignation')}</th>
+                      <th className="p-2 text-end">{t('Montant')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 text-xs">
                     <tr>
                       <td className="p-2">
-                        <strong>Dépôt de garantie initial ({receiptDeposit.method})</strong>
+                        <strong>{t('Dépôt de garantie initial ({method})', { method: receiptDeposit.method })}</strong>
                         <div className="text-[10px] text-slate-500">{receiptDeposit.methodDetails}</div>
                       </td>
-                      <td className="p-2 text-right font-mono font-bold">{receiptDeposit.amount} MAD</td>
+                      <td className="p-2 text-end font-mono font-bold">{t('{amount} MAD', { amount: receiptDeposit.amount })}</td>
                     </tr>
                     {receiptDeposit.deductions.map((d) => (
                       <tr key={d.id} className="text-red-700 bg-red-50/50">
                         <td className="p-2">
-                          Retenue contractuelle : {d.label}
+                          {t('Retenue contractuelle : {label}', { label: d.label })}
                         </td>
-                        <td className="p-2 text-right font-mono font-bold">- {d.amount} MAD</td>
+                        <td className="p-2 text-end font-mono font-bold">{t('- {amount} MAD', { amount: d.amount })}</td>
                       </tr>
                     ))}
                     <tr className="bg-amber-50 font-bold">
-                      <td className="p-2 text-amber-950">Solde Restitué au Client :</td>
-                      <td className="p-2 text-right font-mono text-emerald-800 text-sm">
-                        {receiptDeposit.refundedAmount ?? receiptDeposit.amount} MAD
+                      <td className="p-2 text-amber-950">{t('Solde Restitué au Client :')}</td>
+                      <td className="p-2 text-end font-mono text-emerald-800 text-sm">
+                        {receiptDeposit.refundedAmount ?? receiptDeposit.amount} {t('MAD')}
                       </td>
                     </tr>
                   </tbody>
@@ -1166,12 +1168,12 @@ export const DepositsManagement: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-6 pt-4 border-t border-slate-200 text-[11px]">
                 <div className="border border-slate-300 p-2.5 rounded h-24 flex flex-col justify-between">
-                  <span className="font-bold text-slate-700 uppercase text-[9px]">Signature du Client (Pour décharge) :</span>
-                  <span className="text-[9px] text-slate-400">Lu et approuvé, caution récupérée</span>
+                  <span className="font-bold text-slate-700 uppercase text-[9px]">{t('Signature du Client (Pour décharge) :')}</span>
+                  <span className="text-[9px] text-slate-400">{t('Lu et approuvé, caution récupérée')}</span>
                 </div>
-                <div className="border border-slate-300 p-2.5 rounded h-24 flex flex-col justify-between text-right">
-                  <span className="font-bold text-slate-700 uppercase text-[9px]">Pour Sté MORVELLO CARS :</span>
-                  <span className="text-[9px] text-slate-500 font-mono">Date : {new Date().toLocaleDateString('fr-FR')}</span>
+                <div className="border border-slate-300 p-2.5 rounded h-24 flex flex-col justify-between text-end">
+                  <span className="font-bold text-slate-700 uppercase text-[9px]">{t('Pour Sté MORVELLO CARS :')}</span>
+                  <span className="text-[9px] text-slate-500 font-mono">{t('Date :')} {new Date().toLocaleDateString('fr-FR')}</span>
                 </div>
               </div>
             </div>
@@ -1182,14 +1184,14 @@ export const DepositsManagement: React.FC = () => {
                 onClick={() => setReceiptDeposit(null)}
                 className="px-4 py-2 text-xs text-slate-400 hover:text-white"
               >
-                Fermer
+                {t('Fermer')}
               </button>
               <button
                 onClick={() => window.print()}
                 className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow cursor-pointer"
               >
                 <Printer className="w-4 h-4" />
-                <span>Imprimer le Reçu</span>
+                <span>{t('Imprimer le Reçu')}</span>
               </button>
             </div>
           </div>
@@ -1207,9 +1209,9 @@ export const DepositsManagement: React.FC = () => {
                   <Trash2 className="w-4 h-4 text-rose-400" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-white">Supprimer la Caution</h3>
+                  <h3 className="text-sm font-bold text-white">{t('Supprimer la Caution')}</h3>
                   <p className="text-[10px] text-slate-400 font-mono">
-                    Contrat : {depositToDelete.contractNumber}
+                    {t('Contrat : {contractNumber}', { contractNumber: depositToDelete.contractNumber })}
                   </p>
                 </div>
               </div>
@@ -1226,27 +1228,27 @@ export const DepositsManagement: React.FC = () => {
               {/* Récapitulatif de la caution ciblée */}
               <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-1.5">
                 <div className="flex justify-between text-slate-400">
-                  <span>Client :</span>
+                  <span>{t('Client :')}</span>
                   <span className="font-bold text-white uppercase">{depositToDelete.clientName}</span>
                 </div>
                 <div className="flex justify-between text-slate-400">
-                  <span>Véhicule :</span>
+                  <span>{t('Véhicule :')}</span>
                   <span className="text-white font-mono">
                     {depositToDelete.vehicleName} ({formatPlateFrench(depositToDelete.vehiclePlate)})
                   </span>
                 </div>
                 <div className="flex justify-between text-slate-400 items-center">
-                  <span>Montant de la caution :</span>
+                  <span>{t('Montant de la caution :')}</span>
                   <span className="font-mono font-bold text-rose-400 text-sm">
-                    {depositToDelete.amount.toLocaleString('fr-FR')} MAD
+                    {t('{amount} MAD', { amount: depositToDelete.amount.toLocaleString('fr-FR') })}
                   </span>
                 </div>
                 <div className="flex justify-between text-slate-400 items-center">
-                  <span>Mode de garantie :</span>
+                  <span>{t('Mode de garantie :')}</span>
                   <span>{getMethodBadge(depositToDelete.method, depositToDelete.methodDetails)}</span>
                 </div>
                 <div className="flex justify-between text-slate-400 items-center">
-                  <span>Statut actuel :</span>
+                  <span>{t('Statut actuel :')}</span>
                   <span>{getStatusBadge(depositToDelete.status)}</span>
                 </div>
               </div>
@@ -1263,11 +1265,9 @@ export const DepositsManagement: React.FC = () => {
               <div className="p-3 bg-rose-950/30 border border-rose-500/30 rounded-xl flex items-start gap-2.5 text-rose-300">
                 <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
                 <div className="space-y-1 text-[11px] leading-relaxed">
-                  <p className="font-bold text-rose-200">Confirmation de suppression</p>
+                  <p className="font-bold text-rose-200">{t('Confirmation de suppression')}</p>
                   <p className="text-slate-300">
-                    Êtes-vous sûr de vouloir supprimer définitivement cette caution ?
-                    Cette opération retirera la ligne de caution du registre et de la base de données.
-                    Si cette caution est rattachée à un contrat actif, son statut de caution encaissée sera désactivé.
+                    {t('Êtes-vous sûr de vouloir supprimer définitivement cette caution ? Cette opération retirera la ligne de caution du registre et de la base de données. Si cette caution est rattachée à un contrat actif, son statut de caution encaissée sera désactivé.')}
                   </p>
                 </div>
               </div>
@@ -1280,7 +1280,7 @@ export const DepositsManagement: React.FC = () => {
                   disabled={isDeleting}
                   className="px-3.5 py-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 text-xs transition-colors cursor-pointer disabled:opacity-50"
                 >
-                  Annuler
+                  {t('Annuler')}
                 </button>
                 <button
                   type="button"
@@ -1291,12 +1291,12 @@ export const DepositsManagement: React.FC = () => {
                   {isDeleting ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Suppression en cours...</span>
+                      <span>{t('Suppression en cours...')}</span>
                     </>
                   ) : (
                     <>
                       <Trash2 className="w-4 h-4" />
-                      <span>Supprimer Définitivement</span>
+                      <span>{t('Supprimer Définitivement')}</span>
                     </>
                   )}
                 </button>

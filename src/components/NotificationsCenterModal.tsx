@@ -20,6 +20,7 @@ import {
   ShieldAlert,
 } from 'lucide-react';
 
+import { useI18n } from '../i18n/I18nContext';
 interface NotificationsCenterModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -31,6 +32,7 @@ export const NotificationsCenterModal: React.FC<NotificationsCenterModalProps> =
   onClose,
   onOpenCheckInModal,
 }) => {
+  const { t } = useI18n();
   const { vehicles, contracts, deposits, clients, users, currentUser, setActiveTab } = useApp();
   const [filterSeverity, setFilterSeverity] = useState<'all' | 'critical' | 'warning' | 'info'>('all');
   const [filterCategory, setFilterCategory] = useState<'all' | 'returns' | 'compliance' | 'deposits'>('all');
@@ -79,15 +81,15 @@ export const NotificationsCenterModal: React.FC<NotificationsCenterModalProps> =
             </div>
             <div>
               <h2 className="text-base font-bold text-white flex items-center gap-2">
-                Centre d'Alertes & Notifications Proactives
+                {t("Centre d'Alertes & Notifications Proactives")}
                 {criticalCount > 0 && (
                   <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/20 border border-rose-500/40 text-rose-300 font-bold uppercase">
-                    {criticalCount} Urgent{criticalCount > 1 ? 's' : ''}
+                    {t('{criticalCount} Urgent', { criticalCount })}{criticalCount > 1 ? 's' : ''}
                   </span>
                 )}
               </h2>
               <p className="text-xs text-slate-400">
-                Surveillance continue : retours imminents, entretiens, contrôles techniques et cautions.
+                {t('Surveillance continue : retours imminents, entretiens, contrôles techniques et cautions.')}
               </p>
             </div>
           </div>
@@ -104,46 +106,46 @@ export const NotificationsCenterModal: React.FC<NotificationsCenterModalProps> =
           <button
             type="button"
             onClick={() => setFilterSeverity('critical')}
-            className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+            className={`p-2.5 rounded-xl border text-start transition-all cursor-pointer ${
               filterSeverity === 'critical'
                 ? 'bg-rose-500/20 border-rose-500/60 text-white'
                 : 'bg-slate-950/60 border-slate-800 text-rose-300 hover:border-rose-500/40'
             }`}
           >
-            <span className="text-[10px] uppercase font-bold text-rose-400 block">Critiques</span>
+            <span className="text-[10px] uppercase font-bold text-rose-400 block">{t('Critiques')}</span>
             <span className="text-xl font-black font-mono">{criticalCount}</span>
           </button>
 
           <button
             type="button"
             onClick={() => setFilterSeverity('warning')}
-            className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+            className={`p-2.5 rounded-xl border text-start transition-all cursor-pointer ${
               filterSeverity === 'warning'
                 ? 'bg-amber-500/20 border-amber-500/60 text-white'
                 : 'bg-slate-950/60 border-slate-800 text-amber-300 hover:border-amber-500/40'
             }`}
           >
-            <span className="text-[10px] uppercase font-bold text-amber-400 block">À surveiller</span>
+            <span className="text-[10px] uppercase font-bold text-amber-400 block">{t('À surveiller')}</span>
             <span className="text-xl font-black font-mono">{warningCount}</span>
           </button>
 
           <button
             type="button"
             onClick={() => setFilterSeverity('all')}
-            className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+            className={`p-2.5 rounded-xl border text-start transition-all cursor-pointer ${
               filterSeverity === 'all'
                 ? 'bg-slate-800 border-slate-600 text-white'
                 : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700'
             }`}
           >
-            <span className="text-[10px] uppercase font-bold text-slate-400 block">Total Alertes</span>
+            <span className="text-[10px] uppercase font-bold text-slate-400 block">{t('Total Alertes')}</span>
             <span className="text-xl font-black font-mono">{alerts.length}</span>
           </button>
         </div>
 
         {/* FILTRES PAR CATÉGORIE */}
         <div className="flex flex-wrap items-center gap-1.5 pt-1 text-xs">
-          <span className="text-slate-500 text-[11px] mr-1">Filtrer par :</span>
+          <span className="text-slate-500 text-[11px] me-1">{t('Filtrer par :')}</span>
           <button
             onClick={() => setFilterCategory('all')}
             className={`px-2.5 py-1 rounded-lg border text-xs font-semibold cursor-pointer ${
@@ -152,7 +154,7 @@ export const NotificationsCenterModal: React.FC<NotificationsCenterModalProps> =
                 : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
             }`}
           >
-            Toutes ({alerts.length})
+            {t('Toutes ({alertsCount})', { alertsCount: alerts.length })}
           </button>
           <button
             onClick={() => setFilterCategory('returns')}
@@ -163,7 +165,7 @@ export const NotificationsCenterModal: React.FC<NotificationsCenterModalProps> =
             }`}
           >
             <Clock className="w-3 h-3" />
-            <span>Retours ({returnsCount})</span>
+            <span>{t('Retours ({returnsCount})', { returnsCount })}</span>
           </button>
           <button
             onClick={() => setFilterCategory('compliance')}
@@ -174,7 +176,7 @@ export const NotificationsCenterModal: React.FC<NotificationsCenterModalProps> =
             }`}
           >
             <Car className="w-3 h-3" />
-            <span>Flotte & Entretien ({complianceCount})</span>
+            <span>{t('Flotte & Entretien ({complianceCount})', { complianceCount })}</span>
           </button>
           <button
             onClick={() => setFilterCategory('deposits')}
@@ -185,18 +187,18 @@ export const NotificationsCenterModal: React.FC<NotificationsCenterModalProps> =
             }`}
           >
             <Banknote className="w-3 h-3" />
-            <span>Cautions</span>
+            <span>{t('Cautions')}</span>
           </button>
         </div>
 
         {/* LISTE DÉROULANTE D'ALERTES */}
-        <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
+        <div className="flex-1 overflow-y-auto space-y-2.5 pe-1">
           {filteredAlerts.length === 0 ? (
             <div className="p-8 text-center bg-slate-950/40 border border-slate-800/80 rounded-2xl">
               <CheckCircle2 className="w-10 h-10 text-emerald-400 mx-auto mb-2 opacity-80" />
-              <p className="text-sm font-bold text-white">Tout est en ordre !</p>
+              <p className="text-sm font-bold text-white">{t('Tout est en ordre !')}</p>
               <p className="text-xs text-slate-400 mt-1">
-                Aucune alerte opérationnelle dans cette catégorie pour le moment.
+                {t('Aucune alerte opérationnelle dans cette catégorie pour le moment.')}
               </p>
             </div>
           ) : (
@@ -265,9 +267,9 @@ export const NotificationsCenterModal: React.FC<NotificationsCenterModalProps> =
                     }`}
                   >
                     <span>
-                      {alert.category.startsWith('return_') ? 'Restituer' : 'Gérer'}
+                      {alert.category.startsWith('return_') ? t('Restituer') : t('Gérer')}
                     </span>
-                    <ChevronRight className="w-3.5 h-3.5" />
+                    <ChevronRight className="w-3.5 h-3.5 rtl:rotate-180" />
                   </button>
                 </div>
               );
@@ -277,13 +279,13 @@ export const NotificationsCenterModal: React.FC<NotificationsCenterModalProps> =
 
         {/* FOOTER */}
         <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-500">
-          <span>Date de référence agence : 01/09/2026</span>
+          <span>{t('Date de référence agence : 01/09/2026')}</span>
           <button
             type="button"
             onClick={onClose}
             className="px-4 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold rounded-lg transition-colors cursor-pointer"
           >
-            Fermer
+            {t('Fermer')}
           </button>
         </div>
       </div>

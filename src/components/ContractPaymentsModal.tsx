@@ -22,6 +22,7 @@ import {
   Shield,
 } from 'lucide-react';
 
+import { useI18n } from '../i18n/I18nContext';
 interface ContractPaymentsModalProps {
   contract: Contract;
   onClose: () => void;
@@ -57,6 +58,7 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
   onUpdateFinancials,
   currentUserName = 'Direction',
 }) => {
+  const { t } = useI18n();
   // Financial edition state
   const initialPricePerDay = contract.pricePerDay !== undefined ? Number(contract.pricePerDay) : 0;
   const initialTotalDays = contract.totalDays || 1;
@@ -86,7 +88,7 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
   useEffect(() => {
     const p = contract.pricePerDay !== undefined ? Number(contract.pricePerDay) : 0;
     const d = contract.totalDays || 1;
-    const t = contract.totalAmount !== undefined ? Number(contract.totalAmount) : (p * d);
+    const total = contract.totalAmount !== undefined ? Number(contract.totalAmount) : (p * d);
     const dep =
       contract.depositAmount !== undefined
         ? Number(contract.depositAmount)
@@ -95,7 +97,7 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
         : 5000;
     setEditPricePerDay(p);
     setEditTotalDays(d);
-    setEditTotalAmount(t);
+    setEditTotalAmount(total);
     setEditDepositAmount(dep);
     setEditDepositCollected(contract.depositCollected !== false);
     setInlineDailyPrice(p);
@@ -219,31 +221,31 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
       case 'cash':
         return (
           <span className="inline-flex items-center gap-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded text-[11px] font-semibold">
-            <Banknote className="w-3 h-3" /> Espèces
+            <Banknote className="w-3 h-3" /> {t('Espèces')}
           </span>
         );
       case 'tpe_card':
         return (
           <span className="inline-flex items-center gap-1 bg-blue-500/10 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded text-[11px] font-semibold">
-            <CreditCard className="w-3 h-3" /> Carte TPE
+            <CreditCard className="w-3 h-3" /> {t('Carte TPE')}
           </span>
         );
       case 'virement':
         return (
           <span className="inline-flex items-center gap-1 bg-purple-500/10 text-purple-400 border border-purple-500/30 px-2 py-0.5 rounded text-[11px] font-semibold">
-            <Receipt className="w-3 h-3" /> Virement
+            <Receipt className="w-3 h-3" /> {t('Virement')}
           </span>
         );
       case 'cheque':
         return (
           <span className="inline-flex items-center gap-1 bg-amber-500/10 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded text-[11px] font-semibold">
-            <FileText className="w-3 h-3" /> Chèque
+            <FileText className="w-3 h-3" /> {t('Chèque')}
           </span>
         );
       default:
         return (
           <span className="inline-flex items-center gap-1 bg-slate-800 text-slate-300 border border-slate-700 px-2 py-0.5 rounded text-[11px] font-semibold">
-            Autre
+            {t('Autre')}
           </span>
         );
     }
@@ -262,21 +264,21 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base font-bold text-white tracking-tight">
-                  Suivi des Règlements Clients
+                  {t('Suivi des Règlements Clients')}
                 </h2>
                 <span className="font-mono text-xs font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded">
                   {contract.contractNumber}
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
-                Client : <strong className="text-slate-200">{contract.clientSnapshot.lastName} {contract.clientSnapshot.firstName}</strong> • {contract.vehicleSnapshot.brand} {contract.vehicleSnapshot.model} ({contract.vehicleSnapshot.plate})
+                {t('Client :')} <strong className="text-slate-200">{contract.clientSnapshot.lastName} {contract.clientSnapshot.firstName}</strong> • {contract.vehicleSnapshot.brand} {contract.vehicleSnapshot.model} ({contract.vehicleSnapshot.plate})
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
             className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
-            title="Fermer"
+            title={t('Fermer')}
           >
             <X className="w-5 h-5" />
           </button>
@@ -287,7 +289,7 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
               <DollarSign className="w-3.5 h-3.5 text-amber-400" />
-              Récapitulatif &amp; Tarification du Contrat
+              {t('Récapitulatif & Tarification du Contrat')}
             </span>
             <button
               onClick={() => {
@@ -297,7 +299,7 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
               className="text-xs bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 hover:text-amber-200 border border-amber-500/40 px-2.5 py-1 rounded-lg flex items-center gap-1.5 font-bold transition-all shadow-xs cursor-pointer"
             >
               <Edit2 className="w-3.5 h-3.5 text-amber-400" />
-              {isEditingFinancials ? 'Fermer modification' : 'Modifier le tarif'}
+              {isEditingFinancials ? t('Fermer modification') : t('Modifier le tarif')}
             </button>
           </div>
 
@@ -309,7 +311,7 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
             >
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Prix par jour (MAD)</label>
+                  <label className="block text-slate-400 mb-1 font-medium">{t('Prix par jour (MAD)')}</label>
                   <input
                     type="number"
                     value={editPricePerDay}
@@ -324,7 +326,7 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
                     min="0"
                   />
                   <div className="flex items-center gap-1 mt-1 flex-wrap">
-                    <span className="text-[9px] text-slate-500">Presets :</span>
+                    <span className="text-[9px] text-slate-500">{t('Presets :')}</span>
                     {[0, 250, 300, 350, 400, 500].map((preset) => (
                       <button
                         key={preset}
@@ -342,7 +344,7 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
                   </div>
                 </div>
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Nombre de jours</label>
+                  <label className="block text-slate-400 mb-1 font-medium">{t('Nombre de jours')}</label>
                   <input
                     type="number"
                     value={editTotalDays}
@@ -358,7 +360,7 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Total Facturé (MAD)</label>
+                  <label className="block text-slate-400 mb-1 font-medium">{t('Total Facturé (MAD)')}</label>
                   <input
                     type="number"
                     value={editTotalAmount}
@@ -373,12 +375,12 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
                   />
                   <span className="text-[9.5px] text-slate-500 font-mono block mt-1">
                     {packSupplementPerDay > 0
-                      ? `Calcul : (${editPricePerDay} + ${packSupplementPerDay} ${contract.insurance?.packLabel}) MAD × ${editTotalDays}j = ${(editPricePerDay + packSupplementPerDay) * editTotalDays} MAD`
-                      : `Calcul : ${editPricePerDay} MAD × ${editTotalDays}j = ${editPricePerDay * editTotalDays} MAD`}
+                      ? t('Calcul : ({editPricePerDay} + {packSupplementPerDay} {packLabel}) MAD × {editTotalDays}j = {editPricePerDay2} MAD', { editPricePerDay, packSupplementPerDay, packLabel: contract.insurance?.packLabel, editTotalDays, editPricePerDay2: (editPricePerDay + packSupplementPerDay) * editTotalDays })
+                      : t('Calcul : {editPricePerDay} MAD × {editTotalDays}j = {editPricePerDay2} MAD', { editPricePerDay, editTotalDays, editPricePerDay2: editPricePerDay * editTotalDays })}
                   </span>
                 </div>
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Caution / Dépôt (MAD)</label>
+                  <label className="block text-slate-400 mb-1 font-medium">{t('Caution / Dépôt (MAD)')}</label>
                   <input
                     type="number"
                     value={editDepositAmount}
@@ -399,7 +401,7 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
                         onChange={(e) => setEditDepositCollected(e.target.checked)}
                         className="rounded border-slate-700 text-emerald-500 focus:ring-0 w-3.5 h-3.5 cursor-pointer"
                       />
-                      Caution prise
+                      {t('Caution prise')}
                     </label>
                   )}
                 </div>
@@ -409,13 +411,13 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
                   onClick={() => setIsEditingFinancials(false)}
                   className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs cursor-pointer"
                 >
-                  Annuler
+                  {t('Annuler')}
                 </button>
                 <button
                   type="submit"
                   className="px-3 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg text-xs flex items-center gap-1 cursor-pointer"
                 >
-                  <Save className="w-3 h-3" /> Enregistrer les montants
+                  <Save className="w-3 h-3" /> {t('Enregistrer les montants')}
                 </button>
               </div>
             </form>
@@ -428,13 +430,13 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
               <div className="bg-slate-950 p-3.5 rounded-xl border-2 border-amber-500/70 shadow-lg shadow-amber-500/10 flex flex-col justify-between animate-in fade-in">
                 <div className="flex items-center justify-between pb-1.5 border-b border-slate-800">
                   <span className="text-[11px] font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
-                    <Edit2 className="w-3 h-3" /> Modifier Prix / Jour
+                    <Edit2 className="w-3 h-3" /> {t('Modifier Prix / Jour')}
                   </span>
                   <button
                     type="button"
                     onClick={() => setIsEditingPricePerDayInline(false)}
                     className="text-slate-400 hover:text-white p-0.5 rounded cursor-pointer"
-                    title="Fermer"
+                    title={t('Fermer')}
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -443,8 +445,8 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
                 <form onSubmit={handleSaveInlineDailyPrice} className="space-y-2 mt-2">
                   <div>
                     <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1">
-                      <span>Tarif journalier (MAD) :</span>
-                      <span className="text-slate-400 font-mono font-semibold">{totalDays} jour(s)</span>
+                      <span>{t('Tarif journalier (MAD) :')}</span>
+                      <span className="text-slate-400 font-mono font-semibold">{t('{totalDays} jour(s)', { totalDays })}</span>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <div className="relative flex-1">
@@ -456,31 +458,31 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
                             const val = e.target.value === '' ? 0 : Math.max(0, Number(e.target.value));
                             setInlineDailyPrice(val);
                           }}
-                          className="w-full bg-slate-900 border border-amber-500/60 rounded-lg px-2.5 py-1.5 text-white font-mono font-black text-sm focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-500 pr-12"
+                          className="w-full bg-slate-900 border border-amber-500/60 rounded-lg px-2.5 py-1.5 text-white font-mono font-black text-sm focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-500 pe-12"
                           placeholder="0"
                           autoFocus
                           onKeyDown={(e) => {
                             if (e.key === 'Escape') setIsEditingPricePerDayInline(false);
                           }}
                         />
-                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-mono text-amber-400 font-bold">
-                          MAD/j
+                        <span className="absolute end-2 top-1/2 -translate-y-1/2 text-[10px] font-mono text-amber-400 font-bold">
+                          {t('MAD/j')}
                         </span>
                       </div>
                       <button
                         type="submit"
                         className="px-2.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-lg text-xs flex items-center gap-1 shadow cursor-pointer transition-colors"
-                        title="Valider et recalculer"
+                        title={t('Valider et recalculer')}
                       >
                         <Check className="w-3.5 h-3.5 stroke-[3]" />
-                        <span>Valider</span>
+                        <span>{t('Valider')}</span>
                       </button>
                     </div>
                   </div>
 
                   {/* Boutons rapides */}
                   <div className="flex items-center gap-1 flex-wrap pt-0.5">
-                    <span className="text-[9px] text-slate-500">Rapide:</span>
+                    <span className="text-[9px] text-slate-500">{t('Rapide:')}</span>
                     {[0, 250, 300, 350, 400, 500].map((preset) => (
                       <button
                         key={preset}
@@ -498,9 +500,9 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
                   </div>
 
                   <div className="text-[10px] font-mono text-slate-400 pt-1 border-t border-slate-800 flex items-center justify-between">
-                    <span>Nouveau Total :</span>
+                    <span>{t('Nouveau Total :')}</span>
                     <strong className="text-amber-400 font-black text-xs">
-                      {(inlineDailyPrice * totalDays).toLocaleString('fr-FR')} MAD
+                      {(inlineDailyPrice * totalDays).toLocaleString('fr-FR')} {t('MAD')}
                     </strong>
                   </div>
                 </form>
@@ -509,7 +511,7 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
               <div className="bg-slate-950/80 p-3.5 rounded-xl border border-slate-800 flex flex-col justify-between hover:border-slate-700 transition-colors">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                    Total Facturé Location
+                    {t('Total Facturé Location')}
                   </span>
                   <button
                     type="button"
@@ -519,13 +521,13 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
                       setIsEditingFinancials(false);
                     }}
                     className="text-[10.5px] text-amber-300 hover:text-amber-200 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 px-2 py-0.5 rounded-md flex items-center gap-1 font-bold transition-all cursor-pointer shadow-2xs"
-                    title="Modifier directement le tarif journalier"
+                    title={t('Modifier directement le tarif journalier')}
                   >
-                    <Edit2 className="w-2.5 h-2.5" /> Modifier tarif
+                    <Edit2 className="w-2.5 h-2.5" /> {t('Modifier tarif')}
                   </button>
                 </div>
                 <p className="font-mono text-xl font-black text-white mt-1">
-                  {totalAmount.toLocaleString('fr-FR')} <span className="text-xs font-normal text-slate-400">MAD</span>
+                  {totalAmount.toLocaleString('fr-FR')} <span className="text-xs font-normal text-slate-400">{t('MAD')}</span>
                 </p>
                 <div className="text-[10px] text-slate-500 mt-1 flex items-center justify-between flex-wrap gap-1">
                   <button
@@ -536,12 +538,12 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
                       setIsEditingFinancials(false);
                     }}
                     className="inline-flex items-center gap-1 font-mono text-slate-300 hover:text-amber-300 bg-slate-900/90 hover:bg-amber-500/10 px-2 py-0.5 rounded border border-slate-700/80 hover:border-amber-500/40 transition-colors cursor-pointer group"
-                    title="Cliquer pour modifier le prix par jour"
+                    title={t('Cliquer pour modifier le prix par jour')}
                   >
-                    <span>{totalDays} jour(s) • <strong className="text-amber-400 font-bold">{pricePerDay} MAD/j</strong></span>
+                    <span>{t('{totalDays} jour(s) •', { totalDays })} <strong className="text-amber-400 font-bold">{t('{pricePerDay} MAD/j', { pricePerDay })}</strong></span>
                     <Edit2 className="w-2.5 h-2.5 text-amber-400 group-hover:scale-110 transition-transform" />
                   </button>
-                  <span>TVA 20% incluse</span>
+                  <span>{t('TVA 20% incluse')}</span>
                 </div>
               </div>
             )}
@@ -550,14 +552,14 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
             <div className="bg-slate-950/80 p-3.5 rounded-xl border border-emerald-500/30 flex flex-col justify-between">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider">
-                  Total Déjà Encaissé
+                  {t('Total Déjà Encaissé')}
                 </span>
                 <span className="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/30">
                   {paymentPercentage}%
                 </span>
               </div>
               <p className="font-mono text-xl font-black text-emerald-400 mt-1">
-                {totalPaid.toLocaleString('fr-FR')} <span className="text-xs font-normal text-emerald-500">MAD</span>
+                {totalPaid.toLocaleString('fr-FR')} <span className="text-xs font-normal text-emerald-500">{t('MAD')}</span>
               </p>
               <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden mt-2">
                 <div
@@ -581,15 +583,15 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
                     remaining > 0 ? 'text-rose-400' : 'text-emerald-400'
                   }`}
                 >
-                  Reste à Encaisser
+                  {t('Reste à Encaisser')}
                 </span>
                 {remaining === 0 ? (
                   <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-1.5 py-0.5 rounded flex items-center gap-1">
-                    <CheckCircle2 className="w-3 h-3" /> {totalAmount === 0 ? 'Soldé (0 MAD)' : 'Soldé'}
+                    <CheckCircle2 className="w-3 h-3" /> {totalAmount === 0 ? t('Soldé (0 MAD)') : t('Soldé')}
                   </span>
                 ) : (
                   <span className="text-[10px] font-bold text-rose-400 bg-rose-500/10 border border-rose-500/30 px-1.5 py-0.5 rounded flex items-center gap-1">
-                    <AlertCircle className="w-3 h-3" /> En attente
+                    <AlertCircle className="w-3 h-3" /> {t('En attente')}
                   </span>
                 )}
               </div>
@@ -598,12 +600,12 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
                   remaining > 0 ? 'text-rose-400' : 'text-emerald-400'
                 }`}
               >
-                {remaining.toLocaleString('fr-FR')} <span className="text-xs font-normal opacity-80">MAD</span>
+                {remaining.toLocaleString('fr-FR')} <span className="text-xs font-normal opacity-80">{t('MAD')}</span>
               </p>
               <span className="text-[10px] text-slate-400 mt-1">
                 {remaining > 0
-                  ? 'Paiement à réclamer avant restitution'
-                  : 'Totalité du montant réglée par le client'}
+                  ? t('Paiement à réclamer avant restitution')
+                  : t('Totalité du montant réglée par le client')}
               </span>
             </div>
 
@@ -611,15 +613,15 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
             <div className="bg-slate-950/80 p-3.5 rounded-xl border border-purple-500/30 flex flex-col justify-between hover:border-purple-500/50 transition-colors">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-bold text-purple-400 uppercase tracking-wider flex items-center gap-1">
-                  <Shield className="w-3 h-3 text-purple-400" /> Caution / Dépôt
+                  <Shield className="w-3 h-3 text-purple-400" /> {t('Caution / Dépôt')}
                 </span>
                 <button
                   type="button"
                   onClick={() => setIsEditingFinancials(true)}
                   className="text-[10px] text-purple-300 hover:text-purple-200 bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/30 px-2 py-0.5 rounded-md flex items-center gap-1 font-bold transition-all cursor-pointer"
-                  title="Modifier le montant de la caution"
+                  title={t('Modifier le montant de la caution')}
                 >
-                  <Edit2 className="w-2.5 h-2.5" /> Modifier
+                  <Edit2 className="w-2.5 h-2.5" /> {t('Modifier')}
                 </button>
               </div>
               <p className="font-mono text-xl font-black text-purple-400 mt-1">
@@ -627,17 +629,17 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
                   ? contract.depositAmount
                   : (contract.depositRecord?.amount ?? 5000)
                 ).toLocaleString('fr-FR')}{' '}
-                <span className="text-xs font-normal text-purple-300">MAD</span>
+                <span className="text-xs font-normal text-purple-300">{t('MAD')}</span>
               </p>
               <div className="text-[10px] text-slate-400 mt-1 flex items-center justify-between">
-                <span className="truncate max-w-[125px]" title={contract.depositRecord?.methodDetails || 'Empreinte bancaire TPE'}>
+                <span className="truncate max-w-[125px]" title={contract.depositRecord?.methodDetails || t('Empreinte bancaire TPE')}>
                   {contract.depositRecord?.method === 'cheque'
-                    ? 'Chèque de caution'
+                    ? t('Chèque de caution')
                     : contract.depositRecord?.method === 'cash'
-                    ? 'Espèces consignées'
+                    ? t('Espèces consignées')
                     : contract.depositRecord?.method === 'virement'
-                    ? 'Virement bancaire'
-                    : 'Empreinte TPE'}
+                    ? t('Virement bancaire')
+                    : t('Empreinte TPE')}
                 </span>
                 {getDepositCollectionStatus(contract) === 'not_collected' ? (
                   <button
@@ -646,13 +648,13 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
                       onUpdateFinancials(contract.id, { depositAmount: Number(contract.depositAmount), depositCollected: true })
                     }
                     className="text-rose-300 font-mono text-[9px] bg-rose-500/10 hover:bg-rose-500/20 px-1.5 py-0.2 rounded border border-rose-500/30 cursor-pointer"
-                    title="Marquer la caution comme prise"
+                    title={t('Marquer la caution comme prise')}
                   >
-                    Non prise · Marquer prise
+                    {t('Non prise · Marquer prise')}
                   </button>
                 ) : (
                   <span className="text-emerald-400 font-mono text-[9px] bg-emerald-500/10 px-1.5 py-0.2 rounded border border-emerald-500/30">
-                    {contract.depositRecord?.status === 'released' ? 'Restituée' : 'Détenue'}
+                    {contract.depositRecord?.status === 'released' ? t('Restituée') : t('Détenue')}
                   </span>
                 )}              </div>
             </div>
@@ -664,10 +666,10 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">
-                Historique des Encaissements ({paymentsList.length})
+                {t('Historique des Encaissements ({paymentsListCount})', { paymentsListCount: paymentsList.length })}
               </h3>
               <p className="text-[11px] text-slate-500">
-                Tous les versements enregistrés pour ce contrat (Espèces, TPE, Virement, Chèque).
+                {t('Tous les versements enregistrés pour ce contrat (Espèces, TPE, Virement, Chèque).')}
               </p>
             </div>
             {!showAddForm && (
@@ -681,7 +683,7 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
                 className="flex items-center gap-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold px-3 py-1.5 rounded-lg text-xs shadow-md transition-all cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
-                + Encaisser un Versement
+                {t('+ Encaisser un Versement')}
               </button>
             )}
           </div>
@@ -695,7 +697,7 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
               <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                 <span className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
                   <Banknote className="w-4 h-4" />
-                  Nouveau Versement Client
+                  {t('Nouveau Versement Client')}
                 </span>
                 {remaining > 0 && (
                   <button
@@ -703,14 +705,14 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
                     onClick={() => setNewAmount(String(remaining))}
                     className="text-[11px] text-amber-400/90 hover:text-amber-300 underline font-medium cursor-pointer"
                   >
-                    Remplir le reste ({remaining} MAD)
+                    {t('Remplir le reste ({remaining} MAD)', { remaining })}
                   </button>
                 )}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Montant Versé (MAD) *</label>
+                  <label className="block text-slate-400 mb-1 font-medium">{t('Montant Versé (MAD) *')}</label>
                   <input
                     type="number"
                     value={newAmount}
@@ -724,22 +726,22 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Mode de Paiement *</label>
+                  <label className="block text-slate-400 mb-1 font-medium">{t('Mode de Paiement *')}</label>
                   <select
                     value={newMethod}
                     onChange={(e) => setNewMethod(e.target.value as PaymentMethod)}
                     className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-semibold focus:border-amber-500 focus:outline-none cursor-pointer"
                   >
-                    <option value="cash">💵 Espèces (Cash)</option>
-                    <option value="tpe_card">💳 Carte Bancaire (TPE)</option>
-                    <option value="virement">🏦 Virement Bancaire</option>
-                    <option value="cheque">📄 Chèque Bancaire</option>
-                    <option value="autre">Autre moyen</option>
+                    <option value="cash">{t('💵 Espèces (Cash)')}</option>
+                    <option value="tpe_card">{t('💳 Carte Bancaire (TPE)')}</option>
+                    <option value="virement">{t('🏦 Virement Bancaire')}</option>
+                    <option value="cheque">{t('📄 Chèque Bancaire')}</option>
+                    <option value="autre">{t('Autre moyen')}</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Date &amp; Heure du Paiement *</label>
+                  <label className="block text-slate-400 mb-1 font-medium">{t('Date & Heure du Paiement *')}</label>
                   <input
                     type="datetime-local"
                     value={newDate}
@@ -752,23 +754,23 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">N° Reçu / Référence (Optionnel)</label>
+                  <label className="block text-slate-400 mb-1 font-medium">{t('N° Reçu / Référence (Optionnel)')}</label>
                   <input
                     type="text"
                     value={newReceiptNumber}
                     onChange={(e) => setNewReceiptNumber(e.target.value)}
-                    placeholder={`REC-${contract.contractNumber}-1`}
+                    placeholder={t('REC-{contractNumber}-1', { contractNumber: contract.contractNumber })}
                     className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 font-mono text-xs focus:border-amber-500 focus:outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Note / Commentaire (Optionnel)</label>
+                  <label className="block text-slate-400 mb-1 font-medium">{t('Note / Commentaire (Optionnel)')}</label>
                   <input
                     type="text"
                     value={newNotes}
                     onChange={(e) => setNewNotes(e.target.value)}
-                    placeholder="Ex: Acompte initial versé à la signature"
+                    placeholder={t('Ex: Acompte initial versé à la signature')}
                     className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 text-xs focus:border-amber-500 focus:outline-none"
                   />
                 </div>
@@ -780,14 +782,14 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
                   onClick={() => setShowAddForm(false)}
                   className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs cursor-pointer font-medium"
                 >
-                  Annuler
+                  {t('Annuler')}
                 </button>
                 <button
                   type="submit"
                   className="px-4 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-lg text-xs flex items-center gap-1.5 shadow-md cursor-pointer"
                 >
                   <CheckCircle2 className="w-4 h-4" />
-                  Valider l'Encaissement
+                  {t("Valider l'Encaissement")}
                 </button>
               </div>
             </form>
@@ -797,9 +799,9 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
           {paymentsList.length === 0 ? (
             <div className="text-center py-10 bg-slate-950/40 rounded-xl border border-dashed border-slate-800 p-6">
               <Banknote className="w-10 h-10 text-slate-600 mx-auto mb-2" />
-              <p className="text-sm font-semibold text-slate-400">Aucun règlement enregistré</p>
+              <p className="text-sm font-semibold text-slate-400">{t('Aucun règlement enregistré')}</p>
               <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                Le montant total de {totalAmount.toLocaleString('fr-FR')} MAD reste à percevoir. Cliquez sur "Encaisser un Versement" pour consigner le premier acompte.
+                {t('Le montant total de {totalAmount} MAD reste à percevoir. Cliquez sur "Encaisser un Versement" pour consigner le premier acompte.', { totalAmount: totalAmount.toLocaleString('fr-FR') })}
               </p>
               <button
                 onClick={() => {
@@ -808,7 +810,7 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
                 }}
                 className="mt-4 inline-flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-3 py-1.5 rounded-lg text-xs cursor-pointer shadow-md"
               >
-                <Plus className="w-3.5 h-3.5" /> Encaisser le premier acompte
+                <Plus className="w-3.5 h-3.5" /> {t('Encaisser le premier acompte')}
               </button>
             </div>
           ) : (
@@ -825,14 +827,14 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
                       <div className="space-y-3 animate-in fade-in">
                         <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                           <span className="text-xs font-bold text-amber-400 flex items-center gap-1">
-                            <Edit2 className="w-3.5 h-3.5" /> Modification du versement #{idx + 1}
+                            <Edit2 className="w-3.5 h-3.5" /> {t('Modification du versement #{idx}', { idx: idx + 1 })}
                           </span>
-                          <span className="text-[10px] font-mono text-slate-500">ID: {payment.id}</span>
+                          <span className="text-[10px] font-mono text-slate-500">{t('ID: {id}', { id: payment.id })}</span>
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
                           <div>
-                            <label className="block text-slate-400 mb-1">Montant (MAD)</label>
+                            <label className="block text-slate-400 mb-1">{t('Montant (MAD)')}</label>
                             <input
                               type="number"
                               value={editPaymentAmount}
@@ -842,21 +844,21 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
                             />
                           </div>
                           <div>
-                            <label className="block text-slate-400 mb-1">Mode de règlement</label>
+                            <label className="block text-slate-400 mb-1">{t('Mode de règlement')}</label>
                             <select
                               value={editPaymentMethod}
                               onChange={(e) => setEditPaymentMethod(e.target.value as PaymentMethod)}
                               className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white focus:border-amber-500 focus:outline-none cursor-pointer"
                             >
-                              <option value="cash">Espèces</option>
-                              <option value="tpe_card">Carte TPE</option>
-                              <option value="virement">Virement</option>
-                              <option value="cheque">Chèque</option>
-                              <option value="autre">Autre</option>
+                              <option value="cash">{t('Espèces')}</option>
+                              <option value="tpe_card">{t('Carte TPE')}</option>
+                              <option value="virement">{t('Virement')}</option>
+                              <option value="cheque">{t('Chèque')}</option>
+                              <option value="autre">{t('Autre')}</option>
                             </select>
                           </div>
                           <div>
-                            <label className="block text-slate-400 mb-1">Date & Heure</label>
+                            <label className="block text-slate-400 mb-1">{t('Date & Heure')}</label>
                             <input
                               type="datetime-local"
                               value={editPaymentDate}
@@ -868,7 +870,7 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                           <div>
-                            <label className="block text-slate-400 mb-1">N° Reçu</label>
+                            <label className="block text-slate-400 mb-1">{t('N° Reçu')}</label>
                             <input
                               type="text"
                               value={editPaymentReceipt}
@@ -877,7 +879,7 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
                             />
                           </div>
                           <div>
-                            <label className="block text-slate-400 mb-1">Commentaire</label>
+                            <label className="block text-slate-400 mb-1">{t('Commentaire')}</label>
                             <input
                               type="text"
                               value={editPaymentNotes}
@@ -893,14 +895,14 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
                             onClick={() => setEditingPaymentId(null)}
                             className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-xs cursor-pointer"
                           >
-                            Annuler
+                            {t('Annuler')}
                           </button>
                           <button
                             type="button"
                             onClick={() => handleSaveEditPayment(payment.id)}
                             className="px-3 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded text-xs flex items-center gap-1 cursor-pointer"
                           >
-                            <Save className="w-3 h-3" /> Sauvegarder
+                            <Save className="w-3 h-3" /> {t('Sauvegarder')}
                           </button>
                         </div>
                       </div>
@@ -915,7 +917,7 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
                           <div>
                             <div className="flex flex-wrap items-center gap-2">
                               <span className="font-mono text-base font-black text-white">
-                                {Number(payment.amount).toLocaleString('fr-FR')} MAD
+                                {t('{Number} MAD', { Number: Number(payment.amount).toLocaleString('fr-FR') })}
                               </span>
                               {methodBadge(payment.method)}
                               {payment.receiptNumber && (
@@ -933,7 +935,7 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
                               {payment.recordedBy && (
                                 <span className="flex items-center gap-1 text-slate-400">
                                   <User className="w-3 h-3 text-slate-500" />
-                                  Par {payment.recordedBy}
+                                  {t('Par {recordedBy}', { recordedBy: payment.recordedBy })}
                                 </span>
                               )}
                             </div>
@@ -951,14 +953,14 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
                           <button
                             onClick={() => handleStartEditPayment(payment)}
                             className="p-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-amber-400 border border-slate-800 hover:border-slate-700 rounded-lg transition-colors cursor-pointer"
-                            title="Modifier ce paiement"
+                            title={t('Modifier ce paiement')}
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
 
                           {confirmDeletePaymentId === payment.id ? (
                             <div className="flex items-center gap-1 bg-rose-950/80 border border-rose-500/40 p-1 rounded-lg">
-                              <span className="text-[10px] text-rose-300 font-semibold px-1">Supprimer ?</span>
+                              <span className="text-[10px] text-rose-300 font-semibold px-1">{t('Supprimer ?')}</span>
                               <button
                                 onClick={() => {
                                   onDeletePayment(contract.id, payment.id);
@@ -966,20 +968,20 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
                                 }}
                                 className="px-2 py-0.5 bg-rose-600 hover:bg-rose-500 text-white rounded text-[10px] font-bold cursor-pointer"
                               >
-                                Oui
+                                {t('Oui')}
                               </button>
                               <button
                                 onClick={() => setConfirmDeletePaymentId(null)}
                                 className="px-1.5 py-0.5 bg-slate-800 text-slate-300 rounded text-[10px] cursor-pointer"
                               >
-                                Non
+                                {t('Non')}
                               </button>
                             </div>
                           ) : (
                             <button
                               onClick={() => setConfirmDeletePaymentId(payment.id)}
                               className="p-1.5 bg-slate-900 hover:bg-rose-950/40 text-slate-400 hover:text-rose-400 border border-slate-800 hover:border-rose-500/30 rounded-lg transition-colors cursor-pointer"
-                              title="Supprimer ce paiement"
+                              title={t('Supprimer ce paiement')}
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -997,18 +999,18 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
         {/* MODAL FOOTER */}
         <div className="p-4 border-t border-slate-800 bg-slate-950/80 flex items-center justify-between text-xs">
           <div className="text-slate-400 flex items-center gap-2">
-            <span>Statut global :</span>
+            <span>{t('Statut global :')}</span>
             {remaining <= 0 ? (
               <span className="font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded">
-                ✓ Intégralement Payé
+                {t('✓ Intégralement Payé')}
               </span>
             ) : totalPaid > 0 ? (
               <span className="font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded">
-                ⚡ Versement Partiel ({remaining} MAD restant)
+                {t('⚡ Versement Partiel ({remaining} MAD restant)', { remaining })}
               </span>
             ) : (
               <span className="font-bold text-rose-400 bg-rose-500/10 border border-rose-500/30 px-2 py-0.5 rounded">
-                ✕ Non Payé ({totalAmount} MAD restant)
+                {t('✕ Non Payé ({totalAmount} MAD restant)', { totalAmount })}
               </span>
             )}
           </div>
@@ -1016,7 +1018,7 @@ export const ContractPaymentsModal: React.FC<ContractPaymentsModalProps> = ({
             onClick={onClose}
             className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white font-semibold rounded-xl transition-colors cursor-pointer"
           >
-            Fermer
+            {t('Fermer')}
           </button>
         </div>
       </div>

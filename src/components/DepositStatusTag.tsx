@@ -2,11 +2,13 @@ import React from 'react';
 import { Contract } from '../types';
 import { getDepositCollectionStatus } from '../utils/depositUtils';
 
+import { useI18n } from '../i18n/I18nContext';
 /** Mention imprimée à côté du montant de la caution : « Caution prise » / « Caution non prise ». */
 export const DepositStatusTag: React.FC<{ contract: Pick<Contract, 'depositAmount' | 'depositCollected'>; className?: string }> = ({
   contract,
   className = '',
 }) => {
+  const { t } = useI18n();
   const status = getDepositCollectionStatus(contract);
   if (status === 'none') return null;
   const collected = status === 'collected';
@@ -16,7 +18,7 @@ export const DepositStatusTag: React.FC<{ contract: Pick<Contract, 'depositAmoun
         collected ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-rose-50 text-rose-800 border-rose-300'
       } ${className}`}
     >
-      {collected ? '✓ Caution prise' : '⚠ Caution non prise'}
+      {collected ? t('✓ Caution prise') : t('⚠ Caution non prise')}
     </span>
   );
 };

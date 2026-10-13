@@ -44,11 +44,13 @@ import { ENABLE_DIGITAL_SIGNATURE } from '../config/features';
 import { ContractPaymentsModal } from './ContractPaymentsModal';
 import { isContractOwnedByManager } from '../utils/managerScopeUtils';
 
+import { useI18n } from '../i18n/I18nContext';
 interface ContractsListProps {
   onOpenCheckInModal: (contract: Contract) => void;
 }
 
 export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal }) => {
+  const { t } = useI18n();
   const {
     contracts,
     vehicles,
@@ -124,7 +126,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
       departureKm: Number(fuelEditForm.departureKm),
     });
 
-    setFuelSuccessMsg(`Carburant & KM de départ du contrat ${fuelEditModalContract.contractNumber} modifiés avec succès !`);
+    setFuelSuccessMsg(t('Carburant & KM de départ du contrat {contractNumber} modifiés avec succès !', { contractNumber: fuelEditModalContract.contractNumber }));
     setFuelEditModalContract(null);
     setTimeout(() => setFuelSuccessMsg(''), 4000);
   };
@@ -231,26 +233,26 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
         return (
           <span className="inline-flex items-center gap-1 bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full text-xs font-semibold">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-            Actif
+            {t('Actif')}
           </span>
         );
       case 'completed':
         return (
           <span className="inline-flex items-center gap-1 bg-blue-500/15 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded-full text-xs font-semibold">
             <CheckCircle2 className="w-3 h-3" />
-            Terminé
+            {t('Terminé')}
           </span>
         );
       case 'draft':
         return (
           <span className="inline-flex items-center gap-1 bg-slate-500/15 text-slate-400 border border-slate-500/30 px-2 py-0.5 rounded-full text-xs font-semibold">
-            Brouillon
+            {t('Brouillon')}
           </span>
         );
       case 'cancelled':
         return (
           <span className="inline-flex items-center gap-1 bg-rose-500/15 text-rose-400 border border-rose-500/30 px-2 py-0.5 rounded-full text-xs font-semibold">
-            Annulé
+            {t('Annulé')}
           </span>
         );
     }
@@ -269,26 +271,26 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
     if (total === 0 || remaining <= 0) {
       return (
         <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-1.5 py-0.5 rounded font-mono">
-          ✓ Soldé
+          {t('✓ Soldé')}
         </span>
       );
     }
     if (paid > 0) {
       return (
         <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-amber-400 bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.5 rounded font-mono">
-          ⚡ Acompte
+          {t('⚡ Acompte')}
         </span>
       );
     }
     return (
       <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-rose-400 bg-rose-500/15 border border-rose-500/30 px-1.5 py-0.5 rounded font-mono">
-        ✕ Non payé
+        {t('✕ Non payé')}
       </span>
     );
   };
 
   const handleCancel = (contract: Contract) => {
-    const reason = window.prompt(`Motif d'annulation pour le contrat ${contract.contractNumber} :`);
+    const reason = window.prompt(t("Motif d'annulation pour le contrat {contractNumber} :", { contractNumber: contract.contractNumber }));
     if (reason !== null) {
       cancelContract(contract.id, reason);
     }
@@ -303,11 +305,11 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
 
     const res = deleteContract(contractToDelete.id);
     if (!res.success) {
-      setDeleteContractError(res.error || 'Erreur lors de la suppression du contrat.');
+      setDeleteContractError(res.error || t('Erreur lors de la suppression du contrat.'));
       return;
     }
 
-    setSuccessToastMsg(`Contrat ${contractToDelete.contractNumber} supprimé définitivement avec succès.`);
+    setSuccessToastMsg(t('Contrat {contractNumber} supprimé définitivement avec succès.', { contractNumber: contractToDelete.contractNumber }));
     setContractToDelete(null);
     setTimeout(() => setSuccessToastMsg(''), 4000);
   };
@@ -325,7 +327,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
             onClick={() => setSuccessToastMsg('')}
             className="text-emerald-400 hover:text-white text-xs cursor-pointer"
           >
-            Fermer
+            {t('Fermer')}
           </button>
         </div>
       )}
@@ -335,13 +337,13 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
         <div>
           <div className="flex items-center gap-2 text-xs font-semibold text-amber-400 uppercase tracking-widest font-mono">
             <Layers className="w-4 h-4" />
-            Module Contrats • Morvello Cars
+            {t('Module Contrats • Morvello Cars')}
           </div>
           <h1 className="text-xl font-bold text-white tracking-tight mt-1">
-            Gestion & Archivage des Contrats
+            {t('Gestion & Archivage des Contrats')}
           </h1>
           <p className="text-xs text-slate-400 mt-0.5">
-            Historique complet, recherche multicritère, réimpression A4 et restitution de véhicule.
+            {t('Historique complet, recherche multicritère, réimpression A4 et restitution de véhicule.')}
           </p>
         </div>
 
@@ -353,20 +355,20 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                 refreshActiveContracts();
                 await syncWithCloud();
                 setSuccessToastMsg(
-                  'Contrats en cours actualisés avec succès : calculs financiers recalculés et données synchronisées.'
+                  t('Contrats en cours actualisés avec succès : calculs financiers recalculés et données synchronisées.')
                 );
               } catch (e) {
-                setSuccessToastMsg('Contrats en cours actualisés localement avec succès.');
+                setSuccessToastMsg(t('Contrats en cours actualisés localement avec succès.'));
               } finally {
                 setTimeout(() => setIsRefreshing(false), 500);
               }
             }}
             disabled={isRefreshing}
             className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white border border-slate-700 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer disabled:opacity-50"
-            title="Actualiser et recalculer l'ensemble des contrats en cours"
+            title={t("Actualiser et recalculer l'ensemble des contrats en cours")}
           >
             <RefreshCw className={`w-4 h-4 text-amber-400 ${isRefreshing ? 'animate-spin' : ''}`} />
-            <span>Actualiser les contrats</span>
+            <span>{t('Actualiser les contrats')}</span>
           </button>
 
           <button
@@ -374,7 +376,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
             className="flex items-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold px-4 py-2 rounded-xl text-xs sm:text-sm shadow-md shadow-amber-500/20 transition-all cursor-pointer"
           >
             <PlusCircle className="w-4 h-4" />
-            + Nouveau Contrat
+            {t('+ Nouveau Contrat')}
           </button>
         </div>
       </div>
@@ -389,15 +391,14 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-sm font-bold text-amber-300">
-                  Numéros de contrats en doublon détectés ({duplicateContractReports.length})
+                  {t('Numéros de contrats en doublon détectés ({duplicateContractReportsCount})', { duplicateContractReportsCount: duplicateContractReports.length })}
                 </span>
                 <span className="text-[11px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full font-mono font-bold">
-                  {duplicateContractReports.reduce((acc, r) => acc + r.contracts.length, 0)} contrats concernés
+                  {duplicateContractReports.reduce((acc, r) => acc + r.contracts.length, 0)} {t('contrats concernés')}
                 </span>
               </div>
               <p className="text-xs text-slate-300 mt-1">
-                Certains contrats partagent le même numéro ({duplicateContractReports.map((r) => r.contractNumber).slice(0, 3).join(', ')}{duplicateContractReports.length > 3 ? '...' : ''}).
-                La résolution automatique réattribue des numéros uniques et consécutifs tout en mettant à jour les cautions liées.
+                {t('Certains contrats partagent le même numéro (')}{duplicateContractReports.map((r) => r.contractNumber).slice(0, 3).join(', ')}{duplicateContractReports.length > 3 ? '...' : ''}{t('). La résolution automatique réattribue des numéros uniques et consécutifs tout en mettant à jour les cautions liées.')}
               </p>
             </div>
           </div>
@@ -406,14 +407,14 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
               const res = repairDuplicateContracts();
               if (res.renumberedCount > 0) {
                 setSuccessToastMsg(
-                  `${res.renumberedCount} contrat(s) en doublon ont été renumérotés avec succès avec de nouveaux numéros uniques.`
+                  t('{renumberedCount} contrat(s) en doublon ont été renumérotés avec succès avec de nouveaux numéros uniques.', { renumberedCount: res.renumberedCount })
                 );
               }
             }}
             className="flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-4 py-2 rounded-xl text-xs shrink-0 shadow-md transition-all cursor-pointer"
           >
             <ShieldCheck className="w-4 h-4" />
-            Corriger automatiquement les numéros
+            {t('Corriger automatiquement les numéros')}
           </button>
         </div>
       )}
@@ -422,13 +423,13 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
       <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl shadow-md flex flex-col lg:flex-row lg:items-center justify-between gap-3">
         {/* Search */}
         <div className="relative flex-1 lg:min-w-[220px]">
-          <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+          <Search className="w-4 h-4 absolute start-3 top-3 text-slate-400" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Rechercher par N° contrat, client, téléphone, CIN, immatriculation..."
-            className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
+            placeholder={t('Rechercher par N° contrat, client, téléphone, CIN, immatriculation...')}
+            className="w-full bg-slate-950 border border-slate-700 rounded-xl ps-9 pe-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
           />
         </div>
 
@@ -437,14 +438,14 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
           <div className="flex items-center gap-2 min-w-0 w-full lg:w-auto">
             <label className="text-xs text-slate-400 font-mono flex items-center gap-1 shrink-0">
               <Filter className="w-3.5 h-3.5 text-amber-400" />
-              Responsable :
+              {t('Responsable :')}
             </label>
             <select
               value={managerFilter}
               onChange={(e) => setManagerFilter(e.target.value)}
               className="min-w-0 flex-1 lg:flex-none max-w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-amber-500"
             >
-              <option value="all">Tous ({contracts.length})</option>
+              <option value="all">{t('Tous ({contractsCount})', { contractsCount: contracts.length })}</option>
               {(users || [])
                 .filter((u) => u.role === 'manager')
                 .map((m) => (
@@ -452,7 +453,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                     {m.name} ({m.assignedFleetName || 'Agence'})
                   </option>
                 ))}
-              <option value="unassigned">Sans responsable</option>
+              <option value="unassigned">{t('Sans responsable')}</option>
             </select>
           </div>
         )}
@@ -492,7 +493,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
           <div className="flex flex-wrap items-center gap-1 max-w-full bg-slate-950 p-1 rounded-lg border border-slate-800 text-[11px]">
             <span className="text-slate-500 px-1.5 font-medium flex items-center gap-1">
               <Banknote className="w-3 h-3 text-amber-400" />
-              Règlement :
+              {t('Règlement :')}
             </span>
             <button
               onClick={() => setPaymentFilter('all')}
@@ -502,7 +503,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                   : 'text-slate-400 hover:text-white'
               }`}
             >
-              Tous
+              {t('Tous')}
             </button>
             <button
               onClick={() => setPaymentFilter('paid')}
@@ -512,7 +513,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                   : 'text-slate-400 hover:text-emerald-400'
               }`}
             >
-              Soldés
+              {t('Soldés')}
             </button>
             <button
               onClick={() => setPaymentFilter('partial')}
@@ -522,7 +523,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                   : 'text-slate-400 hover:text-amber-400'
               }`}
             >
-              Acomptes
+              {t('Acomptes')}
             </button>
             <button
               onClick={() => setPaymentFilter('unpaid')}
@@ -532,7 +533,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                   : 'text-slate-400 hover:text-rose-400'
               }`}
             >
-              Non payés
+              {t('Non payés')}
             </button>
           </div>
 
@@ -540,7 +541,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
           <div className="flex flex-wrap items-center gap-1 max-w-full bg-slate-950 p-1 rounded-lg border border-slate-800 text-[11px]">
             <span className="text-slate-500 px-1.5 font-medium flex items-center gap-1">
               <ArrowUpDown className="w-3 h-3 text-amber-400" />
-              Ordre N° :
+              {t('Ordre N° :')}
             </span>
             <button
               type="button"
@@ -550,9 +551,9 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                   ? 'bg-amber-500/20 text-amber-400 font-bold border border-amber-500/40'
                   : 'text-slate-400 hover:text-white'
               }`}
-              title="Classer selon les numéros de contrat décroissants (plus récent en premier)"
+              title={t('Classer selon les numéros de contrat décroissants (plus récent en premier)')}
             >
-              Décroissant (50 → 1)
+              {t('Décroissant (50 → 1)')}
             </button>
             <button
               type="button"
@@ -562,9 +563,9 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                   ? 'bg-amber-500/20 text-amber-400 font-bold border border-amber-500/40'
                   : 'text-slate-400 hover:text-white'
               }`}
-              title="Classer selon les numéros de contrat croissants (plus ancien en premier)"
+              title={t('Classer selon les numéros de contrat croissants (plus ancien en premier)')}
             >
-              Croissant (1 → 50)
+              {t('Croissant (1 → 50)')}
             </button>
           </div>
         </div>
@@ -582,19 +583,19 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
       <div className="bg-slate-900 border border-slate-800 rounded-xl shadow-md overflow-hidden">
         {/* TABLE WRAPPER - DESKTOP ONLY */}
         <div className="hidden md:block overflow-x-auto">
-          <table className="w-full text-left text-xs text-slate-300">
+          <table className="w-full text-start text-xs text-slate-300">
             <thead className="bg-slate-950/70 text-slate-400 uppercase text-[10px] font-semibold border-b border-slate-800">
               <tr>
                 <th className="px-4 py-3.5">
                   <button
                     type="button"
                     onClick={() => setSortOrder((prev) => (prev === 'desc' ? 'asc' : 'desc'))}
-                    className="flex items-center gap-1.5 text-slate-300 hover:text-amber-400 uppercase text-[10px] font-bold tracking-wider transition-colors cursor-pointer group text-left"
-                    title={`Cliquer pour modifier l'ordre : actuellement ${
-                      sortOrder === 'desc' ? 'Décroissant (50 → 1)' : 'Croissant (1 → 50)'
-                    }`}
+                    className="flex items-center gap-1.5 text-slate-300 hover:text-amber-400 uppercase text-[10px] font-bold tracking-wider transition-colors cursor-pointer group text-start"
+                    title={t("Cliquer pour modifier l'ordre : actuellement {order}", {
+                      order: sortOrder === 'desc' ? t('Décroissant (50 → 1)') : t('Croissant (1 → 50)'),
+                    })}
                   >
-                    <span>Numéro & Créateur</span>
+                    <span>{t('Numéro & Créateur')}</span>
                     <span className="flex items-center gap-0.5 p-0.5 rounded bg-slate-800 group-hover:bg-amber-500/20 text-amber-400 transition-colors">
                       <ArrowUpDown className="w-3 h-3" />
                       <span className="text-[9px] font-mono font-bold">
@@ -603,20 +604,20 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                     </span>
                   </button>
                 </th>
-                <th className="px-4 py-3.5">Locataire Principal</th>
-                <th className="px-4 py-3.5">Véhicule & Immat</th>
-                <th className="px-4 py-3.5">Période Location</th>
-                <th className="px-4 py-3.5">KM & Carburant</th>
-                <th className="px-4 py-3.5">Règlement & Solde</th>
-                <th className="px-4 py-3.5">Statut</th>
-                <th className="px-4 py-3.5 text-right">Actions</th>
+                <th className="px-4 py-3.5">{t('Locataire Principal')}</th>
+                <th className="px-4 py-3.5">{t('Véhicule & Immat')}</th>
+                <th className="px-4 py-3.5">{t('Période Location')}</th>
+                <th className="px-4 py-3.5">{t('KM & Carburant')}</th>
+                <th className="px-4 py-3.5">{t('Règlement & Solde')}</th>
+                <th className="px-4 py-3.5">{t('Statut')}</th>
+                <th className="px-4 py-3.5 text-end">{t('Actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800">
               {sortedContracts.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="text-center py-12 text-slate-500 text-xs">
-                    Aucun contrat ne correspond à vos critères de recherche.
+                    {t('Aucun contrat ne correspond à vos critères de recherche.')}
                   </td>
                 </tr>
               ) : (
@@ -631,16 +632,16 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                         {duplicateNumberSet.has(cnt.contractNumber) && (
                           <span
                             className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-300 bg-amber-500/20 border border-amber-500/40 px-1.5 py-0.5 rounded"
-                            title="Numéro en doublon partagé par plusieurs contrats"
+                            title={t('Numéro en doublon partagé par plusieurs contrats')}
                           >
                             <AlertTriangle className="w-2.5 h-2.5 text-amber-400" />
-                            Doublon
+                            {t('Doublon')}
                           </span>
                         )}
                       </div>
                       <div
                         className="text-[10px] text-slate-500 mt-0.5"
-                        title={`Conditions V${cnt.termsVersion} • créé par ${cnt.createdBy}`}
+                        title={t('Conditions V{termsVersion} • créé par {createdBy}', { termsVersion: cnt.termsVersion, createdBy: cnt.createdBy })}
                       >
                         {new Date(cnt.createdAt).toLocaleDateString('fr-FR')}
                         {showCreator ? ` • ${cnt.createdBy}` : ''}
@@ -655,23 +656,23 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                             ? 'bg-violet-500/15 text-violet-300 border-violet-500/30'
                             : 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
                         }`}>
-                          {cnt.templateId === 'prestige' ? '★ VIP Prestige' : cnt.templateId === 'corporate' ? '🏢 Corporate B2B' : cnt.templateId === 'signature' ? '✒ Signature' : '📄 Standard'}
+                          {cnt.templateId === 'prestige' ? t('★ VIP Prestige') : cnt.templateId === 'corporate' ? t('🏢 Corporate B2B') : cnt.templateId === 'signature' ? t('✒ Signature') : t('📄 Standard')}
                         </span>
                         {cnt.clientSignature ? (
                           <span
                             className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-1.5 py-0.2 rounded"
-                            title={`Signé numériquement le ${new Date(cnt.clientSignedAt || '').toLocaleDateString('fr-FR')}`}
+                            title={t('Signé numériquement le {date}', { date: new Date(cnt.clientSignedAt || '').toLocaleDateString('fr-FR') })}
                           >
                             <ShieldCheck className="w-2.5 h-2.5 text-emerald-400" />
-                            Signé e-Sign
+                            {t('Signé e-Sign')}
                           </span>
                         ) : ENABLE_DIGITAL_SIGNATURE ? (
                           <span
                             className="inline-flex items-center gap-1 text-[8.5px] font-medium text-slate-400 bg-slate-800/80 border border-slate-700/60 px-1.5 py-0.2 rounded"
-                            title="Signature numérique en attente"
+                            title={t('Signature numérique en attente')}
                           >
                             <PenTool className="w-2 h-2 text-slate-500" />
-                            À signer
+                            {t('À signer')}
                           </span>
                         ) : null}
                       </div>
@@ -690,12 +691,12 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                       ) : null}
                       {(cnt.clientSnapshot.licenseDocUrl || cnt.clientSnapshot.cinDocUrl) && (
                         <div className="text-[9px] text-emerald-400 font-mono mt-0.5">
-                          ✓ Documents archivés
+                          {t('✓ Documents archivés')}
                         </div>
                       )}
                       {cnt.hasSecondDriver && (
                         <div className="text-[9px] text-slate-400 italic">
-                          + 2e Conducteur : {cnt.secondDriverSnapshot?.lastName} {cnt.secondDriverSnapshot?.firstName}
+                          {t('+ 2e Conducteur : {lastName} {firstName}', { lastName: cnt.secondDriverSnapshot?.lastName, firstName: cnt.secondDriverSnapshot?.firstName })}
                         </div>
                       )}
                     </td>
@@ -709,7 +710,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                         {formatPlateFrench(cnt.vehicleSnapshot.plate)}
                       </div>
                       <div className="text-[10px] text-slate-400">
-                        Carburant : {cnt.vehicleSnapshot.fuelType}
+                        {t('Carburant : {fuelType}', { fuelType: cnt.vehicleSnapshot.fuelType })}
                       </div>
                       {(() => {
                         const v = vehicles.find((item) => item.id === cnt.vehicleId || item.plate === cnt.vehicleSnapshot.plate);
@@ -718,7 +719,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                         const officialName = cnt.assignedManagerName || v?.assignedManagerName;
                         const hasCustom = cnt.managerDisplayName && officialName && cnt.managerDisplayName !== officialName;
                         return (
-                          <div className="text-[10px] text-blue-300 font-mono mt-0.5 flex items-center gap-1" title={hasCustom ? `Nom officiel : ${officialName}` : undefined}>
+                          <div className="text-[10px] text-blue-300 font-mono mt-0.5 flex items-center gap-1" title={hasCustom ? t('Nom officiel : {officialName}', { officialName }) : undefined}>
                             <UserCheck className="w-3 h-3 text-blue-400 shrink-0" />
                             <span>{managerName}</span>
                             {hasCustom && (
@@ -752,7 +753,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                     {/* KM & CARBURANT */}
                     <td className="px-4 py-3.5 font-mono">
                       <div>
-                        Départ : <span className="text-white font-bold">{cnt.departureKm.toLocaleString()} KM</span>
+                        {t('Départ :')} <span className="text-white font-bold">{t('{departureKm} KM', { departureKm: cnt.departureKm.toLocaleString() })}</span>
                       </div>
                       <div className="text-[10.5px] text-amber-400 flex items-center gap-1 font-semibold mt-0.5">
                         <Fuel className="w-3 h-3 shrink-0" />
@@ -760,13 +761,13 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                       </div>
                       {cnt.returnKm ? (
                         <div className="text-emerald-400 mt-0.5">
-                          Retour : <span className="font-bold">{cnt.returnKm.toLocaleString()} KM</span>
+                          {t('Retour :')} <span className="font-bold">{t('{returnKm} KM', { returnKm: cnt.returnKm.toLocaleString() })}</span>
                           <span className="block text-[9px] text-slate-500">
-                            (+{(cnt.returnKm - cnt.departureKm).toLocaleString()} KM)
+                            {t('(+{returnKm} KM)', { returnKm: (cnt.returnKm - cnt.departureKm).toLocaleString() })}
                           </span>
                         </div>
                       ) : (
-                        <div className="text-slate-500 text-[10px] mt-0.5">Retour : En cours</div>
+                        <div className="text-slate-500 text-[10px] mt-0.5">{t('Retour : En cours')}</div>
                       )}
                     </td>
 
@@ -789,27 +790,33 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                         return (
                           <div
                             className="space-y-1"
-                            title={`Tarif : ${pricePerDay} MAD/j × ${totalDays} j • Encaissé : ${paid.toLocaleString('fr-FR')} MAD • Reste : ${remaining.toLocaleString('fr-FR')} MAD • ${cnt.payments?.length || 0} versement(s)`}
+                            title={t('Tarif : {pricePerDay} MAD/j × {totalDays} j • Encaissé : {paid} MAD • Reste : {remaining} MAD • {count} versement(s)', {
+                              pricePerDay,
+                              totalDays,
+                              paid: paid.toLocaleString('fr-FR'),
+                              remaining: remaining.toLocaleString('fr-FR'),
+                              count: cnt.payments?.length || 0,
+                            })}
                           >
                             <div className="flex items-center justify-between gap-1 text-[11px]">
                               <span className="font-mono text-slate-300 font-bold">
-                                {total.toLocaleString('fr-FR')} MAD
+                                {t('{total} MAD', { total: total.toLocaleString('fr-FR') })}
                               </span>
                               {isZeroTotal ? (
                                 <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-1.5 py-0.5 rounded font-mono">
-                                  ✓ Soldé (0 MAD)
+                                  {t('✓ Soldé (0 MAD)')}
                                 </span>
                               ) : isFullyPaid ? (
                                 <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-1.5 py-0.5 rounded font-mono">
-                                  ✓ Soldé
+                                  {t('✓ Soldé')}
                                 </span>
                               ) : isPartiallyPaid ? (
                                 <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-amber-400 bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.5 rounded font-mono">
-                                  ⚡ Acompte
+                                  {t('⚡ Acompte')}
                                 </span>
                               ) : (
                                 <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-rose-400 bg-rose-500/15 border border-rose-500/30 px-1.5 py-0.5 rounded font-mono">
-                                  ✕ Non payé
+                                  {t('✕ Non payé')}
                                 </span>
                               )}
                             </div>
@@ -817,14 +824,14 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                             <div className="flex items-center gap-1.5">
                               {remaining > 0 && (
                                 <span className="text-[10px] font-mono text-rose-400 font-bold">
-                                  Reste {remaining.toLocaleString('fr-FR')}
+                                  {t('Reste {remaining}', { remaining: remaining.toLocaleString('fr-FR') })}
                                 </span>
                               )}
                               <button
                                 type="button"
                                 onClick={() => setPaymentsModalContract(cnt)}
                                 className="p-1 text-amber-400/90 hover:text-amber-300 hover:bg-amber-500/10 rounded border border-amber-500/20 transition-colors cursor-pointer"
-                                title={`Gérer les règlements (${cnt.payments?.length || 0} versement(s)), modifier le tarif ou le total`}
+                                title={t('Gérer les règlements ({count} versement(s)), modifier le tarif ou le total', { count: cnt.payments?.length || 0 })}
                               >
                                 <Banknote className="w-3 h-3" />
                               </button>
@@ -835,13 +842,13 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                                   onClick={() => {
                                     settleContractBalance(cnt.id);
                                     setSuccessToastMsg(
-                                      `Contrat ${cnt.contractNumber} soldé avec succès (règlement du reliquat de ${remaining.toLocaleString('fr-FR')} MAD enregistré).`
+                                      t('Contrat {contractNumber} soldé avec succès (règlement du reliquat de {remaining} MAD enregistré).', { contractNumber: cnt.contractNumber, remaining: remaining.toLocaleString('fr-FR') })
                                     );
                                   }}
                                   className="text-[9px] font-bold bg-emerald-500/20 hover:bg-emerald-500 text-emerald-300 hover:text-slate-950 border border-emerald-500/40 px-1.5 py-0.5 rounded transition-all cursor-pointer whitespace-nowrap"
-                                  title={`Solder immédiatement le reliquat de ${remaining.toLocaleString('fr-FR')} MAD`}
+                                  title={t('Solder immédiatement le reliquat de {remaining} MAD', { remaining: remaining.toLocaleString('fr-FR') })}
                                 >
-                                  Solder
+                                  {t('Solder')}
                                 </button>
                               )}
                             </div>
@@ -854,12 +861,12 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                     <td className="px-4 py-3.5">{getStatusBadge(cnt.status)}</td>
 
                     {/* ACTIONS : 2 actions visibles (PDF, Restituer) + menu « ⋯ » pour le reste */}
-                    <td className="px-4 py-3.5 text-right">
+                    <td className="px-4 py-3.5 text-end">
                       <div className="flex items-center justify-end gap-1.5">
                         <button
                           onClick={() => openPdfModal(cnt)}
                           className="p-1.5 bg-slate-800 hover:bg-amber-500/20 text-slate-300 hover:text-amber-400 border border-slate-700 hover:border-amber-500/40 rounded-lg transition-colors cursor-pointer"
-                          title="Aperçu du contrat 2 pages A4"
+                          title={t('Aperçu du contrat 2 pages A4')}
                         >
                           <Eye className="w-4 h-4" />
                         </button>
@@ -868,10 +875,10 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                           <button
                             onClick={() => onOpenCheckInModal(cnt)}
                             className="px-2.5 py-1 bg-emerald-500/20 hover:bg-emerald-500 text-emerald-300 hover:text-slate-950 border border-emerald-500/40 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1 cursor-pointer"
-                            title="Clôturer le contrat lors de la restitution du véhicule"
+                            title={t('Clôturer le contrat lors de la restitution du véhicule')}
                           >
                             <CheckSquare className="w-3.5 h-3.5" />
-                            <span>Restituer</span>
+                            <span>{t('Restituer')}</span>
                           </button>
                         )}
 
@@ -885,7 +892,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                               ? 'bg-amber-500/20 text-amber-400 border-amber-500/40'
                               : 'bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border-slate-700'
                           }`}
-                          title="Plus d'actions"
+                          title={t("Plus d'actions")}
                         >
                           <MoreHorizontal className="w-4 h-4" />
                         </button>
@@ -904,7 +911,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
         <div className="md:hidden divide-y divide-slate-800">
           {sortedContracts.length === 0 ? (
             <div className="text-center py-12 text-slate-500 text-xs">
-              Aucun contrat ne correspond à vos critères de recherche.
+              {t('Aucun contrat ne correspond à vos critères de recherche.')}
             </div>
           ) : (
             sortedContracts.map((cnt) => {
@@ -923,7 +930,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                         {duplicateNumberSet.has(cnt.contractNumber) && (
                           <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-300 bg-amber-500/20 border border-amber-500/40 px-1 py-0.2 rounded">
                             <AlertTriangle className="w-2.5 h-2.5 text-amber-400" />
-                            Doublon
+                            {t('Doublon')}
                           </span>
                         )}
                         <span className={`text-[9px] px-1.5 py-0.2 rounded border font-semibold ${
@@ -935,7 +942,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                             ? 'bg-violet-500/15 text-violet-300 border-violet-500/30'
                             : 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
                         }`}>
-                          {cnt.templateId === 'prestige' ? '★ VIP' : cnt.templateId === 'corporate' ? '🏢 B2B' : cnt.templateId === 'signature' ? '✒ Sign' : '📄 Standard'}
+                          {cnt.templateId === 'prestige' ? t('★ VIP') : cnt.templateId === 'corporate' ? '🏢 B2B' : cnt.templateId === 'signature' ? t('✒ Sign') : t('📄 Standard')}
                         </span>
                       </div>
                       <div className="text-[10px] text-slate-500 mt-0.5">
@@ -948,12 +955,12 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                       {cnt.clientSignature ? (
                         <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-1.5 py-0.2 rounded">
                           <ShieldCheck className="w-2.5 h-2.5" />
-                          Signé
+                          {t('Signé')}
                         </span>
                       ) : ENABLE_DIGITAL_SIGNATURE ? (
                         <span className="inline-flex items-center gap-1 text-[8.5px] font-medium text-slate-400 bg-slate-800/80 border border-slate-700/60 px-1.5 py-0.2 rounded">
                           <PenTool className="w-2 h-2 text-slate-500" />
-                          À signer
+                          {t('À signer')}
                         </span>
                       ) : null}
                     </div>
@@ -963,7 +970,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                   <div className="bg-slate-950/70 p-2.5 rounded-xl border border-slate-800 grid grid-cols-2 gap-2 text-xs">
                     {/* VÉHICULE */}
                     <div>
-                      <span className="text-[9.5px] text-slate-400 uppercase font-bold block">Véhicule</span>
+                      <span className="text-[9.5px] text-slate-400 uppercase font-bold block">{t('Véhicule')}</span>
                       <div className="font-bold text-white uppercase text-xs truncate">
                         {cnt.vehicleSnapshot.brand} {cnt.vehicleSnapshot.model}
                       </div>
@@ -971,13 +978,13 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                         {formatPlateFrench(cnt.vehicleSnapshot.plate)}
                       </div>
                       <div className="text-[10px] text-slate-400 mt-0.5">
-                        {cnt.departureKm.toLocaleString('fr-FR')} KM • {cnt.departureFuel || '8/8'}
+                        {t('{departureKm} KM • {departureFuel}', { departureKm: cnt.departureKm.toLocaleString('fr-FR'), departureFuel: cnt.departureFuel || '8/8' })}
                       </div>
                     </div>
 
                     {/* CLIENT */}
                     <div>
-                      <span className="text-[9.5px] text-slate-400 uppercase font-bold block">Locataire</span>
+                      <span className="text-[9.5px] text-slate-400 uppercase font-bold block">{t('Locataire')}</span>
                       <div className="font-bold text-white uppercase text-xs truncate">
                         {cnt.clientSnapshot.lastName} {cnt.clientSnapshot.firstName}
                       </div>
@@ -989,11 +996,11 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                           📞 {cnt.clientSnapshot.phone}
                         </a>
                       ) : (
-                        <span className="text-[10px] text-slate-500 italic block mt-0.5">Tél non renseigné</span>
+                        <span className="text-[10px] text-slate-500 italic block mt-0.5">{t('Tél non renseigné')}</span>
                       )}
                       {managerName && (
                         <div className="text-[9.5px] text-blue-300 font-mono mt-0.5 truncate">
-                          Resp: {managerName}
+                          {t('Resp: {managerName}', { managerName })}
                         </div>
                       )}
                     </div>
@@ -1003,16 +1010,16 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                   <div className="flex items-center justify-between text-xs px-0.5">
                     <div className="text-slate-300 text-[11px] leading-tight">
                       <div>
-                        Du <strong className="text-white">{new Date(cnt.startDate).toLocaleDateString('fr-FR')}</strong> au <strong className="text-white">{new Date(cnt.prolongation?.isActive ? cnt.prolongation.newEndDate : cnt.endDate).toLocaleDateString('fr-FR')}</strong>
+                        {t('Du')} <strong className="text-white">{new Date(cnt.startDate).toLocaleDateString('fr-FR')}</strong> {t('au')} <strong className="text-white">{new Date(cnt.prolongation?.isActive ? cnt.prolongation.newEndDate : cnt.endDate).toLocaleDateString('fr-FR')}</strong>
                       </div>
                       <div className="text-[10px] text-amber-400/90 font-medium mt-0.5">
-                        {cnt.totalDays} jour(s) • {cnt.pricePerDay} MAD/j
+                        {t('{totalDays} jour(s) • {pricePerDay} MAD/j', { totalDays: cnt.totalDays, pricePerDay: cnt.pricePerDay })}
                       </div>
                     </div>
 
-                    <div className="text-right">
+                    <div className="text-end">
                       <div className="font-mono font-bold text-white text-sm">
-                        {cnt.totalAmount.toLocaleString('fr-FR')} MAD
+                        {t('{totalAmount} MAD', { totalAmount: cnt.totalAmount.toLocaleString('fr-FR') })}
                       </div>
                       <div className="mt-0.5">
                         {getPaymentBadge(cnt)}
@@ -1035,7 +1042,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                           className={`${tile} bg-blue-500/15 hover:bg-blue-500/25 text-blue-300 border-blue-500/30`}
                         >
                           <Eye className="w-4 h-4" />
-                          <span className="truncate">PDF A4</span>
+                          <span className="truncate">{t('PDF A4')}</span>
                         </button>
 
                         <button
@@ -1044,7 +1051,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                           className={`${tile} bg-slate-800 hover:bg-slate-700 text-emerald-300 border-slate-700`}
                         >
                           <Banknote className="w-4 h-4" />
-                          <span className="truncate">Paiements</span>
+                          <span className="truncate">{t('Paiements')}</span>
                         </button>
 
                         {mobileEditable && (
@@ -1054,7 +1061,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                             className={`${tile} bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700`}
                           >
                             <Edit3 className="w-4 h-4" />
-                            <span className="truncate">Modifier</span>
+                            <span className="truncate">{t('Modifier')}</span>
                           </button>
                         )}
 
@@ -1065,7 +1072,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                             className={`${tile} bg-emerald-600/30 hover:bg-emerald-600/40 text-emerald-300 border-emerald-500/40 font-bold`}
                           >
                             <CheckSquare className="w-4 h-4" />
-                            <span className="truncate">Restituer</span>
+                            <span className="truncate">{t('Restituer')}</span>
                           </button>
                         )}
 
@@ -1076,7 +1083,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                           className={`${tile} bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700`}
                         >
                           <MoreHorizontal className="w-4 h-4" />
-                          <span className="truncate">Plus</span>
+                          <span className="truncate">{t('Plus')}</span>
                         </button>
                       </div>
                     );
@@ -1126,34 +1133,34 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
 
                 <button role="menuitem" className={itemClass} onClick={run(() => setPaymentsModalContract(menuContract))}>
                   <Banknote className="w-4 h-4 text-emerald-400" />
-                  <span>Règlements & paiements</span>
+                  <span>{t('Règlements & paiements')}</span>
                 </button>
 
                 {editable && (
                   <button role="menuitem" className={itemClass} onClick={run(() => startEditingContract(menuContract))}>
                     <Edit3 className="w-4 h-4 text-blue-400" />
-                    <span>Modifier le contrat</span>
+                    <span>{t('Modifier le contrat')}</span>
                   </button>
                 )}
 
                 {editable && (
                   <button role="menuitem" className={itemClass} onClick={run(() => openFuelEdit(menuContract))}>
                     <Fuel className="w-4 h-4 text-amber-400" />
-                    <span>Carburant & km de départ</span>
+                    <span>{t('Carburant & km de départ')}</span>
                   </button>
                 )}
 
                 <button role="menuitem" className={itemClass} onClick={run(() => setInspectionContract(menuContract))}>
                   <Camera className="w-4 h-4 text-amber-400" />
                   <span>
-                    Photos & état des lieux
+                    {t('Photos & état des lieux')}
                     {menuContract.inspection?.photos?.length ? ` (${menuContract.inspection.photos.length})` : ''}
                   </span>
                 </button>
 
                 <button role="menuitem" className={itemClass} onClick={run(() => openPdfModal(menuContract))}>
                   <Printer className="w-4 h-4 text-slate-300" />
-                  <span>Imprimer le contrat</span>
+                  <span>{t('Imprimer le contrat')}</span>
                 </button>
 
                 <button
@@ -1166,27 +1173,27 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                   )}
                 >
                   <Sparkles className="w-4 h-4 text-amber-400" />
-                  <span>Demander à l’assistant</span>
+                  <span>{t('Demander à l’assistant')}</span>
                 </button>
 
                 {ENABLE_DIGITAL_SIGNATURE && (
                   <button role="menuitem" className={itemClass} onClick={run(() => setSigningContract(menuContract))}>
                     <PenTool className="w-4 h-4 text-amber-400" />
-                    <span>{menuContract.clientSignature ? 'Gérer la signature' : 'Signer'}</span>
+                    <span>{menuContract.clientSignature ? t('Gérer la signature') : t('Signer')}</span>
                   </button>
                 )}
 
                 {hasPermission('canCreateContracts') && (
                   <button role="menuitem" className={itemClass} onClick={run(() => duplicateContract(menuContract))}>
                     <Copy className="w-4 h-4 text-slate-300" />
-                    <span>Dupliquer</span>
+                    <span>{t('Dupliquer')}</span>
                   </button>
                 )}
 
                 {menuContract.status === 'active' && hasPermission('canCancelContracts') && (
                   <button role="menuitem" className={itemClass} onClick={run(() => handleCancel(menuContract))}>
                     <XCircle className="w-4 h-4 text-rose-400" />
-                    <span>Annuler le contrat</span>
+                    <span>{t('Annuler le contrat')}</span>
                   </button>
                 )}
 
@@ -1202,7 +1209,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                       })}
                     >
                       <Trash2 className="w-4 h-4 text-rose-400" />
-                      <span>Supprimer définitivement</span>
+                      <span>{t('Supprimer définitivement')}</span>
                     </button>
                   </>
                 )}
@@ -1229,9 +1236,9 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                   <Fuel className="w-5 h-5" />
                 </div>
                 <div>
-                  <h2 className="text-base font-bold text-white">Carburant &amp; KM au Départ</h2>
+                  <h2 className="text-base font-bold text-white">{t('Carburant & KM au Départ')}</h2>
                   <p className="text-xs text-slate-400 font-mono">
-                    Contrat N° {fuelEditModalContract.contractNumber}
+                    {t('Contrat N° {contractNumber}', { contractNumber: fuelEditModalContract.contractNumber })}
                   </p>
                 </div>
               </div>
@@ -1247,13 +1254,13 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
             {/* Recap vehicle */}
             <div className="bg-slate-950/70 p-3 rounded-xl border border-slate-800 flex items-center justify-between text-xs">
               <div>
-                <span className="text-slate-400 block">Véhicule :</span>
+                <span className="text-slate-400 block">{t('Véhicule :')}</span>
                 <span className="font-bold text-white">
                   {fuelEditModalContract.vehicleSnapshot.brand} {fuelEditModalContract.vehicleSnapshot.model}
                 </span>
               </div>
-              <div className="text-right">
-                <span className="text-slate-400 block">Immatriculation :</span>
+              <div className="text-end">
+                <span className="text-slate-400 block">{t('Immatriculation :')}</span>
                 <span className="font-bold font-mono text-amber-400">
                   {fuelEditModalContract.vehicleSnapshot.plate}
                 </span>
@@ -1264,28 +1271,28 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
               <div>
                 <label className="block text-slate-300 font-medium mb-1.5 flex items-center gap-1.5">
                   <Fuel className="w-4 h-4 text-amber-400" />
-                  Niveau de Carburant au Départ *
+                  {t('Niveau de Carburant au Départ *')}
                 </label>
                 <select
                   value={fuelEditForm.departureFuel}
                   onChange={(e) => setFuelEditForm({ ...fuelEditForm, departureFuel: e.target.value })}
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-white font-mono font-semibold focus:border-amber-500 focus:outline-none cursor-pointer"
                 >
-                  <option value="8/8 (Plein)">8/8 (Plein complet)</option>
+                  <option value="8/8 (Plein)">{t('8/8 (Plein complet)')}</option>
                   <option value="7/8">7/8</option>
                   <option value="6/8 (3/4)">6/8 (3/4)</option>
                   <option value="5/8">5/8</option>
                   <option value="4/8 (1/2)">4/8 (1/2)</option>
                   <option value="3/8">3/8</option>
                   <option value="2/8 (1/4)">2/8 (1/4)</option>
-                  <option value="1/8 (Réserve)">1/8 (Réserve)</option>
+                  <option value="1/8 (Réserve)">{t('1/8 (Réserve)')}</option>
                 </select>
               </div>
 
               <div>
                 <label className="block text-slate-300 font-medium mb-1.5 flex items-center gap-1.5">
                   <Gauge className="w-4 h-4 text-slate-400" />
-                  Kilométrage au Départ (Compteur) *
+                  {t('Kilométrage au Départ (Compteur) *')}
                 </label>
                 <input
                   type="number"
@@ -1303,14 +1310,14 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                   onClick={() => setFuelEditModalContract(null)}
                   className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold rounded-xl transition-colors cursor-pointer"
                 >
-                  Annuler
+                  {t('Annuler')}
                 </button>
                 <button
                   type="submit"
                   className="px-5 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold rounded-xl shadow-md shadow-amber-500/20 transition-transform active:scale-95 flex items-center gap-1.5 cursor-pointer"
                 >
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>Enregistrer</span>
+                  <span>{t('Enregistrer')}</span>
                 </button>
               </div>
             </form>
@@ -1330,43 +1337,43 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                 <Trash2 className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-white">Supprimer ce contrat ?</h3>
-                <p className="text-xs text-slate-400">Action irréversible réservée au Gérant</p>
+                <h3 className="text-base font-bold text-white">{t('Supprimer ce contrat ?')}</h3>
+                <p className="text-xs text-slate-400">{t('Action irréversible réservée au Gérant')}</p>
               </div>
             </div>
 
             <div className="bg-slate-950 border border-slate-800 rounded-xl p-3.5 space-y-2 text-xs">
               <div className="flex items-center justify-between">
-                <span className="text-slate-400">N° Contrat :</span>
+                <span className="text-slate-400">{t('N° Contrat :')}</span>
                 <span className="text-amber-400 font-mono font-bold">{contractToDelete.contractNumber}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-slate-400">Client :</span>
+                <span className="text-slate-400">{t('Client :')}</span>
                 <span className="text-white font-semibold">
                   {contractToDelete.clientSnapshot.lastName} {contractToDelete.clientSnapshot.firstName}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-slate-400">Véhicule :</span>
+                <span className="text-slate-400">{t('Véhicule :')}</span>
                 <span className="text-slate-300">
                   {contractToDelete.vehicleSnapshot.brand} {contractToDelete.vehicleSnapshot.model} ({contractToDelete.vehicleSnapshot.plate})
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-slate-400">Période :</span>
+                <span className="text-slate-400">{t('Période :')}</span>
                 <span className="text-slate-300">
-                  Du {contractToDelete.startDate} au {contractToDelete.endDate}
+                  {t('Du {startDate} au {endDate}', { startDate: contractToDelete.startDate, endDate: contractToDelete.endDate })}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-slate-400">Statut :</span>
+                <span className="text-slate-400">{t('Statut :')}</span>
                 <span className={`font-semibold capitalize ${
                   contractToDelete.status === 'active' ? 'text-emerald-400' :
                   contractToDelete.status === 'completed' ? 'text-blue-400' : 'text-slate-400'
                 }`}>
-                  {contractToDelete.status === 'active' ? 'Actif (En cours)' :
-                   contractToDelete.status === 'completed' ? 'Clôturé / Restitué' :
-                   contractToDelete.status === 'cancelled' ? 'Annulé' : 'Brouillon'}
+                  {contractToDelete.status === 'active' ? t('Actif (En cours)') :
+                   contractToDelete.status === 'completed' ? t('Clôturé / Restitué') :
+                   contractToDelete.status === 'cancelled' ? t('Annulé') : t('Brouillon')}
                 </span>
               </div>
             </div>
@@ -1380,8 +1387,8 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
 
             <p className="text-[11px] text-slate-400">
               {contractToDelete.status === 'active'
-                ? '⚠️ Ce contrat est actuellement actif. Sa suppression libérera automatiquement le véhicule associé dans le parc comme disponible.'
-                : 'La suppression de ce contrat effacera définitivement ses données et ses fiches de caution associées.'}
+                ? t('⚠️ Ce contrat est actuellement actif. Sa suppression libérera automatiquement le véhicule associé dans le parc comme disponible.')
+                : t('La suppression de ce contrat effacera définitivement ses données et ses fiches de caution associées.')}
             </p>
 
             <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-800">
@@ -1393,7 +1400,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                 }}
                 className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl transition-colors cursor-pointer"
               >
-                Annuler
+                {t('Annuler')}
               </button>
               <button
                 type="button"
@@ -1401,7 +1408,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                 className="flex items-center gap-1.5 px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-rose-600/30 transition-all cursor-pointer active:scale-95"
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                Confirmer la suppression
+                {t('Confirmer la suppression')}
               </button>
             </div>
           </div>
@@ -1417,7 +1424,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
           onSignatureSaved={(updated) => {
             setSigningContract(null);
             setSuccessToastMsg(
-              `Signature numérique certifiée enregistrée avec succès pour le contrat ${updated.contractNumber}`
+              t('Signature numérique certifiée enregistrée avec succès pour le contrat {contractNumber}', { contractNumber: updated.contractNumber })
             );
             setTimeout(() => setSuccessToastMsg(''), 4000);
           }}
@@ -1435,28 +1442,28 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
           onAddPayment={(cId, p) => {
             const updated = addPaymentToContract(cId, p, currentUser?.name);
             if (updated) {
-              setSuccessToastMsg(`Règlement de ${p.amount} MAD enregistré sur le contrat ${updated.contractNumber}`);
+              setSuccessToastMsg(t('Règlement de {amount} MAD enregistré sur le contrat {contractNumber}', { amount: p.amount, contractNumber: updated.contractNumber }));
               setTimeout(() => setSuccessToastMsg(''), 4000);
             }
           }}
           onUpdatePayment={(cId, pId, pData) => {
             const updated = updateContractPayment(cId, pId, pData, currentUser?.name);
             if (updated) {
-              setSuccessToastMsg(`Paiement mis à jour avec succès sur le contrat ${updated.contractNumber}`);
+              setSuccessToastMsg(t('Paiement mis à jour avec succès sur le contrat {contractNumber}', { contractNumber: updated.contractNumber }));
               setTimeout(() => setSuccessToastMsg(''), 4000);
             }
           }}
           onDeletePayment={(cId, pId) => {
             const updated = deleteContractPayment(cId, pId, currentUser?.name);
             if (updated) {
-              setSuccessToastMsg(`Paiement supprimé du contrat ${updated.contractNumber}`);
+              setSuccessToastMsg(t('Paiement supprimé du contrat {contractNumber}', { contractNumber: updated.contractNumber }));
               setTimeout(() => setSuccessToastMsg(''), 4000);
             }
           }}
           onUpdateFinancials={(cId, fin) => {
             const updated = updateContractFinancials(cId, fin, currentUser?.name);
             if (updated) {
-              setSuccessToastMsg(`Tarification du contrat ${updated.contractNumber} mise à jour (${fin.totalAmount} MAD)`);
+              setSuccessToastMsg(t('Tarification du contrat {contractNumber} mise à jour ({totalAmount} MAD)', { contractNumber: updated.contractNumber, totalAmount: fin.totalAmount }));
               setTimeout(() => setSuccessToastMsg(''), 4000);
             }
           }}
