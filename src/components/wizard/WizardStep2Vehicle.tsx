@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { Vehicle } from '../../types';
 import { formatPlateFrench } from '../../utils/plateUtils';
-import { Car, UserCheck } from 'lucide-react';
+import { Car, Search, UserCheck, X } from 'lucide-react';
+import { countByStatus, searchVehicles, type VehicleStatusFilter } from '../../lib/vehicleSearch';
 
 interface WizardStep2VehicleProps {
   availableVehiclesForContract: Vehicle[];
@@ -22,6 +23,32 @@ export const WizardStep2Vehicle: React.FC<WizardStep2VehicleProps> = ({
   isEditMode,
   editingContractVehicleId,
 }) => {
+  const [query, setQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<VehicleStatusFilter>('all');
+
+  const counts = useMemo(
+    () => countByStatus(availableVehiclesForContract, editingContractVehicleId),
+    [availableVehiclesForContract, editingContractVehicleId]
+  );
+  const visibleVehicles = useMemo(
+    () =>
+      searchVehicles(availableVehiclesForContract, {
+        query,
+        status: statusFilter,
+        currentVehicleId: isEditMode ? editingContractVehicleId : undefined,
+      }),
+    [availableVehiclesForContract, query, statusFilter, isEditMode, editingContractVehicleId]
+  );
+  const selectedVehicle = availableVehiclesForContract.find((v) => v.id === selectedVehicleId);
+  const selectedHidden = Boolean(selectedVehicle) && !visibleVehicles.some((v) => v.id === selectedVehicleId);
+  const isFiltering = query.trim() !== '' || statusFilter !== 'all';
+
+  const FILTERS: { id: VehicleStatusFilter; label: string; count: number }[] = [
+    { id: 'all', label: 'Tous', count: counts.all },
+    { id: 'available', label: 'Disponibles', count: counts.available },
+    { id: 'unavailable', label: 'Indisponibles', count: counts.unavailable },
+  ];
+
   return (
     <div className="space-y-4 animate-in fade-in duration-150">
       <div className="border-b border-slate-800 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -55,8 +82,106 @@ export const WizardStep2Vehicle: React.FC<WizardStep2VehicleProps> = ({
           </p>
         </div>
       ) : (
+        <>
+        {/* RECHERCHE RAPIDE */}
+        <div className="space-y-2.5">
+          <div className="relative group">
+            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-amber-400 transition-colors pointer-events-none" />
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') setQuery('');
+              }}
+              placeholder="Rechercher : plaque, marque, modèle, responsable…"
+              aria-label="Rechercher un véhicule"
+              className="w-full bg-slate-950/70 border border-slate-800 hover:border-slate-700 focus:border-amber-500/60 focus:ring-4 focus:ring-amber-500/10 rounded-2xl pl-10 pr-10 py-3 text-sm text-white placeholder-slate-500 outline-none transition-all [&::-webkit-search-cancel-button]:hidden"
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={() => setQuery('')}
+                aria-label="Effacer la recherche"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 flex-wrap" role="group" aria-label="Filtrer par disponibilité">
+              {FILTERS.map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => setStatusFilter(f.id)}
+                  aria-pressed={statusFilter === f.id}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold transition-all cursor-pointer ${
+                    statusFilter === f.id
+                      ? 'bg-amber-500/15 border-amber-500/50 text-amber-300'
+                      : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
+                  }`}
+                >
+                  <span>{f.label}</span>
+                  <span
+                    className={`min-w-[18px] px-1 rounded-full text-[10px] text-center ${
+                      statusFilter === f.id ? 'bg-amber-500/25 text-amber-200' : 'bg-slate-800 text-slate-400'
+                    }`}
+                  >
+                    {f.count}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            <span className="text-[11px] text-slate-500" aria-live="polite">
+              {isFiltering
+                ? `${visibleVehicles.length} résultat${visibleVehicles.length > 1 ? 's' : ''} sur ${counts.all}`
+                : `${counts.all} véhicule${counts.all > 1 ? 's' : ''}`}
+            </span>
+          </div>
+
+          {selectedHidden && selectedVehicle && (
+            <div className="flex items-center justify-between gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-xs">
+              <span className="text-emerald-300 truncate">
+                ✓ Sélectionné : <strong>{selectedVehicle.brand} {selectedVehicle.model}</strong>{' '}
+                <span className="font-mono">{formatPlateFrench(selectedVehicle.plate)}</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setQuery('');
+                  setStatusFilter('all');
+                }}
+                className="shrink-0 text-slate-300 hover:text-white underline underline-offset-2 cursor-pointer"
+              >
+                Afficher
+              </button>
+            </div>
+          )}
+        </div>
+
+        {visibleVehicles.length === 0 ? (
+          <div className="text-center py-8 bg-slate-950/60 border border-dashed border-slate-800 rounded-xl p-6">
+            <Search className="w-8 h-8 text-slate-600 mx-auto mb-2" />
+            <h3 className="text-sm font-bold text-slate-300">Aucun véhicule ne correspond</h3>
+            <p className="text-xs text-slate-500 mt-1">Essayez une partie de la plaque, la marque ou le nom du responsable.</p>
+            <button
+              type="button"
+              onClick={() => {
+                setQuery('');
+                setStatusFilter('all');
+              }}
+              className="mt-3 px-3 py-1.5 rounded-lg border border-slate-700 text-xs text-slate-200 hover:bg-slate-800 cursor-pointer"
+            >
+              Réinitialiser la recherche
+            </button>
+          </div>
+        ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-72 overflow-y-auto pr-1">
-          {availableVehiclesForContract.map((veh) => {
+          {visibleVehicles.map((veh) => {
             const isCurrentContractVehicle = isEditMode && veh.id === editingContractVehicleId;
             const isAvailable = veh.status === 'available' || isCurrentContractVehicle;
             const isSelected = selectedVehicleId === veh.id;
@@ -129,6 +254,8 @@ export const WizardStep2Vehicle: React.FC<WizardStep2VehicleProps> = ({
             );
           })}
         </div>
+        )}
+        </>
       )}
     </div>
   );
