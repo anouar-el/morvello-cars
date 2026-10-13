@@ -12,6 +12,7 @@ import {
 import { initialCompanySettings, initialAuditLogs } from '../data/mockData';
 import { initialTermsVersion } from '../data/termsData';
 import { syncCompanySettings } from '../lib/recordSync';
+import { getAuditActor } from '../lib/auditActor';
 import { pathForTab, tabForPath } from '../utils/tabRoutes';
 
 export type CloudSyncStatus = 'idle' | 'syncing' | 'synced' | 'error';
@@ -169,11 +170,12 @@ export const CompanyProvider: React.FC<{
 
   const addAuditLog = useCallback(
     (action: string, targetType: AuditLog['targetType'], targetId: string, details: string) => {
+      const actor = getAuditActor();
       const newLog: AuditLog = {
         id: `log-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
         timestamp: new Date().toISOString(),
-        userName: 'Morvello System',
-        userRole: 'admin',
+        userName: actor.name,
+        userRole: actor.role,
         action,
         targetType,
         targetId,

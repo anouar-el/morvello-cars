@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { AssistantUsagePanel } from './AssistantUsagePanel';
 import {
   AiAssistantSettings,
   AiToneOfVoice,
@@ -199,6 +200,8 @@ export const AiCharterSettings: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {currentUser.role === 'admin' && <AssistantUsagePanel />}
 
       {savedSuccess && (
         <div className="bg-emerald-500/15 border border-emerald-500/40 text-emerald-400 p-3.5 rounded-xl text-xs flex items-center gap-2 animate-in fade-in">

@@ -249,7 +249,40 @@ describe('runWithTools', () => {
   });
 });
 
+describe('runWithTools : consommation', () => {
+  it('additionne les jetons de chaque tour (dernière valeur du flux) et compte les outils', async () => {
+    let call = 0;
+    const out = await runWithTools({
+      models: ['m1'],
+      contents: [],
+      timeoutMs: 500,
+      generate: async () => {
+        call += 1;
+        async function* first() {
+          yield { usage: { inputTokens: 10, outputTokens: 1 } };
+          yield { functionCalls: [{ name: 't' }], usage: { inputTokens: 100, outputTokens: 5 } };
+        }
+        async function* second() {
+          yield { text: 'ok', usage: { inputTokens: 150, outputTokens: 20 } };
+        }
+        return call === 1 ? first() : second();
+      },
+      executeTool: noTools,
+      onDelta: () => {},
+    });
+    expect(out.usage).toEqual({ inputTokens: 250, outputTokens: 25, toolCalls: 1 });
+  });
+});
+
 describe('toGenChunk', () => {
+  it('lit les jetons, réflexion comprise', () => {
+    const out = toGenChunk({
+      candidates: [{ content: { parts: [{ text: 'a' }] } }],
+      usageMetadata: { promptTokenCount: 120, candidatesTokenCount: 30, thoughtsTokenCount: 10 },
+    });
+    expect(out.usage).toEqual({ inputTokens: 120, outputTokens: 40 });
+  });
+
   it('sépare texte, appels d\'outils et ignore les pensées', () => {
     const out = toGenChunk({
       candidates: [
