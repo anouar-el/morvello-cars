@@ -504,6 +504,8 @@ export interface AgentChatMessage {
   content: string;
   timestamp: string;
   createdAt?: string; // ISO date, used for day separators (absent on older saved messages)
+  /** Éléments consultés par l'assistant pour répondre : liens vers le contrat, le véhicule ou le client. */
+  sources?: { kind: 'contract' | 'vehicle' | 'client'; id: string; label: string; search: string }[];
 }
 
 export const DEFAULT_PERMISSIONS_BY_ROLE: Record<UserRole, UserPermissions> = {

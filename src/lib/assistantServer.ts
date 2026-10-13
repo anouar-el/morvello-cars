@@ -127,47 +127,95 @@ export function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   });
 }
 
-export interface StreamChunk {
+export interface GenChunk {
   text?: string;
+  functionCalls?: { name?: string; args?: Record<string, unknown> }[];
+  /** Parties brutes du modèle, à renvoyer telles quelles au tour suivant (signatures de réflexion incluses). */
+  parts?: unknown[];
 }
 
-export interface StreamModelsOptions {
+/** Aplatit un morceau brut du SDK Gemini : texte, appels d'outils et parties d'origine. */
+export function toGenChunk(raw: any): GenChunk {
+  const parts: any[] = Array.isArray(raw?.candidates?.[0]?.content?.parts) ? raw.candidates[0].content.parts : [];
+  const text = parts
+    .filter((p) => typeof p?.text === 'string' && !p.thought)
+    .map((p) => p.text)
+    .join('');
+  const functionCalls = parts.filter((p) => p?.functionCall).map((p) => p.functionCall);
+  // Les parties de texte vides (fin de flux) sont écartées : renvoyées au modèle, elles provoquent une erreur 400.
+  return { text, functionCalls, parts: parts.filter((p) => !(p && p.text === '' && !p.functionCall)) };
+}
+
+export interface ToolRunOptions<S> {
   models: string[];
-  /** Ouvre le flux d'un modèle (ex. ai.models.generateContentStream). */
-  startStream: (model: string) => Promise<AsyncIterable<StreamChunk>>;
-  /** Appelé à chaque morceau de texte reçu, dès qu'il arrive. */
+  contents: any[];
+  /** Ouvre un flux pour un modèle ; `allowTools` est faux au dernier tour pour forcer une réponse en texte. */
+  generate: (model: string, contents: any[], allowTools: boolean) => Promise<AsyncIterable<GenChunk>>;
+  executeTool: (name: string, args: unknown) => { result: unknown; sources: S[] };
+  /** Appelé à chaque morceau de texte, dès qu'il arrive. */
   onDelta: (text: string) => void;
   timeoutMs: number;
+  /** Nombre maximal de tours d'outils avant de forcer la réponse. */
+  maxToolRounds?: number;
 }
 
 /**
- * Lit la réponse en flux en essayant les modèles dans l'ordre.
- *  - Tant qu'aucun texte n'a été envoyé, un échec (ouverture, délai, flux vide) passe au modèle suivant.
- *  - Dès qu'un texte est parti vers l'utilisateur, on ne change plus de modèle (ce serait un doublon) :
- *    l'échec est remonté tel quel.
- * Le délai s'applique à l'ouverture du flux ET à chaque morceau.
+ * Boucle de réponse avec appel d'outils, en flux, avec repli sur le modèle suivant.
+ *  - Tant qu'aucun texte n'a été envoyé à l'utilisateur, un échec (ouverture, délai, flux vide) passe au
+ *    modèle suivant, en repartant de zéro.
+ *  - Dès qu'un texte est parti, on ne change plus de modèle (ce serait un doublon) : l'erreur remonte.
+ *  - Le délai s'applique à l'ouverture du flux ET à chaque morceau.
  */
-export async function streamFromModels(opts: StreamModelsOptions): Promise<{ model: string; text: string }> {
+export async function runWithTools<S>(opts: ToolRunOptions<S>): Promise<{ model: string; text: string; sources: S[] }> {
+  const maxRounds = opts.maxToolRounds ?? 4;
   let lastError: unknown = null;
 
   for (const model of opts.models) {
     let emitted = false;
     let text = '';
+    const sources: S[] = [];
+    const contents = [...opts.contents];
+
     try {
-      const stream = await withTimeout(opts.startStream(model), opts.timeoutMs);
-      const iterator = stream[Symbol.asyncIterator]();
-      let step = await withTimeout(iterator.next(), opts.timeoutMs);
-      while (!step.done) {
-        const piece = step.value?.text;
-        if (piece) {
-          emitted = true;
-          text += piece;
-          opts.onDelta(piece);
+      for (let round = 0; ; round += 1) {
+        const allowTools = round < maxRounds;
+        const stream = await withTimeout(opts.generate(model, contents, allowTools), opts.timeoutMs);
+        const iterator = stream[Symbol.asyncIterator]();
+        const calls: { name: string; args: Record<string, unknown> }[] = [];
+        const parts: unknown[] = [];
+
+        let step = await withTimeout(iterator.next(), opts.timeoutMs);
+        while (!step.done) {
+          const chunk = step.value || {};
+          if (chunk.text) {
+            emitted = true;
+            text += chunk.text;
+            opts.onDelta(chunk.text);
+          }
+          for (const fc of chunk.functionCalls || []) {
+            if (fc?.name) calls.push({ name: fc.name, args: (fc.args || {}) as Record<string, unknown> });
+          }
+          if (chunk.parts) parts.push(...chunk.parts);
+          step = await withTimeout(iterator.next(), opts.timeoutMs);
         }
-        step = await withTimeout(iterator.next(), opts.timeoutMs);
+
+        if (calls.length === 0 || !allowTools) {
+          if (emitted) return { model, text, sources };
+          throw new Error('Flux vide');
+        }
+
+        // Le modèle demande des outils : on les exécute, puis on lui renvoie les résultats.
+        const responses = calls.map((call) => {
+          const out = opts.executeTool(call.name, call.args);
+          sources.push(...out.sources);
+          return { functionResponse: { name: call.name, response: { output: out.result } } };
+        });
+        contents.push({
+          role: 'model',
+          parts: parts.length ? parts : calls.map((c) => ({ functionCall: { name: c.name, args: c.args } })),
+        });
+        contents.push({ role: 'user', parts: responses });
       }
-      if (emitted) return { model, text };
-      lastError = new Error('Flux vide');
     } catch (err) {
       if (emitted) throw err;
       lastError = err;

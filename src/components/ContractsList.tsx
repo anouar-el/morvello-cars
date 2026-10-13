@@ -35,6 +35,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { askAssistant } from '../lib/askAssistant';
+import { takeEntityFocus } from '../lib/entityFocus';
 import { formatPlateFrench } from '../utils/plateUtils';
 import { sortContractsByNumber } from '../utils/contractNumberUtils';
 import { InspectionManagerModal } from './InspectionManagerModal';
@@ -72,7 +73,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
     repairDuplicateContracts,
   } = useApp();
 
-  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState<string>(() => takeEntityFocus('contract') ?? '');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [paymentFilter, setPaymentFilter] = useState<string>('all');
   const [managerFilter, setManagerFilter] = useState<string>('all');
