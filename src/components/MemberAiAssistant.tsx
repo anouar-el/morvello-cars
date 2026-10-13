@@ -5,6 +5,7 @@ import { isAbortException } from '../initErrorHandling';
 import { getScopedDataForUser } from '../utils/managerScopeUtils';
 import { buildAssistantDigest } from '../lib/aiAssistantContext';
 import { requestEntityFocus } from '../lib/entityFocus';
+import { validateAction, PAYMENT_METHOD_LABELS, type AssistantAction } from '../lib/assistantActions';
 import { getActiveAuthToken, endTerminatedSession, SESSION_TERMINATED } from '../lib/authToken';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -78,7 +79,19 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
   initialPrompt = null,
   onInitialPromptHandled,
 }) => {
-  const { currentUser, vehicles, contracts, clients, deposits, users, aiSettings, setActiveTab } = useApp();
+  const {
+    currentUser,
+    vehicles,
+    contracts,
+    clients,
+    deposits,
+    users,
+    aiSettings,
+    setActiveTab,
+    addPaymentToContract,
+    updateContractFinancials,
+    hasPermission,
+  } = useApp();
 
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -252,6 +265,48 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
     .sort((a, b) => Number(b.chip.count > 0) - Number(a.chip.count > 0) || a.order - b.order)
     .map(({ chip }) => chip);
 
+  /** Exécute une action proposée, après clic explicite. Revalide sur les données du moment ; le résultat est mémorisé. */
+  const runAction = (messageId: string, action: AssistantAction) => {
+    const setResult = (ok: boolean, text: string) =>
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === messageId ? { ...m, actionResults: { ...(m.actionResults || {}), [action.id]: { ok, text } } } : m
+        )
+      );
+
+    const contract = contracts.find((c) => c.id === action.contractId);
+    const check = validateAction(action, contract);
+    if (!check.ok) return setResult(false, check.error || 'Action impossible.');
+
+    try {
+      if (action.type === 'whatsapp') {
+        window.open(`https://wa.me/${action.phone}?text=${encodeURIComponent(action.message || '')}`, '_blank', 'noopener');
+        return setResult(true, 'WhatsApp ouvert : relisez puis envoyez.');
+      }
+      if (action.type === 'deposit_collected') {
+        if (!hasPermission('canCollectDeposit')) return setResult(false, 'Vous n’avez pas le droit d’enregistrer une caution.');
+        updateContractFinancials(
+          action.contractId,
+          { depositAmount: Number(contract?.depositAmount) || 0, depositCollected: true },
+          currentUser.name
+        );
+        return setResult(true, 'Caution marquée comme prise.');
+      }
+      if (action.type === 'payment') {
+        const updated = addPaymentToContract(
+          action.contractId,
+          { amount: Number(action.amount), method: action.method!, notes: 'Enregistré depuis l’assistant IA' },
+          currentUser.name
+        );
+        return updated
+          ? setResult(true, `Règlement de ${action.amount} MAD enregistré.`)
+          : setResult(false, 'Le règlement n’a pas pu être enregistré.');
+      }
+    } catch {
+      setResult(false, 'L’action a échoué. Réessayez depuis le contrat.');
+    }
+  };
+
   const openSource = (source: NonNullable<AgentChatMessage['sources']>[number]) => {
     requestEntityFocus(source.kind, source.search);
     setActiveTab(source.kind === 'contract' ? 'contracts' : source.kind === 'vehicle' ? 'vehicles' : 'clients');
@@ -411,6 +466,9 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
               (s: any) => s && typeof s.id === 'string' && typeof s.label === 'string' && typeof s.search === 'string'
             );
             setMessages((prev) => prev.map((m) => (m.id === streamId ? { ...m, sources: items } : m)));
+          } else if (evt.type === 'actions' && Array.isArray(evt.items)) {
+            const items = evt.items.filter((a: any) => a && a.kind === 'action' && typeof a.id === 'string');
+            setMessages((prev) => prev.map((m) => (m.id === streamId ? { ...m, actions: items } : m)));
           } else if (evt.type === 'error') {
             streamError = typeof evt.error === 'string' ? evt.error : 'Réponse indisponible.';
           } else if (evt.type === 'done') {
@@ -461,6 +519,8 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
           id: `model-${Date.now()}`,
           role: 'model',
           content: data.reply,
+          sources: Array.isArray(data.sources) ? data.sources : undefined,
+          actions: Array.isArray(data.actions) && data.actions.length ? data.actions : undefined,
           timestamp: nowTime(),
           createdAt: new Date().toISOString(),
         };
@@ -1085,6 +1145,46 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
                                 <Markdown remarkPlugins={[remarkGfm]} components={markdownComponents(msg.id)}>
                                   {msg.content}
                                 </Markdown>
+                                {msg.actions && msg.actions.length > 0 && (
+                                  <div className="mt-3 space-y-2">
+                                    {msg.actions.map((a) => {
+                                      const result = msg.actionResults?.[a.id];
+                                      return (
+                                        <div
+                                          key={a.id}
+                                          className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 text-xs"
+                                        >
+                                          <div className="font-semibold text-amber-300">{a.title}</div>
+                                          <div className="mt-0.5 text-slate-400 font-mono">Contrat {a.contractNumber}</div>
+                                          {a.type === 'whatsapp' && a.message && (
+                                            <div className="mt-2 whitespace-pre-wrap rounded-lg bg-slate-950/70 border border-slate-800 p-2 text-slate-200">
+                                              {a.message}
+                                            </div>
+                                          )}
+                                          {a.type === 'payment' && a.method && (
+                                            <div className="mt-1 text-slate-300">
+                                              {a.amount} MAD · {PAYMENT_METHOD_LABELS[a.method]}
+                                            </div>
+                                          )}
+                                          {result ? (
+                                            <div className={`mt-2 ${result.ok ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                              {result.ok ? '✓ ' : '✕ '}
+                                              {result.text}
+                                            </div>
+                                          ) : (
+                                            <button
+                                              type="button"
+                                              onClick={() => runAction(msg.id, a)}
+                                              className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs cursor-pointer"
+                                            >
+                                              {a.type === 'whatsapp' ? 'Ouvrir WhatsApp' : 'Confirmer'}
+                                            </button>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
                                 {msg.sources && msg.sources.length > 0 && (
                                   <div className="mt-3 pt-2.5 border-t border-slate-800/80">
                                     <div className="text-[10.5px] uppercase tracking-wide text-slate-500 mb-1.5">

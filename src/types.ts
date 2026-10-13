@@ -498,6 +498,8 @@ export type ActiveTab =
   | 'permissions'
   | 'contract_templates';
 
+import type { AssistantAction } from './lib/assistantActions';
+
 export interface AgentChatMessage {
   id: string;
   role: 'user' | 'model';
@@ -506,6 +508,9 @@ export interface AgentChatMessage {
   createdAt?: string; // ISO date, used for day separators (absent on older saved messages)
   /** Éléments consultés par l'assistant pour répondre : liens vers le contrat, le véhicule ou le client. */
   sources?: { kind: 'contract' | 'vehicle' | 'client'; id: string; label: string; search: string }[];
+  /** Actions proposées par l'assistant (cartes à confirmer) et leur issue, pour ne jamais les rejouer. */
+  actions?: AssistantAction[];
+  actionResults?: Record<string, { ok: boolean; text: string }>;
 }
 
 export const DEFAULT_PERMISSIONS_BY_ROLE: Record<UserRole, UserPermissions> = {

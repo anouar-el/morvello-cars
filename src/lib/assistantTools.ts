@@ -2,6 +2,15 @@ import type { Contract, Vehicle } from '../types';
 import { VEHICLE_CATEGORIES, getVehicleCategory } from '../data/insurancePacks';
 import { getDepositCollectionStatus } from '../utils/depositUtils';
 import { effectiveReturn, todayInMorocco } from './aiAssistantContext';
+import {
+  MAX_WHATSAPP_CHARS,
+  PAYMENT_METHODS,
+  remainingOf,
+  toWhatsAppNumber,
+  validateAction,
+  type AssistantAction,
+  type AssistantActionType,
+} from './assistantActions';
 
 /*
  * Outils que l'assistant peut appeler (function calling). Ils travaillent sur les données DÉJÀ
@@ -28,7 +37,8 @@ export interface AssistantToolData {
 
 export interface ToolOutcome {
   result: Record<string, unknown>;
-  sources: AssistantSource[];
+  /** Éléments consultés (liens) et actions proposées (cartes à confirmer par l'utilisateur). */
+  sources: (AssistantSource | AssistantAction)[];
 }
 
 /** Déclarations au format Gemini (functionDeclarations). */
@@ -75,6 +85,22 @@ export const ASSISTANT_TOOL_DECLARATIONS = [
       required: ['requete'],
     },
   },
+  {
+    name: 'proposer_action',
+    description:
+      "Propose une action à l'utilisateur, qui devra la confirmer lui-même : rien n'est exécuté par toi. Types : 'whatsapp' (message prêt à envoyer au client du contrat), 'deposit_collected' (marquer la caution comme prise), 'payment' (enregistrer un règlement reçu). N'appelle cet outil que si l'utilisateur le demande ou accepte ta proposition.",
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        type: { type: 'STRING', description: "'whatsapp', 'deposit_collected' ou 'payment'." },
+        contrat: { type: 'STRING', description: 'Numéro du contrat concerné (ex. MC-2026-0044).' },
+        message: { type: 'STRING', description: 'whatsapp : texte du message, prêt à envoyer.' },
+        montant: { type: 'NUMBER', description: 'payment : montant en MAD.' },
+        mode: { type: 'STRING', description: "payment : 'cash', 'tpe_card', 'virement', 'cheque' ou 'autre'." },
+      },
+      required: ['type', 'contrat'],
+    },
+  },
 ] as const;
 
 const MAX_RESULTS = 8;
@@ -96,11 +122,6 @@ function str(v: unknown): string {
   return typeof v === 'string' ? v : '';
 }
 
-function remainingOf(c: Partial<Contract>): number {
-  if (c.remainingAmount !== undefined) return Math.max(0, Number(c.remainingAmount) || 0);
-  const paid = c.paidAmount ?? (c.payments || []).reduce((s, p) => s + (Number(p.amount) || 0), 0);
-  return Math.max(0, (Number(c.totalAmount) || 0) - paid);
-}
 
 function clientLabel(c: Partial<Contract>): string {
   return `${(c.clientSnapshot?.lastName || '').toUpperCase()} ${c.clientSnapshot?.firstName || ''}`.trim() || 'Client';
@@ -300,6 +321,58 @@ function soldeClient(args: Record<string, unknown>, data: AssistantToolData): To
   };
 }
 
+function proposerAction(args: Record<string, unknown>, data: AssistantToolData): ToolOutcome {
+  const type = str(args.type).trim() as AssistantActionType;
+  const number = compact(args.contrat);
+  const fail = (erreur: string): ToolOutcome => ({ result: { erreur }, sources: [] });
+
+  if (!['whatsapp', 'deposit_collected', 'payment'].includes(type)) return fail("Type d'action inconnu.");
+  const matches = data.contracts.filter((c) => compact(c.contractNumber) === number);
+  if (matches.length !== 1) return fail(matches.length ? 'Plusieurs contrats portent ce numéro.' : 'Contrat introuvable.');
+  const contract = matches[0];
+
+  const action: AssistantAction = {
+    kind: 'action',
+    id: `act-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+    type,
+    contractId: String(contract.id || ''),
+    contractNumber: String(contract.contractNumber || ''),
+    title: '',
+  };
+
+  if (type === 'whatsapp') {
+    const phone = toWhatsAppNumber(contract.clientSnapshot?.phone);
+    const message = str(args.message).trim().slice(0, MAX_WHATSAPP_CHARS);
+    if (!phone) return fail('Aucun numéro de téléphone exploitable pour ce client.');
+    if (!message) return fail('Le message est vide.');
+    action.phone = phone;
+    action.message = message;
+    action.title = `Envoyer un WhatsApp à ${clientLabel(contract)}`;
+  } else if (type === 'deposit_collected') {
+    action.title = `Marquer la caution prise (${Math.round(Number(contract.depositAmount) || 0)} MAD)`;
+  } else {
+    const amount = Math.round((Number(args.montant) || 0) * 100) / 100;
+    const method = str(args.mode).trim() as AssistantAction['method'];
+    if (!method || !PAYMENT_METHODS.includes(method)) return fail("Mode de paiement manquant ou invalide.");
+    action.amount = amount;
+    action.method = method;
+    action.title = `Enregistrer un règlement de ${amount} MAD`;
+  }
+
+  const check = validateAction(action, contract);
+  if (!check.ok) return fail(check.error);
+
+  return {
+    result: {
+      statut: 'proposition_affichee_a_utilisateur',
+      note: "La carte est affichée ; l'utilisateur doit la confirmer. Ne dis jamais que l'action est faite.",
+      action: action.title,
+      contrat: action.contractNumber,
+    },
+    sources: [action],
+  };
+}
+
 /** Exécute un outil demandé par le modèle. Un outil inconnu ou en échec renvoie une erreur lisible, jamais une exception. */
 export function executeAssistantTool(name: string, args: unknown, data: AssistantToolData): ToolOutcome {
   const a = (args && typeof args === 'object' ? args : {}) as Record<string, unknown>;
@@ -311,6 +384,8 @@ export function executeAssistantTool(name: string, args: unknown, data: Assistan
         return vehiculesDisponibles(a, data);
       case 'solde_client':
         return soldeClient(a, data);
+      case 'proposer_action':
+        return proposerAction(a, data);
       default:
         return { result: { erreur: `Outil inconnu : ${name}` }, sources: [] };
     }
