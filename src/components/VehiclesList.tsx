@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { Vehicle, VehicleStatus } from '../types';
+import { takeEntityFocus } from '../lib/entityFocus';
 import {
   Car,
   Search,
@@ -38,7 +39,7 @@ export const VehiclesList: React.FC = () => {
     hasPermission,
   } = useApp();
 
-  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState<string>(() => takeEntityFocus('vehicle') ?? '');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [managerFilter, setManagerFilter] = useState<string>('all');
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);

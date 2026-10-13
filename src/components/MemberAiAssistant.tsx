@@ -4,6 +4,7 @@ import { AgentChatMessage } from '../types';
 import { isAbortException } from '../initErrorHandling';
 import { getScopedDataForUser } from '../utils/managerScopeUtils';
 import { buildAssistantDigest } from '../lib/aiAssistantContext';
+import { requestEntityFocus } from '../lib/entityFocus';
 import { getActiveAuthToken, endTerminatedSession, SESSION_TERMINATED } from '../lib/authToken';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -26,6 +27,8 @@ import {
   Info,
   Calendar,
   Car,
+  FileText,
+  User,
   ShieldCheck,
   Clock,
   ArrowDown,
@@ -249,6 +252,12 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
     .sort((a, b) => Number(b.chip.count > 0) - Number(a.chip.count > 0) || a.order - b.order)
     .map(({ chip }) => chip);
 
+  const openSource = (source: NonNullable<AgentChatMessage['sources']>[number]) => {
+    requestEntityFocus(source.kind, source.search);
+    setActiveTab(source.kind === 'contract' ? 'contracts' : source.kind === 'vehicle' ? 'vehicles' : 'clients');
+    if (isDrawer) onClose?.();
+  };
+
   const stopGenerating = () => {
     abortControllerRef.current?.abort();
   };
@@ -397,6 +406,11 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
                     },
                   ]
             );
+          } else if (evt.type === 'sources' && Array.isArray(evt.items)) {
+            const items = evt.items.filter(
+              (s: any) => s && typeof s.id === 'string' && typeof s.label === 'string' && typeof s.search === 'string'
+            );
+            setMessages((prev) => prev.map((m) => (m.id === streamId ? { ...m, sources: items } : m)));
           } else if (evt.type === 'error') {
             streamError = typeof evt.error === 'string' ? evt.error : 'Réponse indisponible.';
           } else if (evt.type === 'done') {
@@ -1067,9 +1081,38 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
                                 )}
                               </div>
                             ) : (
-                              <Markdown remarkPlugins={[remarkGfm]} components={markdownComponents(msg.id)}>
-                                {msg.content}
-                              </Markdown>
+                              <>
+                                <Markdown remarkPlugins={[remarkGfm]} components={markdownComponents(msg.id)}>
+                                  {msg.content}
+                                </Markdown>
+                                {msg.sources && msg.sources.length > 0 && (
+                                  <div className="mt-3 pt-2.5 border-t border-slate-800/80">
+                                    <div className="text-[10.5px] uppercase tracking-wide text-slate-500 mb-1.5">
+                                      Sources consultées
+                                    </div>
+                                    <div className="flex flex-wrap gap-1.5">
+                                      {msg.sources.map((s) => (
+                                        <button
+                                          key={`${s.kind}:${s.id}`}
+                                          type="button"
+                                          onClick={() => openSource(s)}
+                                          className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] text-slate-300 hover:text-white bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-amber-500/40 transition-colors cursor-pointer max-w-full"
+                                          title="Ouvrir dans l’application"
+                                        >
+                                          {s.kind === 'contract' ? (
+                                            <FileText className="w-3 h-3 text-amber-400 shrink-0" />
+                                          ) : s.kind === 'vehicle' ? (
+                                            <Car className="w-3 h-3 text-amber-400 shrink-0" />
+                                          ) : (
+                                            <User className="w-3 h-3 text-amber-400 shrink-0" />
+                                          )}
+                                          <span className="truncate">{s.label}</span>
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </>
                             )}
                           </div>
                         </div>

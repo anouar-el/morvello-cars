@@ -7,7 +7,8 @@ import {
   sanitizeAssistantSettings,
   sanitizeHistory,
   sanitizeMessage,
-  streamFromModels,
+  runWithTools,
+  toGenChunk,
   toPublicError,
   withTimeout,
   wrapDataBlock,
@@ -124,32 +125,76 @@ describe('withTimeout', () => {
   });
 });
 
-async function* chunks(...parts: (string | Error)[]) {
+async function* chunks(...parts: (string | Error | { calls: { name: string; args?: any }[] })[]) {
   for (const p of parts) {
     if (p instanceof Error) throw p;
-    yield { text: p };
+    if (typeof p === 'string') yield { text: p };
+    else yield { functionCalls: p.calls };
   }
 }
 
-describe('streamFromModels', () => {
+const noTools = () => ({ result: {}, sources: [] as string[] });
+
+describe('runWithTools', () => {
   it('émet les morceaux dans l\'ordre et retourne le texte complet', async () => {
     const received: string[] = [];
-    const out = await streamFromModels({
+    const out = await runWithTools({
       models: ['m1'],
+      contents: [],
       timeoutMs: 500,
-      startStream: async () => chunks('Bon', 'jour', ' !'),
+      generate: async () => chunks('Bon', 'jour', ' !'),
+      executeTool: noTools,
       onDelta: (t) => received.push(t),
     });
     expect(received).toEqual(['Bon', 'jour', ' !']);
-    expect(out).toEqual({ model: 'm1', text: 'Bonjour !' });
+    expect(out).toMatchObject({ model: 'm1', text: 'Bonjour !' });
+  });
+
+  it('exécute un outil puis renvoie son résultat au modèle, et collecte les sources', async () => {
+    const seen: any[][] = [];
+    const out = await runWithTools({
+      models: ['m1'],
+      contents: [{ role: 'user', parts: [{ text: 'q' }] }],
+      timeoutMs: 500,
+      generate: async (_m, contents) => {
+        seen.push(JSON.parse(JSON.stringify(contents)));
+        return seen.length === 1 ? chunks({ calls: [{ name: 'chercher_contrat', args: { requete: 'x' } }] }) : chunks('Voici');
+      },
+      executeTool: (name, args) => ({ result: { name, args }, sources: ['MC-1'] }),
+      onDelta: () => {},
+    });
+    expect(out.text).toBe('Voici');
+    expect(out.sources).toEqual(['MC-1']);
+    const second = seen[1];
+    expect(second[second.length - 1].parts[0].functionResponse.name).toBe('chercher_contrat');
+  });
+
+  it('force une réponse texte après le nombre maximal de tours d\'outils', async () => {
+    const flags: boolean[] = [];
+    const out = await runWithTools({
+      models: ['m1'],
+      contents: [],
+      timeoutMs: 500,
+      maxToolRounds: 2,
+      generate: async (_m, _c, allowTools) => {
+        flags.push(allowTools);
+        return allowTools ? chunks({ calls: [{ name: 't' }] }) : chunks('fin');
+      },
+      executeTool: noTools,
+      onDelta: () => {},
+    });
+    expect(flags).toEqual([true, true, false]);
+    expect(out.text).toBe('fin');
   });
 
   it('passe au modèle suivant si le premier échoue avant tout texte', async () => {
     const received: string[] = [];
-    const out = await streamFromModels({
+    const out = await runWithTools({
       models: ['m1', 'm2'],
+      contents: [],
       timeoutMs: 500,
-      startStream: async (m) => (m === 'm1' ? chunks(new Error('503')) : chunks('ok')),
+      generate: async (m) => (m === 'm1' ? chunks(new Error('503')) : chunks('ok')),
+      executeTool: noTools,
       onDelta: (t) => received.push(t),
     });
     expect(out.model).toBe('m2');
@@ -157,10 +202,12 @@ describe('streamFromModels', () => {
   });
 
   it('passe au modèle suivant si le flux est vide', async () => {
-    const out = await streamFromModels({
+    const out = await runWithTools({
       models: ['m1', 'm2'],
+      contents: [],
       timeoutMs: 500,
-      startStream: async (m) => (m === 'm1' ? chunks() : chunks('texte')),
+      generate: async (m) => (m === 'm1' ? chunks() : chunks('texte')),
+      executeTool: noTools,
       onDelta: () => {},
     });
     expect(out.model).toBe('m2');
@@ -169,10 +216,12 @@ describe('streamFromModels', () => {
   it('ne change plus de modèle une fois du texte envoyé (pas de doublon)', async () => {
     const received: string[] = [];
     await expect(
-      streamFromModels({
+      runWithTools({
         models: ['m1', 'm2'],
+        contents: [],
         timeoutMs: 500,
-        startStream: async (m) => (m === 'm1' ? chunks('début', new Error('coupure')) : chunks('autre')),
+        generate: async (m) => (m === 'm1' ? chunks('début', new Error('coupure')) : chunks('autre')),
+        executeTool: noTools,
         onDelta: (t) => received.push(t),
       })
     ).rejects.toThrow('coupure');
@@ -182,19 +231,47 @@ describe('streamFromModels', () => {
   it('applique un délai à l\'ouverture du flux', async () => {
     const never = new Promise<AsyncIterable<{ text?: string }>>(() => {});
     await expect(
-      streamFromModels({ models: ['m1'], timeoutMs: 30, startStream: () => never, onDelta: () => {} })
+      runWithTools({ models: ['m1'], contents: [], timeoutMs: 30, generate: () => never, executeTool: noTools, onDelta: () => {} })
     ).rejects.toThrow('AI_TIMEOUT');
   });
 
   it('échoue avec la dernière erreur si tous les modèles échouent', async () => {
     await expect(
-      streamFromModels({
+      runWithTools({
         models: ['m1', 'm2'],
+        contents: [],
         timeoutMs: 500,
-        startStream: async (m) => chunks(new Error(`fail-${m}`)),
+        generate: async (m) => chunks(new Error(`fail-${m}`)),
+        executeTool: noTools,
         onDelta: () => {},
       })
     ).rejects.toThrow('fail-m2');
+  });
+});
+
+describe('toGenChunk', () => {
+  it('sépare texte, appels d\'outils et ignore les pensées', () => {
+    const out = toGenChunk({
+      candidates: [
+        {
+          content: {
+            parts: [{ text: 'réflexion', thought: true }, { text: 'Salut' }, { functionCall: { name: 'solde_client', args: { requete: 'x' } } }],
+          },
+        },
+      ],
+    });
+    expect(out.text).toBe('Salut');
+    expect(out.functionCalls).toEqual([{ name: 'solde_client', args: { requete: 'x' } }]);
+    expect(out.parts).toHaveLength(3);
+  });
+
+  it('écarte les parties de texte vides avant de les renvoyer au modèle', () => {
+    const out = toGenChunk({ candidates: [{ content: { parts: [{ text: '' }, { functionCall: { name: 'x' } }] } }] });
+    expect(out.parts).toHaveLength(1);
+  });
+
+  it('tolère un morceau vide', () => {
+    expect(toGenChunk({})).toMatchObject({ text: '', functionCalls: [] });
   });
 });
 

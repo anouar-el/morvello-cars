@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { PropagationScopeSelect, usePropagationScope } from './PropagationScopeSelect';
 import { useApp } from '../context/AppContext';
 import { Client, DocumentType } from '../types';
+import { takeEntityFocus } from '../lib/entityFocus';
 import { ClientDocumentUpload } from './ClientDocumentUpload';
 import { isContractOwnedByManager, isClientOwnedByManager } from '../utils/managerScopeUtils';
 import { sortContractsByNumber } from '../utils/contractNumberUtils';
@@ -47,7 +48,7 @@ export const ClientsList: React.FC = () => {
     hasPermission,
   } = useApp();
 
-  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState<string>(() => takeEntityFocus('client') ?? '');
   const [managerFilter, setManagerFilter] = useState<string>(currentUser.role === 'manager' ? 'mine' : 'all');
   const [selectedClientDetail, setSelectedClientDetail] = useState<Client | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
