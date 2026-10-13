@@ -1,0 +1,120 @@
+import React, { useCallback, useEffect, useState } from 'react';
+import { Activity, RefreshCw } from 'lucide-react';
+import { getActiveAuthToken } from '../lib/authToken';
+import type { UsageSummary } from '../lib/assistantUsage';
+
+const fmt = (n: number) => Math.round(n).toLocaleString('fr-FR');
+
+/**
+ * Consommation du jour de l'assistant IA (gérant). Les chiffres viennent de la mémoire du serveur :
+ * ils repartent de zéro à chaque redémarrage ou déploiement.
+ */
+export const AssistantUsagePanel: React.FC = () => {
+  const [usage, setUsage] = useState<UsageSummary | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const { token } = await getActiveAuthToken({ forceRefresh: false });
+      const res = await fetch('/api/assistant-usage', { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) throw new Error(data?.error || 'Consommation indisponible.');
+      if (!data.usage) throw new Error('Réservé au gérant.');
+      setUsage(data.usage as UsageSummary);
+    } catch (e: any) {
+      setError(e?.message || 'Consommation indisponible.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const t = usage?.totals;
+
+  return (
+    <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 sm:p-5">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <span className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/25 flex items-center justify-center text-amber-400">
+            <Activity className="w-4 h-4" />
+          </span>
+          <div>
+            <div className="text-sm font-bold text-white">Consommation de l’assistant aujourd’hui</div>
+            <div className="text-xs text-slate-400">
+              {usage
+                ? `Quota : ${usage.dailyLimit > 0 ? `${usage.dailyLimit} demandes / personne / jour` : 'illimité'} (gérant exempté)`
+                : 'Demandes et jetons par collaborateur'}
+            </div>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={load}
+          disabled={loading}
+          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800 text-xs cursor-pointer disabled:opacity-50"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+          <span className="hidden sm:inline">Actualiser</span>
+        </button>
+      </div>
+
+      {error && <p className="mt-3 text-xs text-slate-400">{error}</p>}
+
+      {usage && t && (
+        <>
+          <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {[
+              ['Demandes', fmt(t.requests)],
+              ['Jetons entrée', fmt(t.inputTokens)],
+              ['Jetons sortie', fmt(t.outputTokens)],
+              ['Outils appelés', fmt(t.toolCalls)],
+            ].map(([label, value]) => (
+              <div key={label} className="rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-2">
+                <div className="text-[10.5px] uppercase tracking-wide text-slate-500">{label}</div>
+                <div className="text-base font-bold text-white font-mono">{value}</div>
+              </div>
+            ))}
+          </div>
+
+          <p className="mt-2 text-[11px] text-slate-500">
+            {t.estimatedCost !== null
+              ? `Coût estimé : ${t.estimatedCost.toFixed(2)} (selon les tarifs configurés sur le serveur).`
+              : 'Coût non estimé : renseignez ASSISTANT_PRICE_IN_PER_MTOK et ASSISTANT_PRICE_OUT_PER_MTOK sur le serveur.'}{' '}
+            Compteurs en mémoire : remis à zéro à chaque redémarrage du serveur.
+          </p>
+
+          {usage.users.length > 0 && (
+            <div className="mt-3 overflow-x-auto">
+              <table className="w-full text-left text-xs text-slate-300">
+                <thead className="text-[10.5px] uppercase text-slate-500">
+                  <tr>
+                    <th className="py-1.5 pr-3">Collaborateur</th>
+                    <th className="py-1.5 pr-3 text-right">Demandes</th>
+                    <th className="py-1.5 pr-3 text-right">Jetons</th>
+                    <th className="py-1.5 text-right">Outils</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800">
+                  {usage.users.map((u) => (
+                    <tr key={u.uid}>
+                      <td className="py-1.5 pr-3 font-medium text-white">{u.name || u.uid.slice(0, 8)}</td>
+                      <td className="py-1.5 pr-3 text-right font-mono">{fmt(u.requests)}</td>
+                      <td className="py-1.5 pr-3 text-right font-mono">{fmt(u.inputTokens + u.outputTokens)}</td>
+                      <td className="py-1.5 text-right font-mono">{fmt(u.toolCalls)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+};

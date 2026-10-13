@@ -132,6 +132,8 @@ export interface GenChunk {
   functionCalls?: { name?: string; args?: Record<string, unknown> }[];
   /** Parties brutes du modèle, à renvoyer telles quelles au tour suivant (signatures de réflexion incluses). */
   parts?: unknown[];
+  /** Jetons consommés, cumulés sur le flux en cours (métadonnées du fournisseur). */
+  usage?: { inputTokens: number; outputTokens: number };
 }
 
 /** Aplatit un morceau brut du SDK Gemini : texte, appels d'outils et parties d'origine. */
@@ -142,8 +144,16 @@ export function toGenChunk(raw: any): GenChunk {
     .map((p) => p.text)
     .join('');
   const functionCalls = parts.filter((p) => p?.functionCall).map((p) => p.functionCall);
+  const meta = raw?.usageMetadata;
+  const usage = meta
+    ? {
+        inputTokens: Number(meta.promptTokenCount) || 0,
+        // Les jetons de réflexion sont facturés comme des jetons de sortie.
+        outputTokens: (Number(meta.candidatesTokenCount) || 0) + (Number(meta.thoughtsTokenCount) || 0),
+      }
+    : undefined;
   // Les parties de texte vides (fin de flux) sont écartées : renvoyées au modèle, elles provoquent une erreur 400.
-  return { text, functionCalls, parts: parts.filter((p) => !(p && p.text === '' && !p.functionCall)) };
+  return { text, functionCalls, usage, parts: parts.filter((p) => !(p && p.text === '' && !p.functionCall)) };
 }
 
 export interface ToolRunOptions<S> {
@@ -166,7 +176,14 @@ export interface ToolRunOptions<S> {
  *  - Dès qu'un texte est parti, on ne change plus de modèle (ce serait un doublon) : l'erreur remonte.
  *  - Le délai s'applique à l'ouverture du flux ET à chaque morceau.
  */
-export async function runWithTools<S>(opts: ToolRunOptions<S>): Promise<{ model: string; text: string; sources: S[] }> {
+export interface ToolRunResult<S> {
+  model: string;
+  text: string;
+  sources: S[];
+  usage: { inputTokens: number; outputTokens: number; toolCalls: number };
+}
+
+export async function runWithTools<S>(opts: ToolRunOptions<S>): Promise<ToolRunResult<S>> {
   const maxRounds = opts.maxToolRounds ?? 4;
   let lastError: unknown = null;
 
@@ -175,6 +192,7 @@ export async function runWithTools<S>(opts: ToolRunOptions<S>): Promise<{ model:
     let text = '';
     const sources: S[] = [];
     const contents = [...opts.contents];
+    const usage = { inputTokens: 0, outputTokens: 0, toolCalls: 0 };
 
     try {
       for (let round = 0; ; round += 1) {
@@ -183,6 +201,7 @@ export async function runWithTools<S>(opts: ToolRunOptions<S>): Promise<{ model:
         const iterator = stream[Symbol.asyncIterator]();
         const calls: { name: string; args: Record<string, unknown> }[] = [];
         const parts: unknown[] = [];
+        let roundUsage: { inputTokens: number; outputTokens: number } | undefined;
 
         let step = await withTimeout(iterator.next(), opts.timeoutMs);
         while (!step.done) {
@@ -196,15 +215,23 @@ export async function runWithTools<S>(opts: ToolRunOptions<S>): Promise<{ model:
             if (fc?.name) calls.push({ name: fc.name, args: (fc.args || {}) as Record<string, unknown> });
           }
           if (chunk.parts) parts.push(...chunk.parts);
+          if (chunk.usage) roundUsage = chunk.usage;
           step = await withTimeout(iterator.next(), opts.timeoutMs);
         }
 
+        // Les métadonnées de flux sont cumulatives : on retient la dernière valeur de chaque tour.
+        if (roundUsage) {
+          usage.inputTokens += roundUsage.inputTokens;
+          usage.outputTokens += roundUsage.outputTokens;
+        }
+
         if (calls.length === 0 || !allowTools) {
-          if (emitted) return { model, text, sources };
+          if (emitted) return { model, text, sources, usage };
           throw new Error('Flux vide');
         }
 
         // Le modèle demande des outils : on les exécute, puis on lui renvoie les résultats.
+        usage.toolCalls += calls.length;
         const responses = calls.map((call) => {
           const out = opts.executeTool(call.name, call.args);
           sources.push(...out.sources);

@@ -14,6 +14,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { buildAssistantDataSection } from './src/lib/aiAssistantContext';
 import { ASSISTANT_TOOL_DECLARATIONS, executeAssistantTool, type AssistantSource } from './src/lib/assistantTools';
 import type { AssistantAction } from './src/lib/assistantActions';
+import { createUsageTracker } from './src/lib/assistantUsage';
 import {
   ASSISTANT_LIMITS,
   fetchAssistantData,
@@ -1099,7 +1100,38 @@ function createRateLimiter(windowMs: number, maxRequests: number) {
 }
 
 const checkChatRateLimit = createRateLimiter(60 * 1000, 25); // 25 req/min
+
+// Quota quotidien par utilisateur (le gérant est exempté) et suivi de consommation. Réglable par variables
+// d'environnement ; 0 = illimité. Les tarifs ne servent qu'à estimer un coût : sans eux, on ne montre que des jetons.
+const envNumber = (name: string): number | undefined => {
+  const raw = process.env[name];
+  if (raw === undefined || raw.trim() === '') return undefined;
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 0 ? n : undefined;
+};
+const assistantUsage = createUsageTracker({
+  dailyLimit: envNumber('ASSISTANT_DAILY_QUOTA') ?? 150,
+  priceInPerMTok: envNumber('ASSISTANT_PRICE_IN_PER_MTOK'),
+  priceOutPerMTok: envNumber('ASSISTANT_PRICE_OUT_PER_MTOK'),
+});
 const checkAdminRateLimit = createRateLimiter(60 * 1000, 15); // 15 req/min (admin provisioning/role changes)
+
+// Consommation de l'assistant : chacun voit son quota ; le gérant voit en plus le détail par utilisateur.
+app.get('/api/assistant-usage', async (req, res) => {
+  try {
+    const authCheck = await authenticateCaller(req);
+    if (!authCheck.authenticated) {
+      return res.status(authCheck.statusCode).json({ success: false, error: authCheck.error, code: authCheck.code });
+    }
+    const isAdmin = Boolean(authCheck.isAdmin);
+    const quota = assistantUsage.status(authCheck.uid, isAdmin);
+    if (!isAdmin) return res.json({ success: true, quota });
+    return res.json({ success: true, quota, usage: assistantUsage.summary() });
+  } catch (error) {
+    console.error('Assistant usage API error:', error);
+    return res.status(500).json({ success: false, error: 'Consommation indisponible.' });
+  }
+});
 
 // AI Agent Chat Endpoint - strictly isolated per authenticated member
 app.post('/api/agent-chat', async (req, res) => {
@@ -1144,6 +1176,17 @@ app.post('/api/agent-chat', async (req, res) => {
     const callerLegacyId = authCheck.legacyId;
 
     const callerNameLower = callerName.toLowerCase().trim();
+
+    // Quota quotidien : réservé dès l'arrivée de la demande, avant toute lecture de données ou appel au modèle.
+    const quota = assistantUsage.consume(callerId, callerName, Boolean(isAdmin));
+    if (!quota.allowed) {
+      return res.status(429).json({
+        success: false,
+        code: 'QUOTA_EXCEEDED',
+        error: `Quota quotidien de l'assistant atteint (${quota.limit} demandes). Il se renouvelle demain, ou contactez le gérant.`,
+        quota,
+      });
+    }
 
     // 3. Données métier : lues PAR LE SERVEUR avec le jeton de l'utilisateur, donc sous la RLS de la base
     // (un responsable ne voit que son périmètre, et le navigateur ne peut rien injecter). Si la lecture
@@ -1422,12 +1465,13 @@ TON ET FORMAT DES SORTIES :
           executeTool,
           onDelta: (text) => send({ type: 'delta', text }),
         });
+        assistantUsage.record(callerId, out.usage, callerName);
         console.info(usageLine(out.model, true));
         const sources = uniqueSources(out.sources);
         if (sources.length) send({ type: 'sources', items: sources });
         const actions = proposedActions(out.sources);
         if (actions.length) send({ type: 'actions', items: actions });
-        send({ type: 'done', dataSource });
+        send({ type: 'done', dataSource, quota: assistantUsage.status(callerId, Boolean(isAdmin)) });
       } catch (streamErr: any) {
         console.error('Agent chat stream error:', streamErr);
         send({ type: 'error', error: toPublicError(streamErr).message });
@@ -1447,12 +1491,14 @@ TON ET FORMAT DES SORTIES :
         replyText += text;
       },
     });
+    assistantUsage.record(callerId, out.usage, callerName);
     console.info(usageLine(out.model, false));
     res.json({
       success: true,
       reply: replyText,
       sources: uniqueSources(out.sources),
       actions: proposedActions(out.sources),
+      quota: assistantUsage.status(callerId, Boolean(isAdmin)),
       dataSource,
       member: {
         id: callerId,

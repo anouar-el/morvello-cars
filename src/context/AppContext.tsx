@@ -68,6 +68,7 @@ import { VehiclesProvider, useVehicles } from './VehiclesContext';
 import { ClientsDriversProvider, useClientsDrivers } from './ClientsDriversContext';
 import { DepositsProvider, useDeposits } from './DepositsContext';
 import { CompanyProvider, useCompany, CloudSyncStatus } from './CompanyContext';
+import { setAuditActor } from '../lib/auditActor';
 import { ContractsProvider, useContracts } from './ContractsContext';
 
 export type { CloudSyncStatus };
@@ -352,6 +353,12 @@ const AppContextInner: React.FC<{ children: React.ReactNode }> = ({ children }) 
   const clientsDrivers = useClientsDrivers();
   const depositsCtx = useDeposits();
   const contractsCtx = useContracts();
+
+  // Les entrées du journal d'audit sont signées par l'utilisateur connecté.
+  useEffect(() => {
+    const u = auth.currentUser;
+    setAuditActor(u ? { name: u.name, role: u.role } : null);
+  }, [auth.currentUser?.id, auth.currentUser?.name, auth.currentUser?.role]);
 
   // Cloud Firestore Sync Actions
   const syncWithCloud = useCallback(async (): Promise<boolean> => {
