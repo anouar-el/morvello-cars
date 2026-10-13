@@ -24,6 +24,8 @@ import {
   X,
   Sparkles,
 } from 'lucide-react';
+import { useI18n } from '../i18n/I18nContext';
+import { LanguageToggle } from './LanguageToggle';
 
 interface MobileBottomNavProps {
   activeTab: ActiveTab;
@@ -59,6 +61,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   logout,
 }) => {
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
+  const { t } = useI18n();
 
   const handleSelectTab = (tab: ActiveTab) => {
     setActiveTab(tab);
@@ -111,7 +114,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                   <div className="text-xs font-bold text-white flex items-center gap-1.5">
                     <span>{currentUser.name}</span>
                     <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-800 text-amber-400 border border-slate-700">
-                      {currentUser.role === 'admin' ? 'Super Admin' : currentUser.role === 'manager' ? 'Manager' : 'Agent'}
+                      {currentUser.role === 'admin' ? t('Super Admin') : currentUser.role === 'manager' ? t('Manager') : t('Agent')}
                     </span>
                   </div>
                   <div className="text-[10.5px] text-slate-400 truncate max-w-[210px]">
@@ -120,13 +123,17 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setIsMoreMenuOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
+              <div className="flex items-center gap-2">
+                <LanguageToggle />
+                <button
+                  type="button"
+                  onClick={() => setIsMoreMenuOpen(false)}
+                  aria-label={t('Fermer')}
+                  className="p-1.5 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
             {/* Quick Actions Bar (Cloud, Theme, Alerts) */}
@@ -146,7 +153,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                   <Cloud className="w-4 h-4 text-slate-400 mb-1" />
                 )}
                 <span className="text-[10px] font-medium text-center">
-                  {cloudSyncStatus === 'syncing' ? 'Sync...' : 'Cloud Synced'}
+                  {cloudSyncStatus === 'syncing' ? t('Sync...') : t('Cloud Synced')}
                 </span>
               </button>
 
@@ -162,7 +169,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                   <Moon className="w-4 h-4 text-amber-600 mb-1" />
                 )}
                 <span className="text-[10px] font-medium">
-                  {theme === 'dark' ? 'Mode Clair' : 'Mode Sombre'}
+                  {theme === 'dark' ? t('Mode Clair') : t('Mode Sombre')}
                 </span>
               </button>
 
@@ -179,7 +186,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                   <Bell className="w-4 h-4 text-amber-400 mb-1" />
                   {alertsCount > 0 && (
                     <span
-                      className={`absolute top-1 right-2 text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center ${
+                      className={`absolute top-1 end-2 text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center ${
                         criticalAlertsCount > 0
                           ? 'bg-rose-500 text-white animate-pulse'
                           : 'bg-amber-500 text-slate-950'
@@ -189,7 +196,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                     </span>
                   )}
                   <span className="text-[10px] font-medium">
-                    {alertsCount > 0 ? `${alertsCount} Alertes` : 'Alertes (0)'}
+                    {alertsCount > 0 ? t('{n} Alertes', { n: alertsCount }) : t('Alertes (0)')}
                   </span>
                 </button>
               ) : (
@@ -198,9 +205,9 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
             </div>
 
             {/* Additional Modules Grid */}
-            <div className="overflow-y-auto py-3 space-y-1.5 flex-1 pr-1 text-xs">
+            <div className="overflow-y-auto py-3 space-y-1.5 flex-1 pe-1 text-xs">
               <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 px-2 pt-1 pb-0.5">
-                Modules Opérationnels
+                {t('Modules Opérationnels')}
               </div>
 
               {/* Cautions & Dépôts de garantie */}
@@ -217,16 +224,16 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                   <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 flex items-center justify-center">
                     <Banknote className="w-4 h-4" />
                   </div>
-                  <div className="text-left">
+                  <div className="text-start">
                     <div className="font-semibold text-white flex items-center gap-2">
-                      <span>Cautions & Dépôts</span>
+                      <span>{t('Cautions & Dépôts')}</span>
                       {heldDepositsCount > 0 && (
                         <span className="text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold bg-amber-500 text-slate-950">
-                          {heldDepositsCount} actives
+                          {t('{n} actives', { n: heldDepositsCount })}
                         </span>
                       )}
                     </div>
-                    <div className="text-[10px] text-slate-400">Empreintes CB, chèques &amp; restitutions</div>
+                    <div className="text-[10px] text-slate-400">{t('Empreintes CB, chèques & restitutions')}</div>
                   </div>
                 </div>
               </button>
@@ -245,9 +252,9 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                   <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/25 text-blue-400 flex items-center justify-center">
                     <Users className="w-4 h-4" />
                   </div>
-                  <div className="text-left">
-                    <div className="font-semibold text-white">Clients & Conducteurs</div>
-                    <div className="text-[10px] text-slate-400">Répertoire, permis & CIN numérisés</div>
+                  <div className="text-start">
+                    <div className="font-semibold text-white">{t('Clients & Conducteurs')}</div>
+                    <div className="text-[10px] text-slate-400">{t('Répertoire, permis & CIN numérisés')}</div>
                   </div>
                 </div>
               </button>
@@ -266,12 +273,12 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                   <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-amber-500/20 to-amber-400/20 border border-amber-500/30 text-amber-400 flex items-center justify-center">
                     <Bot className="w-4 h-4" />
                   </div>
-                  <div className="text-left">
+                  <div className="text-start">
                     <div className="font-semibold text-white flex items-center gap-1.5">
-                      <span>Assistant IA Morvello</span>
+                      <span>{t('Assistant IA Morvello')}</span>
                       <Sparkles className="w-3 h-3 text-amber-400" />
                     </div>
-                    <div className="text-[10px] text-slate-400">Analyses, dispatch & requêtes intelligentes</div>
+                    <div className="text-[10px] text-slate-400">{t('Analyses, dispatch & requêtes intelligentes')}</div>
                   </div>
                 </div>
               </button>
@@ -280,7 +287,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
               {currentUser.role === 'admin' && (
                 <>
                   <div className="text-[10px] font-bold uppercase tracking-wider text-amber-500/80 px-2 pt-2 pb-0.5">
-                    Administration & Supervision
+                    {t('Administration & Supervision')}
                   </div>
 
                   {/* Contract Templates */}
@@ -297,9 +304,9 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                       <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 flex items-center justify-center">
                         <FileCode className="w-4 h-4" />
                       </div>
-                      <div className="text-left">
-                        <div className="font-semibold text-white">Modèles de Contrats A4</div>
-                        <div className="text-[10px] text-slate-400">Standard, VIP Prestige, B2B Corporate</div>
+                      <div className="text-start">
+                        <div className="font-semibold text-white">{t('Modèles de Contrats A4')}</div>
+                        <div className="text-[10px] text-slate-400">{t('Standard, VIP Prestige, B2B Corporate')}</div>
                       </div>
                     </div>
                   </button>
@@ -318,9 +325,9 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                       <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/25 text-amber-400 flex items-center justify-center">
                         <Shield className="w-4 h-4" />
                       </div>
-                      <div className="text-left">
-                        <div className="font-semibold text-white">Équipe & Rôles</div>
-                        <div className="text-[10px] text-slate-400">Managers, agents & permissions granulaires</div>
+                      <div className="text-start">
+                        <div className="font-semibold text-white">{t('Équipe & Rôles')}</div>
+                        <div className="text-[10px] text-slate-400">{t('Managers, agents & permissions granulaires')}</div>
                       </div>
                     </div>
                   </button>
@@ -339,9 +346,9 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                       <div className="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/25 text-purple-400 flex items-center justify-center">
                         <History className="w-4 h-4" />
                       </div>
-                      <div className="text-left">
-                        <div className="font-semibold text-white">Journal d'Audit</div>
-                        <div className="text-[10px] text-slate-400">Traçabilité complète des opérations</div>
+                      <div className="text-start">
+                        <div className="font-semibold text-white">{t("Journal d'Audit")}</div>
+                        <div className="text-[10px] text-slate-400">{t('Traçabilité complète des opérations')}</div>
                       </div>
                     </div>
                   </button>
@@ -349,7 +356,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
               )}
 
               <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 px-2 pt-2 pb-0.5">
-                Configuration
+                {t('Configuration')}
               </div>
 
               {/* Terms */}
@@ -366,9 +373,9 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                   <div className="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 flex items-center justify-center">
                     <ScrollText className="w-4 h-4" />
                   </div>
-                  <div className="text-left">
-                    <div className="font-semibold text-white">Conditions Générales (Verso A4)</div>
-                    <div className="text-[10px] text-slate-400">Version légale et clauses contractuelles</div>
+                  <div className="text-start">
+                    <div className="font-semibold text-white">{t('Conditions Générales (Verso A4)')}</div>
+                    <div className="text-[10px] text-slate-400">{t('Version légale et clauses contractuelles')}</div>
                   </div>
                 </div>
               </button>
@@ -387,9 +394,9 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                   <div className="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 flex items-center justify-center">
                     <Settings className="w-4 h-4" />
                   </div>
-                  <div className="text-left">
-                    <div className="font-semibold text-white">Paramètres de l'Agence</div>
-                    <div className="text-[10px] text-slate-400">Coordonnées, cachet, logo & tarifs</div>
+                  <div className="text-start">
+                    <div className="font-semibold text-white">{t("Paramètres de l'Agence")}</div>
+                    <div className="text-[10px] text-slate-400">{t('Coordonnées, cachet, logo & tarifs')}</div>
                   </div>
                 </div>
               </button>
@@ -406,7 +413,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                 className="w-full flex items-center justify-center gap-2 p-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 font-semibold text-xs transition-colors cursor-pointer"
               >
                 <LogOut className="w-4 h-4" />
-                <span>Se déconnecter de la session</span>
+                <span>{t('Se déconnecter de la session')}</span>
               </button>
             </div>
           </div>
@@ -417,8 +424,8 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
       {/* 2. FIXED ERGONOMIC BOTTOM NAVIGATION BAR                                  */}
       {/* ========================================================================= */}
       <nav
-        aria-label="Navigation mobile principale"
-        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-950/95 backdrop-blur-md border-t border-slate-800 shadow-[0_-8px_24px_rgba(0,0,0,0.5)] px-2 pt-1 pb-safe no-print"
+        aria-label={t('Navigation mobile principale')}
+        className="md:hidden fixed bottom-0 start-0 end-0 z-40 bg-slate-950/95 backdrop-blur-md border-t border-slate-800 shadow-[0_-8px_24px_rgba(0,0,0,0.5)] px-2 pt-1 pb-safe no-print"
       >
         <div className="max-w-md mx-auto grid grid-cols-5 items-center justify-items-center relative">
           {/* TAB 1: DASHBOARD */}
@@ -434,7 +441,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
             <div className="relative">
               <LayoutDashboard className="w-5 h-5" />
             </div>
-            <span className="text-[10px] mt-1 tracking-tight">Accueil</span>
+            <span className="text-[10px] mt-1 tracking-tight">{t('Accueil')}</span>
           </button>
 
           {/* TAB 2: CONTRATS */}
@@ -450,12 +457,12 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
             <div className="relative">
               <FileText className="w-5 h-5" />
               {activeContractsCount > 0 && (
-                <span className="absolute -top-1.5 -right-2 text-[9px] font-black min-w-[15px] h-[15px] px-0.5 rounded-full bg-amber-500 text-slate-950 flex items-center justify-center font-mono shadow">
+                <span className="absolute -top-1.5 -end-2 text-[9px] font-black min-w-[15px] h-[15px] px-0.5 rounded-full bg-amber-500 text-slate-950 flex items-center justify-center font-mono shadow">
                   {activeContractsCount}
                 </span>
               )}
             </div>
-            <span className="text-[10px] mt-1 tracking-tight">Contrats</span>
+            <span className="text-[10px] mt-1 tracking-tight">{t('Contrats')}</span>
           </button>
 
           {/* TAB 3: PROMINENT CENTRAL FAB (NOUVEAU CONTRAT) */}
@@ -468,12 +475,12 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                   ? 'bg-gradient-to-tr from-amber-400 via-amber-300 to-amber-500 text-slate-950 scale-105 ring-2 ring-amber-400/80'
                   : 'bg-gradient-to-tr from-amber-500 via-amber-400 to-amber-500 text-slate-950 hover:brightness-110'
               }`}
-              title="Créer un nouveau contrat de location"
+              title={t('Créer un nouveau contrat de location')}
             >
               <Plus className="w-6 h-6 stroke-[3]" />
             </button>
             <span className="text-[9.5px] font-bold text-amber-400 mt-1 tracking-tight">
-              + Contrat
+              + {t('Contrat')}
             </span>
           </div>
 
@@ -490,12 +497,12 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
             <div className="relative">
               <Car className="w-5 h-5" />
               {availableVehiclesCount > 0 && (
-                <span className="absolute -top-1.5 -right-2 text-[9px] font-black min-w-[15px] h-[15px] px-0.5 rounded-full bg-emerald-500 text-white flex items-center justify-center font-mono shadow">
+                <span className="absolute -top-1.5 -end-2 text-[9px] font-black min-w-[15px] h-[15px] px-0.5 rounded-full bg-emerald-500 text-white flex items-center justify-center font-mono shadow">
                   {availableVehiclesCount}
                 </span>
               )}
             </div>
-            <span className="text-[10px] mt-1 tracking-tight">Flotte</span>
+            <span className="text-[10px] mt-1 tracking-tight">{t('Flotte')}</span>
           </button>
 
           {/* TAB 5: PLUS (DRAWER MENU) */}
@@ -511,12 +518,12 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
             <div className="relative">
               <MoreHorizontal className="w-5 h-5" />
               {heldDepositsCount > 0 && (
-                <span className="absolute -top-1.5 -right-2 text-[8px] font-bold w-3.5 h-3.5 rounded-full bg-blue-500 text-white flex items-center justify-center">
+                <span className="absolute -top-1.5 -end-2 text-[8px] font-bold w-3.5 h-3.5 rounded-full bg-blue-500 text-white flex items-center justify-center">
                   •
                 </span>
               )}
             </div>
-            <span className="text-[10px] mt-1 tracking-tight">Plus...</span>
+            <span className="text-[10px] mt-1 tracking-tight">{t('Plus...')}</span>
           </button>
         </div>
       </nav>

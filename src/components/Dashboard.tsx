@@ -22,6 +22,7 @@ import { formatPlateFrench } from '../utils/plateUtils';
 import { getVehicleHealthSummary, getTodayDateString } from '../utils/vehicleExpiryUtils';
 import { DashboardAlertsBanner } from './DashboardAlertsBanner';
 import { RemindersPanel } from './RemindersPanel';
+import { useI18n } from '../i18n/I18nContext';
 import { getScopedDataForUser } from '../utils/managerScopeUtils';
 
 interface DashboardProps {
@@ -42,6 +43,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCheckInModal, onOpen
   } = useApp();
 
   const isManager = currentUser?.role === 'manager';
+  const { t } = useI18n();
 
   // Isolation stricte selon le rôle
   const { scopedVehicles, scopedContracts, scopedDeposits, scopedClients } = getScopedDataForUser(
@@ -88,7 +90,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCheckInModal, onOpen
   const agencyDisplayName =
     currentUser?.agency ||
     currentUser?.assignedFleetName ||
-    (currentUser?.role === 'admin' ? 'Siège & Flotte Morvello' : 'Agence Morvello');
+    (currentUser?.role === 'admin' ? t('Siège & Flotte Morvello') : t('Agence Morvello'));
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 pb-8">
@@ -102,12 +104,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCheckInModal, onOpen
             </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-            Bonjour, {currentUser?.name}
+            {t('Bonjour, {name}', { name: currentUser?.name ?? '' })}
           </h1>
           <p className="text-xs text-slate-400 mt-0.5">
             {isManager
-              ? `Aperçu de votre agence (${scopedVehicles.length} véhicules attribués).`
-              : "Aperçu global de l'activité du jour et supervision de l'ensemble du parc automobile."}
+              ? t('Aperçu de votre agence ({n} véhicules attribués).', { n: scopedVehicles.length })
+              : t("Aperçu global de l'activité du jour et supervision de l'ensemble du parc automobile.")}
           </p>
         </div>
 
@@ -116,7 +118,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCheckInModal, onOpen
           className="flex items-center gap-2 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-bold px-4 py-2.5 rounded-xl shadow-md transition-all active:scale-95 text-xs cursor-pointer self-start sm:self-center"
         >
           <FilePlus className="w-4 h-4" />
-          <span>+ Nouveau Contrat</span>
+          <span>+ {t('Nouveau Contrat')}</span>
         </button>
       </div>
 
@@ -126,7 +128,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCheckInModal, onOpen
         <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4.5 flex items-center justify-between">
           <div>
             <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-              {isManager ? 'Ma Flotte en Location' : 'Véhicules en Location'}
+              {isManager ? t('Ma Flotte en Location') : t('Véhicules en Location')}
             </p>
             <div className="text-2xl font-black text-white font-mono mt-1">
               {rentedVehiclesCount}{' '}
@@ -135,7 +137,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCheckInModal, onOpen
               </span>
             </div>
             <p className="text-[11px] text-emerald-400 font-medium mt-0.5">
-              {availableVehiclesCount} disponible{availableVehiclesCount > 1 ? 's' : ''} au parc
+              {availableVehiclesCount > 1
+                ? t('{n} disponibles au parc', { n: availableVehiclesCount })
+                : t('{n} disponible au parc', { n: availableVehiclesCount })}
             </p>
           </div>
           <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
@@ -147,13 +151,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCheckInModal, onOpen
         <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4.5 flex items-center justify-between">
           <div>
             <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-              {isManager ? 'Mes Contrats Actifs' : 'Contrats Actifs'}
+              {isManager ? t('Mes Contrats Actifs') : t('Contrats Actifs')}
             </p>
             <div className="text-2xl font-black text-white font-mono mt-1">
               {activeContracts.length}
             </div>
             <p className="text-[11px] text-slate-400 mt-0.5">
-              Sur {scopedContracts.length} contrat{scopedContracts.length > 1 ? 's' : ''} au total
+              {scopedContracts.length > 1
+                ? t('Sur {n} contrats au total', { n: scopedContracts.length })
+                : t('Sur {n} contrat au total', { n: scopedContracts.length })}
             </p>
           </div>
           <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
@@ -165,16 +171,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCheckInModal, onOpen
         <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4.5 flex items-center justify-between">
           <div>
             <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-              Retours du Jour
+              {t('Retours du Jour')}
             </p>
             <div className="text-2xl font-black text-white font-mono mt-1">
               {returnsToday.length}
             </div>
             <p className="text-[11px] mt-0.5 font-medium">
               {returnsToday.length > 0 ? (
-                <span className="text-amber-400">À réceptionner aujourd'hui</span>
+                <span className="text-amber-400">{t("À réceptionner aujourd'hui")}</span>
               ) : (
-                <span className="text-emerald-400">À jour</span>
+                <span className="text-emerald-400">{t('À jour')}</span>
               )}
             </p>
           </div>
@@ -186,17 +192,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCheckInModal, onOpen
         {/* Répertoire Clients */}
         <button
           onClick={() => setActiveTab('clients')}
-          className="bg-slate-900/80 hover:bg-slate-850 border border-slate-800 hover:border-slate-700 rounded-2xl p-4.5 flex items-center justify-between text-left transition-all cursor-pointer group"
+          className="bg-slate-900/80 hover:bg-slate-850 border border-slate-800 hover:border-slate-700 rounded-2xl p-4.5 flex items-center justify-between text-start transition-all cursor-pointer group"
         >
           <div>
             <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-              {isManager ? 'Mes Clients' : 'Répertoire Clients'}
+              {isManager ? t('Mes Clients') : t('Répertoire Clients')}
             </p>
             <div className="text-2xl font-black text-white font-mono mt-1">
               {scopedClients.length}
             </div>
             <p className="text-[11px] text-cyan-400 font-medium mt-0.5 group-hover:underline">
-              {isManager ? 'Clients autorisés' : 'Clients enregistrés'} →
+              {isManager ? t('Clients autorisés') : t('Clients enregistrés')} →
             </p>
           </div>
           <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 group-hover:scale-105 transition-transform">
@@ -219,12 +225,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCheckInModal, onOpen
         <div className="flex items-center justify-between pb-3 border-b border-slate-800">
           <div>
             <h2 className="text-sm font-bold text-white tracking-tight">
-              Locations en Cours ({activeContracts.length})
+              {t('Locations en Cours ({n})', { n: activeContracts.length })}
             </h2>
             <p className="text-xs text-slate-400 mt-0.5">
               {isManager
-                ? 'Véhicules de votre agence actuellement loués par vos clients'
-                : 'Véhicules actuellement chez les clients'}
+                ? t('Véhicules de votre agence actuellement loués par vos clients')
+                : t('Véhicules actuellement chez les clients')}
             </p>
           </div>
 
@@ -232,17 +238,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCheckInModal, onOpen
             onClick={() => setActiveTab('contracts')}
             className="text-xs text-amber-400 hover:text-amber-300 font-semibold flex items-center gap-1 cursor-pointer"
           >
-            Voir tous les contrats <ArrowRight className="w-3.5 h-3.5" />
+            {t('Voir tous les contrats')} <ArrowRight className="w-3.5 h-3.5 rtl:rotate-180" />
           </button>
         </div>
 
         {activeContracts.length === 0 ? (
           <div className="py-8 text-center text-slate-400 text-xs space-y-2">
-            <p className="font-medium text-slate-300">Aucune location en cours pour le moment.</p>
+            <p className="font-medium text-slate-300">{t('Aucune location en cours pour le moment.')}</p>
             <p className="text-[11px] text-slate-500">
               {isManager
-                ? `Vos ${scopedVehicles.length} véhicules sont actuellement disponibles au parc.`
-                : 'Tous les véhicules autorisés sont disponibles.'}
+                ? t('Vos {n} véhicules sont actuellement disponibles au parc.', { n: scopedVehicles.length })
+                : t('Tous les véhicules autorisés sont disponibles.')}
             </p>
           </div>
         ) : (
@@ -269,7 +275,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCheckInModal, onOpen
                       </span>
                       {isDue && (
                         <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded font-semibold">
-                          Retour aujourd'hui
+                          {t("Retour aujourd'hui")}
                         </span>
                       )}
                     </div>
@@ -284,7 +290,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCheckInModal, onOpen
                       </span>
                       <span>•</span>
                       <span>
-                        Retour prévu le {new Date(effectiveEndDate).toLocaleDateString('fr-FR')}
+                        {t('Retour prévu le {date}', { date: new Date(effectiveEndDate).toLocaleDateString('fr-FR') })}
                       </span>
                     </div>
                   </div>
@@ -293,20 +299,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCheckInModal, onOpen
                     <button
                       onClick={() => openPdfModal(cnt)}
                       className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer"
-                      title="Consulter le contrat PDF"
+                      title={t('Consulter le contrat PDF')}
                     >
                       <Eye className="w-3.5 h-3.5" />
-                      <span>Contrat PDF</span>
+                      <span>{t('Contrat PDF')}</span>
                     </button>
 
                     {onOpenCheckInModal && (
                       <button
                         onClick={() => onOpenCheckInModal(cnt)}
                         className="px-2.5 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-lg text-xs transition-colors flex items-center gap-1 cursor-pointer"
-                        title="Restituer le véhicule"
+                        title={t('Restituer le véhicule')}
                       >
                         <CheckSquare className="w-3.5 h-3.5" />
-                        <span>Restituer</span>
+                        <span>{t('Restituer')}</span>
                       </button>
                     )}
                   </div>
@@ -321,47 +327,53 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCheckInModal, onOpen
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
         <button
           onClick={() => setActiveTab('vehicles')}
-          className="p-4 bg-slate-900/60 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-xl text-left transition-all flex items-center justify-between cursor-pointer group"
+          className="p-4 bg-slate-900/60 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-xl text-start transition-all flex items-center justify-between cursor-pointer group"
         >
           <div>
             <p className="font-bold text-white text-xs">
-              {isManager ? `Ma Flotte Attribuée (${scopedVehicles.length})` : `Parc Automobile (${vehicles.length})`}
+              {isManager
+                ? t('Ma Flotte Attribuée ({n})', { n: scopedVehicles.length })
+                : t('Parc Automobile ({n})', { n: vehicles.length })}
             </p>
             <p className="text-[11px] text-slate-400 mt-0.5">
-              {isManager ? 'Consulter les disponibilités de mes véhicules' : 'Consulter les disponibilités et fiches véhicules'}
+              {isManager ? t('Consulter les disponibilités de mes véhicules') : t('Consulter les disponibilités et fiches véhicules')}
             </p>
           </div>
-          <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-amber-400 transition-colors" />
+          <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-amber-400 transition-colors rtl:rotate-180" />
         </button>
 
         <button
           onClick={() => setActiveTab('clients')}
-          className="p-4 bg-slate-900/60 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-xl text-left transition-all flex items-center justify-between cursor-pointer group"
+          className="p-4 bg-slate-900/60 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-xl text-start transition-all flex items-center justify-between cursor-pointer group"
         >
           <div>
             <p className="font-bold text-white text-xs">
-              {isManager ? `Mes Clients (${scopedClients.length})` : `Répertoire Clients (${clients.length})`}
+              {isManager
+                ? t('Mes Clients ({n})', { n: scopedClients.length })
+                : t('Répertoire Clients ({n})', { n: clients.length })}
             </p>
             <p className="text-[11px] text-slate-400 mt-0.5">
-              Fiches d'identité, permis, coordonnées et historique
+              {t("Fiches d'identité, permis, coordonnées et historique")}
             </p>
           </div>
-          <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-amber-400 transition-colors" />
+          <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-amber-400 transition-colors rtl:rotate-180" />
         </button>
 
         <button
           onClick={() => setActiveTab('deposits')}
-          className="p-4 bg-slate-900/60 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-xl text-left transition-all flex items-center justify-between cursor-pointer group"
+          className="p-4 bg-slate-900/60 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-xl text-start transition-all flex items-center justify-between cursor-pointer group"
         >
           <div>
             <p className="font-bold text-white text-xs">
-              {isManager ? `Mes Cautions & Dépôts (${scopedDeposits.length})` : `Dépôts de Garantie & Cautions (${deposits.length})`}
+              {isManager
+                ? t('Mes Cautions & Dépôts ({n})', { n: scopedDeposits.length })
+                : t('Dépôts de Garantie & Cautions ({n})', { n: deposits.length })}
             </p>
             <p className="text-[11px] text-slate-400 mt-0.5">
-              Suivi des empreintes bancaires et chèques de garantie
+              {t('Suivi des empreintes bancaires et chèques de garantie')}
             </p>
           </div>
-          <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-amber-400 transition-colors" />
+          <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-amber-400 transition-colors rtl:rotate-180" />
         </button>
       </div>
     </div>

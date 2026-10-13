@@ -15,6 +15,7 @@ import {
   ChevronRight,
   ShieldAlert,
 } from 'lucide-react';
+import { useI18n } from '../i18n/I18nContext';
 
 interface DashboardAlertsBannerProps {
   onOpenCheckInModal?: (contract: Contract) => void;
@@ -26,6 +27,7 @@ export const DashboardAlertsBanner: React.FC<DashboardAlertsBannerProps> = ({
   onOpenAllAlerts,
 }) => {
   const { vehicles, contracts, deposits, clients, users, currentUser, setActiveTab } = useApp();
+  const { t } = useI18n();
 
   const { scopedVehicles, scopedContracts, scopedDeposits } = getScopedDataForUser(
     currentUser,
@@ -83,21 +85,23 @@ export const DashboardAlertsBanner: React.FC<DashboardAlertsBannerProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold uppercase tracking-wider text-white">
-                Vigilance Opérationnelle & Alertes
+                {t('Vigilance Opérationnelle & Alertes')}
               </span>
               {criticalCount > 0 && (
                 <span className="text-[10px] px-2 py-0.2 rounded-full font-mono font-bold bg-rose-500/30 text-rose-200 border border-rose-500/50">
-                  {criticalCount} critique{criticalCount > 1 ? 's' : ''}
+                  {criticalCount > 1
+                    ? t('{n} critiques', { n: criticalCount })
+                    : t('{n} critique', { n: criticalCount })}
                 </span>
               )}
               {warningCount > 0 && (
                 <span className="text-[10px] px-2 py-0.2 rounded-full font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                  {warningCount} à surveiller
+                  {t('{n} à surveiller', { n: warningCount })}
                 </span>
               )}
             </div>
             <p className="text-[11px] text-slate-400 mt-0.5">
-              Suivi en direct des échéances flotte, retours attendus et cautions en attente.
+              {t('Suivi en direct des échéances flotte, retours attendus et cautions en attente.')}
             </p>
           </div>
         </div>
@@ -108,8 +112,8 @@ export const DashboardAlertsBanner: React.FC<DashboardAlertsBannerProps> = ({
             onClick={onOpenAllAlerts}
             className="text-xs font-bold text-amber-400 hover:text-amber-300 flex items-center gap-1 cursor-pointer self-start sm:self-center"
           >
-            <span>Voir toutes les alertes ({alerts.length})</span>
-            <ArrowRight className="w-3.5 h-3.5" />
+            <span>{t('Voir toutes les alertes ({n})', { n: alerts.length })}</span>
+            <ArrowRight className="w-3.5 h-3.5 rtl:rotate-180" />
           </button>
         )}
       </div>
@@ -130,9 +134,9 @@ export const DashboardAlertsBanner: React.FC<DashboardAlertsBannerProps> = ({
                   }`}
                 />
                 <div className="truncate">
-                  <span className="font-bold text-white mr-1.5">{alert.title}</span>
+                  <span className="font-bold text-white me-1.5">{t(alert.title)}</span>
                   <span className="text-slate-400 text-[11px] hidden sm:inline">
-                    — {alert.description}
+                    — {t(alert.description)}
                   </span>
                 </div>
               </div>
@@ -145,7 +149,7 @@ export const DashboardAlertsBanner: React.FC<DashboardAlertsBannerProps> = ({
                       : 'bg-amber-500/20 text-amber-300'
                   }`}
                 >
-                  {alert.badgeText}
+                  {t(alert.badgeText)}
                 </span>
 
                 <button
@@ -159,8 +163,8 @@ export const DashboardAlertsBanner: React.FC<DashboardAlertsBannerProps> = ({
                       : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
                   }`}
                 >
-                  <span>{alert.category.startsWith('return_') ? 'Restituer' : 'Gérer'}</span>
-                  <ChevronRight className="w-3 h-3" />
+                  <span>{alert.category.startsWith('return_') ? t('Restituer') : t('Gérer')}</span>
+                  <ChevronRight className="w-3 h-3 rtl:rotate-180" />
                 </button>
               </div>
             </div>

@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { BellRing, Check, ChevronDown, ChevronUp, MessageCircle } from 'lucide-react';
 import type { Contract } from '../types';
 import { REMINDER_LABELS, buildReminders, whatsAppLink, type Reminder, type ReminderType } from '../lib/reminders';
+import { useI18n } from '../i18n/I18nContext';
 
 interface RemindersPanelProps {
   contracts: Contract[];
@@ -31,6 +32,7 @@ function loadDone(userId: string): Record<string, string> {
 export const RemindersPanel: React.FC<RemindersPanelProps> = ({ contracts, userId }) => {
   const [done, setDone] = useState<Record<string, string>>(() => loadDone(userId));
   const [expanded, setExpanded] = useState(true);
+  const { t } = useI18n();
 
   const reminders = useMemo(() => buildReminders(new Date(), contracts), [contracts]);
   const pending = reminders.filter((r) => !done[r.id]);
@@ -55,8 +57,14 @@ export const RemindersPanel: React.FC<RemindersPanelProps> = ({ contracts, userI
   if (reminders.length === 0) return null;
 
   const detail = (r: Reminder) => {
-    if (r.type === 'overdue') return `${r.daysLate} j de retard${r.amount > 0 ? ` · reste ${Math.round(r.amount)} MAD` : ''}`;
-    if (r.type === 'balance_due') return `${Math.round(r.amount)} MAD à régler${r.daysLate ? ` · depuis ${r.daysLate} j` : ''}`;
+    if (r.type === 'overdue') {
+      const late = t('{n} j de retard', { n: r.daysLate });
+      return r.amount > 0 ? `${late} · ${t('reste {n} MAD', { n: Math.round(r.amount) })}` : late;
+    }
+    if (r.type === 'balance_due') {
+      const due = t('{n} MAD à régler', { n: Math.round(r.amount) });
+      return r.daysLate ? `${due} · ${t('depuis {n} j', { n: r.daysLate })}` : due;
+    }
     return r.vehicleLabel;
   };
 
@@ -65,7 +73,7 @@ export const RemindersPanel: React.FC<RemindersPanelProps> = ({ contracts, userI
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
-        className="w-full flex items-center justify-between gap-3 text-left cursor-pointer"
+        className="w-full flex items-center justify-between gap-3 text-start cursor-pointer"
         aria-expanded={expanded}
       >
         <span className="flex items-center gap-2.5">
@@ -74,10 +82,11 @@ export const RemindersPanel: React.FC<RemindersPanelProps> = ({ contracts, userI
           </span>
           <span>
             <span className="block text-sm font-bold text-white">
-              Relances clients ({pending.length}
-              {pending.length !== reminders.length ? ` sur ${reminders.length}` : ''})
+              {pending.length !== reminders.length
+                ? t('Relances clients ({n} sur {total})', { n: pending.length, total: reminders.length })
+                : t('Relances clients ({n})', { n: pending.length })}
             </span>
-            <span className="block text-xs text-slate-400">Messages WhatsApp prêts à envoyer, calculés sur vos contrats</span>
+            <span className="block text-xs text-slate-400">{t('Messages WhatsApp prêts à envoyer, calculés sur vos contrats')}</span>
           </span>
         </span>
         {expanded ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
@@ -86,7 +95,7 @@ export const RemindersPanel: React.FC<RemindersPanelProps> = ({ contracts, userI
       {expanded && (
         <div className="mt-4 space-y-2">
           {pending.length === 0 && (
-            <p className="text-xs text-emerald-400 py-2">Toutes les relances du jour ont été traitées.</p>
+            <p className="text-xs text-emerald-400 py-2">{t('Toutes les relances du jour ont été traitées.')}</p>
           )}
           {pending.map((r) => (
             <div
@@ -96,7 +105,7 @@ export const RemindersPanel: React.FC<RemindersPanelProps> = ({ contracts, userI
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className={`px-2 py-0.5 rounded-md border text-[10.5px] font-semibold ${BADGE[r.type]}`}>
-                    {REMINDER_LABELS[r.type]}
+                    {t(REMINDER_LABELS[r.type])}
                   </span>
                   <span className="text-xs font-semibold text-white truncate">{r.clientName}</span>
                   <span className="text-[11px] font-mono text-amber-400">{r.contractNumber}</span>
@@ -109,20 +118,20 @@ export const RemindersPanel: React.FC<RemindersPanelProps> = ({ contracts, userI
                   type="button"
                   disabled={!r.phone}
                   onClick={() => send(r)}
-                  title={r.phone ? 'Ouvrir WhatsApp avec le message prérempli' : 'Aucun numéro de téléphone pour ce client'}
+                  title={r.phone ? t('Ouvrir WhatsApp avec le message prérempli') : t('Aucun numéro de téléphone pour ce client')}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/90 hover:bg-emerald-400 text-slate-950 font-bold text-xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <MessageCircle className="w-3.5 h-3.5" />
-                  <span>{r.phone ? 'WhatsApp' : 'Pas de numéro'}</span>
+                  <span>{r.phone ? 'WhatsApp' : t('Pas de numéro')}</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => markDone(r.id)}
-                  title="Marquer comme déjà relancé"
+                  title={t('Marquer comme déjà relancé')}
                   className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800 text-xs cursor-pointer"
                 >
                   <Check className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Fait</span>
+                  <span className="hidden sm:inline">{t('Fait')}</span>
                 </button>
               </div>
             </div>

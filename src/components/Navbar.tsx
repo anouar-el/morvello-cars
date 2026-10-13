@@ -32,6 +32,8 @@ import {
 } from 'lucide-react';
 import { computeOperationalAlerts } from '../utils/alertsUtils';
 import { getScopedDataForUser } from '../utils/managerScopeUtils';
+import { useI18n } from '../i18n/I18nContext';
+import { LanguageToggle } from './LanguageToggle';
 
 interface NavbarProps {
   onOpenNotifications?: () => void;
@@ -57,6 +59,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenNotifications }) => {
   } = useApp();
 
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const { t } = useI18n();
 
   if (!currentUser) {
     return null;
@@ -88,58 +91,62 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenNotifications }) => {
   const scopedClientsCount = managerScopedClients.length;
 
   const navItems: { id: ActiveTab; label: string; icon: React.ReactNode; badge?: number | string }[] = [
-    { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-4 h-4" /> },
+    { id: 'dashboard', label: t('Dashboard'), icon: <LayoutDashboard className="w-4 h-4" /> },
     {
       id: 'contracts',
-      label: 'Contrats',
+      label: t('Contrats'),
       icon: <FileText className="w-4 h-4" />,
       badge: activeContractsCount > 0 ? activeContractsCount : undefined,
     },
     {
       id: 'deposits',
-      label: 'Cautions',
+      label: t('Cautions'),
       icon: <Banknote className="w-4 h-4" />,
-      badge: heldDepositsCount > 0 ? `${heldDepositsCount} actives` : undefined,
+      badge: heldDepositsCount > 0 ? t('{n} actives', { n: heldDepositsCount }) : undefined,
     },
     {
       id: 'clients',
-      label: 'Clients',
+      label: t('Clients'),
       icon: <Users className="w-4 h-4" />,
-      badge: currentUser.role === 'manager' ? `${scopedClientsCount} miens` : (clients.length > 0 ? `${clients.length}` : undefined),
+      badge: currentUser.role === 'manager' ? t('{n} miens', { n: scopedClientsCount }) : (clients.length > 0 ? `${clients.length}` : undefined),
     },
     {
       id: 'vehicles',
-      label: 'Véhicules',
+      label: t('Véhicules'),
       icon: <Car className="w-4 h-4" />,
       badge: currentUser.role === 'admin'
-        ? (pendingApprovalsCount > 0 ? `${availableVehiclesCount} (${pendingApprovalsCount} à valider)` : `${availableVehiclesCount} dispo`)
-        : (myPendingCount > 0 ? `${availableVehiclesCount} (${myPendingCount} en attente)` : `${availableVehiclesCount} dispo`),
+        ? (pendingApprovalsCount > 0
+            ? t('{n} ({m} à valider)', { n: availableVehiclesCount, m: pendingApprovalsCount })
+            : t('{n} dispo', { n: availableVehiclesCount }))
+        : (myPendingCount > 0
+            ? t('{n} ({m} en attente)', { n: availableVehiclesCount, m: myPendingCount })
+            : t('{n} dispo', { n: availableVehiclesCount })),
     },
     {
       id: 'ai_assistant',
-      label: 'Assistant IA',
+      label: t('Assistant IA'),
       icon: <Bot className="w-4 h-4 text-amber-400" />,
-      badge: currentUser.role === 'admin' ? '360°' : 'Privé',
+      badge: currentUser.role === 'admin' ? '360°' : t('Privé'),
     },
-    { id: 'terms', label: 'Conditions V1.0', icon: <ShieldCheck className="w-4 h-4" /> },
+    { id: 'terms', label: t('Conditions V1.0'), icon: <ShieldCheck className="w-4 h-4" /> },
     ...(currentUser.role === 'admin'
       ? [
           {
             id: 'permissions' as ActiveTab,
-            label: 'Équipe & Accès',
+            label: t('Équipe & Accès'),
             icon: <KeyRound className="w-4 h-4" />,
-            badge: 'Sécurité',
+            badge: t('Sécurité'),
           },
           {
             id: 'contract_templates' as ActiveTab,
-            label: 'Modèles de Contrat',
+            label: t('Modèles de Contrat'),
             icon: <Layers className="w-4 h-4 text-amber-400" />,
-            badge: '3 Modèles',
+            badge: t('3 Modèles'),
           },
         ]
       : []),
-    { id: 'audit', label: 'Journal', icon: <History className="w-4 h-4" /> },
-    { id: 'settings', label: 'Paramètres', icon: <Settings className="w-4 h-4" /> },
+    { id: 'audit', label: t('Journal'), icon: <History className="w-4 h-4" /> },
+    { id: 'settings', label: t('Paramètres'), icon: <Settings className="w-4 h-4" /> },
   ];
 
   return (
@@ -165,7 +172,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenNotifications }) => {
                 </span>
               </div>
               <p className="hidden xl:block text-[11px] text-slate-400 font-medium truncate">
-                Where luxury meets the road • Gestion des Contrats & PDF A4
+                {t('Where luxury meets the road • Gestion des Contrats & PDF A4')}
               </p>
             </div>
           </div>
@@ -184,28 +191,28 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenNotifications }) => {
                     ? 'bg-blue-500/10 border-blue-500/40 text-blue-400 hover:bg-blue-500/20'
                     : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-750'
                 }`}
-                title="Changer de profil de test (Super Admin ou Responsable spécifique)"
+                title={t('Changer de profil de test (Super Admin ou Responsable spécifique)')}
               >
                 {currentUser.role === 'admin' ? (
                   <Crown className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                 ) : (
                   <UserCheck className="w-3.5 h-3.5 text-blue-400 shrink-0" />
                 )}
-                <div className="text-left leading-tight hidden lg:block">
+                <div className="text-start leading-tight hidden lg:block">
                   <div className="text-white font-bold flex items-center gap-1.5">
                     {currentUser.name}
                     <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-900 border border-slate-700 font-mono text-slate-300 uppercase">
-                      {currentUser.role === 'admin' ? 'Super Admin' : currentUser.role === 'manager' ? 'Responsable' : 'Agent'}
+                      {currentUser.role === 'admin' ? t('Super Admin') : currentUser.role === 'manager' ? t('Responsable') : t('Agent')}
                     </span>
                   </div>
                   <div className="text-[10px] text-slate-400 truncate max-w-[150px]">
-                    {currentUser.assignedFleetName || currentUser.agency || 'Accès Global'}
+                    {currentUser.assignedFleetName || currentUser.agency || t('Accès Global')}
                   </div>
                 </div>
                 <div className="hidden min-[400px]:block lg:hidden font-bold text-[11px] text-white">
-                  {currentUser.role === 'admin' ? 'Gérant' : currentUser.name.split(' ')[0]}
+                  {currentUser.role === 'admin' ? t('Gérant') : currentUser.name.split(' ')[0]}
                 </div>
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0 ml-0.5" />
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0 ms-0.5" />
               </button>
 
               {/* POPUP MENU */}
@@ -215,7 +222,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenNotifications }) => {
                     className="fixed inset-0 z-40"
                     onClick={() => setIsProfileMenuOpen(false)}
                   />
-                  <div className="fixed top-16 left-3 right-3 sm:left-auto sm:right-6 sm:w-80 lg:absolute lg:top-auto lg:right-0 lg:mt-2 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-3 z-50 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="fixed top-16 start-3 end-3 sm:start-auto sm:end-6 sm:w-80 lg:absolute lg:top-auto lg:end-0 lg:mt-2 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-3 z-50 animate-in fade-in zoom-in-95 duration-150">
                     <div className="flex items-center gap-3 p-2.5 bg-slate-950/80 rounded-xl border border-slate-800 mb-2">
                       <div
                         className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold shrink-0 ${
@@ -233,10 +240,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenNotifications }) => {
                         <div className="text-[11px] text-slate-400 truncate">{currentUser.email}</div>
                         <div className="text-[10px] text-amber-400 font-medium mt-0.5">
                           {currentUser.role === 'admin'
-                            ? 'Super Admin (Accès Global)'
+                            ? t('Super Admin (Accès Global)')
                             : currentUser.role === 'manager'
-                            ? `Responsable • ${currentUser.assignedFleetName || currentUser.agency}`
-                            : `Agent • ${currentUser.assignedFleetName || currentUser.agency}`}
+                            ? `${t('Responsable')} • ${currentUser.assignedFleetName || currentUser.agency}`
+                            : `${t('Agent')} • ${currentUser.assignedFleetName || currentUser.agency}`}
                         </div>
                       </div>
                     </div>
@@ -248,10 +255,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenNotifications }) => {
                           logout();
                           setIsProfileMenuOpen(false);
                         }}
-                        className="w-full text-left p-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer transition-colors"
+                        className="w-full text-start p-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer transition-colors"
                       >
                         <LogOut className="w-4 h-4" />
-                        <span>Se déconnecter de la session</span>
+                        <span>{t('Se déconnecter de la session')}</span>
                       </button>
                     </div>
                   </div>
@@ -271,12 +278,12 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenNotifications }) => {
                     ? 'bg-amber-500/15 text-amber-300 border-amber-500/40 hover:bg-amber-500/25'
                     : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
                 }`}
-                title={`Centre d'alertes : ${alerts.length} alerte(s) opérationnelle(s)`}
+                title={t("Centre d'alertes : {n} alerte(s) opérationnelle(s)", { n: alerts.length })}
               >
                 <Bell className="w-3.5 h-3.5" />
                 {alerts.length > 0 && (
                   <span
-                    className={`absolute -top-1 -right-1 text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center font-mono ${
+                    className={`absolute -top-1 -end-1 text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center font-mono ${
                       criticalCount > 0
                         ? 'bg-rose-500 text-white animate-pulse'
                         : 'bg-amber-500 text-slate-950'
@@ -285,7 +292,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenNotifications }) => {
                     {alerts.length}
                   </span>
                 )}
-                <span className="hidden xl:inline font-medium">Alertes</span>
+                <span className="hidden xl:inline font-medium">{t('Alertes')}</span>
               </button>
             )}
 
@@ -300,7 +307,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenNotifications }) => {
                   ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20'
                   : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
               }`}
-              title="Synchronisation en temps réel avec Firebase Cloud Firestore"
+              title={t('Synchronisation en temps réel avec Firebase Cloud Firestore')}
             >
               {cloudSyncStatus === 'syncing' ? (
                 <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-400" />
@@ -311,9 +318,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenNotifications }) => {
               )}
               <span className="hidden xl:inline font-medium">
                 {cloudSyncStatus === 'syncing'
-                  ? 'Sync Cloud...'
+                  ? t('Sync Cloud...')
                   : cloudSyncStatus === 'synced'
-                  ? `Cloud actif (${lastCloudSync || 'OK'})`
+                  ? t('Cloud actif ({time})', { time: lastCloudSync || 'OK' })
                   : 'Cloud Firestore'}
               </span>
             </button>
@@ -328,20 +335,23 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenNotifications }) => {
                   ? 'bg-slate-800 hover:bg-slate-700 text-amber-400 border-slate-700 hover:border-amber-500/40'
                   : 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border-amber-500/30'
               }`}
-              title={theme === 'dark' ? 'Passer en Mode Clair' : 'Passer en Mode Sombre'}
+              title={theme === 'dark' ? t('Passer en Mode Clair') : t('Passer en Mode Sombre')}
             >
               {theme === 'dark' ? (
                 <>
                   <Sun className="w-3.5 h-3.5 text-amber-400" />
-                  <span className="hidden lg:inline font-medium">Clair</span>
+                  <span className="hidden lg:inline font-medium">{t('Clair')}</span>
                 </>
               ) : (
                 <>
                   <Moon className="w-3.5 h-3.5 text-amber-700" />
-                  <span className="hidden lg:inline font-medium text-slate-800">Sombre</span>
+                  <span className="hidden lg:inline font-medium text-slate-800">{t('Sombre')}</span>
                 </>
               )}
             </button>
+
+            {/* LANGUE : FRANÇAIS / ARABE */}
+            <LanguageToggle compact />
 
             {/* NEW CONTRACT PROMINENT BUTTON */}
             <button
@@ -349,8 +359,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenNotifications }) => {
               className="hidden sm:flex items-center gap-2 bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-bold text-xs lg:text-sm px-3.5 py-2 rounded-xl shadow-lg shadow-amber-500/25 transition-all active:scale-95 cursor-pointer whitespace-nowrap"
             >
               <PlusCircle className="w-4 h-4 shrink-0" />
-              <span className="hidden lg:inline">+ Nouveau contrat</span>
-              <span className="lg:hidden">+ Contrat</span>
+              <span className="hidden lg:inline">+ {t('Nouveau contrat')}</span>
+              <span className="lg:hidden">+ {t('Contrat')}</span>
             </button>
           </div>
         </div>
@@ -372,21 +382,21 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenNotifications }) => {
             <span className="truncate">
               <strong>{currentUser.name}</strong> •{' '}
               {currentUser.role === 'admin' ? (
-                <span className="font-semibold text-amber-300">👑 Super Admin</span>
+                <span className="font-semibold text-amber-300">👑 {t('Super Admin')}</span>
               ) : currentUser.role === 'manager' ? (
-                <span>Responsable ({currentUser.assignedFleetName || currentUser.agency})</span>
+                <span>{t('Responsable')} ({currentUser.assignedFleetName || currentUser.agency})</span>
               ) : (
-                <span>Agent comptoir</span>
+                <span>{t('Agent comptoir')}</span>
               )}
             </span>
             <span className="hidden sm:inline text-slate-400">•</span>
             <span className="hidden sm:inline text-slate-300">
               {currentUser.role === 'admin' ? (
-                <span>Supervision globale du parc entier</span>
+                <span>{t('Supervision globale du parc entier')}</span>
               ) : currentUser.role === 'manager' ? (
-                <span>Flotte assignée : {scopedVehicles.length} véhicules</span>
+                <span>{t('Flotte assignée : {n} véhicules', { n: scopedVehicles.length })}</span>
               ) : (
-                <span>Saisie des contrats</span>
+                <span>{t('Saisie des contrats')}</span>
               )}
             </span>
           </div>
@@ -397,7 +407,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenNotifications }) => {
                 onClick={() => setActiveTab('vehicles')}
                 className="bg-amber-500 text-slate-950 font-bold px-1.5 sm:px-2 py-0.5 rounded text-[9.5px] sm:text-[10px] flex items-center gap-1 hover:bg-amber-400 cursor-pointer"
               >
-                ⚠️ {pendingApprovalsCount} <span className="hidden sm:inline">à valider</span>
+                ⚠️ {pendingApprovalsCount} <span className="hidden sm:inline">{t('à valider')}</span>
               </button>
             )}
           </div>
