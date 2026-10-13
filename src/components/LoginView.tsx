@@ -76,14 +76,14 @@ export const LoginView: React.FC = () => {
       const res = await sendResetEmail(resetEmail.trim());
       if (res.success) {
         setResetStatus('success');
-        setResetMessage('Un email avec un lien de réinitialisation sécurisé a été envoyé.');
+        setResetMessage(t('Un email avec un lien de réinitialisation sécurisé a été envoyé.'));
       } else {
         setResetStatus('error');
-        setResetMessage(res.error || 'Impossible d’envoyer le lien.');
+        setResetMessage(res.error || t('Impossible d’envoyer le lien.'));
       }
     } catch (err: any) {
       setResetStatus('error');
-      setResetMessage(err?.message || 'Erreur lors de l’envoi.');
+      setResetMessage(err?.message || t('Erreur lors de l’envoi.'));
     }
   };
 
@@ -120,7 +120,7 @@ export const LoginView: React.FC = () => {
                 <span>{t("Connexion d'Agence")}</span>
               </h2>
               <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full font-semibold">
-                Supabase & Cloud
+                {t('Supabase & Cloud')}
               </span>
             </div>
             <p className="text-xs text-slate-400">
@@ -150,7 +150,7 @@ export const LoginView: React.FC = () => {
                   dir="ltr"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="anouar@morvellocars.com"
+                  placeholder={t('anouar@morvellocars.com')}
                   className="w-full bg-slate-950 border border-slate-750 focus:border-amber-500 rounded-xl ps-9 pe-3 py-2.5 text-xs text-white placeholder:text-slate-600 focus:outline-none transition-colors"
                   required
                   autoFocus
@@ -271,7 +271,7 @@ export const LoginView: React.FC = () => {
                   value={resetEmail}
                   onChange={(e) => setResetEmail(e.target.value)}
                   dir="ltr"
-                  placeholder="votre-email@morvellocars.com"
+                  placeholder={t('votre-email@morvellocars.com')}
                   className="w-full bg-slate-950 border border-slate-750 focus:border-amber-500 rounded-xl px-3 py-2 text-xs text-white placeholder:text-slate-600 focus:outline-none"
                   required
                   autoFocus

@@ -27,7 +27,9 @@ import {
   Send,
 } from 'lucide-react';
 
+import { useI18n } from '../i18n/I18nContext';
 export const CredentialsManager: React.FC = () => {
+  const { t } = useI18n();
   const {
     users,
     currentUser,
@@ -75,7 +77,7 @@ export const CredentialsManager: React.FC = () => {
     navigator.clipboard?.writeText(text);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2500);
-    triggerToast(`Copié dans le presse-papier : ${text}`);
+    triggerToast(t('Copié dans le presse-papier : {text}', { text }));
   };
 
   const handleSendResetEmail = async (email: string, userName: string) => {
@@ -84,12 +86,12 @@ export const CredentialsManager: React.FC = () => {
     try {
       const res = await sendResetEmail(email);
       if (res.success) {
-        triggerToast(`Email de réinitialisation envoyé avec succès à ${userName} (${email}) !`);
+        triggerToast(t('Email de réinitialisation envoyé avec succès à {userName} ({email}) !', { userName, email }));
       } else {
-        triggerToast(res.error || `Erreur lors de l'envoi de l'email de réinitialisation.`);
+        triggerToast(res.error || t("Erreur lors de l'envoi de l'email de réinitialisation."));
       }
     } catch (err: any) {
-      triggerToast(err?.message || `Erreur lors de l'envoi de l'email.`);
+      triggerToast(err?.message || t("Erreur lors de l'envoi de l'email."));
     } finally {
       setResetLoadingEmail(null);
     }
@@ -108,7 +110,7 @@ export const CredentialsManager: React.FC = () => {
     e.preventDefault();
     if (!editingUser) return;
     if (!editEmail.trim() || !editName.trim()) {
-      triggerToast("Le nom et l'email sont obligatoires.");
+      triggerToast(t("Le nom et l'email sont obligatoires."));
       return;
     }
 
@@ -126,13 +128,13 @@ export const CredentialsManager: React.FC = () => {
       await updateUserRole(editingUser.id, editRole);
     }
 
-    triggerToast(`Identifiants et rôle de ${editName} mis à jour avec succès.`);
+    triggerToast(t('Identifiants et rôle de {editName} mis à jour avec succès.', { editName }));
     setEditingUser(null);
 
     // Sync to Cloud Firestore automatically
     try {
       await pushToCloud();
-      triggerToast(`Identifiants synchronisés avec le Cloud Firestore !`);
+      triggerToast(t('Identifiants synchronisés avec le Cloud Firestore !'));
     } catch {
       // ignore
     }
@@ -141,7 +143,7 @@ export const CredentialsManager: React.FC = () => {
   const handleSaveNewUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newName.trim() || !newEmail.trim()) {
-      triggerToast("Veuillez renseigner au moins le nom et l'email.");
+      triggerToast(t("Veuillez renseigner au moins le nom et l'email."));
       return;
     }
 
@@ -163,7 +165,7 @@ export const CredentialsManager: React.FC = () => {
     setNewPhone('');
     setNewFleet('');
 
-    triggerToast(`Nouveau collaborateur ${created.name} créé avec mot de passe chiffré !`);
+    triggerToast(t('Nouveau collaborateur {name} créé avec mot de passe chiffré !', { name: created.name }));
 
     // Sync to cloud
     try {
@@ -176,7 +178,7 @@ export const CredentialsManager: React.FC = () => {
   const confirmDeleteUser = () => {
     if (!userToDelete) return;
     deleteUser(userToDelete.id);
-    triggerToast(`Compte ${userToDelete.name} supprimé.`);
+    triggerToast(t('Compte {name} supprimé.', { name: userToDelete.name }));
     setUserToDelete(null);
   };
 
@@ -185,9 +187,9 @@ export const CredentialsManager: React.FC = () => {
     try {
       const ok = await pushToCloud();
       if (ok) {
-        triggerToast("Synchronisation Cloud Firestore réussie ! Tous les comptes sont répliqués.");
+        triggerToast(t('Synchronisation Cloud Firestore réussie ! Tous les comptes sont répliqués.'));
       } else {
-        triggerToast("Sauvegarde locale validée (synchronisation Cloud en file d'attente).");
+        triggerToast(t("Sauvegarde locale validée (synchronisation Cloud en file d'attente)."));
       }
     } finally {
       setIsSyncing(false);
@@ -200,7 +202,7 @@ export const CredentialsManager: React.FC = () => {
     <div className="space-y-6">
       {/* TOAST NOTIFICATION */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-emerald-500 text-slate-950 font-bold px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2.5 border border-emerald-400 text-xs animate-bounce">
+        <div className="fixed bottom-6 end-6 z-50 bg-emerald-500 text-slate-950 font-bold px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2.5 border border-emerald-400 text-xs animate-bounce">
           <CheckCircle2 className="w-5 h-5 text-slate-950 shrink-0" />
           <span>{toastMessage}</span>
         </div>
@@ -213,15 +215,15 @@ export const CredentialsManager: React.FC = () => {
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-xs font-bold text-amber-400 font-mono uppercase tracking-wider">
               <KeyRound className="w-4 h-4" />
-              <span>Authentification Flotte Morvello</span>
+              <span>{t('Authentification Flotte Morvello')}</span>
             </div>
             <p className="text-xs text-slate-300 leading-relaxed">
-              Comptes individuels avec identifiants personnels (Email & Mot de passe) et permissions RBAC pour chaque agence.
+              {t('Comptes individuels avec identifiants personnels (Email & Mot de passe) et permissions RBAC pour chaque agence.')}
             </p>
           </div>
           <div className="mt-3 pt-3 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
-            <span>Comptes configurés :</span>
-            <strong className="text-white font-mono">{users.length} collaborateurs</strong>
+            <span>{t('Comptes configurés :')}</span>
+            <strong className="text-white font-mono">{t('{usersCount} collaborateurs', { usersCount: users.length })}</strong>
           </div>
         </div>
 
@@ -231,23 +233,23 @@ export const CredentialsManager: React.FC = () => {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-xs font-bold text-emerald-400 font-mono uppercase tracking-wider">
                 <Database className="w-4 h-4" />
-                <span>Base Cloud Supabase (PostgreSQL)</span>
+                <span>{t('Base Cloud Supabase (PostgreSQL)')}</span>
               </div>
               <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold border ${
                 cloudSyncStatus === 'synced'
                   ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
                   : 'bg-amber-500/10 text-amber-400 border-amber-500/30'
               }`}>
-                {cloudSyncStatus === 'synced' ? 'Connecté' : 'Actif'}
+                {cloudSyncStatus === 'synced' ? t('Connecté') : t('Actif')}
               </span>
             </div>
             <p className="text-xs text-slate-300 leading-relaxed">
-              Synchronisation instantanée des mots de passe et droits dans la table PostgreSQL <code className="text-emerald-300">agency_data</code>.
+              {t('Synchronisation instantanée des mots de passe et droits dans la table PostgreSQL')} <code className="text-emerald-300">{t('agency_data')}</code>.
             </p>
           </div>
           <div className="mt-3 pt-3 border-t border-slate-800 flex items-center justify-between">
             <span className="text-[10px] text-slate-500">
-              {lastCloudSync ? `Sync: ${lastCloudSync}` : 'uxswtmfrrxagkmewpwyd'}
+              {lastCloudSync ? t('Sync: {lastCloudSync}', { lastCloudSync }) : 'uxswtmfrrxagkmewpwyd'}
             </span>
             <button
               onClick={handleManualSync}
@@ -255,7 +257,7 @@ export const CredentialsManager: React.FC = () => {
               className="px-2.5 py-1 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <RefreshCw className={`w-3 h-3 ${isSyncing ? 'animate-spin' : ''}`} />
-              <span>{isSyncing ? 'Sync...' : 'Synchroniser'}</span>
+              <span>{isSyncing ? t('Sync...') : t('Synchroniser')}</span>
             </button>
           </div>
         </div>
@@ -266,10 +268,10 @@ export const CredentialsManager: React.FC = () => {
           <div className="space-y-1.5">
             <div className="flex items-center gap-2 text-xs font-bold text-amber-400 uppercase font-mono">
               <Sparkles className="w-4 h-4" />
-              <span>Gestion des Accès Équipe</span>
+              <span>{t('Gestion des Accès Équipe')}</span>
             </div>
             <p className="text-xs text-slate-300 leading-relaxed">
-              Créez de nouveaux accès pour vos chauffeurs, agents de comptoir ou managers d'agence.
+              {t("Créez de nouveaux accès pour vos chauffeurs, agents de comptoir ou managers d'agence.")}
             </p>
           </div>
           <button
@@ -277,7 +279,7 @@ export const CredentialsManager: React.FC = () => {
             className="mt-3 w-full px-3.5 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
           >
             <Plus className="w-4 h-4 stroke-[2.5]" />
-            <span>Créer un Accès Collaborateur</span>
+            <span>{t('Créer un Accès Collaborateur')}</span>
           </button>
         </div>
       </div>
@@ -293,20 +295,20 @@ export const CredentialsManager: React.FC = () => {
               <div>
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] bg-purple-500/20 text-purple-300 border border-purple-500/40 font-mono px-2 py-0.5 rounded-full font-bold">
-                    COMPTE SUPER-ADMINISTRATEUR
+                    {t('COMPTE SUPER-ADMINISTRATEUR')}
                   </span>
                   <span className="text-xs text-emerald-400 font-semibold flex items-center gap-1">
                     <CheckCircle2 className="w-3.5 h-3.5" />
-                    Accès Total Maître
+                    {t('Accès Total Maître')}
                   </span>
                 </div>
                 <h2 className="text-lg font-extrabold text-white mt-0.5">
-                  {gerantUser.name} <span className="text-slate-400 text-sm font-normal">(Gérant Morvello Cars)</span>
+                  {gerantUser.name} <span className="text-slate-400 text-sm font-normal">{t('(Gérant Morvello Cars)')}</span>
                 </h2>
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-xs text-slate-300">
                   <span className="flex items-center gap-1.5 font-mono text-amber-400">
                     <Mail className="w-3.5 h-3.5 text-slate-400" />
-                    Email d'agence : <strong>{gerantUser.email}</strong>
+                    {t("Email d'agence :")} <strong>{gerantUser.email}</strong>
                   </span>
                 </div>
               </div>
@@ -315,10 +317,10 @@ export const CredentialsManager: React.FC = () => {
             <div className="flex items-center gap-2.5">
               <div className="bg-slate-950/80 border border-slate-800 px-3.5 py-2 rounded-xl flex items-center gap-3">
                 <div>
-                  <span className="text-[10px] text-slate-500 uppercase font-mono block">Sécurité Compte Gérant</span>
+                  <span className="text-[10px] text-slate-500 uppercase font-mono block">{t('Sécurité Compte Gérant')}</span>
                   <span className="text-xs font-mono font-bold text-emerald-400 tracking-wider flex items-center gap-1">
                     <ShieldCheck className="w-3.5 h-3.5" />
-                    Firebase Auth Natif
+                    {t('Firebase Auth Natif')}
                   </span>
                 </div>
               </div>
@@ -328,7 +330,7 @@ export const CredentialsManager: React.FC = () => {
                 className="px-4 py-2.5 bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/40 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer"
               >
                 <Edit3 className="w-4 h-4" />
-                <span>Modifier le Compte Gérant</span>
+                <span>{t('Modifier le Compte Gérant')}</span>
               </button>
             </div>
           </div>
@@ -341,27 +343,27 @@ export const CredentialsManager: React.FC = () => {
           <div>
             <h3 className="text-sm font-extrabold text-white flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 text-amber-400" />
-              <span>Répertoire des Comptes Collaborateurs</span>
+              <span>{t('Répertoire des Comptes Collaborateurs')}</span>
             </h3>
             <p className="text-xs text-slate-400 mt-0.5">
-              Gérez les accès, rôles, numéros GSM directs et la réinitialisation sécurisée des accès par email.
+              {t('Gérez les accès, rôles, numéros GSM directs et la réinitialisation sécurisée des accès par email.')}
             </p>
           </div>
 
           <div className="text-xs font-mono text-slate-400 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800">
-            Total : <strong className="text-white">{users.length}</strong> comptes actifs
+            {t('Total :')} <strong className="text-white">{users.length}</strong> {t('comptes actifs')}
           </div>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-start border-collapse">
             <thead>
               <tr className="border-b border-slate-800 bg-slate-950/60 text-[11px] font-bold text-slate-400 uppercase tracking-wider font-mono">
-                <th className="py-3 px-4">Collaborateur</th>
-                <th className="py-3 px-4">Rôle & Flotte</th>
-                <th className="py-3 px-4">Login / Email de Connexion</th>
-                <th className="py-3 px-4">GSM Direct (Contrats)</th>
-                <th className="py-3 px-4 text-right">Actions</th>
+                <th className="py-3 px-4">{t('Collaborateur')}</th>
+                <th className="py-3 px-4">{t('Rôle & Flotte')}</th>
+                <th className="py-3 px-4">{t('Login / Email de Connexion')}</th>
+                <th className="py-3 px-4">{t('GSM Direct (Contrats)')}</th>
+                <th className="py-3 px-4 text-end">{t('Actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-850 text-xs">
@@ -390,11 +392,11 @@ export const CredentialsManager: React.FC = () => {
                             <strong className="text-white font-bold">{u.name}</strong>
                             {isCurrent && (
                               <span className="text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/40 px-1 rounded font-mono font-bold">
-                                VOUS
+                                {t('VOUS')}
                               </span>
                             )}
                           </div>
-                          <span className="text-[10px] text-slate-500 font-mono">ID: {u.id}</span>
+                          <span className="text-[10px] text-slate-500 font-mono">{t('ID: {id}', { id: u.id })}</span>
                         </div>
                       </div>
                     </td>
@@ -411,7 +413,7 @@ export const CredentialsManager: React.FC = () => {
                               : 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
                           }`}
                         >
-                          {isGerant ? 'GÉRANT / SUPER ADMIN' : u.role === 'manager' ? 'RESPONSABLE FLOTTE' : 'AGENT DE COMPTOIR'}
+                          {isGerant ? t('GÉRANT / SUPER ADMIN') : u.role === 'manager' ? t('RESPONSABLE FLOTTE') : t('AGENT DE COMPTOIR')}
                         </span>
                         {u.assignedFleetName && (
                           <div className="text-[10.5px] text-slate-400 flex items-center gap-1 font-mono">
@@ -430,7 +432,7 @@ export const CredentialsManager: React.FC = () => {
                           type="button"
                           onClick={() => copyToClipboard(u.email, `email-${u.id}`)}
                           className="text-slate-500 hover:text-amber-400 transition-colors cursor-pointer p-1"
-                          title="Copier l'email de connexion"
+                          title={t("Copier l'email de connexion")}
                         >
                           {copiedId === `email-${u.id}` ? (
                             <Check className="w-3.5 h-3.5 text-emerald-400" />
@@ -449,32 +451,32 @@ export const CredentialsManager: React.FC = () => {
                           <span>{u.phone}</span>
                         </span>
                       ) : (
-                        <span className="text-slate-500 italic text-[11px]">Par défaut agence</span>
+                        <span className="text-slate-500 italic text-[11px]">{t('Par défaut agence')}</span>
                       )}
                     </td>
 
                     {/* Actions */}
-                    <td className="py-3.5 px-4 text-right">
+                    <td className="py-3.5 px-4 text-end">
                       <div className="flex items-center justify-end gap-2">
                         <button
                           type="button"
                           onClick={() => handleSendResetEmail(u.email, u.name)}
                           disabled={resetLoadingEmail === u.email}
                           className="px-2.5 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer disabled:opacity-50"
-                          title="Envoyer un email de réinitialisation de mot de passe"
+                          title={t('Envoyer un email de réinitialisation de mot de passe')}
                         >
                           <Send className={`w-3.5 h-3.5 ${resetLoadingEmail === u.email ? 'animate-pulse' : ''}`} />
-                          <span className="hidden sm:inline">Réinitialiser</span>
+                          <span className="hidden sm:inline">{t('Réinitialiser')}</span>
                         </button>
 
                         <button
                           type="button"
                           onClick={() => handleOpenEdit(u)}
                           className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-                          title="Modifier le compte"
+                          title={t('Modifier le compte')}
                         >
                           <Edit3 className="w-3.5 h-3.5 text-amber-400" />
-                          <span>Modifier</span>
+                          <span>{t('Modifier')}</span>
                         </button>
 
                         {!isGerant && users.filter((x) => x.role === 'admin').length > 0 && (
@@ -482,7 +484,7 @@ export const CredentialsManager: React.FC = () => {
                             type="button"
                             onClick={() => setUserToDelete(u)}
                             className="p-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-lg transition-colors cursor-pointer"
-                            title="Supprimer le compte"
+                            title={t('Supprimer le compte')}
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -507,8 +509,8 @@ export const CredentialsManager: React.FC = () => {
                   <KeyRound className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-white">Modifier le Compte Collaborateur</h3>
-                  <p className="text-xs text-slate-400">Collaborateur : {editingUser.name}</p>
+                  <h3 className="text-sm font-bold text-white">{t('Modifier le Compte Collaborateur')}</h3>
+                  <p className="text-xs text-slate-400">{t('Collaborateur : {name}', { name: editingUser.name })}</p>
                 </div>
               </div>
               <button
@@ -523,7 +525,7 @@ export const CredentialsManager: React.FC = () => {
             <form onSubmit={handleSaveEdit} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Nom Complet
+                  {t('Nom Complet')}
                 </label>
                 <input
                   type="text"
@@ -536,7 +538,7 @@ export const CredentialsManager: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Email / Login de Connexion *
+                  {t('Email / Login de Connexion *')}
                 </label>
                 <input
                   type="email"
@@ -552,10 +554,10 @@ export const CredentialsManager: React.FC = () => {
                 <div className="space-y-0.5">
                   <div className="text-xs font-bold text-white flex items-center gap-1.5">
                     <Lock className="w-3.5 h-3.5 text-blue-400" />
-                    <span>Mot de Passe du Compte</span>
+                    <span>{t('Mot de Passe du Compte')}</span>
                   </div>
                   <p className="text-[11px] text-slate-400">
-                    Envoyez un lien sécurisé de réinitialisation par email pour que le collaborateur définisse son mot de passe.
+                    {t('Envoyez un lien sécurisé de réinitialisation par email pour que le collaborateur définisse son mot de passe.')}
                   </p>
                 </div>
                 <button
@@ -565,14 +567,14 @@ export const CredentialsManager: React.FC = () => {
                   className="px-3 py-2 bg-blue-500/15 hover:bg-blue-500/25 text-blue-400 border border-blue-500/30 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer shrink-0 disabled:opacity-50"
                 >
                   <Send className={`w-3.5 h-3.5 ${resetLoadingEmail === editingUser.email ? 'animate-pulse' : ''}`} />
-                  <span>{resetLoadingEmail === editingUser.email ? 'Envoi...' : 'Envoyer un email de réinitialisation'}</span>
+                  <span>{resetLoadingEmail === editingUser.email ? t('Envoi...') : t('Envoyer un email de réinitialisation')}</span>
                 </button>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Téléphone direct (GSM)
+                    {t('Téléphone direct (GSM)')}
                   </label>
                   <input
                     type="tel"
@@ -585,36 +587,36 @@ export const CredentialsManager: React.FC = () => {
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Rôle
+                    {t('Rôle')}
                   </label>
                   <select
                     value={editRole}
                     onChange={(e) => setEditRole(e.target.value as UserRole)}
                     className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-amber-400 font-bold focus:outline-none focus:border-amber-500 cursor-pointer"
                   >
-                    <option value="admin">SUPER ADMIN / GÉRANT</option>
-                    <option value="manager">RESPONSABLE DE FLOTTE</option>
-                    <option value="agent">AGENT DE COMPTOIR</option>
+                    <option value="admin">{t('SUPER ADMIN / GÉRANT')}</option>
+                    <option value="manager">{t('RESPONSABLE DE FLOTTE')}</option>
+                    <option value="agent">{t('AGENT DE COMPTOIR')}</option>
                   </select>
                 </div>
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Affectation Flotte / Agence
+                  {t('Affectation Flotte / Agence')}
                 </label>
                 <input
                   type="text"
                   value={editFleet}
                   onChange={(e) => setEditFleet(e.target.value)}
-                  placeholder="Ex: Aéroport Nouaceur / Berlines Premium"
+                  placeholder={t('Ex: Aéroport Nouaceur / Berlines Premium')}
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
                 />
               </div>
 
               <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-[11px] text-slate-400 flex items-center gap-2">
                 <Cloud className="w-4 h-4 text-blue-400 shrink-0" />
-                <span>Les modifications apportées au compte seront synchronisées avec la base centrale.</span>
+                <span>{t('Les modifications apportées au compte seront synchronisées avec la base centrale.')}</span>
               </div>
 
               <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
@@ -623,14 +625,14 @@ export const CredentialsManager: React.FC = () => {
                   onClick={() => setEditingUser(null)}
                   className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl cursor-pointer"
                 >
-                  Annuler
+                  {t('Annuler')}
                 </button>
                 <button
                   type="submit"
                   className="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold rounded-xl shadow-lg shadow-amber-500/20 flex items-center gap-1.5 cursor-pointer"
                 >
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>Enregistrer les Modifications</span>
+                  <span>{t('Enregistrer les Modifications')}</span>
                 </button>
               </div>
             </form>
@@ -648,8 +650,8 @@ export const CredentialsManager: React.FC = () => {
                   <Plus className="w-4 h-4 stroke-[3]" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-white">Nouveau Collaborateur & Accès</h3>
-                  <p className="text-xs text-slate-400">Configurez l'email et le mot de passe initial</p>
+                  <h3 className="text-sm font-bold text-white">{t('Nouveau Collaborateur & Accès')}</h3>
+                  <p className="text-xs text-slate-400">{t("Configurez l'email et le mot de passe initial")}</p>
                 </div>
               </div>
               <button
@@ -664,13 +666,13 @@ export const CredentialsManager: React.FC = () => {
             <form onSubmit={handleSaveNewUser} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Nom Complet du Collaborateur *
+                  {t('Nom Complet du Collaborateur *')}
                 </label>
                 <input
                   type="text"
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
-                  placeholder="Ex: Yassine Berrada"
+                  placeholder={t('Ex: Yassine Berrada')}
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
                   required
                 />
@@ -679,13 +681,13 @@ export const CredentialsManager: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Adresse Email (Login) *
+                    {t('Adresse Email (Login) *')}
                   </label>
                   <input
                     type="email"
                     value={newEmail}
                     onChange={(e) => setNewEmail(e.target.value)}
-                    placeholder="yassine@morvellocars.com"
+                    placeholder={t('yassine@morvellocars.com')}
                     className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 font-mono"
                     required
                   />
@@ -694,7 +696,7 @@ export const CredentialsManager: React.FC = () => {
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <label className="block text-xs font-semibold text-slate-300">
-                      Mot de passe initial *
+                      {t('Mot de passe initial *')}
                     </label>
                     <button
                       type="button"
@@ -702,14 +704,14 @@ export const CredentialsManager: React.FC = () => {
                       className="text-[10px] text-amber-400 hover:text-amber-300 flex items-center gap-1 font-mono cursor-pointer"
                     >
                       <Sparkles className="w-3 h-3" />
-                      Générer sécurisé
+                      {t('Générer sécurisé')}
                     </button>
                   </div>
                   <input
                     type="text"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Ex: morvello2026"
+                    placeholder={t('Ex: morvello2026')}
                     className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-amber-400 font-mono font-bold focus:outline-none focus:border-amber-500"
                     required
                   />
@@ -719,22 +721,22 @@ export const CredentialsManager: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Rôle Hiérarchique
+                    {t('Rôle Hiérarchique')}
                   </label>
                   <select
                     value={newRole}
                     onChange={(e) => setNewRole(e.target.value as UserRole)}
                     className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-amber-400 font-bold focus:outline-none focus:border-amber-500 cursor-pointer"
                   >
-                    <option value="agent">AGENT DE COMPTOIR</option>
-                    <option value="manager">RESPONSABLE DE FLOTTE</option>
-                    <option value="admin">SUPER ADMIN / GÉRANT</option>
+                    <option value="agent">{t('AGENT DE COMPTOIR')}</option>
+                    <option value="manager">{t('RESPONSABLE DE FLOTTE')}</option>
+                    <option value="admin">{t('SUPER ADMIN / GÉRANT')}</option>
                   </select>
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Téléphone Direct (GSM)
+                    {t('Téléphone Direct (GSM)')}
                   </label>
                   <input
                     type="tel"
@@ -748,13 +750,13 @@ export const CredentialsManager: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Affectation Flotte / Agence (Optionnel)
+                  {t('Affectation Flotte / Agence (Optionnel)')}
                 </label>
                 <input
                   type="text"
                   value={newFleet}
                   onChange={(e) => setNewFleet(e.target.value)}
-                  placeholder="Ex: Agence Casablanca Maarif"
+                  placeholder={t('Ex: Agence Casablanca Maarif')}
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
                 />
               </div>
@@ -765,14 +767,14 @@ export const CredentialsManager: React.FC = () => {
                   onClick={() => setIsAddModalOpen(false)}
                   className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl cursor-pointer"
                 >
-                  Annuler
+                  {t('Annuler')}
                 </button>
                 <button
                   type="submit"
                   className="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold rounded-xl shadow-lg shadow-amber-500/20 flex items-center gap-1.5 cursor-pointer"
                 >
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>Créer le Collaborateur</span>
+                  <span>{t('Créer le Collaborateur')}</span>
                 </button>
               </div>
             </form>
@@ -788,9 +790,9 @@ export const CredentialsManager: React.FC = () => {
               <AlertTriangle className="w-6 h-6" />
             </div>
             <div className="text-center space-y-2">
-              <h3 className="text-base font-bold text-white">Supprimer le Collaborateur</h3>
+              <h3 className="text-base font-bold text-white">{t('Supprimer le Collaborateur')}</h3>
               <p className="text-xs text-slate-400">
-                Supprimer définitivement l'accès de <strong className="text-white">{userToDelete.name}</strong> ({userToDelete.email}) ?
+                {t("Supprimer définitivement l'accès de")} <strong className="text-white">{userToDelete.name}</strong> ({userToDelete.email}) ?
               </p>
             </div>
             <div className="flex items-center justify-center gap-3 pt-2">
@@ -799,7 +801,7 @@ export const CredentialsManager: React.FC = () => {
                 onClick={() => setUserToDelete(null)}
                 className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl cursor-pointer"
               >
-                Annuler
+                {t('Annuler')}
               </button>
               <button
                 type="button"
@@ -807,7 +809,7 @@ export const CredentialsManager: React.FC = () => {
                 className="px-5 py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-rose-600/20 flex items-center gap-1.5 cursor-pointer"
               >
                 <Trash2 className="w-4 h-4" />
-                <span>Confirmer</span>
+                <span>{t('Confirmer')}</span>
               </button>
             </div>
           </div>

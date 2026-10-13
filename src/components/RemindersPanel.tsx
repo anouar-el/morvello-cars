@@ -122,7 +122,7 @@ export const RemindersPanel: React.FC<RemindersPanelProps> = ({ contracts, userI
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/90 hover:bg-emerald-400 text-slate-950 font-bold text-xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <MessageCircle className="w-3.5 h-3.5" />
-                  <span>{r.phone ? 'WhatsApp' : t('Pas de numéro')}</span>
+                  <span>{r.phone ? t('WhatsApp') : t('Pas de numéro')}</span>
                 </button>
                 <button
                   type="button"

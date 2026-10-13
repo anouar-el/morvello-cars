@@ -450,7 +450,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                 .filter((u) => u.role === 'manager')
                 .map((m) => (
                   <option key={m.id} value={m.id}>
-                    {m.name} ({m.assignedFleetName || 'Agence'})
+                    {m.name} ({m.assignedFleetName || t('Agence')})
                   </option>
                 ))}
               <option value="unassigned">{t('Sans responsable')}</option>
@@ -757,7 +757,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                       </div>
                       <div className="text-[10.5px] text-amber-400 flex items-center gap-1 font-semibold mt-0.5">
                         <Fuel className="w-3 h-3 shrink-0" />
-                        <span>{cnt.departureFuel || cnt.inspection?.departureChecklist?.fuelLevel || '8/8 (Plein)'}</span>
+                        <span>{cnt.departureFuel || cnt.inspection?.departureChecklist?.fuelLevel || t('8/8 (Plein)')}</span>
                       </div>
                       {cnt.returnKm ? (
                         <div className="text-emerald-400 mt-0.5">

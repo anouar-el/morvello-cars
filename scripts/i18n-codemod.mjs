@@ -16,9 +16,9 @@ import ts from 'typescript';
 import fs from 'node:fs';
 import path from 'node:path';
 
-const ATTRS = new Set(['title', 'placeholder', 'aria-label', 'alt', 'label']);
+const ATTRS = new Set(['title', 'placeholder', 'aria-label', 'alt', 'label', 'subject']);
 // Appels dont le premier argument est un message affiché à l'utilisateur.
-const MESSAGE_CALLS = /^(?:window\.)?(?:alert|confirm|prompt)$|^set\w*(?:Error|Msg|Message|Toast|Notice|Warning|Feedback)\w*$/;
+const MESSAGE_CALLS = /^(?:window\.)?(?:alert|confirm|prompt)$|^set\w*(?:Error|Msg|Message|Toast|Notice|Warning|Feedback)\w*$|^(?:triggerToast|onToast|showToast|toast|notify|showNotification|flash)$/;
 const ENTITIES = { '&amp;': '&', '&nbsp;': ' ', '&apos;': "'", '&quot;': '"', '&lt;': '<', '&gt;': '>', '&laquo;': '«', '&raquo;': '»', '&#39;': "'" };
 
 const decode = (s) => s.replace(/&[a-z#0-9]+;/gi, (m) => ENTITIES[m] ?? m);
@@ -200,7 +200,11 @@ function processFile(file) {
         }
       }
       const collapsed = key.replace(/\s+/g, ' ').trim();
-      if (!hasLetters(collapsed) || collapsed.length > 400) return;
+      if (!hasLetters(collapsed) || collapsed.length > 400) {
+        // Pas de texte statique : on regarde quand même les chaînes de repli (x || 'Texte').
+        for (const n of nodes) if (ts.isJsxExpression(n) && n.expression) transformLeaves(n.expression);
+        return;
+      }
       const first = nodes[0];
       const last = nodes[nodes.length - 1];
       const start = first.pos;

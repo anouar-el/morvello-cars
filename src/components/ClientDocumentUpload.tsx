@@ -12,6 +12,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 
+import { useI18n } from '../i18n/I18nContext';
 export interface DocumentFile {
   dataUrl?: string;
   name?: string;
@@ -44,6 +45,7 @@ export const ClientDocumentUpload: React.FC<ClientDocumentUploadProps> = ({
   onChange,
   compact = false,
 }) => {
+  const { t } = useI18n();
   const [previewDoc, setPreviewDoc] = useState<{ title: string; dataUrl: string } | null>(null);
 
   // File input refs
@@ -291,7 +293,7 @@ export const ClientDocumentUpload: React.FC<ClientDocumentUploadProps> = ({
         <div className="flex items-center justify-between mb-2">
           <span className="text-[11px] font-semibold text-slate-300 flex items-center gap-1.5">
             {label}
-            {hasDoc && <span className="text-[10px] text-emerald-400 font-bold">✓ Attaché</span>}
+            {hasDoc && <span className="text-[10px] text-emerald-400 font-bold">{t('✓ Attaché')}</span>}
           </span>
 
           {hasDoc && (
@@ -300,7 +302,7 @@ export const ClientDocumentUpload: React.FC<ClientDocumentUploadProps> = ({
                 type="button"
                 onClick={() => setPreviewDoc({ title: label, dataUrl: doc.dataUrl! })}
                 className="p-1 text-slate-400 hover:text-amber-400 hover:bg-slate-800 rounded transition-colors"
-                title="Aperçu du document"
+                title={t('Aperçu du document')}
               >
                 <Eye className="w-3.5 h-3.5" />
               </button>
@@ -308,7 +310,7 @@ export const ClientDocumentUpload: React.FC<ClientDocumentUploadProps> = ({
                 type="button"
                 onClick={() => handleRemove(field)}
                 className="p-1 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded transition-colors"
-                title="Supprimer ce document"
+                title={t('Supprimer ce document')}
               >
                 <Trash2 className="w-3.5 h-3.5" />
               </button>
@@ -337,11 +339,11 @@ export const ClientDocumentUpload: React.FC<ClientDocumentUploadProps> = ({
             )}
             <div className="min-w-0 flex-1">
               <p className="text-xs font-mono text-slate-200 truncate font-semibold">
-                {doc.name || 'Document numérisé'}
+                {doc.name || t('Document numérisé')}
               </p>
               <p className="text-[10px] text-emerald-400 mt-0.5 flex items-center gap-1">
                 <FileCheck className="w-3 h-3" />
-                {isPdf ? 'Document PDF' : 'Image numérisée'} • Enregistré
+                {isPdf ? t('Document PDF') : t('Image numérisée')} {t('• Enregistré')}
               </p>
             </div>
           </div>
@@ -352,9 +354,9 @@ export const ClientDocumentUpload: React.FC<ClientDocumentUploadProps> = ({
           >
             <Upload className="w-5 h-5 text-slate-500 group-hover:text-amber-400 mx-auto mb-1 transition-colors" />
             <p className="text-xs text-slate-400 group-hover:text-slate-200 font-medium">
-              Glisser ou <span className="text-amber-400 underline decoration-amber-400/50">parcourir</span>
+              {t('Glisser ou')} <span className="text-amber-400 underline decoration-amber-400/50">{t('parcourir')}</span>
             </p>
-            <p className="text-[10px] text-slate-500 mt-0.5">JPG, PNG ou PDF (Optionnel)</p>
+            <p className="text-[10px] text-slate-500 mt-0.5">{t('JPG, PNG ou PDF (Optionnel)')}</p>
           </div>
         )}
       </div>
@@ -369,14 +371,14 @@ export const ClientDocumentUpload: React.FC<ClientDocumentUploadProps> = ({
           <div className="flex items-center gap-2">
             <CreditCard className="w-4 h-4 text-amber-400" />
             <h3 className="text-xs font-bold text-white uppercase tracking-wider">
-              Numérisation des Documents Client (Facultatif)
+              {t('Numérisation des Documents Client (Facultatif)')}
             </h3>
             <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full border border-slate-700">
-              Non obligatoire
+              {t('Non obligatoire')}
             </span>
           </div>
           <p className="text-[11px] text-slate-400 mt-0.5">
-            Téléversez les photos ou scans du permis de conduire et de la pièce d'identité (CIN ou Passeport).
+            {t("Téléversez les photos ou scans du permis de conduire et de la pièce d'identité (CIN ou Passeport).")}
           </p>
         </div>
 
@@ -386,19 +388,19 @@ export const ClientDocumentUpload: React.FC<ClientDocumentUploadProps> = ({
             type="button"
             onClick={() => handleSampleSpecimen('cin')}
             className="px-2.5 py-1 bg-blue-500/15 hover:bg-blue-500/25 border border-blue-500/30 text-blue-300 rounded-lg text-[10px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-            title="Générer un spécimen CIN de test"
+            title={t('Générer un spécimen CIN de test')}
           >
             <Sparkles className="w-3 h-3 text-blue-400" />
-            Spécimen CIN
+            {t('Spécimen CIN')}
           </button>
           <button
             type="button"
             onClick={() => handleSampleSpecimen('license')}
             className="px-2.5 py-1 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 rounded-lg text-[10px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-            title="Générer un spécimen Permis de test"
+            title={t('Générer un spécimen Permis de test')}
           >
             <Sparkles className="w-3 h-3 text-amber-400" />
-            Spécimen Permis
+            {t('Spécimen Permis')}
           </button>
         </div>
       </div>
@@ -410,9 +412,9 @@ export const ClientDocumentUpload: React.FC<ClientDocumentUploadProps> = ({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <FileBadge className="w-4 h-4 text-amber-400" />
-              <h4 className="text-xs font-bold text-white">Permis de Conduire</h4>
+              <h4 className="text-xs font-bold text-white">{t('Permis de Conduire')}</h4>
             </div>
-            <span className="text-[10px] text-slate-500">Recto & Verso acceptés</span>
+            <span className="text-[10px] text-slate-500">{t('Recto & Verso acceptés')}</span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -426,9 +428,9 @@ export const ClientDocumentUpload: React.FC<ClientDocumentUploadProps> = ({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <CreditCard className="w-4 h-4 text-blue-400" />
-              <h4 className="text-xs font-bold text-white">C.I.N / Passeport</h4>
+              <h4 className="text-xs font-bold text-white">{t('C.I.N / Passeport')}</h4>
             </div>
-            <span className="text-[10px] text-slate-500">Recto & Verso acceptés</span>
+            <span className="text-[10px] text-slate-500">{t('Recto & Verso acceptés')}</span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -460,7 +462,7 @@ export const ClientDocumentUpload: React.FC<ClientDocumentUploadProps> = ({
               {previewDoc.dataUrl.startsWith('data:application/pdf') ? (
                 <iframe
                   src={previewDoc.dataUrl}
-                  title="PDF Preview"
+                  title={t('PDF Preview')}
                   className="w-full h-[500px] rounded"
                 />
               ) : (
@@ -479,14 +481,14 @@ export const ClientDocumentUpload: React.FC<ClientDocumentUploadProps> = ({
                 download="document_client"
                 className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl transition-colors"
               >
-                Télécharger le document
+                {t('Télécharger le document')}
               </a>
               <button
                 type="button"
                 onClick={() => setPreviewDoc(null)}
                 className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold rounded-xl transition-colors"
               >
-                Fermer
+                {t('Fermer')}
               </button>
             </div>
           </div>

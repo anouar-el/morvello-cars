@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { checkOilChangeStatus } from '../../utils/vehicleExpiryUtils';
 
+import { useI18n } from '../../i18n/I18nContext';
 interface VehicleMaintenanceModalProps {
   vehicle: Vehicle | null;
   isOpen: boolean;
@@ -98,6 +99,7 @@ export const VehicleMaintenanceModal: React.FC<VehicleMaintenanceModalProps> = (
   canManage,
   currentUser,
 }) => {
+  const { t } = useI18n();
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [category, setCategory] = useState<ExpenseCategory>('oil_change');
   const [title, setTitle] = useState('');
@@ -190,16 +192,16 @@ export const VehicleMaintenanceModal: React.FC<VehicleMaintenanceModalProps> = (
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-lg font-bold text-white tracking-tight">
-                  Carnet d'Entretien & Factures
+                  {t("Carnet d'Entretien & Factures")}
                 </h2>
                 <span className="text-xs font-mono font-bold px-2.5 py-0.5 rounded-lg bg-slate-950 border border-amber-500/40 text-amber-400">
                   {vehicle.plate}
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
-                {vehicle.brand} {vehicle.model} ({vehicle.year || 2025}) • Compteur :{' '}
+                {t('{brand} {model} ({year}) • Compteur :', { brand: vehicle.brand, model: vehicle.model, year: vehicle.year || 2025 })}{' '}
                 <strong className="text-slate-200 font-mono">
-                  {vehicle.currentKm.toLocaleString('fr-FR')} KM
+                  {t('{currentKm} KM', { currentKm: vehicle.currentKm.toLocaleString('fr-FR') })}
                 </strong>
               </p>
             </div>
@@ -219,16 +221,16 @@ export const VehicleMaintenanceModal: React.FC<VehicleMaintenanceModalProps> = (
           <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-3.5 flex flex-col justify-between">
             <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
               <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
-              Total Dépenses Entretien
+              {t('Total Dépenses Entretien')}
             </span>
             <div className="mt-2 flex items-baseline gap-1.5">
               <span className="text-2xl font-black text-white font-mono">
                 {totalExpensesCost.toLocaleString('fr-FR')}
               </span>
-              <span className="text-xs text-amber-400 font-bold font-mono">MAD</span>
+              <span className="text-xs text-amber-400 font-bold font-mono">{t('MAD')}</span>
             </div>
             <span className="text-[10px] text-slate-500 mt-1">
-              {expenses.length} intervention{expenses.length > 1 ? 's' : ''} enregistrée{expenses.length > 1 ? 's' : ''}
+              {t('{expensesCount} intervention', { expensesCount: expenses.length })}{expenses.length > 1 ? 's' : ''} {t('enregistrée')}{expenses.length > 1 ? 's' : ''}
             </span>
           </div>
 
@@ -237,7 +239,7 @@ export const VehicleMaintenanceModal: React.FC<VehicleMaintenanceModalProps> = (
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
                 <Wrench className="w-3.5 h-3.5 text-amber-400" />
-                Statut Vidange
+                {t('Statut Vidange')}
               </span>
               <span
                 className={`text-[10px] px-2 py-0.5 rounded-full font-bold border ${oilStatus.badgeClass}`}
@@ -246,24 +248,24 @@ export const VehicleMaintenanceModal: React.FC<VehicleMaintenanceModalProps> = (
               </span>
             </div>
             <div className="mt-2">
-              <span className="text-[11px] text-slate-400 block">Prochaine échéance :</span>
+              <span className="text-[11px] text-slate-400 block">{t('Prochaine échéance :')}</span>
               <span className="text-base font-bold text-white font-mono">
                 {vehicle.nextOilChangeKm
-                  ? `${vehicle.nextOilChangeKm.toLocaleString('fr-FR')} KM`
-                  : 'Non programmée'}
+                  ? t('{nextOilChangeKm} KM', { nextOilChangeKm: vehicle.nextOilChangeKm.toLocaleString('fr-FR') })
+                  : t('Non programmée')}
               </span>
             </div>
             <span className="text-[10px] text-slate-400">
               {oilStatus.kmRemaining !== null ? (
                 oilStatus.kmRemaining > 0 ? (
-                  `Reste ${oilStatus.kmRemaining.toLocaleString('fr-FR')} KM avant vidange`
+                  t('Reste {kmRemaining} KM avant vidange', { kmRemaining: oilStatus.kmRemaining.toLocaleString('fr-FR') })
                 ) : (
                   <strong className="text-rose-400">
-                    Dépassée de {Math.abs(oilStatus.kmRemaining).toLocaleString('fr-FR')} KM
+                    {t('Dépassée de {abs} KM', { abs: Math.abs(oilStatus.kmRemaining).toLocaleString('fr-FR') })}
                   </strong>
                 )
               ) : (
-                'Définir le seuil lors de la vidange'
+                t('Définir le seuil lors de la vidange')
               )}
             </span>
           </div>
@@ -272,7 +274,7 @@ export const VehicleMaintenanceModal: React.FC<VehicleMaintenanceModalProps> = (
           <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-3.5 flex flex-col justify-between">
             <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
               <Calendar className="w-3.5 h-3.5 text-blue-400" />
-              Dernière Intervention
+              {t('Dernière Intervention')}
             </span>
             <div className="mt-2">
               <span className="text-base font-bold text-slate-200">
@@ -282,11 +284,11 @@ export const VehicleMaintenanceModal: React.FC<VehicleMaintenanceModalProps> = (
                       month: 'short',
                       year: 'numeric',
                     })
-                  : 'Aucune révision'}
+                  : t('Aucune révision')}
               </span>
             </div>
             <span className="text-[10px] text-slate-400 truncate">
-              {expenses[0] ? `« ${expenses[0].title} »` : 'Parc à jour'}
+              {expenses[0] ? `« ${expenses[0].title} »` : t('Parc à jour')}
             </span>
           </div>
         </div>
@@ -302,7 +304,7 @@ export const VehicleMaintenanceModal: React.FC<VehicleMaintenanceModalProps> = (
               className="flex items-center gap-2 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-bold px-4 py-2 rounded-xl text-xs shadow-md transition-all active:scale-95 cursor-pointer"
             >
               <Plus className="w-4 h-4" />
-              <span>Enregistrer une intervention / facture</span>
+              <span>{t('Enregistrer une intervention / facture')}</span>
             </button>
           </div>
         )}
@@ -317,7 +319,7 @@ export const VehicleMaintenanceModal: React.FC<VehicleMaintenanceModalProps> = (
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
                 <h3 className="text-xs font-bold text-white uppercase tracking-wider">
-                  Nouvelle Dépense d'Entretien / Vidange
+                  {t("Nouvelle Dépense d'Entretien / Vidange")}
                 </h3>
               </div>
               <button
@@ -325,14 +327,14 @@ export const VehicleMaintenanceModal: React.FC<VehicleMaintenanceModalProps> = (
                 onClick={() => setIsAddingNew(false)}
                 className="text-xs text-slate-400 hover:text-slate-200 cursor-pointer"
               >
-                Annuler
+                {t('Annuler')}
               </button>
             </div>
 
             {/* CATEGORY SELECTOR */}
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                Type d'intervention <span className="text-amber-400">*</span>
+                {t("Type d'intervention")} <span className="text-amber-400">*</span>
               </label>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-1.5">
                 {(Object.keys(CATEGORY_MAP) as ExpenseCategory[]).map((catKey) => {
@@ -343,14 +345,14 @@ export const VehicleMaintenanceModal: React.FC<VehicleMaintenanceModalProps> = (
                       key={catKey}
                       type="button"
                       onClick={() => handleCategoryChange(catKey)}
-                      className={`text-left px-2.5 py-2 rounded-lg border text-[11px] font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
+                      className={`text-start px-2.5 py-2 rounded-lg border text-[11px] font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
                         isSelected
                           ? 'bg-amber-500 text-slate-950 font-bold border-amber-400 shadow-sm'
                           : 'bg-slate-900 border-slate-800 text-slate-300 hover:border-slate-700'
                       }`}
                     >
                       <span>{item.icon}</span>
-                      <span className="truncate">{item.label}</span>
+                      <span className="truncate">{t(item.label)}</span>
                     </button>
                   );
                 })}
@@ -361,21 +363,21 @@ export const VehicleMaintenanceModal: React.FC<VehicleMaintenanceModalProps> = (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="sm:col-span-2">
                 <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Désignation / Intitulé <span className="text-amber-400">*</span>
+                  {t('Désignation / Intitulé')} <span className="text-amber-400">*</span>
                 </label>
                 <input
                   type="text"
                   required
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Ex: Vidange 10 000 KM + remplacement filtre à huile et air"
+                  placeholder={t('Ex: Vidange 10 000 KM + remplacement filtre à huile et air')}
                   className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Montant Facture (MAD TTC) <span className="text-amber-400">*</span>
+                  {t('Montant Facture (MAD TTC)')} <span className="text-amber-400">*</span>
                 </label>
                 <div className="relative">
                   <input
@@ -387,11 +389,11 @@ export const VehicleMaintenanceModal: React.FC<VehicleMaintenanceModalProps> = (
                     onChange={(e) =>
                       setCostMAD(e.target.value === '' ? '' : Number(e.target.value))
                     }
-                    placeholder="Ex: 850"
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-amber-400 font-mono font-bold focus:outline-none focus:border-amber-500 pr-12"
+                    placeholder={t('Ex: 850')}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-amber-400 font-mono font-bold focus:outline-none focus:border-amber-500 pe-12"
                   />
-                  <span className="absolute right-3 top-2 text-xs font-mono font-bold text-slate-400">
-                    MAD
+                  <span className="absolute end-3 top-2 text-xs font-mono font-bold text-slate-400">
+                    {t('MAD')}
                   </span>
                 </div>
               </div>
@@ -401,7 +403,7 @@ export const VehicleMaintenanceModal: React.FC<VehicleMaintenanceModalProps> = (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Date de l'intervention
+                  {t("Date de l'intervention")}
                 </label>
                 <input
                   type="date"
@@ -414,7 +416,7 @@ export const VehicleMaintenanceModal: React.FC<VehicleMaintenanceModalProps> = (
 
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Kilométrage au compteur (KM)
+                  {t('Kilométrage au compteur (KM)')}
                 </label>
                 <input
                   type="number"
@@ -423,7 +425,7 @@ export const VehicleMaintenanceModal: React.FC<VehicleMaintenanceModalProps> = (
                   onChange={(e) =>
                     handleKmChange(e.target.value === '' ? 0 : Number(e.target.value))
                   }
-                  placeholder={`Actuel : ${vehicle.currentKm}`}
+                  placeholder={t('Actuel : {currentKm}', { currentKm: vehicle.currentKm })}
                   className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-amber-500"
                 />
               </div>
@@ -435,7 +437,7 @@ export const VehicleMaintenanceModal: React.FC<VehicleMaintenanceModalProps> = (
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5 text-xs font-bold text-amber-300">
                     <Sparkles className="w-4 h-4 text-amber-400" />
-                    <span>Calcul & recalibrage de la prochaine vidange</span>
+                    <span>{t('Calcul & recalibrage de la prochaine vidange')}</span>
                   </div>
                   <label className="flex items-center gap-1.5 text-[11px] text-slate-300 cursor-pointer">
                     <input
@@ -444,7 +446,7 @@ export const VehicleMaintenanceModal: React.FC<VehicleMaintenanceModalProps> = (
                       onChange={(e) => setAutoUpdateOilKm(e.target.checked)}
                       className="rounded accent-amber-500"
                     />
-                    <span>Mettre à jour l'échéance du véhicule</span>
+                    <span>{t("Mettre à jour l'échéance du véhicule")}</span>
                   </label>
                 </div>
 
@@ -452,7 +454,7 @@ export const VehicleMaintenanceModal: React.FC<VehicleMaintenanceModalProps> = (
                   <div className="flex items-center gap-3 pt-1">
                     <div className="flex-1">
                       <label className="block text-[11px] text-slate-400 mb-1">
-                        Nouvelle cible de vidange (KM) :
+                        {t('Nouvelle cible de vidange (KM) :')}
                       </label>
                       <input
                         type="number"
@@ -476,7 +478,7 @@ export const VehicleMaintenanceModal: React.FC<VehicleMaintenanceModalProps> = (
                         }}
                         className="bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 text-[10px] px-2 py-1 rounded font-mono cursor-pointer"
                       >
-                        +10 000 KM
+                        {t('+10 000 KM')}
                       </button>
                       <button
                         type="button"
@@ -487,7 +489,7 @@ export const VehicleMaintenanceModal: React.FC<VehicleMaintenanceModalProps> = (
                         }}
                         className="bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 text-[10px] px-2 py-1 rounded font-mono cursor-pointer"
                       >
-                        +15 000 KM
+                        {t('+15 000 KM')}
                       </button>
                     </div>
                   </div>
@@ -499,26 +501,26 @@ export const VehicleMaintenanceModal: React.FC<VehicleMaintenanceModalProps> = (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Prestataire / Garage partenaire
+                  {t('Prestataire / Garage partenaire')}
                 </label>
                 <input
                   type="text"
                   value={provider}
                   onChange={(e) => setProvider(e.target.value)}
-                  placeholder="Ex: Garage Midas Nouaceur, Succursale Renault..."
+                  placeholder={t('Ex: Garage Midas Nouaceur, Succursale Renault...')}
                   className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  N° Facture / Référence bon d'intervention
+                  {t("N° Facture / Référence bon d'intervention")}
                 </label>
                 <input
                   type="text"
                   value={invoiceNumber}
                   onChange={(e) => setInvoiceNumber(e.target.value)}
-                  placeholder="Ex: FAC-2026-0883"
+                  placeholder={t('Ex: FAC-2026-0883')}
                   className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-amber-500"
                 />
               </div>
@@ -527,13 +529,13 @@ export const VehicleMaintenanceModal: React.FC<VehicleMaintenanceModalProps> = (
             {/* NOTES */}
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1">
-                Observations techniques / Références pièces
+                {t('Observations techniques / Références pièces')}
               </label>
               <textarea
                 rows={2}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="Ex: Remplacement filtre à gazole Bosch, vidange huile 5W30 100% synthèse."
+                placeholder={t('Ex: Remplacement filtre à gazole Bosch, vidange huile 5W30 100% synthèse.')}
                 className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
               />
             </div>
@@ -545,14 +547,14 @@ export const VehicleMaintenanceModal: React.FC<VehicleMaintenanceModalProps> = (
                 onClick={() => setIsAddingNew(false)}
                 className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-slate-200 border border-slate-800 hover:bg-slate-800 transition-colors cursor-pointer"
               >
-                Annuler
+                {t('Annuler')}
               </button>
               <button
                 type="submit"
                 className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-4 py-2 rounded-xl text-xs shadow-md transition-all active:scale-95 cursor-pointer"
               >
                 <CheckCircle2 className="w-4 h-4" />
-                <span>Valider et enregistrer la dépense</span>
+                <span>{t('Valider et enregistrer la dépense')}</span>
               </button>
             </div>
           </form>
@@ -563,11 +565,11 @@ export const VehicleMaintenanceModal: React.FC<VehicleMaintenanceModalProps> = (
           <div className="flex items-center justify-between border-b border-slate-800 pb-2">
             <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
               <Layers className="w-3.5 h-3.5 text-amber-400" />
-              <span>Historique chronologique des entretiens ({expenses.length})</span>
+              <span>{t('Historique chronologique des entretiens ({expensesCount})', { expensesCount: expenses.length })}</span>
             </h3>
             {totalExpensesCost > 0 && (
               <span className="text-xs font-mono font-bold text-amber-400">
-                Total : {totalExpensesCost.toLocaleString('fr-FR')} MAD
+                {t('Total : {totalExpensesCost} MAD', { totalExpensesCost: totalExpensesCost.toLocaleString('fr-FR') })}
               </span>
             )}
           </div>
@@ -576,7 +578,7 @@ export const VehicleMaintenanceModal: React.FC<VehicleMaintenanceModalProps> = (
             <div className="bg-slate-950/60 border border-dashed border-slate-800 rounded-xl py-10 text-center space-y-2">
               <Wrench className="w-8 h-8 text-slate-600 mx-auto" />
               <p className="text-xs text-slate-400">
-                Aucune dépense d'entretien enregistrée pour ce véhicule.
+                {t("Aucune dépense d'entretien enregistrée pour ce véhicule.")}
               </p>
               {canManage && (
                 <button
@@ -586,7 +588,7 @@ export const VehicleMaintenanceModal: React.FC<VehicleMaintenanceModalProps> = (
                   }}
                   className="text-xs text-amber-400 hover:text-amber-300 font-semibold underline cursor-pointer"
                 >
-                  Ajouter la première intervention
+                  {t('Ajouter la première intervention')}
                 </button>
               )}
             </div>
@@ -612,7 +614,7 @@ export const VehicleMaintenanceModal: React.FC<VehicleMaintenanceModalProps> = (
                           <span
                             className={`text-[10px] px-2 py-0.2 rounded-md border font-medium ${catInfo.badgeClass}`}
                           >
-                            {catInfo.label}
+                            {t(catInfo.label)}
                           </span>
                         </div>
 
@@ -624,7 +626,7 @@ export const VehicleMaintenanceModal: React.FC<VehicleMaintenanceModalProps> = (
 
                           <span className="flex items-center gap-1 font-mono text-slate-300">
                             <Gauge className="w-3 h-3 text-slate-500" />
-                            {exp.kmAtExpense.toLocaleString('fr-FR')} KM
+                            {t('{kmAtExpense} KM', { kmAtExpense: exp.kmAtExpense.toLocaleString('fr-FR') })}
                           </span>
 
                           {exp.provider && (
@@ -649,10 +651,10 @@ export const VehicleMaintenanceModal: React.FC<VehicleMaintenanceModalProps> = (
                         )}
 
                         <div className="text-[10px] text-slate-500 mt-1">
-                          Enregistré par {exp.recordedBy || 'Collaborateur'}
+                          {t('Enregistré par {recordedBy}', { recordedBy: exp.recordedBy || 'Collaborateur' })}
                           {exp.nextOilChangeTargetKm && (
-                            <span className="text-amber-400/90 font-mono ml-2">
-                              • Échéance vidange fixée à {exp.nextOilChangeTargetKm.toLocaleString('fr-FR')} KM
+                            <span className="text-amber-400/90 font-mono ms-2">
+                              {t('• Échéance vidange fixée à {nextOilChangeTargetKm} KM', { nextOilChangeTargetKm: exp.nextOilChangeTargetKm.toLocaleString('fr-FR') })}
                             </span>
                           )}
                         </div>
@@ -661,12 +663,12 @@ export const VehicleMaintenanceModal: React.FC<VehicleMaintenanceModalProps> = (
 
                     {/* COST & DELETE */}
                     <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-800">
-                      <div className="text-right">
+                      <div className="text-end">
                         <span className="text-base font-black text-amber-400 font-mono">
                           {exp.costMAD.toLocaleString('fr-FR')}
                         </span>
-                        <span className="text-[10px] text-amber-500 font-mono font-bold ml-1">
-                          MAD
+                        <span className="text-[10px] text-amber-500 font-mono font-bold ms-1">
+                          {t('MAD')}
                         </span>
                       </div>
 
@@ -676,13 +678,13 @@ export const VehicleMaintenanceModal: React.FC<VehicleMaintenanceModalProps> = (
                           onClick={() => {
                             if (
                               window.confirm(
-                                `Supprimer cette dépense "${exp.title}" (${exp.costMAD} MAD) ?`
+                                t('Supprimer cette dépense "{title}" ({costMAD} MAD) ?', { title: exp.title, costMAD: exp.costMAD })
                               )
                             ) {
                               onDeleteExpense(vehicle.id, exp.id);
                             }
                           }}
-                          title="Supprimer cette dépense"
+                          title={t('Supprimer cette dépense')}
                           className="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -699,13 +701,13 @@ export const VehicleMaintenanceModal: React.FC<VehicleMaintenanceModalProps> = (
         {/* FOOTER */}
         <div className="border-t border-slate-800 pt-3 flex items-center justify-between">
           <span className="text-[11px] text-slate-500">
-            Morvello Cars • Carnet technique conforme aux normes d'entretien constructeur
+            {t("Morvello Cars • Carnet technique conforme aux normes d'entretien constructeur")}
           </span>
           <button
             onClick={onClose}
             className="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-white transition-colors cursor-pointer"
           >
-            Fermer
+            {t('Fermer')}
           </button>
         </div>
       </div>

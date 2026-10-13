@@ -16,6 +16,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 
+import { useI18n } from '../../i18n/I18nContext';
 interface VehicleEditModalProps {
   vehicle: Vehicle | null;
   activeContract?: Contract | null;
@@ -39,6 +40,7 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
   onDeleteRequest,
   onOpenMaintenanceModal,
 }) => {
+  const { t } = useI18n();
   const isAdmin = currentUser.role === 'admin';
   const [propagateScope, setPropagateScope] = usePropagationScope();
   const managers = users.filter((u) => u.role === 'manager');
@@ -156,13 +158,13 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
             </div>
             <div>
               <h2 className="text-base font-bold text-white">
-                Modifier le Véhicule{' '}
+                {t('Modifier le Véhicule')}{' '}
                 <span className="text-amber-400">
                   {vehicle.brand} {vehicle.model}
                 </span>
               </h2>
               <p className="text-[11px] text-slate-400 font-mono">
-                ID : {vehicle.id} • Immatriculation : {vehicle.plate}
+                {t('ID : {id} • Immatriculation : {plate}', { id: vehicle.id, plate: vehicle.plate })}
               </p>
             </div>
           </div>
@@ -180,15 +182,15 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
             <label className="flex items-center justify-between font-semibold text-slate-300 mb-1.5">
               <span className="flex items-center gap-1.5">
                 <UserCheck className="w-3.5 h-3.5 text-amber-400" />
-                Responsable attitré de la flotte
+                {t('Responsable attitré de la flotte')}
               </span>
               {isAdmin ? (
                 <span className="text-[10px] text-emerald-400 bg-emerald-500/15 px-2 py-0.5 rounded font-mono">
-                  Géré par Gérant
+                  {t('Géré par Gérant')}
                 </span>
               ) : (
                 <span className="text-[10px] text-slate-400 bg-slate-800 px-2 py-0.5 rounded flex items-center gap-1">
-                  <Lock className="w-2.5 h-2.5" /> Modifiable uniquement par Gérant
+                  <Lock className="w-2.5 h-2.5" /> {t('Modifiable uniquement par Gérant')}
                 </span>
               )}
             </label>
@@ -200,7 +202,7 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
                   onChange={(e) => setForm({ ...form, assignedManagerId: e.target.value })}
                   className="w-full bg-slate-900 border border-amber-500/50 rounded-xl px-3 py-2 text-white font-medium focus:border-amber-400 focus:outline-none"
                 >
-                  <option value="">-- Flotte centrale (Non affecté à un responsable particulier) --</option>
+                  <option value="">{t('-- Flotte centrale (Non affecté à un responsable particulier) --')}</option>
                   {managers.map((m) => (
                     <option key={m.id} value={m.id}>
                       {m.name} — {m.assignedFleetName || m.agency}
@@ -208,35 +210,35 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
                   ))}
                 </select>
                 <p className="text-[11px] text-slate-400 mt-1">
-                  L'affectation détermine quel responsable visualise ce véhicule et peut établir des contrats avec lui.
+                  {t("L'affectation détermine quel responsable visualise ce véhicule et peut établir des contrats avec lui.")}
                 </p>
               </>
             ) : (
               <div className="px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-200 font-semibold flex items-center justify-between">
-                <span>{vehicle.assignedManagerName || 'Non affecté (Flotte centrale)'}</span>
-                <span className="text-[10px] text-slate-400 font-normal">Contactez le Gérant pour réaffecter</span>
+                <span>{vehicle.assignedManagerName || t('Non affecté (Flotte centrale)')}</span>
+                <span className="text-[10px] text-slate-400 font-normal">{t('Contactez le Gérant pour réaffecter')}</span>
               </div>
             )}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-slate-300 font-semibold mb-1">Marque *</label>
+              <label className="block text-slate-300 font-semibold mb-1">{t('Marque *')}</label>
               <input
                 type="text"
                 required
-                placeholder="Ex: DACIA, MERCEDES, AUDI..."
+                placeholder={t('Ex: DACIA, MERCEDES, AUDI...')}
                 value={form.brand}
                 onChange={(e) => setForm({ ...form, brand: e.target.value })}
                 className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white uppercase font-bold focus:border-amber-500 focus:outline-none"
               />
             </div>
             <div>
-              <label className="block text-slate-300 font-semibold mb-1">Modèle & Version *</label>
+              <label className="block text-slate-300 font-semibold mb-1">{t('Modèle & Version *')}</label>
               <input
                 type="text"
                 required
-                placeholder="Ex: Logan 1.5 dCi Prestige"
+                placeholder={t('Ex: Logan 1.5 dCi Prestige')}
                 value={form.model}
                 onChange={(e) => setForm({ ...form, model: e.target.value })}
                 className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white font-semibold focus:border-amber-500 focus:outline-none"
@@ -246,60 +248,60 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
 
           <div>
             <label className="block text-slate-300 font-semibold mb-1">
-              Immatriculation Marocaine (lettres françaises) *
+              {t('Immatriculation Marocaine (lettres françaises) *')}
             </label>
             <input
               type="text"
               required
-              placeholder="Ex: 55264 | A | 73"
+              placeholder={t('Ex: 55264 | A | 73')}
               value={form.plate}
               onChange={(e) => setForm({ ...form, plate: e.target.value })}
               className="w-full bg-slate-950 border-2 border-amber-500/50 rounded-xl px-3 py-2 text-amber-400 font-mono font-bold text-sm focus:border-amber-400 focus:outline-none tracking-wider"
             />
-            <p className="text-[11px] text-slate-400 mt-1">Format standard marocain : Chiffres | Lettre française | Région (ex: 55264 | A | 73)</p>
+            <p className="text-[11px] text-slate-400 mt-1">{t('Format standard marocain : Chiffres | Lettre française | Région (ex: 55264 | A | 73)')}</p>
           </div>
 
           <div>
-            <label className="block text-slate-300 font-semibold mb-1">Gamme (packs d'assurance)</label>
+            <label className="block text-slate-300 font-semibold mb-1">{t("Gamme (packs d'assurance)")}</label>
             <select
               value={form.insuranceCategory}
               onChange={(e) => setForm({ ...form, insuranceCategory: e.target.value as VehicleCategory | '' })}
               className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white focus:border-amber-500 focus:outline-none font-medium"
             >
-              <option value="">Automatique ({getCategoryLabel(inferVehicleCategory(form.brand, form.model))})</option>
+              <option value="">{t('Automatique ({getCategoryLabel})', { getCategoryLabel: getCategoryLabel(inferVehicleCategory(form.brand, form.model)) })}</option>
               {VEHICLE_CATEGORIES.map((cat) => (
                 <option key={cat.id} value={cat.id}>
                   {cat.label}
                 </option>
               ))}
             </select>
-            <p className="text-[11px] text-slate-400 mt-1">Détermine la franchise et la caution de chaque pack sur les contrats.</p>
+            <p className="text-[11px] text-slate-400 mt-1">{t('Détermine la franchise et la caution de chaque pack sur les contrats.')}</p>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             <div>
-              <label className="block text-slate-300 font-semibold mb-1">Carburant *</label>
+              <label className="block text-slate-300 font-semibold mb-1">{t('Carburant *')}</label>
               <select
                 value={form.fuelType}
                 onChange={(e) => setForm({ ...form, fuelType: e.target.value as FuelType })}
                 className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white focus:border-amber-500 focus:outline-none font-medium"
               >
-                <option value="Diesel">Diesel</option>
-                <option value="Essence">Essence</option>
-                <option value="Hybride">Hybride</option>
-                <option value="Électrique">Électrique</option>
+                <option value="Diesel">{t('Diesel')}</option>
+                <option value="Essence">{t('Essence')}</option>
+                <option value="Hybride">{t('Hybride')}</option>
+                <option value="Électrique">{t('Électrique')}</option>
               </select>
             </div>
 
             <div>
-              <label className="block text-slate-300 font-semibold mb-1">Statut *</label>
+              <label className="block text-slate-300 font-semibold mb-1">{t('Statut *')}</label>
               {activeContract ? (
                 <div className="w-full bg-blue-500/10 border border-blue-500/30 rounded-xl px-3 py-2 text-blue-300 text-sm flex items-center justify-between">
                   <span className="font-semibold flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-blue-400"></span>
-                    Loué (Contrat {activeContract.contractNumber})
+                    {t('Loué (Contrat {contractNumber})', { contractNumber: activeContract.contractNumber })}
                   </span>
-                  <span className="text-[11px] text-blue-400">Géré automatiquement</span>
+                  <span className="text-[11px] text-blue-400">{t('Géré automatiquement')}</span>
                 </div>
               ) : (
                 <select
@@ -307,16 +309,16 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
                   onChange={(e) => setForm({ ...form, status: e.target.value as VehicleStatus })}
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white focus:border-amber-500 focus:outline-none font-medium"
                 >
-                  <option value="available">Disponible</option>
-                  <option value="rented">Loué (En cours)</option>
-                  <option value="maintenance">En Maintenance</option>
-                  <option value="inactive">Inactif</option>
+                  <option value="available">{t('Disponible')}</option>
+                  <option value="rented">{t('Loué (En cours)')}</option>
+                  <option value="maintenance">{t('En Maintenance')}</option>
+                  <option value="inactive">{t('Inactif')}</option>
                 </select>
               )}
             </div>
 
             <div className="col-span-2 sm:col-span-1">
-              <label className="block text-slate-300 font-semibold mb-1">Kilométrage Actuel (KM) *</label>
+              <label className="block text-slate-300 font-semibold mb-1">{t('Kilométrage Actuel (KM) *')}</label>
               <input
                 type="number"
                 required
@@ -330,7 +332,7 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
 
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="block text-slate-300 font-semibold mb-1">Tarif / Jour (MAD)</label>
+              <label className="block text-slate-300 font-semibold mb-1">{t('Tarif / Jour (MAD)')}</label>
               <input
                 type="number"
                 min={1}
@@ -341,7 +343,7 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
               />
             </div>
             <div>
-              <label className="block text-slate-300 font-semibold mb-1">Année Modèle</label>
+              <label className="block text-slate-300 font-semibold mb-1">{t('Année Modèle')}</label>
               <input
                 type="number"
                 min={2000}
@@ -352,10 +354,10 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
               />
             </div>
             <div>
-              <label className="block text-slate-300 font-semibold mb-1">Couleur</label>
+              <label className="block text-slate-300 font-semibold mb-1">{t('Couleur')}</label>
               <input
                 type="text"
-                placeholder="Ex: Noir Métallisé"
+                placeholder={t('Ex: Noir Métallisé')}
                 value={form.color}
                 onChange={(e) => setForm({ ...form, color: e.target.value })}
                 className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white focus:border-amber-500 focus:outline-none"
@@ -367,12 +369,12 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
           <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-3.5 space-y-3">
             <div className="flex items-center gap-2 text-xs font-bold text-amber-400 uppercase tracking-wider pb-1 border-b border-slate-800">
               <Shield className="w-4 h-4 text-amber-400" />
-              <span>Suivi Administratif & Technique (Maroc)</span>
+              <span>{t('Suivi Administratif & Technique (Maroc)')}</span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-slate-300 font-semibold mb-1">Date d'échéance Assurance</label>
+                <label className="block text-slate-300 font-semibold mb-1">{t("Date d'échéance Assurance")}</label>
                 <input
                   type="date"
                   value={form.insuranceExpiryDate}
@@ -381,11 +383,11 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
                 />
               </div>
               <div>
-                <label className="block text-slate-300 font-semibold mb-1">Compagnie d'Assurance</label>
+                <label className="block text-slate-300 font-semibold mb-1">{t("Compagnie d'Assurance")}</label>
                 <input
                   type="text"
                   list="insurance-companies-list"
-                  placeholder="Ex: Wafa Assurance, Sanlam, RMA..."
+                  placeholder={t('Ex: Wafa Assurance, Sanlam, RMA...')}
                   value={form.insuranceCompany}
                   onChange={(e) => setForm({ ...form, insuranceCompany: e.target.value })}
                   className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white focus:border-amber-500 focus:outline-none"
@@ -403,7 +405,7 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <label className="block text-slate-300 font-semibold mb-1">Échéance Visite Technique</label>
+                <label className="block text-slate-300 font-semibold mb-1">{t('Échéance Visite Technique')}</label>
                 <input
                   type="date"
                   value={form.technicalInspectionExpiryDate}
@@ -412,7 +414,7 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
                 />
               </div>
               <div>
-                <label className="block text-slate-300 font-semibold mb-1">Année Vignette Payée</label>
+                <label className="block text-slate-300 font-semibold mb-1">{t('Année Vignette Payée')}</label>
                 <input
                   type="number"
                   min={2020}
@@ -423,11 +425,11 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
                 />
               </div>
               <div>
-                <label className="block text-slate-300 font-semibold mb-1">Prochaine Vidange (KM)</label>
+                <label className="block text-slate-300 font-semibold mb-1">{t('Prochaine Vidange (KM)')}</label>
                 <input
                   type="number"
                   min={0}
-                  placeholder="Ex: 50000"
+                  placeholder={t('Ex: 50000')}
                   value={form.nextOilChangeKm ?? ''}
                   onChange={(e) =>
                     setForm({
@@ -449,14 +451,14 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
                   </div>
                   <div>
                     <span className="text-xs font-bold text-white block">
-                      Carnet de Dépenses & Interventions
+                      {t('Carnet de Dépenses & Interventions')}
                     </span>
                     <span className="text-[11px] text-slate-400">
                       {vehicle.maintenanceExpenses && vehicle.maintenanceExpenses.length > 0
                         ? `${vehicle.maintenanceExpenses.length} facture(s) enregistrée(s) • Total : ${vehicle.maintenanceExpenses
                             .reduce((s, e) => s + (e.costMAD || 0), 0)
                             .toLocaleString('fr-FR')} MAD`
-                        : 'Aucune dépense enregistrée'}
+                        : t('Aucune dépense enregistrée')}
                     </span>
                   </div>
                 </div>
@@ -469,7 +471,7 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
                   }}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 transition-all cursor-pointer shadow-sm"
                 >
-                  <span>Ouvrir le carnet</span>
+                  <span>{t('Ouvrir le carnet')}</span>
                   <ExternalLink className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -478,7 +480,7 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
 
           <div>
             <label className="block text-slate-300 font-semibold mb-1">
-              Date dernière révision / Contrôle technique
+              {t('Date dernière révision / Contrôle technique')}
             </label>
             <input
               type="date"
@@ -489,10 +491,10 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
           </div>
 
           <div>
-            <label className="block text-slate-300 font-semibold mb-1">Notes internes / Équipements spécifiques</label>
+            <label className="block text-slate-300 font-semibold mb-1">{t('Notes internes / Équipements spécifiques')}</label>
             <textarea
               rows={2}
-              placeholder="Ex: Pneus neufs, GPS installé, boîte automatique, double des clés disponible..."
+              placeholder={t('Ex: Pneus neufs, GPS installé, boîte automatique, double des clés disponible...')}
               value={form.notes}
               onChange={(e) => setForm({ ...form, notes: e.target.value })}
               className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white focus:border-amber-500 focus:outline-none"
@@ -502,7 +504,7 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
           <PropagationScopeSelect
             value={propagateScope}
             onChange={setPropagateScope}
-            subject="de ce véhicule (marque, modèle, plaque…)"
+            subject={t('de ce véhicule (marque, modèle, plaque…)')}
           />
 
           <div className="flex items-center justify-between pt-4 border-t border-slate-800">
@@ -513,7 +515,7 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
                 className="flex items-center gap-1.5 px-3 py-2 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-xl text-xs font-semibold transition-colors cursor-pointer border border-rose-500/20"
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                Supprimer ce véhicule
+                {t('Supprimer ce véhicule')}
               </button>
             ) : (
               <div />
@@ -525,14 +527,14 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
                 onClick={onClose}
                 className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl transition-colors cursor-pointer"
               >
-                Annuler
+                {t('Annuler')}
               </button>
               <button
                 type="submit"
                 className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 text-xs font-bold rounded-xl shadow-md shadow-amber-500/20 transition-all cursor-pointer active:scale-95"
               >
                 <Save className="w-4 h-4" />
-                Enregistrer les modifications
+                {t('Enregistrer les modifications')}
               </button>
             </div>
           </div>

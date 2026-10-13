@@ -8,6 +8,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 
+import { useI18n } from '../../i18n/I18nContext';
 interface PendingApprovalsBannerProps {
   isAdmin: boolean;
   pendingApprovalVehicles: Vehicle[];
@@ -29,6 +30,7 @@ export const PendingApprovalsBanner: React.FC<PendingApprovalsBannerProps> = ({
   onReject,
   onToast,
 }) => {
+  const { t } = useI18n();
   const [approvalManagerSelections, setApprovalManagerSelections] = useState<Record<string, string>>({});
 
   return (
@@ -43,15 +45,15 @@ export const PendingApprovalsBanner: React.FC<PendingApprovalsBannerProps> = ({
               </div>
               <div>
                 <h3 className="text-sm font-bold text-amber-200 flex items-center gap-2">
-                  Demandes d'ajout de véhicules en attente d'approbation ({pendingApprovalVehicles.length})
+                  {t("Demandes d'ajout de véhicules en attente d'approbation ({pendingApprovalVehiclesCount})", { pendingApprovalVehiclesCount: pendingApprovalVehicles.length })}
                 </h3>
                 <p className="text-xs text-slate-400">
-                  Véhicules proposés par vos équipes (Responsables d'agence, Agents). Votre approbation de Gérant est obligatoire avant intégration au parc officiel et mise en location.
+                  {t("Véhicules proposés par vos équipes (Responsables d'agence, Agents). Votre approbation de Gérant est obligatoire avant intégration au parc officiel et mise en location.")}
                 </p>
               </div>
             </div>
             <span className="text-[11px] bg-amber-500 text-slate-950 px-2.5 py-1 rounded-lg font-mono font-extrabold shadow-sm">
-              Action Gérant Requise
+              {t('Action Gérant Requise')}
             </span>
           </div>
 
@@ -74,26 +76,26 @@ export const PendingApprovalsBanner: React.FC<PendingApprovalsBannerProps> = ({
                         </div>
                       </div>
                       <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-full font-semibold">
-                        ⏳ En attente
+                        {t('⏳ En attente')}
                       </span>
                     </div>
 
                     <div className="text-xs text-slate-400 mt-2.5 grid grid-cols-2 gap-2 bg-slate-950/60 p-2 rounded-lg border border-slate-800">
                       <div>
-                        <span className="text-[10px] text-slate-500 block">Proposé par :</span>
-                        <strong className="text-slate-200">{pv.proposedBy || 'Collaborateur'}</strong>
+                        <span className="text-[10px] text-slate-500 block">{t('Proposé par :')}</span>
+                        <strong className="text-slate-200">{pv.proposedBy || t('Collaborateur')}</strong>
                       </div>
                       <div>
-                        <span className="text-[10px] text-slate-500 block">Date de soumission :</span>
-                        <span className="font-mono text-slate-300">{pv.proposedAt || 'Récemment'}</span>
+                        <span className="text-[10px] text-slate-500 block">{t('Date de soumission :')}</span>
+                        <span className="font-mono text-slate-300">{pv.proposedAt || t('Récemment')}</span>
                       </div>
                       <div>
-                        <span className="text-[10px] text-slate-500 block">Tarif journalier :</span>
-                        <strong className="text-amber-400 font-mono">{pv.dailyRate} MAD/j</strong>
+                        <span className="text-[10px] text-slate-500 block">{t('Tarif journalier :')}</span>
+                        <strong className="text-amber-400 font-mono">{t('{dailyRate} MAD/j', { dailyRate: pv.dailyRate })}</strong>
                       </div>
                       <div>
-                        <span className="text-[10px] text-slate-500 block">Compteur :</span>
-                        <span className="font-mono text-slate-300">{pv.currentKm.toLocaleString()} KM</span>
+                        <span className="text-[10px] text-slate-500 block">{t('Compteur :')}</span>
+                        <span className="font-mono text-slate-300">{t('{currentKm} KM', { currentKm: pv.currentKm.toLocaleString() })}</span>
                       </div>
                     </div>
 
@@ -101,7 +103,7 @@ export const PendingApprovalsBanner: React.FC<PendingApprovalsBannerProps> = ({
                     <div className="mt-2.5 bg-slate-950/80 p-2.5 rounded-lg border border-slate-800">
                       <label className="text-[11px] text-slate-300 font-semibold mb-1 flex items-center gap-1.5">
                         <UserCheck className="w-3.5 h-3.5 text-amber-400" />
-                        Affecter au Responsable attitré lors de la validation :
+                        {t('Affecter au Responsable attitré lors de la validation :')}
                       </label>
                       <select
                         value={selectedManagerId}
@@ -113,7 +115,7 @@ export const PendingApprovalsBanner: React.FC<PendingApprovalsBannerProps> = ({
                         }
                         className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-amber-400 focus:outline-none"
                       >
-                        <option value="">-- Flotte centrale (Non affecté pour le moment) --</option>
+                        <option value="">{t('-- Flotte centrale (Non affecté pour le moment) --')}</option>
                         {managers.map((m) => (
                           <option key={m.id} value={m.id}>
                             {m.name} — {m.assignedFleetName || m.agency}
@@ -121,7 +123,7 @@ export const PendingApprovalsBanner: React.FC<PendingApprovalsBannerProps> = ({
                         ))}
                       </select>
                       <span className="text-[10px] text-slate-500 block mt-1">
-                        Seul le Gérant peut décider de l'affectation finale à un Responsable.
+                        {t("Seul le Gérant peut décider de l'affectation finale à un Responsable.")}
                       </span>
                     </div>
                   </div>
@@ -130,24 +132,24 @@ export const PendingApprovalsBanner: React.FC<PendingApprovalsBannerProps> = ({
                     <button
                       onClick={() => {
                         onApprove(pv.id, selectedManagerId || undefined);
-                        onToast(`Véhicule ${pv.brand} ${pv.model} (${pv.plate}) approuvé et intégré au parc officiel !`);
+                        onToast(t('Véhicule {brand} {model} ({plate}) approuvé et intégré au parc officiel !', { brand: pv.brand, model: pv.model, plate: pv.plate }));
                       }}
                       className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-1.5 px-3 rounded-lg text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-colors shadow-sm"
                     >
                       <CheckCircle2 className="w-3.5 h-3.5" />
-                      Approuver & Intégrer au parc
+                      {t('Approuver & Intégrer au parc')}
                     </button>
                     <button
                       onClick={() => {
-                        if (window.confirm(`Confirmez-vous le refus de ce véhicule (${pv.brand} ${pv.model}) ?`)) {
+                        if (window.confirm(t('Confirmez-vous le refus de ce véhicule ({brand} {model}) ?', { brand: pv.brand, model: pv.model }))) {
                           onReject(pv.id);
-                          onToast(`Véhicule ${pv.brand} refusé.`);
+                          onToast(t('Véhicule {brand} refusé.', { brand: pv.brand }));
                         }
                       }}
                       className="bg-slate-800 hover:bg-rose-950 hover:text-rose-300 hover:border-rose-700/60 text-slate-400 font-semibold py-1.5 px-3 rounded-lg text-xs flex items-center gap-1 cursor-pointer transition-colors border border-slate-700"
                     >
                       <X className="w-3.5 h-3.5" />
-                      Refuser
+                      {t('Refuser')}
                     </button>
                   </div>
                 </div>
@@ -164,15 +166,15 @@ export const PendingApprovalsBanner: React.FC<PendingApprovalsBannerProps> = ({
             <div className="flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 text-blue-400" />
               <h3 className="text-xs sm:text-sm font-bold text-blue-200">
-                Vos propositions de véhicules en attente d'approbation du Gérant ({myPendingVehicles.length})
+                {t("Vos propositions de véhicules en attente d'approbation du Gérant ({myPendingVehiclesCount})", { myPendingVehiclesCount: myPendingVehicles.length })}
               </h3>
             </div>
             <span className="text-[10px] bg-blue-500/20 text-blue-300 border border-blue-500/40 px-2 py-0.5 rounded font-mono font-semibold">
-              En attente du Gérant
+              {t('En attente du Gérant')}
             </span>
           </div>
           <p className="text-[11px] text-slate-300">
-            Ces véhicules ont été transmis au Gérant ({gerantName}). Dès validation, ils apparaîtront dans la flotte active et pourront être loués via le module Contrats.
+            {t('Ces véhicules ont été transmis au Gérant ({gerantName}). Dès validation, ils apparaîtront dans la flotte active et pourront être loués via le module Contrats.', { gerantName })}
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 pt-1">
             {myPendingVehicles.map((pv) => (
@@ -182,7 +184,7 @@ export const PendingApprovalsBanner: React.FC<PendingApprovalsBannerProps> = ({
                   <div className="font-mono text-amber-400 font-bold text-[11px]">{pv.plate}</div>
                 </div>
                 <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full font-semibold">
-                  ⏳ En cours d'examen
+                  {t("⏳ En cours d'examen")}
                 </span>
               </div>
             ))}

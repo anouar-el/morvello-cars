@@ -22,7 +22,9 @@ import { VehicleImportModal } from './vehicles/VehicleImportModal';
 import { PendingApprovalsBanner } from './vehicles/PendingApprovalsBanner';
 import { VehicleMaintenanceModal } from './vehicles/VehicleMaintenanceModal';
 
+import { useI18n } from '../i18n/I18nContext';
 export const VehiclesList: React.FC = () => {
+  const { t } = useI18n();
   const {
     vehicles,
     addVehicle,
@@ -69,12 +71,12 @@ export const VehiclesList: React.FC = () => {
 
     const res = deleteVehicle(vehicleToDelete.id);
     if (!res.success) {
-      setDeleteError(res.error || 'Impossible de supprimer ce véhicule.');
+      setDeleteError(res.error || t('Impossible de supprimer ce véhicule.'));
       return;
     }
 
     triggerToast(
-      `Véhicule ${vehicleToDelete.brand} ${vehicleToDelete.model} (${vehicleToDelete.plate}) supprimé avec succès.`
+      t('Véhicule {brand} {model} ({plate}) supprimé avec succès.', { brand: vehicleToDelete.brand, model: vehicleToDelete.model, plate: vehicleToDelete.plate })
     );
     setVehicleToDelete(null);
     setDeleteError(null);
@@ -91,7 +93,7 @@ export const VehiclesList: React.FC = () => {
         ? 'available'
         : veh.status;
     updateVehicle(veh.id, { status: newStatus });
-    triggerToast(`Statut du véhicule ${veh.plate} mis à jour : ${newStatus}`);
+    triggerToast(t('Statut du véhicule {plate} mis à jour : {newStatus}', { plate: veh.plate, newStatus }));
   };
 
   const canUserDeleteVehicles = isAdmin || isManager || hasPermission('canDeleteVehicles');
@@ -219,7 +221,7 @@ export const VehiclesList: React.FC = () => {
     link.click();
     document.body.removeChild(link);
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-    triggerToast('Exportation CSV (séparateur point-virgule) téléchargée.');
+    triggerToast(t('Exportation CSV (séparateur point-virgule) téléchargée.'));
   };
 
   const exportVehiclesToExcel = async () => {
@@ -288,7 +290,7 @@ export const VehiclesList: React.FC = () => {
       link.click();
       document.body.removeChild(link);
       setTimeout(() => URL.revokeObjectURL(url), 1000);
-      triggerToast('Exportation Excel (.xlsx) téléchargée avec succès.');
+      triggerToast(t('Exportation Excel (.xlsx) téléchargée avec succès.'));
     } catch {
       exportVehiclesToCSV();
     }
@@ -298,7 +300,7 @@ export const VehiclesList: React.FC = () => {
     <div className="space-y-6">
       {/* TOAST SUCCESS */}
       {successToast && (
-        <div className="fixed top-20 right-6 z-50 bg-emerald-950 border border-emerald-500/50 text-emerald-200 px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-top-4 duration-200">
+        <div className="fixed top-20 end-6 z-50 bg-emerald-950 border border-emerald-500/50 text-emerald-200 px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-top-4 duration-200">
           <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
           <span className="text-xs font-semibold">{successToast}</span>
         </div>
@@ -309,32 +311,32 @@ export const VehiclesList: React.FC = () => {
         <div>
           <div className="flex items-center gap-2 text-xs font-semibold text-emerald-400 uppercase tracking-widest font-mono">
             <Car className="w-4 h-4" />
-            Module Flotte & Parc Automobile • Section 9
+            {t('Module Flotte & Parc Automobile • Section 9')}
           </div>
           <h1 className="text-xl font-bold text-white tracking-tight mt-1 flex items-center gap-2.5">
-            <span>Parc Automobile & Flottes Assignées</span>
+            <span>{t('Parc Automobile & Flottes Assignées')}</span>
             {isManager && (
               <span className="text-xs font-medium bg-blue-500/20 text-blue-300 border border-blue-500/40 px-2.5 py-0.5 rounded-full font-mono">
-                Vue Responsable : {currentUser.assignedFleetName || currentUser.name}
+                {t('Vue Responsable : {assignedFleetName}', { assignedFleetName: currentUser.assignedFleetName || currentUser.name })}
               </span>
             )}
             {isAgent && (
               <span className="text-xs font-medium bg-purple-500/20 text-purple-300 border border-purple-500/40 px-2.5 py-0.5 rounded-full font-mono">
-                Vue Agent : {currentUser.name}
+                {t('Vue Agent : {name}', { name: currentUser.name })}
               </span>
             )}
             {isAdmin && (
               <span className="text-xs font-medium bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2.5 py-0.5 rounded-full font-mono">
-                👑 Super Admin / Gérant
+                {t('👑 Super Admin / Gérant')}
               </span>
             )}
           </h1>
           <p className="text-xs text-slate-400 mt-0.5">
             {isAdmin
-              ? `Gestion centrale Gérant : affectation des véhicules aux responsables, approbation obligatoire de tous les ajouts et supervision de la flotte.`
+              ? t('Gestion centrale Gérant : affectation des véhicules aux responsables, approbation obligatoire de tous les ajouts et supervision de la flotte.')
               : isManager
-              ? `Accès Responsable : flotte assignée à votre agence. L'ajout de véhicules est ouvert mais soumis à l'approbation du Gérant.`
-              : `Accès Collaborateur : consultation de la flotte. L'ajout de véhicules est ouvert à tous sous approbation du Gérant.`}
+              ? t("Accès Responsable : flotte assignée à votre agence. L'ajout de véhicules est ouvert mais soumis à l'approbation du Gérant.")
+              : t("Accès Collaborateur : consultation de la flotte. L'ajout de véhicules est ouvert à tous sous approbation du Gérant.")}
           </p>
         </div>
 
@@ -342,19 +344,19 @@ export const VehiclesList: React.FC = () => {
           <button
             onClick={exportVehiclesToExcel}
             className="flex items-center gap-1.5 bg-emerald-700/80 hover:bg-emerald-600 text-white px-3 py-2 rounded-xl text-xs font-semibold shadow-sm transition-colors cursor-pointer"
-            title="Télécharger toute la flotte au format Excel (.xlsx)"
+            title={t('Télécharger toute la flotte au format Excel (.xlsx)')}
           >
             <FileSpreadsheet className="w-3.5 h-3.5" />
-            <span>Export Excel</span>
+            <span>{t('Export Excel')}</span>
           </button>
 
           <button
             onClick={exportVehiclesToCSV}
             className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 px-3 py-2 rounded-xl text-xs font-semibold shadow-sm transition-colors cursor-pointer"
-            title="Télécharger la flotte au format CSV"
+            title={t('Télécharger la flotte au format CSV')}
           >
             <Download className="w-3.5 h-3.5" />
-            <span>Export CSV</span>
+            <span>{t('Export CSV')}</span>
           </button>
 
           {/* SÉCURITÉ : bouton d'importation masqué pour les non-administrateurs (voir canImportVehicles) */}
@@ -362,10 +364,10 @@ export const VehiclesList: React.FC = () => {
             <button
               onClick={() => setIsImportModalOpen(true)}
               className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 px-3 py-2 rounded-xl text-xs font-semibold shadow-sm transition-colors cursor-pointer"
-              title="Importer la flotte réelle depuis un fichier Excel (.xlsx) ou CSV (Réservé Administrateur)"
+              title={t('Importer la flotte réelle depuis un fichier Excel (.xlsx) ou CSV (Réservé Administrateur)')}
             >
               <Upload className="w-3.5 h-3.5 text-blue-400" />
-              <span>Importer Parc Réel</span>
+              <span>{t('Importer Parc Réel')}</span>
             </button>
           )}
 
@@ -378,7 +380,7 @@ export const VehiclesList: React.FC = () => {
             }`}
           >
             <PlusCircle className="w-4 h-4" />
-            {isAdmin ? '+ Nouveau Véhicule (Gérant)' : '+ Proposer un Véhicule (Soumis au Gérant)'}
+            {isAdmin ? t('+ Nouveau Véhicule (Gérant)') : t('+ Proposer un Véhicule (Soumis au Gérant)')}
           </button>
         </div>
       </div>
@@ -398,13 +400,13 @@ export const VehiclesList: React.FC = () => {
       {/* SEARCH & FILTERS */}
       <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl shadow-md flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div className="relative flex-1">
-          <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+          <Search className="w-4 h-4 absolute start-3 top-3 text-slate-400" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Rechercher par marque, modèle, immatriculation, responsable..."
-            className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
+            placeholder={t('Rechercher par marque, modèle, immatriculation, responsable...')}
+            className="w-full bg-slate-950 border border-slate-700 rounded-xl ps-9 pe-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
           />
         </div>
 
@@ -412,20 +414,20 @@ export const VehiclesList: React.FC = () => {
         {isAdmin && (
           <div className="flex items-center gap-1.5 min-w-0 w-full md:w-auto">
             <span className="text-xs text-slate-400 whitespace-nowrap hidden lg:inline">
-              Responsable :
+              {t('Responsable :')}
             </span>
             <select
               value={managerFilter}
               onChange={(e) => setManagerFilter(e.target.value)}
               className="min-w-0 flex-1 md:flex-none max-w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:border-amber-500 focus:outline-none cursor-pointer"
             >
-              <option value="all">Tous les responsables</option>
+              <option value="all">{t('Tous les responsables')}</option>
               {managers.map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.name} ({m.assignedFleetName || m.agency})
                 </option>
               ))}
-              <option value="unassigned">Non affectés</option>
+              <option value="unassigned">{t('Non affectés')}</option>
             </select>
           </div>
         )}
@@ -508,7 +510,7 @@ export const VehiclesList: React.FC = () => {
         onClose={() => setEditingVehicle(null)}
         onSave={(id, updatedData, options) => {
           updateVehicle(id, updatedData, options);
-          triggerToast('Véhicule mis à jour avec succès !');
+          triggerToast(t('Véhicule mis à jour avec succès !'));
         }}
         onDeleteRequest={(v) => {
           setDeleteError(null);
@@ -528,11 +530,11 @@ export const VehiclesList: React.FC = () => {
         onClose={() => setVehicleForMaintenance(null)}
         onAddExpense={(vehicleId, expenseData) => {
           addVehicleExpense(vehicleId, expenseData);
-          triggerToast(`Dépense d'entretien enregistrée (${expenseData.costMAD} MAD) !`);
+          triggerToast(t("Dépense d'entretien enregistrée ({costMAD} MAD) !", { costMAD: expenseData.costMAD }));
         }}
         onDeleteExpense={(vehicleId, expenseId) => {
           deleteVehicleExpense(vehicleId, expenseId);
-          triggerToast("Dépense d'entretien supprimée.");
+          triggerToast(t("Dépense d'entretien supprimée."));
         }}
         canManage={
           isAdmin ||

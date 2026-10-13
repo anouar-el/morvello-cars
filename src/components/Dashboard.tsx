@@ -100,7 +100,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCheckInModal, onOpen
           <div className="flex items-center gap-2 mb-1">
             <span className="w-2 h-2 rounded-full bg-amber-400"></span>
             <span className="text-xs uppercase tracking-wider text-amber-400 font-bold">
-              Morvello Cars • {agencyDisplayName}
+              {t('Morvello Cars • {agencyDisplayName}', { agencyDisplayName })}
             </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">

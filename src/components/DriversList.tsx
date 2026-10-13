@@ -3,7 +3,9 @@ import { useApp } from '../context/AppContext';
 import { Driver, DocumentType } from '../types';
 import { UserSquare2, Search, Plus, UserPlus, X, Phone, Shield } from 'lucide-react';
 
+import { useI18n } from '../i18n/I18nContext';
 export const DriversList: React.FC = () => {
+  const { t } = useI18n();
   const { drivers, addDriver } = useApp();
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
@@ -35,7 +37,7 @@ export const DriversList: React.FC = () => {
   const handleCreateDriver = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newDriverForm.firstName || !newDriverForm.lastName || !newDriverForm.docNumber || !newDriverForm.drivingLicense || !newDriverForm.phone) {
-      alert('Veuillez remplir tous les champs obligatoires');
+      alert(t('Veuillez remplir tous les champs obligatoires'));
       return;
     }
 
@@ -61,13 +63,13 @@ export const DriversList: React.FC = () => {
         <div>
           <div className="flex items-center gap-2 text-xs font-semibold text-purple-400 uppercase tracking-widest font-mono">
             <UserSquare2 className="w-4 h-4" />
-            Module Conducteurs Agréés • Section 8
+            {t('Module Conducteurs Agréés • Section 8')}
           </div>
           <h1 className="text-xl font-bold text-white tracking-tight mt-1">
-            Répertoire des Conducteurs Secondaires
+            {t('Répertoire des Conducteurs Secondaires')}
           </h1>
           <p className="text-xs text-slate-400 mt-0.5">
-            Conducteurs additionnels agréés pouvant être associés aux contrats de location Morvello.
+            {t('Conducteurs additionnels agréés pouvant être associés aux contrats de location Morvello.')}
           </p>
         </div>
 
@@ -76,24 +78,24 @@ export const DriversList: React.FC = () => {
           className="flex items-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold px-4 py-2 rounded-xl text-xs sm:text-sm shadow-md shadow-amber-500/20 transition-all cursor-pointer"
         >
           <UserPlus className="w-4 h-4" />
-          + Nouveau Conducteur
+          {t('+ Nouveau Conducteur')}
         </button>
       </div>
 
       {/* SEARCH BAR */}
       <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl shadow-md flex items-center gap-3">
         <div className="relative flex-1">
-          <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+          <Search className="w-4 h-4 absolute start-3 top-3 text-slate-400" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Rechercher par nom, prénom, téléphone, document, permis..."
-            className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
+            placeholder={t('Rechercher par nom, prénom, téléphone, document, permis...')}
+            className="w-full bg-slate-950 border border-slate-700 rounded-xl ps-9 pe-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
           />
         </div>
         <span className="text-xs font-mono text-slate-400 bg-slate-950 px-3 py-2 rounded-xl border border-slate-800">
-          {filteredDrivers.length} conducteur(s)
+          {t('{filteredDriversCount} conducteur(s)', { filteredDriversCount: filteredDrivers.length })}
         </span>
       </div>
 
@@ -109,7 +111,7 @@ export const DriversList: React.FC = () => {
                 <h3 className="text-xs font-bold text-white uppercase">
                   {drv.lastName} {drv.firstName}
                 </h3>
-                <p className="text-[10px] text-slate-400">Né(e) le {drv.birthDate}</p>
+                <p className="text-[10px] text-slate-400">{t('Né(e) le {birthDate}', { birthDate: drv.birthDate })}</p>
               </div>
               <span className="text-[10px] bg-slate-800 text-slate-300 font-mono px-2 py-0.5 rounded">
                 {drv.docType}
@@ -118,15 +120,15 @@ export const DriversList: React.FC = () => {
 
             <div className="text-xs space-y-1 text-slate-300">
               <p>
-                <span className="text-slate-500">N° Document :</span>{' '}
+                <span className="text-slate-500">{t('N° Document :')}</span>{' '}
                 <strong className="text-white font-mono">{drv.docNumber}</strong>
               </p>
               <p>
-                <span className="text-slate-500">Permis N° :</span>{' '}
+                <span className="text-slate-500">{t('Permis N° :')}</span>{' '}
                 <strong className="text-white font-mono">{drv.drivingLicense}</strong>
               </p>
               <p>
-                <span className="text-slate-500">GSM / Tél :</span>{' '}
+                <span className="text-slate-500">{t('GSM / Tél :')}</span>{' '}
                 <strong className="text-amber-400">{drv.phone}</strong>
               </p>
             </div>
@@ -147,7 +149,7 @@ export const DriversList: React.FC = () => {
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div className="flex items-center gap-2">
                 <UserPlus className="w-5 h-5 text-amber-400" />
-                <h2 className="text-base font-bold text-white">Nouveau Conducteur Agréé</h2>
+                <h2 className="text-base font-bold text-white">{t('Nouveau Conducteur Agréé')}</h2>
               </div>
               <button
                 onClick={() => setIsAddModalOpen(false)}
@@ -160,7 +162,7 @@ export const DriversList: React.FC = () => {
             <form onSubmit={handleCreateDriver} className="space-y-3 text-xs">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-400 mb-1">Prénom *</label>
+                  <label className="block text-slate-400 mb-1">{t('Prénom *')}</label>
                   <input
                     type="text"
                     required
@@ -170,7 +172,7 @@ export const DriversList: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-400 mb-1">Nom *</label>
+                  <label className="block text-slate-400 mb-1">{t('Nom *')}</label>
                   <input
                     type="text"
                     required
@@ -183,7 +185,7 @@ export const DriversList: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-400 mb-1">Date de naissance *</label>
+                  <label className="block text-slate-400 mb-1">{t('Date de naissance *')}</label>
                   <input
                     type="date"
                     required
@@ -193,22 +195,22 @@ export const DriversList: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-400 mb-1">Type de Document *</label>
+                  <label className="block text-slate-400 mb-1">{t('Type de Document *')}</label>
                   <select
                     value={newDriverForm.docType}
                     onChange={(e) => setNewDriverForm({ ...newDriverForm, docType: e.target.value as DocumentType })}
                     className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white focus:border-amber-500 focus:outline-none"
                   >
                     <option value="CIN">C.I.N</option>
-                    <option value="Passeport">Passeport</option>
-                    <option value="Carte de Séjour">Carte de Séjour</option>
+                    <option value="Passeport">{t('Passeport')}</option>
+                    <option value="Carte de Séjour">{t('Carte de Séjour')}</option>
                   </select>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-400 mb-1">N° Document *</label>
+                  <label className="block text-slate-400 mb-1">{t('N° Document *')}</label>
                   <input
                     type="text"
                     required
@@ -218,7 +220,7 @@ export const DriversList: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-400 mb-1">N° Permis de Conduire *</label>
+                  <label className="block text-slate-400 mb-1">{t('N° Permis de Conduire *')}</label>
                   <input
                     type="text"
                     required
@@ -230,7 +232,7 @@ export const DriversList: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-slate-400 mb-1">Téléphone / GSM *</label>
+                <label className="block text-slate-400 mb-1">{t('Téléphone / GSM *')}</label>
                 <input
                   type="tel"
                   required
@@ -242,10 +244,10 @@ export const DriversList: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-slate-400 mb-1">Remarques</label>
+                <label className="block text-slate-400 mb-1">{t('Remarques')}</label>
                 <input
                   type="text"
-                  placeholder="Lien de parenté ou note particulière"
+                  placeholder={t('Lien de parenté ou note particulière')}
                   value={newDriverForm.notes}
                   onChange={(e) => setNewDriverForm({ ...newDriverForm, notes: e.target.value })}
                   className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white focus:border-amber-500 focus:outline-none"
@@ -258,13 +260,13 @@ export const DriversList: React.FC = () => {
                   onClick={() => setIsAddModalOpen(false)}
                   className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl transition-colors"
                 >
-                  Annuler
+                  {t('Annuler')}
                 </button>
                 <button
                   type="submit"
                   className="px-5 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 text-xs font-bold rounded-xl shadow-md shadow-amber-500/20 transition-transform active:scale-95"
                 >
-                  Enregistrer le Conducteur
+                  {t('Enregistrer le Conducteur')}
                 </button>
               </div>
             </form>

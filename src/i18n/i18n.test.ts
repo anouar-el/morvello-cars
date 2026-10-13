@@ -26,7 +26,7 @@ describe('translate', () => {
   it('traduit les alertes composées à partir de données', () => {
     expect(translate('ar', 'Retard 3j')).toBe('تأخر 3 أيام');
     expect(translate('ar', 'Retard de restitution : Dacia Duster (123-A-45)')).toBe('تأخر في الإرجاع: Dacia Duster (123-A-45)');
-    expect(translate('ar', 'Dacia Duster (123-A-45) : Assurance')).toContain('Assurance');
+    expect(translate('ar', 'Dacia Duster (123-A-45) : Assurance')).toBe('Dacia Duster (123-A-45) : التأمين');
     expect(translate('ar', 'Expirée depuis 5 j')).toBe('منتهية منذ 5 أيام');
     expect(translate('ar', 'Dacia Duster (123-A-45) : Visite Technique')).toBe('Dacia Duster (123-A-45) : Visite Technique');
   });

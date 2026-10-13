@@ -165,10 +165,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenNotifications }) => {
             <div className="hidden sm:block min-w-0">
               <div className="flex items-center gap-2 min-w-0">
                 <span className="text-base font-extrabold tracking-wider font-serif uppercase text-white truncate">
-                  Sté MORVELLO CARS
+                  {t('Sté MORVELLO CARS')}
                 </span>
                 <span className="hidden lg:inline text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 px-1.5 py-0.2 rounded font-mono">
-                  PRESTIGE
+                  {t('PRESTIGE')}
                 </span>
               </div>
               <p className="hidden xl:block text-[11px] text-slate-400 font-medium truncate">
@@ -321,7 +321,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenNotifications }) => {
                   ? t('Sync Cloud...')
                   : cloudSyncStatus === 'synced'
                   ? t('Cloud actif ({time})', { time: lastCloudSync || 'OK' })
-                  : 'Cloud Firestore'}
+                  : t('Cloud Firestore')}
               </span>
             </button>
 
