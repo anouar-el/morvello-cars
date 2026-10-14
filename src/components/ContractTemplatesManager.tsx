@@ -27,7 +27,9 @@ import {
   FileCheck,
 } from 'lucide-react';
 
+import { useI18n } from '../i18n/I18nContext';
 export const ContractTemplatesManager: React.FC = () => {
+  const { t } = useI18n();
   const {
     currentUser,
     users,
@@ -77,7 +79,7 @@ export const ContractTemplatesManager: React.FC = () => {
       `Attribution du ${tInfo.name} au collaborateur ${targetUser.name}`
     );
 
-    showNotification(`Modèle « ${tInfo.name} » attribué à ${targetUser.name}`);
+    showNotification(t('Modèle « {name} » attribué à {name2}', { name: tInfo.name, name2: targetUser.name }));
   };
 
   // Handler for setting global default template
@@ -92,7 +94,7 @@ export const ContractTemplatesManager: React.FC = () => {
       `Le modèle « ${tInfo.name} » a été défini comme modèle global par défaut de l'agence`
     );
 
-    showNotification(`Le modèle « ${tInfo.name} » est désormais le modèle par défaut de l'entreprise`);
+    showNotification(t("Le modèle « {name} » est désormais le modèle par défaut de l'entreprise", { name: tInfo.name }));
   };
 
   // Count users per template
@@ -104,7 +106,7 @@ export const ContractTemplatesManager: React.FC = () => {
     <div className="space-y-6 animate-in fade-in duration-200">
       {/* SUCCESS TOAST */}
       {successToast && (
-        <div className="fixed top-20 right-6 z-50 flex items-center gap-3 bg-emerald-600 text-white px-5 py-3 rounded-xl shadow-2xl border border-emerald-400/50 animate-in slide-in-from-top-4 duration-200 font-medium text-sm">
+        <div className="fixed top-20 end-6 z-50 flex items-center gap-3 bg-emerald-600 text-white px-5 py-3 rounded-xl shadow-2xl border border-emerald-400/50 animate-in slide-in-from-top-4 duration-200 font-medium text-sm">
           <CheckCircle2 className="w-5 h-5 text-white shrink-0" />
           <span>{successToast}</span>
         </div>
@@ -112,7 +114,7 @@ export const ContractTemplatesManager: React.FC = () => {
 
       {/* HEADER EXÉCUTIF */}
       <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-amber-950/30 border border-slate-800 rounded-2xl p-6 shadow-xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-amber-500/5 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-0 end-0 w-96 h-96 bg-amber-500/5 rounded-full blur-3xl pointer-events-none" />
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2">
             <div className="flex items-center gap-2.5">
@@ -122,14 +124,14 @@ export const ContractTemplatesManager: React.FC = () => {
               <div>
                 <div className="flex items-center gap-2">
                   <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white uppercase font-serif">
-                    Gestion des Modèles de Contrat
+                    {t('Gestion des Modèles de Contrat')}
                   </h1>
                   <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                    SUPER ADMIN
+                    {t('SUPER ADMIN')}
                   </span>
                 </div>
                 <p className="text-xs sm:text-sm text-slate-400">
-                  Gérez vos 3 maquettes contractuelles A4 et affectez le modèle approprié à chaque collaborateur
+                  {t('Gérez vos 3 maquettes contractuelles A4 et affectez le modèle approprié à chaque collaborateur')}
                 </p>
               </div>
             </div>
@@ -138,19 +140,19 @@ export const ContractTemplatesManager: React.FC = () => {
           {/* QUICK STATS PILLS */}
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <div className="bg-slate-950/70 border border-slate-800 rounded-xl px-4 py-2 text-center">
-              <div className="text-[10px] uppercase font-mono text-slate-400">Modèles Actifs</div>
-              <div className="text-lg font-black text-amber-400">3 Maquettes</div>
+              <div className="text-[10px] uppercase font-mono text-slate-400">{t('Modèles Actifs')}</div>
+              <div className="text-lg font-black text-amber-400">{t('3 Maquettes')}</div>
             </div>
             <div className="bg-slate-950/70 border border-slate-800 rounded-xl px-4 py-2 text-center">
-              <div className="text-[10px] uppercase font-mono text-slate-400">Par Défaut Global</div>
+              <div className="text-[10px] uppercase font-mono text-slate-400">{t('Par Défaut Global')}</div>
               <div className="text-sm font-bold text-emerald-400 flex items-center gap-1 justify-center">
                 <Star className="w-3.5 h-3.5 fill-emerald-400" />
-                {getContractTemplate(defaultTemplateId).name.split(' ')[1] || 'Standard'}
+                {getContractTemplate(defaultTemplateId).name.split(' ')[1] || t('Standard')}
               </div>
             </div>
             <div className="bg-slate-950/70 border border-slate-800 rounded-xl px-4 py-2 text-center">
-              <div className="text-[10px] uppercase font-mono text-slate-400">Membres Équipe</div>
-              <div className="text-lg font-black text-white">{users.length} collaborateurs</div>
+              <div className="text-[10px] uppercase font-mono text-slate-400">{t('Membres Équipe')}</div>
+              <div className="text-lg font-black text-white">{t('{usersCount} collaborateurs', { usersCount: users.length })}</div>
             </div>
           </div>
         </div>
@@ -166,7 +168,7 @@ export const ContractTemplatesManager: React.FC = () => {
             }`}
           >
             <Layers className="w-4 h-4" />
-            <span>Les {CONTRACT_TEMPLATES.length} Modèles de Contrat</span>
+            <span>{t('Les {CONTRACT_TEMPLATESCount} Modèles de Contrat', { CONTRACT_TEMPLATESCount: CONTRACT_TEMPLATES.length })}</span>
           </button>
           <button
             onClick={() => setActiveTab('assignments')}
@@ -177,7 +179,7 @@ export const ContractTemplatesManager: React.FC = () => {
             }`}
           >
             <Users className="w-4 h-4" />
-            <span>Affectation aux Membres ({users.length})</span>
+            <span>{t('Affectation aux Membres ({usersCount})', { usersCount: users.length })}</span>
           </button>
           <button
             onClick={() => setActiveTab('live_preview')}
@@ -188,7 +190,7 @@ export const ContractTemplatesManager: React.FC = () => {
             }`}
           >
             <Eye className="w-4 h-4" />
-            <span>Studio de Prévisualisation A4</span>
+            <span>{t('Studio de Prévisualisation A4')}</span>
           </button>
         </div>
       </div>
@@ -216,7 +218,7 @@ export const ContractTemplatesManager: React.FC = () => {
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-mono font-bold text-slate-400">
-                            MODÈLE #{idx + 1}
+                            {t('MODÈLE #{idx}', { idx: idx + 1 })}
                           </span>
                           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${tmpl.badgeColor}`}>
                             {tmpl.badge}
@@ -262,7 +264,7 @@ export const ContractTemplatesManager: React.FC = () => {
                     {/* HIGHLIGHTS */}
                     <div className="space-y-2">
                       <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                        Points Clés de la Maquette :
+                        {t('Points Clés de la Maquette :')}
                       </div>
                       <ul className="space-y-1.5 text-xs text-slate-300">
                         {tmpl.features.map((feat, fIdx) => (
@@ -287,7 +289,7 @@ export const ContractTemplatesManager: React.FC = () => {
                     {/* RECOMMENDED FOR */}
                     <div className="pt-2 border-t border-slate-800">
                       <div className="text-[10px] uppercase font-mono text-slate-400 mb-1">
-                        Cible d’Usage :
+                        {t('Cible d’Usage :')}
                       </div>
                       <p className="text-[11px] text-slate-300 italic">
                         {tmpl.recommendedFor}
@@ -298,9 +300,9 @@ export const ContractTemplatesManager: React.FC = () => {
                   {/* BOTTOM ACTION BAR */}
                   <div className="p-4 bg-slate-950/80 border-t border-slate-800 space-y-3">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-400">Collaborateurs assignés :</span>
+                      <span className="text-slate-400">{t('Collaborateurs assignés :')}</span>
                       <span className="font-bold text-white bg-slate-800 px-2 py-0.5 rounded border border-slate-700">
-                        {assignedCount} membre{assignedCount > 1 ? 's' : ''}
+                        {t('{assignedCount} membre', { assignedCount })}{assignedCount > 1 ? 's' : ''}
                       </span>
                     </div>
 
@@ -314,23 +316,23 @@ export const ContractTemplatesManager: React.FC = () => {
                         className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-750 text-white font-semibold text-xs border border-slate-700 transition-all cursor-pointer"
                       >
                         <Eye className="w-3.5 h-3.5 text-amber-400" />
-                        <span>Aperçu A4</span>
+                        <span>{t('Aperçu A4')}</span>
                       </button>
 
                       {isGlobalDefault ? (
                         <div className="w-full flex items-center justify-center gap-1 px-3 py-2 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs font-bold">
                           <Star className="w-3.5 h-3.5 fill-amber-400" />
-                          <span>Par Défaut</span>
+                          <span>{t('Par Défaut')}</span>
                         </div>
                       ) : (
                         <button
                           type="button"
                           onClick={() => handleSetGlobalDefault(tmpl.id)}
                           className="w-full flex items-center justify-center gap-1 px-3 py-2 rounded-xl bg-slate-800 hover:bg-amber-500 hover:text-slate-950 text-slate-300 font-semibold text-xs border border-slate-700 transition-all cursor-pointer"
-                          title="Définir comme modèle par défaut de l'agence"
+                          title={t("Définir comme modèle par défaut de l'agence")}
                         >
                           <Star className="w-3.5 h-3.5" />
-                          <span>Mettre par défaut</span>
+                          <span>{t('Mettre par défaut')}</span>
                         </button>
                       )}
                     </div>
@@ -349,25 +351,25 @@ export const ContractTemplatesManager: React.FC = () => {
             <div>
               <h2 className="text-lg font-bold text-white flex items-center gap-2">
                 <Users className="w-5 h-5 text-amber-400" />
-                <span>Affectation Individuelle des Modèles de Contrat</span>
+                <span>{t('Affectation Individuelle des Modèles de Contrat')}</span>
               </h2>
               <p className="text-xs text-slate-400 mt-1">
-                Choisissez précisément le modèle contractuel que chaque membre utilisera lors de la création et de l'impression de ses contrats.
+                {t("Choisissez précisément le modèle contractuel que chaque membre utilisera lors de la création et de l'impression de ses contrats.")}
               </p>
             </div>
 
             {/* QUICK ACTIONS */}
             <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-400 hidden sm:inline">Actions rapides :</span>
+              <span className="text-xs text-slate-400 hidden sm:inline">{t('Actions rapides :')}</span>
               <button
                 type="button"
                 onClick={() => {
                   users.forEach((u) => updateUser(u.id, { assignedContractTemplate: 'standard' }));
-                  showNotification('Modèle Standard attribué à l’ensemble des collaborateurs');
+                  showNotification(t('Modèle Standard attribué à l’ensemble des collaborateurs'));
                 }}
                 className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-300 transition-colors cursor-pointer"
               >
-                Tous en Standard
+                {t('Tous en Standard')}
               </button>
               <button
                 type="button"
@@ -382,25 +384,25 @@ export const ContractTemplatesManager: React.FC = () => {
                       updateUser(u.id, { assignedContractTemplate: 'standard' });
                     }
                   });
-                  showNotification('Modèles affectés intelligemment selon la spécialité des flottes');
+                  showNotification(t('Modèles affectés intelligemment selon la spécialité des flottes'));
                 }}
                 className="px-2.5 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-semibold transition-colors cursor-pointer"
               >
-                Distribution par Flotte
+                {t('Distribution par Flotte')}
               </button>
             </div>
           </div>
 
           {/* TABLE OF USERS */}
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
+            <table className="w-full text-start text-xs border-collapse">
               <thead>
                 <tr className="border-b border-slate-800 bg-slate-950/70 text-slate-400 uppercase font-mono text-[11px]">
-                  <th className="py-3 px-4">Collaborateur</th>
-                  <th className="py-3 px-4">Rôle &amp; Accès</th>
-                  <th className="py-3 px-4">Agence / Flotte Assignée</th>
-                  <th className="py-3 px-4">Modèle Actuellement Attribué</th>
-                  <th className="py-3 px-4 text-center">Sélectionner le Modèle</th>
+                  <th className="py-3 px-4">{t('Collaborateur')}</th>
+                  <th className="py-3 px-4">{t('Rôle & Accès')}</th>
+                  <th className="py-3 px-4">{t('Agence / Flotte Assignée')}</th>
+                  <th className="py-3 px-4">{t('Modèle Actuellement Attribué')}</th>
+                  <th className="py-3 px-4 text-center">{t('Sélectionner le Modèle')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/80">
@@ -432,7 +434,7 @@ export const ContractTemplatesManager: React.FC = () => {
                               {user.name}
                               {user.id === currentUser.id && (
                                 <span className="text-[10px] bg-slate-800 text-amber-400 px-1.5 py-0.2 rounded border border-slate-700 font-mono">
-                                  Vous
+                                  {t('Vous')}
                                 </span>
                               )}
                             </div>
@@ -454,17 +456,17 @@ export const ContractTemplatesManager: React.FC = () => {
                               : 'bg-slate-800 text-slate-300 border-slate-700'
                           }`}
                         >
-                          {user.role === 'admin' ? '👑 Super Admin' : user.role === 'manager' ? '🏢 Responsable' : 'Agent'}
+                          {user.role === 'admin' ? t('👑 Super Admin') : user.role === 'manager' ? t('🏢 Responsable') : t('Agent')}
                         </span>
                       </td>
 
                       {/* AGENCY & FLEET */}
                       <td className="py-3.5 px-4">
                         <div className="text-white font-medium">
-                          {user.agency || 'Siège Casablanca'}
+                          {user.agency || t('Siège Casablanca')}
                         </div>
                         <div className="text-[11px] text-slate-400">
-                          {user.assignedFleetName || 'Accès Flotte Globale'}
+                          {user.assignedFleetName || t('Accès Flotte Globale')}
                         </div>
                       </td>
 
@@ -517,10 +519,10 @@ export const ContractTemplatesManager: React.FC = () => {
                                       : 'bg-emerald-600 text-white border-emerald-400 font-bold shadow-sm'
                                     : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700 hover:text-white'
                                 }`}
-                                title={`Affecter ${tmpl.name} à ${user.name}`}
+                                title={t('Affecter {name} à {name2}', { name: tmpl.name, name2: user.name })}
                               >
                                 {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
-                                <span>{tmpl.id === 'standard' ? 'Standard' : tmpl.id === 'prestige' ? 'Prestige VIP' : tmpl.id === 'signature' ? 'Signature' : 'Corporate'}</span>
+                                <span>{tmpl.id === 'standard' ? t('Standard') : tmpl.id === 'prestige' ? t('Prestige VIP') : tmpl.id === 'signature' ? t('Signature') : t('Corporate')}</span>
                               </button>
                             );
                           })}
@@ -543,10 +545,10 @@ export const ContractTemplatesManager: React.FC = () => {
             <div>
               <h2 className="text-lg font-bold text-white flex items-center gap-2">
                 <Eye className="w-5 h-5 text-amber-400" />
-                <span>Studio de Visualisation Haute Définition A4</span>
+                <span>{t('Studio de Visualisation Haute Définition A4')}</span>
               </h2>
               <p className="text-xs text-slate-400">
-                Prévisualisez le rendu exact d'impression et testez les {CONTRACT_TEMPLATES.length} modèles avec un contrat échantillon.
+                {t("Prévisualisez le rendu exact d'impression et testez les {CONTRACT_TEMPLATESCount} modèles avec un contrat échantillon.", { CONTRACT_TEMPLATESCount: CONTRACT_TEMPLATES.length })}
               </p>
             </div>
 
@@ -581,7 +583,7 @@ export const ContractTemplatesManager: React.FC = () => {
                       ) : (
                         <FileText className="w-3.5 h-3.5" />
                       )}
-                      <span>{tmpl.id === 'standard' ? 'Standard Morvello' : tmpl.id === 'prestige' ? 'Prestige VIP' : tmpl.id === 'signature' ? 'Signature Moderne' : 'Corporate B2B'}</span>
+                      <span>{tmpl.id === 'standard' ? t('Standard Morvello') : tmpl.id === 'prestige' ? t('Prestige VIP') : tmpl.id === 'signature' ? t('Signature Moderne') : t('Corporate B2B')}</span>
                     </button>
                   );
                 })}
@@ -590,7 +592,7 @@ export const ContractTemplatesManager: React.FC = () => {
               {/* SELECT CONTRACT */}
               {contracts.length > 0 && (
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-400">Contrat :</span>
+                  <span className="text-xs text-slate-400">{t('Contrat :')}</span>
                   <select
                     value={previewContractId}
                     onChange={(e) => setPreviewContractId(e.target.value)}
@@ -617,7 +619,7 @@ export const ContractTemplatesManager: React.FC = () => {
                 <button
                   onClick={() => setPreviewZoom((prev) => Math.max(45, prev - 10))}
                   className="p-1 hover:bg-slate-800 rounded transition-colors cursor-pointer"
-                  title="Dézoomer"
+                  title={t('Dézoomer')}
                 >
                   <ZoomOut className="w-4 h-4" />
                 </button>
@@ -625,14 +627,14 @@ export const ContractTemplatesManager: React.FC = () => {
                 <button
                   onClick={() => setPreviewZoom((prev) => Math.min(120, prev + 10))}
                   className="p-1 hover:bg-slate-800 rounded transition-colors cursor-pointer"
-                  title="Zoomer"
+                  title={t('Zoomer')}
                 >
                   <ZoomIn className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => setPreviewZoom(75)}
-                  className="p-1 hover:bg-slate-800 rounded transition-colors ml-1 border-l border-slate-800 cursor-pointer"
-                  title="Réinitialiser"
+                  className="p-1 hover:bg-slate-800 rounded transition-colors ms-1 border-s border-slate-800 cursor-pointer"
+                  title={t('Réinitialiser')}
                 >
                   <Maximize2 className="w-3.5 h-3.5" />
                 </button>
@@ -651,7 +653,7 @@ export const ContractTemplatesManager: React.FC = () => {
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-md transition-colors cursor-pointer"
                 >
                   <Printer className="w-4 h-4" />
-                  <span>Imprimer / Exporter</span>
+                  <span>{t('Imprimer / Exporter')}</span>
                 </button>
               )}
             </div>
@@ -660,7 +662,7 @@ export const ContractTemplatesManager: React.FC = () => {
           {/* ACTIVE MODEL SUMMARY CHIP */}
           <div className="bg-slate-950/70 border border-slate-800/80 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 text-xs">
             <div className="flex items-center gap-2">
-              <span className="text-slate-400">Modèle visualisé :</span>
+              <span className="text-slate-400">{t('Modèle visualisé :')}</span>
               <strong className="text-white text-sm">
                 {getContractTemplate(selectedPreviewTemplate).name}
               </strong>
@@ -669,9 +671,9 @@ export const ContractTemplatesManager: React.FC = () => {
               </span>
             </div>
             <div className="text-slate-400 flex items-center gap-4">
-              <span>Format : <strong>210 × 297 mm (A4 Recto / Verso)</strong></span>
+              <span>{t('Format :')} <strong>{t('210 × 297 mm (A4 Recto / Verso)')}</strong></span>
               <span>•</span>
-              <span>Conditions : <strong>v{termsVersion.version}</strong></span>
+              <span>{t('Conditions :')} <strong>v{termsVersion.version}</strong></span>
             </div>
           </div>
 
@@ -700,7 +702,7 @@ export const ContractTemplatesManager: React.FC = () => {
             ) : (
               <div className="text-center py-20 text-slate-500">
                 <AlertCircle className="w-12 h-12 mx-auto mb-3 opacity-40 text-amber-400" />
-                <p>Aucun contrat disponible pour la prévisualisation.</p>
+                <p>{t('Aucun contrat disponible pour la prévisualisation.')}</p>
               </div>
             )}
           </div>

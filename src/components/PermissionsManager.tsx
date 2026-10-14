@@ -32,6 +32,7 @@ import {
   Phone,
 } from 'lucide-react';
 
+import { useI18n } from '../i18n/I18nContext';
 interface PermissionMeta {
   key: keyof UserPermissions;
   label: string;
@@ -199,6 +200,7 @@ const CATEGORY_LABELS = {
 };
 
 export const PermissionsManager: React.FC = () => {
+  const { t } = useI18n();
   const {
     users,
     currentUser,
@@ -263,10 +265,10 @@ export const PermissionsManager: React.FC = () => {
       setPhoneSaved(true);
       setTimeout(() => setPhoneSaved(false), 2500);
       triggerToast(
-        `Numéro de téléphone direct enregistré pour ${activeUser.name} : ${cleanPhone || 'Par défaut agence'}`
+        t('Numéro de téléphone direct enregistré pour {name} : {cleanPhone}', { name: activeUser.name, cleanPhone: cleanPhone || 'Par défaut agence' })
       );
     } catch (err: any) {
-      triggerToast(`Erreur d'enregistrement : ${err?.message || 'Erreur inattendue'}`);
+      triggerToast(t("Erreur d'enregistrement : {message}", { message: err?.message || 'Erreur inattendue' }));
     } finally {
       setIsSavingPhone(false);
     }
@@ -275,7 +277,7 @@ export const PermissionsManager: React.FC = () => {
   const handleTogglePermission = (key: keyof UserPermissions) => {
     if (!activeUser) return;
     if (activeUser.role === 'admin') {
-      triggerToast("Les Super Administrateurs possèdent toutes les habilitations par défaut.");
+      triggerToast(t('Les Super Administrateurs possèdent toutes les habilitations par défaut.'));
       return;
     }
 
@@ -301,7 +303,7 @@ export const PermissionsManager: React.FC = () => {
 
   const handleResetToDefault = (userId: string) => {
     resetUserPermissions(userId);
-    triggerToast(`Permissions réinitialisées selon le profil type standard.`);
+    triggerToast(t('Permissions réinitialisées selon le profil type standard.'));
   };
 
   const handleGrantAll = (user: User) => {
@@ -335,7 +337,7 @@ export const PermissionsManager: React.FC = () => {
       canViewAuditLogs: true,
     };
     updateUserPermissions(user.id, allPerms);
-    triggerToast(`Toutes les permissions ont été accordées à ${user.name}.`);
+    triggerToast(t('Toutes les permissions ont été accordées à {name}.', { name: user.name }));
   };
 
   const handleRestrictAll = (user: User) => {
@@ -369,13 +371,13 @@ export const PermissionsManager: React.FC = () => {
       canViewAuditLogs: false,
     };
     updateUserPermissions(user.id, restrictedPerms);
-    triggerToast(`Toutes les permissions ont été suspendues pour ${user.name}.`);
+    triggerToast(t('Toutes les permissions ont été suspendues pour {name}.', { name: user.name }));
   };
 
   const handleSaveNewUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newUserName.trim() || !newUserEmail.trim()) {
-      setAddUserError('Veuillez renseigner le nom et l’adresse email.');
+      setAddUserError(t('Veuillez renseigner le nom et l’adresse email.'));
       return;
     }
 
@@ -397,18 +399,18 @@ export const PermissionsManager: React.FC = () => {
     setNewUserPassword('');
     setNewUserFleet('');
     setAddUserError('');
-    triggerToast(`Nouveau collaborateur ${created.name} ajouté avec succès !`);
+    triggerToast(t('Nouveau collaborateur {name} ajouté avec succès !', { name: created.name }));
   };
 
   const handleDeleteUser = (user: User, e: React.MouseEvent) => {
     e.stopPropagation();
     if (user.id === currentUser.id) {
-      triggerToast("Vous ne pouvez pas supprimer votre propre compte en session.");
+      triggerToast(t('Vous ne pouvez pas supprimer votre propre compte en session.'));
       return;
     }
     const adminCount = users.filter((u) => u.role === 'admin').length;
     if (user.role === 'admin' && adminCount <= 1) {
-      triggerToast("Impossible de supprimer le dernier Gérant/Administrateur.");
+      triggerToast(t('Impossible de supprimer le dernier Gérant/Administrateur.'));
       return;
     }
     setUserToDelete(user);
@@ -419,7 +421,7 @@ export const PermissionsManager: React.FC = () => {
     const targetName = userToDelete.name;
     const targetId = userToDelete.id;
     deleteUser(targetId);
-    triggerToast(`Collaborateur ${targetName} supprimé avec succès.`);
+    triggerToast(t('Collaborateur {targetName} supprimé avec succès.', { targetName }));
     const remaining = users.filter((u) => u.id !== targetId);
     if (selectedUserId === targetId && remaining.length > 0) {
       setSelectedUserId(remaining[0].id);
@@ -435,13 +437,13 @@ export const PermissionsManager: React.FC = () => {
           <ShieldAlert className="w-8 h-8" />
         </div>
         <div className="space-y-2">
-          <h2 className="text-xl font-bold text-white">Accès Réservé au Gérant & Administrateur</h2>
+          <h2 className="text-xl font-bold text-white">{t('Accès Réservé au Gérant & Administrateur')}</h2>
           <p className="text-xs text-slate-400 leading-relaxed max-w-md mx-auto">
-            La rubrique de gestion des permissions et des habilitations d'équipe est strictement réservée au Gérant de l’agence Morvello Cars afin de préserver l'intégrité opérationnelle et financière.
+            {t("La rubrique de gestion des permissions et des habilitations d'équipe est strictement réservée au Gérant de l’agence Morvello Cars afin de préserver l'intégrité opérationnelle et financière.")}
           </p>
         </div>
         <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 text-xs text-slate-300 flex items-center justify-between">
-          <span className="text-slate-400">Votre session actuelle :</span>
+          <span className="text-slate-400">{t('Votre session actuelle :')}</span>
           <span className="font-bold text-amber-400">
             {currentUser.name} ({currentUser.role.toUpperCase()})
           </span>
@@ -451,7 +453,7 @@ export const PermissionsManager: React.FC = () => {
             onClick={() => setActiveTab('dashboard')}
             className="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold rounded-xl shadow-lg shadow-amber-500/20 cursor-pointer transition-colors"
           >
-            Retour au Tableau de Bord
+            {t('Retour au Tableau de Bord')}
           </button>
         </div>
       </div>
@@ -466,8 +468,8 @@ export const PermissionsManager: React.FC = () => {
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       return (
-        def.label.toLowerCase().includes(q) ||
-        def.description.toLowerCase().includes(q) ||
+        t(def.label).toLowerCase().includes(q) ||
+        t(def.description).toLowerCase().includes(q) ||
         def.key.toLowerCase().includes(q)
       );
     }
@@ -486,7 +488,7 @@ export const PermissionsManager: React.FC = () => {
     <div className="space-y-6">
       {/* TOAST NOTIFICATION */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-emerald-500 text-slate-950 font-bold px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2.5 border border-emerald-400 text-xs animate-bounce">
+        <div className="fixed bottom-6 end-6 z-50 bg-emerald-500 text-slate-950 font-bold px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2.5 border border-emerald-400 text-xs animate-bounce">
           <CheckCircle2 className="w-5 h-5 text-slate-950 shrink-0" />
           <span>{toastMessage}</span>
         </div>
@@ -497,20 +499,20 @@ export const PermissionsManager: React.FC = () => {
         <div>
           <div className="flex items-center gap-2 text-xs font-semibold text-amber-400 uppercase tracking-widest font-mono">
             <KeyRound className="w-4 h-4 text-amber-400" />
-            Rubrique Spéciale Gérant • Contrôle d'Accès Granulaire
+            {t("Rubrique Spéciale Gérant • Contrôle d'Accès Granulaire")}
           </div>
           <h1 className="text-xl font-extrabold text-white tracking-tight mt-1">
-            Gestion des Habilitations & Permissions d'Équipe
+            {t("Gestion des Habilitations & Permissions d'Équipe")}
           </h1>
           <p className="text-xs text-slate-400 mt-0.5">
-            Octroyez ou restreignez les droits d'accès des collaborateurs (contrats, cautions, validation véhicules, clauses).
+            {t("Octroyez ou restreignez les droits d'accès des collaborateurs (contrats, cautions, validation véhicules, clauses).")}
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
           <div className="bg-slate-950/80 border border-slate-800 px-3 py-1.5 rounded-xl text-xs flex items-center gap-2 font-mono">
-            <span className="text-slate-500">Total Équipe :</span>
-            <span className="text-white font-bold">{users.length} collaborateurs</span>
+            <span className="text-slate-500">{t('Total Équipe :')}</span>
+            <span className="text-white font-bold">{t('{usersCount} collaborateurs', { usersCount: users.length })}</span>
           </div>
 
           <button
@@ -518,7 +520,7 @@ export const PermissionsManager: React.FC = () => {
             className="px-3.5 py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-amber-500/20 flex items-center gap-1.5 transition-all cursor-pointer hover:scale-102"
           >
             <Plus className="w-4 h-4 stroke-[2.5]" />
-            <span>Nouveau Collaborateur</span>
+            <span>{t('Nouveau Collaborateur')}</span>
           </button>
         </div>
       </div>
@@ -535,7 +537,7 @@ export const PermissionsManager: React.FC = () => {
           }`}
         >
           <KeyRound className="w-4 h-4" />
-          <span>Identifiants, Logins & Mots de Passe</span>
+          <span>{t('Identifiants, Logins & Mots de Passe')}</span>
           <span className={`text-[10px] px-1.5 py-0.2 rounded font-mono ${
             activeSubTab === 'credentials' ? 'bg-slate-950/30 text-slate-950 font-extrabold' : 'bg-slate-800 text-slate-400'
           }`}>
@@ -553,9 +555,9 @@ export const PermissionsManager: React.FC = () => {
           }`}
         >
           <ShieldCheck className="w-4 h-4" />
-          <span>Matrice des Habilitations RBAC</span>
+          <span>{t('Matrice des Habilitations RBAC')}</span>
           <span className="text-[10px] opacity-75 font-mono">
-            (Contrats, Flotte, Cautions)
+            {t('(Contrats, Flotte, Cautions)')}
           </span>
         </button>
       </div>
@@ -573,9 +575,9 @@ export const PermissionsManager: React.FC = () => {
             <div className="flex items-center justify-between pb-2 border-b border-slate-800">
               <span className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
                 <Users className="w-4 h-4 text-amber-400" />
-                Membres de l'Agence
+                {t("Membres de l'Agence")}
               </span>
-              <span className="text-[10px] text-slate-500 font-mono">{users.length} comptes</span>
+              <span className="text-[10px] text-slate-500 font-mono">{t('{usersCount} comptes', { usersCount: users.length })}</span>
             </div>
 
             <div className="space-y-2">
@@ -610,7 +612,7 @@ export const PermissionsManager: React.FC = () => {
                             <strong className="text-xs text-white font-bold">{user.name}</strong>
                             {isSessionUser && (
                               <span className="text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/40 px-1 rounded font-mono">
-                                VOUS
+                                {t('VOUS')}
                               </span>
                             )}
                           </div>
@@ -642,7 +644,7 @@ export const PermissionsManager: React.FC = () => {
                     {user.assignedFleetName && (
                       <div className="mt-2 pt-2 border-t border-slate-800/80 flex items-center gap-1 text-[10px] text-slate-400 font-mono">
                         <Car className="w-3 h-3 text-amber-400" />
-                        <span>Flotte : {user.assignedFleetName}</span>
+                        <span>{t('Flotte : {assignedFleetName}', { assignedFleetName: user.assignedFleetName })}</span>
                       </div>
                     )}
 
@@ -652,10 +654,10 @@ export const PermissionsManager: React.FC = () => {
                           type="button"
                           onClick={(e) => handleDeleteUser(user, e)}
                           className="px-2 py-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-lg text-[10px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-                          title="Supprimer ce collaborateur"
+                          title={t('Supprimer ce collaborateur')}
                         >
                           <Trash2 className="w-3 h-3" />
-                          <span>Supprimer</span>
+                          <span>{t('Supprimer')}</span>
                         </button>
                       </div>
                     )}
@@ -690,19 +692,19 @@ export const PermissionsManager: React.FC = () => {
                       <span className="text-xs text-slate-400 font-mono">({activeUser.email})</span>
                     </div>
                     <div className="flex flex-wrap items-center gap-2 mt-1">
-                      <span className="text-xs text-slate-400">Rôle hiérarchique :</span>
+                      <span className="text-xs text-slate-400">{t('Rôle hiérarchique :')}</span>
                       <select
                         value={activeUser.role}
                         onChange={(e) => handleRoleChange(activeUser.id, e.target.value as UserRole)}
                         className="bg-slate-950 border border-slate-700 text-amber-400 text-xs font-bold rounded-lg px-2.5 py-1 focus:outline-none focus:border-amber-500 font-mono cursor-pointer"
                       >
-                        <option value="admin">SUPER ADMIN / GÉRANT</option>
-                        <option value="manager">RESPONSABLE DE FLOTTE</option>
-                        <option value="agent">AGENT DE COMPTOIR</option>
+                        <option value="admin">{t('SUPER ADMIN / GÉRANT')}</option>
+                        <option value="manager">{t('RESPONSABLE DE FLOTTE')}</option>
+                        <option value="agent">{t('AGENT DE COMPTOIR')}</option>
                       </select>
                       {activeUser.assignedFleetName && (
                         <span className="text-[11px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded-lg border border-slate-700">
-                          Flotte : {activeUser.assignedFleetName}
+                          {t('Flotte : {assignedFleetName}', { assignedFleetName: activeUser.assignedFleetName })}
                         </span>
                       )}
                     </div>
@@ -714,28 +716,28 @@ export const PermissionsManager: React.FC = () => {
                   <button
                     onClick={() => handleResetToDefault(activeUser.id)}
                     className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-medium rounded-xl border border-slate-700 transition-colors flex items-center gap-1.5 cursor-pointer"
-                    title="Rétablir les permissions standard associées au rôle"
+                    title={t('Rétablir les permissions standard associées au rôle')}
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
-                    <span>Profil type</span>
+                    <span>{t('Profil type')}</span>
                   </button>
 
                   <button
                     onClick={() => handleGrantAll(activeUser)}
                     className="px-2.5 py-1.5 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 text-xs font-bold rounded-xl border border-emerald-500/30 transition-colors flex items-center gap-1.5 cursor-pointer"
-                    title="Accorder toutes les autorisations"
+                    title={t('Accorder toutes les autorisations')}
                   >
                     <Unlock className="w-3.5 h-3.5" />
-                    <span>Tout autoriser</span>
+                    <span>{t('Tout autoriser')}</span>
                   </button>
 
                   <button
                     onClick={() => handleRestrictAll(activeUser)}
                     className="px-2.5 py-1.5 bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 text-xs font-bold rounded-xl border border-rose-500/30 transition-colors flex items-center gap-1.5 cursor-pointer"
-                    title="Restreindre tous les droits"
+                    title={t('Restreindre tous les droits')}
                   >
                     <Lock className="w-3.5 h-3.5" />
-                    <span>Tout restreindre</span>
+                    <span>{t('Tout restreindre')}</span>
                   </button>
                 </div>
               </div>
@@ -748,13 +750,13 @@ export const PermissionsManager: React.FC = () => {
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-white font-bold">Numéro de Téléphone Direct (GSM Manager / Contrats)</span>
+                      <span className="text-xs text-white font-bold">{t('Numéro de Téléphone Direct (GSM Manager / Contrats)')}</span>
                       <span className="text-[10px] bg-amber-500/20 text-amber-300 font-mono px-2 py-0.5 rounded-full border border-amber-500/40 font-bold">
-                        En-tête 1ère Page PDF
+                        {t('En-tête 1ère Page PDF')}
                       </span>
                     </div>
                     <p className="text-[11px] text-slate-400 mt-0.5">
-                      Ce numéro personnalisé apparaîtra automatiquement sur les contrats de location dont ce collaborateur a la charge (flotte attitrée ou création de contrat).
+                      {t('Ce numéro personnalisé apparaîtra automatiquement sur les contrats de location dont ce collaborateur a la charge (flotte attitrée ou création de contrat).')}
                     </p>
                   </div>
                 </div>
@@ -771,7 +773,7 @@ export const PermissionsManager: React.FC = () => {
                           handleSavePhone();
                         }
                       }}
-                      placeholder="Ex: +212 661-458920"
+                      placeholder={t('Ex: +212 661-458920')}
                       className="bg-slate-900 border border-slate-700 text-amber-300 font-mono text-xs px-3 py-2 rounded-xl w-48 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
                     />
                   </div>
@@ -785,22 +787,22 @@ export const PermissionsManager: React.FC = () => {
                         ? 'bg-amber-600 text-slate-950 opacity-80 cursor-wait'
                         : 'bg-amber-500 hover:bg-amber-400 text-slate-950 active:scale-95'
                     }`}
-                    title="Enregistrer ce numéro de téléphone dans le profil et le Cloud"
+                    title={t('Enregistrer ce numéro de téléphone dans le profil et le Cloud')}
                   >
                     {phoneSaved ? (
                       <>
                         <CheckCircle2 className="w-3.5 h-3.5" />
-                        <span>Enregistré !</span>
+                        <span>{t('Enregistré !')}</span>
                       </>
                     ) : isSavingPhone ? (
                       <>
                         <Sparkles className="w-3.5 h-3.5 animate-spin" />
-                        <span>Enregistrement...</span>
+                        <span>{t('Enregistrement...')}</span>
                       </>
                     ) : (
                       <>
                         <Check className="w-3.5 h-3.5" />
-                        <span>Enregistrer</span>
+                        <span>{t('Enregistrer')}</span>
                       </>
                     )}
                   </button>
@@ -818,7 +820,7 @@ export const PermissionsManager: React.FC = () => {
                         : 'bg-slate-800 text-slate-400 hover:text-white'
                     }`}
                   >
-                    Toutes ({PERMISSION_DEFINITIONS.length})
+                    {t('Toutes ({PERMISSION_DEFINITIONSCount})', { PERMISSION_DEFINITIONSCount: PERMISSION_DEFINITIONS.length })}
                   </button>
                   {Object.entries(CATEGORY_LABELS).map(([catKey, catMeta]) => {
                     const count = PERMISSION_DEFINITIONS.filter((p) => p.category === catKey).length;
@@ -832,7 +834,7 @@ export const PermissionsManager: React.FC = () => {
                             : 'bg-slate-800 text-slate-400 hover:text-white'
                         }`}
                       >
-                        <span>{catMeta.title}</span>
+                        <span>{t(catMeta.title)}</span>
                         <span className="text-[10px] opacity-75 font-mono">({count})</span>
                       </button>
                     );
@@ -840,13 +842,13 @@ export const PermissionsManager: React.FC = () => {
                 </div>
 
                 <div className="relative w-full sm:w-60">
-                  <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-2.5" />
+                  <Search className="w-3.5 h-3.5 text-slate-500 absolute start-2.5 top-2.5" />
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Filtrer permission..."
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
+                    placeholder={t('Filtrer permission...')}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-lg ps-8 pe-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
                   />
                 </div>
               </div>
@@ -856,7 +858,7 @@ export const PermissionsManager: React.FC = () => {
                 <div className="bg-purple-500/10 border border-purple-500/30 rounded-xl p-3 text-xs text-purple-200 flex items-center gap-2.5">
                   <Sparkles className="w-4 h-4 text-purple-400 shrink-0" />
                   <span>
-                    Ce compte dispose du statut <strong>SUPER ADMIN / GÉRANT</strong> : toutes les permissions ci-dessous sont actives de droit et irrévocables tant que le rôle demeure Admin.
+                    {t('Ce compte dispose du statut')} <strong>{t('SUPER ADMIN / GÉRANT')}</strong> {t(': toutes les permissions ci-dessous sont actives de droit et irrévocables tant que le rôle demeure Admin.')}
                   </span>
                 </div>
               )}
@@ -891,14 +893,14 @@ export const PermissionsManager: React.FC = () => {
                         <div className="space-y-0.5">
                           <div className="flex items-center gap-2">
                             <span className="text-xs font-bold text-white group-hover:text-amber-400 transition-colors">
-                              {perm.label}
+                              {t(perm.label)}
                             </span>
                             <span className="text-[10px] text-slate-500 font-mono bg-slate-900 px-1.5 py-0.2 rounded border border-slate-800">
-                              {catMeta.title}
+                              {t(catMeta.title)}
                             </span>
                           </div>
                           <p className="text-[11px] text-slate-400 leading-snug">
-                            {perm.description}
+                            {t(perm.description)}
                           </p>
                         </div>
                       </div>
@@ -910,7 +912,7 @@ export const PermissionsManager: React.FC = () => {
                             isEnabled ? 'text-emerald-400' : 'text-slate-500'
                           }`}
                         >
-                          {isEnabled ? 'AUTORISÉ' : 'RESTREINT'}
+                          {isEnabled ? t('AUTORISÉ') : t('RESTREINT')}
                         </span>
                         <div
                           className={`w-11 h-6 rounded-full p-1 transition-colors ${
@@ -932,9 +934,9 @@ export const PermissionsManager: React.FC = () => {
           ) : (
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-12 text-center text-slate-400">
               <Users className="w-10 h-10 mx-auto text-slate-600 mb-2" />
-              <p className="font-bold text-white">Sélectionnez un membre</p>
+              <p className="font-bold text-white">{t('Sélectionnez un membre')}</p>
               <p className="text-xs text-slate-500">
-                Cliquez sur un collaborateur à gauche pour afficher et éditer ses droits d'accès.
+                {t("Cliquez sur un collaborateur à gauche pour afficher et éditer ses droits d'accès.")}
               </p>
             </div>
           )}
@@ -954,9 +956,9 @@ export const PermissionsManager: React.FC = () => {
                   <Plus className="w-5 h-5 stroke-[2.5]" />
                 </div>
                 <div>
-                  <h2 className="text-base font-bold text-white">Nouveau Collaborateur</h2>
+                  <h2 className="text-base font-bold text-white">{t('Nouveau Collaborateur')}</h2>
                   <p className="text-xs text-slate-400">
-                    Créer un compte d'accès pour un membre de l'agence.
+                    {t("Créer un compte d'accès pour un membre de l'agence.")}
                   </p>
                 </div>
               </div>
@@ -978,13 +980,13 @@ export const PermissionsManager: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Nom complet du collaborateur *
+                  {t('Nom complet du collaborateur *')}
                 </label>
                 <input
                   type="text"
                   value={newUserName}
                   onChange={(e) => setNewUserName(e.target.value)}
-                  placeholder="Ex: Othman Belkadi"
+                  placeholder={t('Ex: Othman Belkadi')}
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
                   required
                 />
@@ -992,13 +994,13 @@ export const PermissionsManager: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Adresse Email professionnelle *
+                  {t('Adresse Email professionnelle *')}
                 </label>
                 <input
                   type="email"
                   value={newUserEmail}
                   onChange={(e) => setNewUserEmail(e.target.value)}
-                  placeholder="Ex: o.belkadi@morvellocars.com"
+                  placeholder={t('Ex: o.belkadi@morvellocars.com')}
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
                   required
                 />
@@ -1006,13 +1008,13 @@ export const PermissionsManager: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Mot de passe de connexion *
+                  {t('Mot de passe de connexion *')}
                 </label>
                 <input
                   type="text"
                   value={newUserPassword}
                   onChange={(e) => setNewUserPassword(e.target.value)}
-                  placeholder="Ex: pass1234 (défaut: morvello123)"
+                  placeholder={t('Ex: pass1234 (défaut: morvello123)')}
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
                   required
                 />
@@ -1020,55 +1022,55 @@ export const PermissionsManager: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Téléphone Direct (GSM Manager / Contrats)
+                  {t('Téléphone Direct (GSM Manager / Contrats)')}
                 </label>
                 <div className="relative">
                   <input
                     type="tel"
                     value={newUserPhone}
                     onChange={(e) => setNewUserPhone(e.target.value)}
-                    placeholder="Ex: +212 661-458920"
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-8 pr-3 py-2 text-xs text-amber-300 font-mono focus:outline-none focus:border-amber-500"
+                    placeholder={t('Ex: +212 661-458920')}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl ps-8 pe-3 py-2 text-xs text-amber-300 font-mono focus:outline-none focus:border-amber-500"
                   />
-                  <Phone className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                  <Phone className="w-3.5 h-3.5 text-slate-500 absolute start-2.5 top-1/2 -translate-y-1/2" />
                 </div>
                 <span className="text-[10px] text-slate-500 mt-0.5 block">
-                  Apparaîtra sur l'en-tête de la 1ère page des contrats gérés par ce collaborateur.
+                  {t("Apparaîtra sur l'en-tête de la 1ère page des contrats gérés par ce collaborateur.")}
                 </span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Rôle hiérarchique *
+                    {t('Rôle hiérarchique *')}
                   </label>
                   <select
                     value={newUserRole}
                     onChange={(e) => setNewUserRole(e.target.value as UserRole)}
                     className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-amber-400 font-bold focus:outline-none focus:border-amber-500 cursor-pointer"
                   >
-                    <option value="agent">AGENT DE COMPTOIR</option>
-                    <option value="manager">RESPONSABLE DE FLOTTE</option>
-                    <option value="admin">SUPER ADMIN / GÉRANT</option>
+                    <option value="agent">{t('AGENT DE COMPTOIR')}</option>
+                    <option value="manager">{t('RESPONSABLE DE FLOTTE')}</option>
+                    <option value="admin">{t('SUPER ADMIN / GÉRANT')}</option>
                   </select>
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Affectation flotte (optionnel)
+                    {t('Affectation flotte (optionnel)')}
                   </label>
                   <input
                     type="text"
                     value={newUserFleet}
                     onChange={(e) => setNewUserFleet(e.target.value)}
-                    placeholder="Ex: Flotte Éco / Berlines"
+                    placeholder={t('Ex: Flotte Éco / Berlines')}
                     className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
                   />
                 </div>
               </div>
 
               <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-[11px] text-slate-400">
-                Le collaborateur sera automatiquement initialisé avec les permissions standards correspondant à son rôle. Vous pourrez ensuite ajuster individuellement chaque droit.
+                {t('Le collaborateur sera automatiquement initialisé avec les permissions standards correspondant à son rôle. Vous pourrez ensuite ajuster individuellement chaque droit.')}
               </div>
 
               <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
@@ -1077,14 +1079,14 @@ export const PermissionsManager: React.FC = () => {
                   onClick={() => setIsAddUserModalOpen(false)}
                   className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl"
                 >
-                  Annuler
+                  {t('Annuler')}
                 </button>
                 <button
                   type="submit"
                   className="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold rounded-xl shadow-lg shadow-amber-500/20 flex items-center gap-1.5"
                 >
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>Créer le collaborateur</span>
+                  <span>{t('Créer le collaborateur')}</span>
                 </button>
               </div>
             </form>
@@ -1101,9 +1103,9 @@ export const PermissionsManager: React.FC = () => {
               <AlertTriangle className="w-6 h-6" />
             </div>
             <div className="text-center space-y-2">
-              <h3 className="text-base font-bold text-white">Confirmer la suppression</h3>
+              <h3 className="text-base font-bold text-white">{t('Confirmer la suppression')}</h3>
               <p className="text-xs text-slate-400 leading-relaxed">
-                Êtes-vous sûr de vouloir supprimer définitivement le collaborateur <strong className="text-white">{userToDelete.name}</strong> ({userToDelete.email}) ? Cette action est irréversible.
+                {t('Êtes-vous sûr de vouloir supprimer définitivement le collaborateur')} <strong className="text-white">{userToDelete.name}</strong> {t('({email}) ? Cette action est irréversible.', { email: userToDelete.email })}
               </p>
             </div>
             <div className="flex items-center justify-center gap-3 pt-2">
@@ -1112,7 +1114,7 @@ export const PermissionsManager: React.FC = () => {
                 onClick={() => setUserToDelete(null)}
                 className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl cursor-pointer"
               >
-                Annuler
+                {t('Annuler')}
               </button>
               <button
                 type="button"
@@ -1120,7 +1122,7 @@ export const PermissionsManager: React.FC = () => {
                 className="px-5 py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-rose-600/20 flex items-center gap-1.5 cursor-pointer"
               >
                 <Trash2 className="w-4 h-4" />
-                <span>Confirmer la suppression</span>
+                <span>{t('Confirmer la suppression')}</span>
               </button>
             </div>
           </div>

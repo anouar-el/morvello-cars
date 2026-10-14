@@ -2,6 +2,7 @@ import React from 'react';
 import { Vehicle } from '../../types';
 import { Trash2, AlertTriangle } from 'lucide-react';
 
+import { useI18n } from '../../i18n/I18nContext';
 interface VehicleDeleteModalProps {
   vehicle: Vehicle | null;
   deleteError: string | null;
@@ -15,6 +16,7 @@ export const VehicleDeleteModal: React.FC<VehicleDeleteModalProps> = ({
   onClose,
   onConfirm,
 }) => {
+  const { t } = useI18n();
   if (!vehicle) return null;
 
   return (
@@ -26,28 +28,28 @@ export const VehicleDeleteModal: React.FC<VehicleDeleteModalProps> = ({
             <Trash2 className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="text-base font-bold text-white">Supprimer ce véhicule ?</h3>
-            <p className="text-xs text-slate-400">Action irréversible sur la flotte</p>
+            <h3 className="text-base font-bold text-white">{t('Supprimer ce véhicule ?')}</h3>
+            <p className="text-xs text-slate-400">{t('Action irréversible sur la flotte')}</p>
           </div>
         </div>
 
         <div className="bg-slate-950 border border-slate-800 rounded-xl p-3.5 space-y-2 text-xs">
           <div className="flex items-center justify-between">
-            <span className="text-slate-400">Véhicule :</span>
+            <span className="text-slate-400">{t('Véhicule :')}</span>
             <span className="text-white font-bold uppercase">
               {vehicle.brand} {vehicle.model}
             </span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-slate-400">Immatriculation :</span>
+            <span className="text-slate-400">{t('Immatriculation :')}</span>
             <span className="text-amber-400 font-mono font-bold">{vehicle.plate}</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-slate-400">Responsable :</span>
-            <span className="text-slate-300">{vehicle.assignedManagerName || 'Non assigné'}</span>
+            <span className="text-slate-400">{t('Responsable :')}</span>
+            <span className="text-slate-300">{vehicle.assignedManagerName || t('Non assigné')}</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-slate-400">Statut actuel :</span>
+            <span className="text-slate-400">{t('Statut actuel :')}</span>
             <span
               className={`font-semibold capitalize ${
                 vehicle.status === 'available'
@@ -58,10 +60,10 @@ export const VehicleDeleteModal: React.FC<VehicleDeleteModalProps> = ({
               }`}
             >
               {vehicle.status === 'available'
-                ? 'Disponible'
+                ? t('Disponible')
                 : vehicle.status === 'rented'
-                ? 'En location'
-                : 'En maintenance'}
+                ? t('En location')
+                : t('En maintenance')}
             </span>
           </div>
         </div>
@@ -74,7 +76,7 @@ export const VehicleDeleteModal: React.FC<VehicleDeleteModalProps> = ({
         )}
 
         <p className="text-[11px] text-slate-400">
-          Êtes-vous sûr de vouloir retirer ce véhicule de la flotte Morvello Cars ? Toutes les données associées de ce véhicule seront supprimées du parc.
+          {t('Êtes-vous sûr de vouloir retirer ce véhicule de la flotte Morvello Cars ? Toutes les données associées de ce véhicule seront supprimées du parc.')}
         </p>
 
         <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-800">
@@ -83,7 +85,7 @@ export const VehicleDeleteModal: React.FC<VehicleDeleteModalProps> = ({
             onClick={onClose}
             className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl transition-colors cursor-pointer"
           >
-            Annuler
+            {t('Annuler')}
           </button>
           <button
             type="button"
@@ -91,7 +93,7 @@ export const VehicleDeleteModal: React.FC<VehicleDeleteModalProps> = ({
             className="flex items-center gap-1.5 px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-rose-600/30 transition-all cursor-pointer active:scale-95"
           >
             <Trash2 className="w-3.5 h-3.5" />
-            Confirmer la suppression
+            {t('Confirmer la suppression')}
           </button>
         </div>
       </div>

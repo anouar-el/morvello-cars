@@ -15,6 +15,7 @@ import {
 } from '../lib/auditPresentation';
 import { requestEntityFocus } from '../lib/entityFocus';
 
+import { useI18n } from '../i18n/I18nContext';
 const PAGE_SIZE = 50;
 
 const CATEGORY_STYLE: Record<AuditCategory, string> = {
@@ -28,6 +29,7 @@ const CATEGORY_STYLE: Record<AuditCategory, string> = {
 };
 
 export const AuditView: React.FC = () => {
+  const { t } = useI18n();
   const { auditLogs, setActiveTab } = useApp();
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<AuditCategory | 'all'>('all');
@@ -92,11 +94,11 @@ export const AuditView: React.FC = () => {
         <div>
           <div className="flex items-center gap-2 text-xs font-semibold text-rose-400 uppercase tracking-widest font-mono">
             <ShieldAlert className="w-4 h-4" />
-            Traçabilité
+            {t('Traçabilité')}
           </div>
-          <h1 className="text-xl font-bold text-white tracking-tight mt-1">Journal des événements</h1>
+          <h1 className="text-xl font-bold text-white tracking-tight mt-1">{t('Journal des événements')}</h1>
           <p className="text-xs text-slate-400 mt-0.5">
-            Qui a fait quoi et quand : contrats, clients, véhicules, cautions et paramètres.
+            {t('Qui a fait quoi et quand : contrats, clients, véhicules, cautions et paramètres.')}
           </p>
         </div>
 
@@ -105,8 +107,8 @@ export const AuditView: React.FC = () => {
             <History className="w-4 h-4 text-amber-400" />
             <span>
               {filtered.length === auditLogs.length
-                ? `${auditLogs.length} événements`
-                : `${filtered.length} sur ${auditLogs.length}`}
+                ? t('{auditLogsCount} événements', { auditLogsCount: auditLogs.length })
+                : t('{filteredCount} sur {auditLogsCount}', { filteredCount: filtered.length, auditLogsCount: auditLogs.length })}
             </span>
           </div>
           <button
@@ -114,10 +116,10 @@ export const AuditView: React.FC = () => {
             onClick={exportCsv}
             disabled={filtered.length === 0}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-700 text-slate-200 hover:bg-slate-800 text-xs font-medium cursor-pointer disabled:opacity-40"
-            title="Exporter la sélection en CSV"
+            title={t('Exporter la sélection en CSV')}
           >
             <Download className="w-3.5 h-3.5" />
-            <span>Exporter</span>
+            <span>{t('Exporter')}</span>
           </button>
         </div>
       </div>
@@ -125,7 +127,7 @@ export const AuditView: React.FC = () => {
       {/* RECHERCHE & FILTRES */}
       <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl shadow-md space-y-3">
         <div className="relative">
-          <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+          <Search className="w-4 h-4 absolute start-3 top-3 text-slate-400" />
           <input
             type="text"
             value={query}
@@ -133,8 +135,8 @@ export const AuditView: React.FC = () => {
               setQuery(e.target.value);
               resetPaging();
             }}
-            placeholder="Rechercher (agent, contrat, client, motif)…"
-            className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
+            placeholder={t('Rechercher (agent, contrat, client, motif)…')}
+            className="w-full bg-slate-950 border border-slate-700 rounded-xl ps-9 pe-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
           />
         </div>
 
@@ -146,9 +148,9 @@ export const AuditView: React.FC = () => {
               resetPaging();
             }}
             className={selectClass}
-            aria-label="Catégorie"
+            aria-label={t('Catégorie')}
           >
-            <option value="all">Toutes les catégories</option>
+            <option value="all">{t('Toutes les catégories')}</option>
             {(Object.keys(CATEGORY_LABELS) as AuditCategory[]).map((c) => (
               <option key={c} value={c}>
                 {CATEGORY_LABELS[c]}
@@ -163,9 +165,9 @@ export const AuditView: React.FC = () => {
               resetPaging();
             }}
             className={selectClass}
-            aria-label="Agent"
+            aria-label={t('Agent')}
           >
-            <option value="all">Tous les agents</option>
+            <option value="all">{t('Tous les agents')}</option>
             {agents.map((a) => (
               <option key={a} value={a}>
                 {a}
@@ -180,7 +182,7 @@ export const AuditView: React.FC = () => {
               resetPaging();
             }}
             className={selectClass}
-            aria-label="Période"
+            aria-label={t('Période')}
           >
             {(Object.keys(PERIOD_LABELS) as AuditPeriod[]).map((p) => (
               <option key={p} value={p}>
@@ -195,7 +197,7 @@ export const AuditView: React.FC = () => {
       <div className="space-y-5">
         {filtered.length === 0 && (
           <div className="bg-slate-900 border border-slate-800 rounded-xl text-center py-10 text-slate-500 text-xs">
-            Aucun événement ne correspond à ces filtres.
+            {t('Aucun événement ne correspond à ces filtres.')}
           </div>
         )}
 
@@ -211,7 +213,7 @@ export const AuditView: React.FC = () => {
 
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xs font-bold text-white">{log.userName || 'Inconnu'}</span>
+                      <span className="text-xs font-bold text-white">{log.userName || t('Inconnu')}</span>
                       <span className="text-[10px] px-1.5 rounded bg-slate-800 text-slate-400 uppercase font-mono">
                         {log.userRole}
                       </span>
@@ -227,7 +229,7 @@ export const AuditView: React.FC = () => {
                         type="button"
                         onClick={() => openTarget(log)}
                         className="inline-flex items-center gap-1 text-xs font-mono font-bold text-amber-400 hover:text-amber-300 cursor-pointer"
-                        title="Ouvrir dans l’application"
+                        title={t('Ouvrir dans l’application')}
                       >
                         <span className="truncate max-w-[180px]">{log.targetId}</span>
                         <ExternalLink className="w-3 h-3" />
@@ -249,7 +251,7 @@ export const AuditView: React.FC = () => {
               onClick={() => setVisible((v) => v + PAGE_SIZE)}
               className="px-4 py-2 rounded-xl border border-slate-700 text-slate-200 hover:bg-slate-800 text-xs font-medium cursor-pointer"
             >
-              Voir plus ({filtered.length - shown.length} restants)
+              {t('Voir plus ({filteredCount} restants)', { filteredCount: filtered.length - shown.length })}
             </button>
           </div>
         )}

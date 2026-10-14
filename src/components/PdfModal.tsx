@@ -29,7 +29,9 @@ import {
   Save,
 } from 'lucide-react';
 
+import { useI18n } from '../i18n/I18nContext';
 export const PdfModal: React.FC = () => {
+  const { t } = useI18n();
   const {
     isPdfModalOpen,
     pdfModalContract,
@@ -114,7 +116,7 @@ export const PdfModal: React.FC = () => {
     } catch (error) {
       console.error('Erreur de téléchargement PDF:', error);
       // Option de repli vers l'impression papier
-      if (confirm('La génération directe du PDF a rencontré un obstacle dans votre navigateur. Souhaitez-vous lancer l\'impression A4 intégrée ?')) {
+      if (confirm(t("La génération directe du PDF a rencontré un obstacle dans votre navigateur. Souhaitez-vous lancer l'impression A4 intégrée ?"))) {
         window.print();
       }
     } finally {
@@ -144,7 +146,7 @@ export const PdfModal: React.FC = () => {
       setLastGeneratedBlobUrl(result.blobUrl);
     } catch (error) {
       console.error('Erreur ouverture PDF:', error);
-      alert('Impossible d\'ouvrir le PDF. Veuillez autoriser les fenêtres pop-up pour cette application.');
+      alert(t("Impossible d'ouvrir le PDF. Veuillez autoriser les fenêtres pop-up pour cette application."));
     } finally {
       setIsGeneratingPdf(false);
       setGenerationStep('');
@@ -184,7 +186,7 @@ export const PdfModal: React.FC = () => {
             <div>
               <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
                 <h2 className="text-xs sm:text-sm font-bold text-white tracking-wide">
-                  Contrat N° {pdfModalContract.contractNumber}
+                  {t('Contrat N° {contractNumber}', { contractNumber: pdfModalContract.contractNumber })}
                 </h2>
                 {/* Sélecteur interactif de modèle de contrat */}
                 <div className="flex items-center gap-1.5">
@@ -193,8 +195,8 @@ export const PdfModal: React.FC = () => {
                     <select
                       value={selectedTemplateId}
                       onChange={(e) => setSelectedTemplateId(e.target.value as ContractTemplateId)}
-                      className="bg-transparent text-[10px] sm:text-xs font-bold text-amber-300 focus:outline-none cursor-pointer pr-1"
-                      title="Changer de modèle de contrat pour la prévisualisation et l'impression"
+                      className="bg-transparent text-[10px] sm:text-xs font-bold text-amber-300 focus:outline-none cursor-pointer pe-1"
+                      title={t("Changer de modèle de contrat pour la prévisualisation et l'impression")}
                     >
                       {CONTRACT_TEMPLATES.map((tmpl) => (
                         <option key={tmpl.id} value={tmpl.id} className="bg-slate-900 text-white">
@@ -210,19 +212,19 @@ export const PdfModal: React.FC = () => {
                       onClick={handleSaveTemplateToContract}
                       disabled={isSavingTemplate}
                       className="text-[10px] bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-2 py-0.5 rounded-md flex items-center gap-1 shadow-xs transition-colors cursor-pointer"
-                      title="Enregistrer ce modèle pour ce contrat"
+                      title={t('Enregistrer ce modèle pour ce contrat')}
                     >
                       {savedSuccess ? (
                         <>
                           <CheckCircle className="w-3 h-3 text-white" />
-                          <span>Enregistré ✓</span>
+                          <span>{t('Enregistré ✓')}</span>
                         </>
                       ) : isSavingTemplate ? (
                         <Loader2 className="w-3 h-3 animate-spin text-white" />
                       ) : (
                         <>
                           <Save className="w-3 h-3 text-white" />
-                          <span className="hidden sm:inline">Appliquer au contrat</span>
+                          <span className="hidden sm:inline">{t('Appliquer au contrat')}</span>
                         </>
                       )}
                     </button>
@@ -239,7 +241,7 @@ export const PdfModal: React.FC = () => {
           <button
             onClick={closePdfModal}
             className="md:hidden p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
-            title="Fermer la prévisualisation"
+            title={t('Fermer la prévisualisation')}
           >
             <X className="w-5 h-5" />
           </button>
@@ -252,7 +254,7 @@ export const PdfModal: React.FC = () => {
             <button
               onClick={() => setZoom((prev) => Math.max(30, prev - 10))}
               className="p-1 hover:bg-slate-700 rounded transition-colors"
-              title="Dézoomer"
+              title={t('Dézoomer')}
             >
               <ZoomOut className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </button>
@@ -260,7 +262,7 @@ export const PdfModal: React.FC = () => {
             <button
               onClick={() => setZoom((prev) => Math.min(130, prev + 10))}
               className="p-1 hover:bg-slate-700 rounded transition-colors"
-              title="Zoomer"
+              title={t('Zoomer')}
             >
               <ZoomIn className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </button>
@@ -272,8 +274,8 @@ export const PdfModal: React.FC = () => {
                   setZoom(85);
                 }
               }}
-              className="p-1 hover:bg-slate-700 rounded transition-colors ml-0.5 sm:ml-1 border-l border-slate-700"
-              title="Ajuster à l'écran"
+              className="p-1 hover:bg-slate-700 rounded transition-colors ms-0.5 sm:ms-1 border-s border-slate-700"
+              title={t("Ajuster à l'écran")}
             >
               <Maximize2 className="w-3 sm:w-3.5 h-3 sm:h-3.5" />
             </button>
@@ -290,7 +292,7 @@ export const PdfModal: React.FC = () => {
               }`}
             >
               <Square className="w-3.5 h-3.5" />
-              Vertical
+              {t('Vertical')}
             </button>
             <button
               onClick={() => setViewLayout('side-by-side')}
@@ -301,7 +303,7 @@ export const PdfModal: React.FC = () => {
               }`}
             >
               <Columns className="w-3.5 h-3.5" />
-              Côte à côte
+              {t('Côte à côte')}
             </button>
           </div>
 
@@ -313,10 +315,10 @@ export const PdfModal: React.FC = () => {
                 startEditingContract(pdfModalContract);
               }}
               className="flex items-center gap-1 bg-blue-600/30 hover:bg-blue-600/50 text-blue-300 hover:text-white border border-blue-500/40 font-medium text-xs px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg transition-colors cursor-pointer shrink-0"
-              title="Modifier ce contrat"
+              title={t('Modifier ce contrat')}
             >
               <Edit3 className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Modifier</span>
+              <span className="hidden sm:inline">{t('Modifier')}</span>
             </button>
           )}
 
@@ -329,17 +331,17 @@ export const PdfModal: React.FC = () => {
                   ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/50 hover:bg-emerald-900/60'
                   : 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 shadow-amber-500/20 active:scale-95'
               }`}
-              title="Recueillir la signature numérique sur écran tactile ou souris"
+              title={t('Recueillir la signature numérique sur écran tactile ou souris')}
             >
               {pdfModalContract.clientSignature ? (
                 <>
                   <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                  <span>Signé ✓</span>
+                  <span>{t('Signé ✓')}</span>
                 </>
               ) : (
                 <>
                   <PenTool className="w-4 h-4" />
-                  <span>Signer</span>
+                  <span>{t('Signer')}</span>
                 </>
               )}
             </button>
@@ -350,20 +352,20 @@ export const PdfModal: React.FC = () => {
             onClick={handleOpenPdfInNewTab}
             disabled={isGeneratingPdf}
             className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 font-medium text-xs px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg transition-all active:scale-95 cursor-pointer disabled:opacity-50 shrink-0"
-            title="Ouvrir le PDF compilé dans un lecteur natif"
+            title={t('Ouvrir le PDF compilé dans un lecteur natif')}
           >
             <ExternalLink className="w-4 h-4 text-sky-400" />
-            <span className="hidden sm:inline">Ouvrir PDF</span>
+            <span className="hidden sm:inline">{t('Ouvrir PDF')}</span>
           </button>
 
           {/* Action: Print */}
           <button
             onClick={handlePrint}
             className="flex items-center gap-1.5 sm:gap-2 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white font-semibold text-xs px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg transition-all active:scale-95 cursor-pointer shrink-0"
-            title="Imprimer directement sur imprimante papier ou Enregistrer au format PDF"
+            title={t('Imprimer directement sur imprimante papier ou Enregistrer au format PDF')}
           >
             <Printer className="w-4 h-4 text-amber-400" />
-            <span className="hidden sm:inline">Imprimer (A4)</span>
+            <span className="hidden sm:inline">{t('Imprimer (A4)')}</span>
           </button>
 
           {/* Action: Download PDF */}
@@ -381,18 +383,18 @@ export const PdfModal: React.FC = () => {
             {isGeneratingPdf ? (
               <>
                 <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />
-                <span className="hidden sm:inline">Compilation {generationPercent}%...</span>
+                <span className="hidden sm:inline">{t('Compilation {generationPercent}%...', { generationPercent })}</span>
               </>
             ) : downloadSuccess ? (
               <>
                 <CheckCircle className="w-4 h-4 text-white" />
-                <span>Téléchargé ✓</span>
+                <span>{t('Téléchargé ✓')}</span>
               </>
             ) : (
               <>
                 <Download className="w-4 h-4 text-slate-950" />
-                <span className="hidden sm:inline">Télécharger PDF A4</span>
-                <span className="sm:hidden">PDF</span>
+                <span className="hidden sm:inline">{t('Télécharger PDF A4')}</span>
+                <span className="sm:hidden">{t('PDF')}</span>
               </>
             )}
           </button>
@@ -400,8 +402,8 @@ export const PdfModal: React.FC = () => {
           {/* Close - Desktop */}
           <button
             onClick={closePdfModal}
-            className="hidden md:block p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer ml-1"
-            title="Fermer la prévisualisation"
+            className="hidden md:block p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer ms-1"
+            title={t('Fermer la prévisualisation')}
           >
             <X className="w-5 h-5" />
           </button>
@@ -431,7 +433,7 @@ export const PdfModal: React.FC = () => {
       {/* HIDDEN 1:1 EXPORT SOURCE FOR HIGH RESOLUTION CAPTURE */}
       <div
         id="export-pdf-source"
-        className="fixed top-0 left-0 pointer-events-none opacity-0 z-[-50]"
+        className="fixed top-0 start-0 pointer-events-none opacity-0 z-[-50]"
         style={{ width: '210mm' }}
       >
         <ContractPdfDocument

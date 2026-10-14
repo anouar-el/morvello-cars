@@ -926,3 +926,26 @@ html.light ::-webkit-scrollbar-thumb:hover {
     margin: 0mm;
   }
 }
+
+/* ===== Mode arabe (RTL) ===== */
+html[lang="ar"] body {
+  font-family: 'Cairo', 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', Tahoma, sans-serif;
+}
+
+/* Plaques, numéros de contrat, montants : chaque bloc suit le sens de son propre contenu (latin = gauche à droite). */
+html[dir="rtl"] .font-mono {
+  unicode-bidi: plaintext;
+}
+
+/* Les champs de saisie de codes, e-mails et téléphones restent de gauche à droite. */
+html[dir="rtl"] input[type="email"],
+html[dir="rtl"] input[type="tel"],
+html[dir="rtl"] input[type="url"] {
+  direction: ltr;
+  text-align: right;
+}
+
+/* Les barres de défilement horizontales des onglets démarrent côté droit. */
+html[dir="rtl"] .no-scrollbar {
+  scroll-padding-inline-start: 0;
+}

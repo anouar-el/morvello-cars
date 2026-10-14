@@ -19,6 +19,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 
+import { useI18n } from '../i18n/I18nContext';
 interface ClausePreset {
   number?: string;
   title: string;
@@ -60,6 +61,7 @@ const CLAUSE_PRESETS: ClausePreset[] = [
 ];
 
 export const TermsManager: React.FC = () => {
+  const { t } = useI18n();
   const {
     termsVersion,
     currentUser,
@@ -129,7 +131,7 @@ export const TermsManager: React.FC = () => {
   const handleSaveAddClause = (e: React.FormEvent) => {
     e.preventDefault();
     if (!clauseNumber.trim() || !clauseTitle.trim() || !clauseContent.trim()) {
-      setFormError('Veuillez remplir le numéro, le titre et le contenu juridique de la clause.');
+      setFormError(t('Veuillez remplir le numéro, le titre et le contenu juridique de la clause.'));
       return;
     }
 
@@ -139,7 +141,7 @@ export const TermsManager: React.FC = () => {
       (c) => c.number.toLowerCase() === trimmedNum.toLowerCase()
     );
     if (exists) {
-      setFormError(`Le numéro d'article "${trimmedNum}" existe déjà. Veuillez en choisir un autre (ex: ${trimmedNum} bis).`);
+      setFormError(t('Le numéro d\'article "{trimmedNum}" existe déjà. Veuillez en choisir un autre (ex: {trimmedNum2} bis).', { trimmedNum, trimmedNum2: trimmedNum }));
       return;
     }
 
@@ -151,7 +153,7 @@ export const TermsManager: React.FC = () => {
 
     addTermsClause(newClause);
     setIsAddModalOpen(false);
-    triggerToast(`Clause Article ${newClause.number} ajoutée avec succès aux conditions générales !`);
+    triggerToast(t('Clause Article {number} ajoutée avec succès aux conditions générales !', { number: newClause.number }));
   };
 
   const handleSaveEditClause = (e: React.FormEvent) => {
@@ -159,7 +161,7 @@ export const TermsManager: React.FC = () => {
     if (!editingClause) return;
 
     if (!clauseNumber.trim() || !clauseTitle.trim() || !clauseContent.trim()) {
-      setFormError('Veuillez renseigner tous les champs obligatoires.');
+      setFormError(t('Veuillez renseigner tous les champs obligatoires.'));
       return;
     }
 
@@ -170,7 +172,7 @@ export const TermsManager: React.FC = () => {
         (c) => c.number.toLowerCase() === trimmedNum.toLowerCase()
       );
       if (exists) {
-        setFormError(`Le numéro d'article "${trimmedNum}" est déjà utilisé par une autre clause.`);
+        setFormError(t('Le numéro d\'article "{trimmedNum}" est déjà utilisé par une autre clause.', { trimmedNum }));
         return;
       }
     }
@@ -182,14 +184,14 @@ export const TermsManager: React.FC = () => {
     });
 
     setEditingClause(null);
-    triggerToast(`Clause Article ${trimmedNum} modifiée avec succès.`);
+    triggerToast(t('Clause Article {trimmedNum} modifiée avec succès.', { trimmedNum }));
   };
 
   const handleConfirmDelete = () => {
     if (!deletingClause) return;
     deleteTermsClause(deletingClause.number);
     setDeletingClause(null);
-    triggerToast(`Article ${deletingClause.number} supprimé des conditions générales.`);
+    triggerToast(t('Article {number} supprimé des conditions générales.', { number: deletingClause.number }));
   };
 
   const filteredClauses = termsVersion.clauses.filter((c) => {
@@ -206,7 +208,7 @@ export const TermsManager: React.FC = () => {
     <div className="space-y-6">
       {/* TOAST NOTIFICATION */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-emerald-500 text-slate-950 font-bold px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2.5 border border-emerald-400 text-xs animate-bounce">
+        <div className="fixed bottom-6 end-6 z-50 bg-emerald-500 text-slate-950 font-bold px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2.5 border border-emerald-400 text-xs animate-bounce">
           <CheckCircle2 className="w-5 h-5 text-slate-950 shrink-0" />
           <span>{toastMessage}</span>
         </div>
@@ -217,13 +219,13 @@ export const TermsManager: React.FC = () => {
         <div>
           <div className="flex items-center gap-2 text-xs font-semibold text-purple-400 uppercase tracking-widest font-mono">
             <ShieldCheck className="w-4 h-4 text-purple-400" />
-            Module Conditions Générales • Section 25 & 28
+            {t('Module Conditions Générales • Section 25 & 28')}
           </div>
           <h1 className="text-xl font-extrabold text-white tracking-tight mt-1">
-            Conditions Générales de Location — Morvello Cars
+            {t('Conditions Générales de Location — Morvello Cars')}
           </h1>
           <p className="text-xs text-slate-400 mt-0.5">
-            Texte contractuel officiel reproduit au verso (Page 2) du contrat de location A4.
+            {t('Texte contractuel officiel reproduit au verso (Page 2) du contrat de location A4.')}
           </p>
         </div>
 
@@ -232,19 +234,19 @@ export const TermsManager: React.FC = () => {
           {isGerant ? (
             <span className="bg-amber-500/15 text-amber-400 border border-amber-500/30 text-xs font-bold px-3 py-1.5 rounded-xl flex items-center gap-1.5 font-mono">
               <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              Gérant : Droit d'Édition Actif
+              {t("Gérant : Droit d'Édition Actif")}
             </span>
           ) : (
             <span className="bg-slate-800 text-slate-400 border border-slate-700 text-xs font-medium px-3 py-1.5 rounded-xl flex items-center gap-1.5">
               <Lock className="w-3.5 h-3.5 text-slate-500" />
-              Mode Consultation Seule
+              {t('Mode Consultation Seule')}
             </span>
           )}
 
           {/* BADGE VERSION */}
           <span className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-xs font-bold px-3 py-1.5 rounded-xl flex items-center gap-1.5 font-mono">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            Version {termsVersion.version} (Active)
+            {t('Version {version} (Active)', { version: termsVersion.version })}
           </span>
 
           {/* BOUTON AJOUT NOUVELLE CLAUSE (RÉSERVÉ GÉRANT) */}
@@ -252,10 +254,10 @@ export const TermsManager: React.FC = () => {
             <button
               onClick={openAddModal}
               className="px-3.5 py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-amber-500/20 flex items-center gap-1.5 transition-all cursor-pointer hover:scale-102"
-              title="Ajouter une nouvelle clause contractuelle aux conditions de location"
+              title={t('Ajouter une nouvelle clause contractuelle aux conditions de location')}
             >
               <Plus className="w-4 h-4 stroke-[2.5]" />
-              <span>+ Nouvelle Clause</span>
+              <span>{t('+ Nouvelle Clause')}</span>
             </button>
           )}
         </div>
@@ -267,13 +269,13 @@ export const TermsManager: React.FC = () => {
           <AlertCircle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
           <div className="space-y-1">
             <p className="font-bold text-amber-300">
-              Règle stricte d'intégrité contractuelle & Intégration dynamique Page 2 A4 :
+              {t("Règle stricte d'intégrité contractuelle & Intégration dynamique Page 2 A4 :")}
             </p>
             <p className="text-amber-200/90 leading-relaxed">
-              Le moteur PDF reproduit fidèlement toutes les clauses actives en deux colonnes équilibrées au verso du contrat. 
+              {t('Le moteur PDF reproduit fidèlement toutes les clauses actives en deux colonnes équilibrées au verso du contrat.')} 
               {isGerant
-                ? ' En tant que Gérant, vous pouvez enrichir ou adapter les clauses ci-dessous : toute modification ou nouvel article sera immédiatement reflété dans les contrats imprimés et les aperçus PDF.'
-                : ' Seul le Gérant est habilité à ajouter ou modifier les clauses contractuelles afin de garantir l’opposabilité juridique devant les tribunaux.'}
+                ? t(' En tant que Gérant, vous pouvez enrichir ou adapter les clauses ci-dessous : toute modification ou nouvel article sera immédiatement reflété dans les contrats imprimés et les aperçus PDF.')
+                : t(' Seul le Gérant est habilité à ajouter ou modifier les clauses contractuelles afin de garantir l’opposabilité juridique devant les tribunaux.')}
             </p>
           </div>
         </div>
@@ -283,42 +285,42 @@ export const TermsManager: React.FC = () => {
       <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
         <div className="flex flex-wrap items-center gap-5 text-slate-300">
           <div>
-            <span className="text-slate-500 block text-[10px] uppercase font-mono">Version active</span>
+            <span className="text-slate-500 block text-[10px] uppercase font-mono">{t('Version active')}</span>
             <strong className="text-white font-mono text-sm">V{termsVersion.version}</strong>
           </div>
           <div>
-            <span className="text-slate-500 block text-[10px] uppercase font-mono">Date d'effet</span>
+            <span className="text-slate-500 block text-[10px] uppercase font-mono">{t("Date d'effet")}</span>
             <strong className="text-white text-sm">{termsVersion.date}</strong>
           </div>
           <div>
-            <span className="text-slate-500 block text-[10px] uppercase font-mono">Clauses en vigueur</span>
+            <span className="text-slate-500 block text-[10px] uppercase font-mono">{t('Clauses en vigueur')}</span>
             <strong className="text-amber-400 font-mono text-sm">
-              {termsVersion.clauses.length} articles
+              {t('{clausesCount} articles', { clausesCount: termsVersion.clauses.length })}
             </strong>
           </div>
           {filteredClauses.length !== termsVersion.clauses.length && (
             <div>
-              <span className="text-slate-500 block text-[10px] uppercase font-mono">Filtrés</span>
+              <span className="text-slate-500 block text-[10px] uppercase font-mono">{t('Filtrés')}</span>
               <strong className="text-emerald-400 font-mono text-sm">
-                {filteredClauses.length} affichés
+                {t('{filteredClausesCount} affichés', { filteredClausesCount: filteredClauses.length })}
               </strong>
             </div>
           )}
         </div>
 
         <div className="relative w-full sm:w-80">
-          <Search className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
+          <Search className="w-4 h-4 text-slate-500 absolute start-3 top-2.5" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Filtrer une clause (ex: GPS, Caution, Remorquage)..."
-            className="bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-8 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 w-full"
+            placeholder={t('Filtrer une clause (ex: GPS, Caution, Remorquage)...')}
+            className="bg-slate-950 border border-slate-700 rounded-xl ps-9 pe-8 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 w-full"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="absolute right-2.5 top-2.5 text-slate-400 hover:text-white"
+              className="absolute end-2.5 top-2.5 text-slate-400 hover:text-white"
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -331,9 +333,9 @@ export const TermsManager: React.FC = () => {
         {filteredClauses.length === 0 ? (
           <div className="col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-10 text-center text-slate-400">
             <FileText className="w-10 h-10 mx-auto text-slate-600 mb-2" />
-            <p className="font-semibold text-white">Aucune clause trouvée</p>
+            <p className="font-semibold text-white">{t('Aucune clause trouvée')}</p>
             <p className="text-xs text-slate-500 mt-1">
-              Aucun article ne correspond à votre recherche "{searchQuery}".
+              {t('Aucun article ne correspond à votre recherche "{searchQuery}".', { searchQuery })}
             </p>
           </div>
         ) : (
@@ -359,14 +361,14 @@ export const TermsManager: React.FC = () => {
                       <button
                         onClick={() => openEditModal(clause)}
                         className="p-1.5 hover:bg-blue-500/20 text-slate-400 hover:text-blue-400 rounded-lg transition-colors cursor-pointer"
-                        title="Modifier cette clause"
+                        title={t('Modifier cette clause')}
                       >
                         <Edit3 className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => setDeletingClause(clause)}
                         className="p-1.5 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 rounded-lg transition-colors cursor-pointer"
-                        title="Supprimer cette clause"
+                        title={t('Supprimer cette clause')}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -380,8 +382,8 @@ export const TermsManager: React.FC = () => {
               </div>
 
               <div className="mt-3 pt-2 border-t border-slate-800/60 flex items-center justify-between text-[10px] text-slate-500 font-mono">
-                <span>Article {clause.number} • Verso Page 2</span>
-                <span className="text-slate-600">Morvello Legal</span>
+                <span>{t('Article {number} • Verso Page 2', { number: clause.number })}</span>
+                <span className="text-slate-600">{t('Morvello Legal')}</span>
               </div>
             </div>
           ))
@@ -401,10 +403,10 @@ export const TermsManager: React.FC = () => {
                 </div>
                 <div>
                   <h2 className="text-base font-bold text-white">
-                    Ajouter une nouvelle clause contractuelle
+                    {t('Ajouter une nouvelle clause contractuelle')}
                   </h2>
                   <p className="text-xs text-slate-400">
-                    Cette clause sera automatiquement ajoutée aux Conditions Générales (Verso A4).
+                    {t('Cette clause sera automatiquement ajoutée aux Conditions Générales (Verso A4).')}
                   </p>
                 </div>
               </div>
@@ -429,9 +431,9 @@ export const TermsManager: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
                     <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                    Modèles juridiques suggérés (Remplissage rapide) :
+                    {t('Modèles juridiques suggérés (Remplissage rapide) :')}
                   </span>
-                  <span className="text-[10px] text-slate-500">Cliquez pour appliquer</span>
+                  <span className="text-[10px] text-slate-500">{t('Cliquez pour appliquer')}</span>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {CLAUSE_PRESETS.map((preset, idx) => (
@@ -451,49 +453,49 @@ export const TermsManager: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
                 <div className="sm:col-span-1">
                   <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    N° Article *
+                    {t('N° Article *')}
                   </label>
                   <input
                     type="text"
                     value={clauseNumber}
                     onChange={(e) => setClauseNumber(e.target.value)}
-                    placeholder="Ex: 21, 18 bis"
+                    placeholder={t('Ex: 21, 18 bis')}
                     className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono font-bold focus:outline-none focus:border-amber-500"
                     required
                   />
-                  <p className="text-[10px] text-slate-500 mt-1">Ex: 21, 22 ou 18 bis</p>
+                  <p className="text-[10px] text-slate-500 mt-1">{t('Ex: 21, 22 ou 18 bis')}</p>
                 </div>
 
                 <div className="sm:col-span-3">
                   <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Titre de la clause *
+                    {t('Titre de la clause *')}
                   </label>
                   <input
                     type="text"
                     value={clauseTitle}
                     onChange={(e) => setClauseTitle(e.target.value)}
-                    placeholder="Ex: FRANCHISE ET ASSISTANCE ROUTIÈRE 24/7"
+                    placeholder={t('Ex: FRANCHISE ET ASSISTANCE ROUTIÈRE 24/7')}
                     className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white uppercase font-bold focus:outline-none focus:border-amber-500"
                     required
                   />
-                  <p className="text-[10px] text-slate-500 mt-1">Intitulé affiché en majuscules</p>
+                  <p className="text-[10px] text-slate-500 mt-1">{t('Intitulé affiché en majuscules')}</p>
                 </div>
               </div>
 
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="text-xs font-semibold text-slate-300">
-                    Contenu juridique détaillé *
+                    {t('Contenu juridique détaillé *')}
                   </label>
                   <span className="text-[10px] text-slate-500 font-mono">
-                    {clauseContent.length} caractères
+                    {t('{clauseContentCount} caractères', { clauseContentCount: clauseContent.length })}
                   </span>
                 </div>
                 <textarea
                   rows={6}
                   value={clauseContent}
                   onChange={(e) => setClauseContent(e.target.value)}
-                  placeholder="Rédigez ici le texte contractuel officiel opposable au locataire..."
+                  placeholder={t('Rédigez ici le texte contractuel officiel opposable au locataire...')}
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-amber-500 leading-relaxed font-sans"
                   required
                 />
@@ -503,7 +505,7 @@ export const TermsManager: React.FC = () => {
               {clauseTitle && (
                 <div className="bg-slate-950 border border-slate-800 rounded-xl p-3.5 space-y-1.5">
                   <span className="text-[10px] uppercase font-mono text-slate-500 block">
-                    Aperçu du rendu final :
+                    {t('Aperçu du rendu final :')}
                   </span>
                   <div className="flex items-center gap-2">
                     <span className="w-6 h-6 rounded bg-amber-500/20 text-amber-400 font-mono font-bold text-[11px] flex items-center justify-center">
@@ -512,7 +514,7 @@ export const TermsManager: React.FC = () => {
                     <strong className="text-xs text-white uppercase">{clauseTitle}</strong>
                   </div>
                   <p className="text-[11px] text-slate-300 leading-relaxed text-justify">
-                    {clauseContent || 'Contenu en cours de saisie...'}
+                    {clauseContent || t('Contenu en cours de saisie...')}
                   </p>
                 </div>
               )}
@@ -523,14 +525,14 @@ export const TermsManager: React.FC = () => {
                   onClick={() => setIsAddModalOpen(false)}
                   className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium text-xs rounded-xl transition-colors cursor-pointer"
                 >
-                  Annuler
+                  {t('Annuler')}
                 </button>
                 <button
                   type="submit"
                   className="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-amber-500/20 transition-colors cursor-pointer flex items-center gap-1.5"
                 >
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>Enregistrer et intégrer la clause</span>
+                  <span>{t('Enregistrer et intégrer la clause')}</span>
                 </button>
               </div>
             </form>
@@ -551,10 +553,10 @@ export const TermsManager: React.FC = () => {
                 </div>
                 <div>
                   <h2 className="text-base font-bold text-white">
-                    Modifier l'Article {editingClause.number}
+                    {t("Modifier l'Article {number}", { number: editingClause.number })}
                   </h2>
                   <p className="text-xs text-slate-400">
-                    Mise à jour du texte contractuel officiel.
+                    {t('Mise à jour du texte contractuel officiel.')}
                   </p>
                 </div>
               </div>
@@ -577,7 +579,7 @@ export const TermsManager: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
                 <div className="sm:col-span-1">
                   <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    N° Article *
+                    {t('N° Article *')}
                   </label>
                   <input
                     type="text"
@@ -590,7 +592,7 @@ export const TermsManager: React.FC = () => {
 
                 <div className="sm:col-span-3">
                   <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Titre de la clause *
+                    {t('Titre de la clause *')}
                   </label>
                   <input
                     type="text"
@@ -604,7 +606,7 @@ export const TermsManager: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Contenu juridique détaillé *
+                  {t('Contenu juridique détaillé *')}
                 </label>
                 <textarea
                   rows={7}
@@ -621,14 +623,14 @@ export const TermsManager: React.FC = () => {
                   onClick={() => setEditingClause(null)}
                   className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium text-xs rounded-xl transition-colors cursor-pointer"
                 >
-                  Annuler
+                  {t('Annuler')}
                 </button>
                 <button
                   type="submit"
                   className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-blue-500/20 transition-colors cursor-pointer flex items-center gap-1.5"
                 >
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>Valider les modifications</span>
+                  <span>{t('Valider les modifications')}</span>
                 </button>
               </div>
             </form>
@@ -647,10 +649,10 @@ export const TermsManager: React.FC = () => {
             </div>
             <div className="text-center space-y-1">
               <h3 className="text-base font-bold text-white">
-                Supprimer l'Article {deletingClause.number} ?
+                {t("Supprimer l'Article {number} ?", { number: deletingClause.number })}
               </h3>
               <p className="text-xs text-slate-400">
-                Êtes-vous sûr de vouloir retirer la clause <strong className="text-white">"{deletingClause.title}"</strong> des conditions générales ?
+                {t('Êtes-vous sûr de vouloir retirer la clause')} <strong className="text-white">"{deletingClause.title}"</strong> {t('des conditions générales ?')}
               </p>
             </div>
             <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-[11px] text-slate-400 max-h-24 overflow-y-auto">
@@ -662,14 +664,14 @@ export const TermsManager: React.FC = () => {
                 onClick={() => setDeletingClause(null)}
                 className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl"
               >
-                Annuler
+                {t('Annuler')}
               </button>
               <button
                 type="button"
                 onClick={handleConfirmDelete}
                 className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-rose-600/30"
               >
-                Supprimer définitivement
+                {t('Supprimer définitivement')}
               </button>
             </div>
           </div>

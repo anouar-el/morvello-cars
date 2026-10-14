@@ -14,6 +14,7 @@ import {
   Lock,
 } from 'lucide-react';
 
+import { useI18n } from '../../i18n/I18nContext';
 interface VehicleImportModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -31,6 +32,7 @@ export const VehicleImportModal: React.FC<VehicleImportModalProps> = ({
   onToast,
   currentUser,
 }) => {
+  const { t } = useI18n();
   const appCtx = useApp();
   const activeUser = currentUser ?? appCtx?.currentUser;
 
@@ -61,8 +63,8 @@ export const VehicleImportModal: React.FC<VehicleImportModalProps> = ({
                 <ShieldAlert className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-white">Accès restreint — Importation désactivée</h3>
-                <p className="text-xs text-rose-300">Privilèges administrateur requis</p>
+                <h3 className="text-base font-bold text-white">{t('Accès restreint — Importation désactivée')}</h3>
+                <p className="text-xs text-rose-300">{t('Privilèges administrateur requis')}</p>
               </div>
             </div>
             <button
@@ -79,13 +81,13 @@ export const VehicleImportModal: React.FC<VehicleImportModalProps> = ({
           <div className="bg-rose-950/40 border border-rose-500/30 rounded-xl p-4 space-y-2 text-xs text-rose-200">
             <div className="flex items-center gap-2 font-semibold text-rose-100">
               <Lock className="w-4 h-4 text-rose-400" />
-              <span>Permission insuffisante pour l'import de données</span>
+              <span>{t("Permission insuffisante pour l'import de données")}</span>
             </div>
             <p className="text-slate-300 text-[11px] leading-relaxed">
-              L'importation et l'analyse de fichiers de véhicules (.xlsx / CSV) sont strictement réservées aux administrateurs du système Morvello Cars.
+              {t("L'importation et l'analyse de fichiers de véhicules (.xlsx / CSV) sont strictement réservées aux administrateurs du système Morvello Cars.")}
             </p>
             <p className="text-slate-400 text-[10px] leading-relaxed border-t border-rose-900/40 pt-2 font-mono">
-              Sécurité : l'analyse de fichiers externes et l'import en masse sont limités aux administrateurs.
+              {t("Sécurité : l'analyse de fichiers externes et l'import en masse sont limités aux administrateurs.")}
             </p>
           </div>
 
@@ -98,7 +100,7 @@ export const VehicleImportModal: React.FC<VehicleImportModalProps> = ({
               }}
               className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold rounded-xl transition-colors cursor-pointer"
             >
-              Fermer
+              {t('Fermer')}
             </button>
           </div>
         </div>
@@ -227,7 +229,7 @@ export const VehicleImportModal: React.FC<VehicleImportModalProps> = ({
       link.click();
       document.body.removeChild(link);
       setTimeout(() => URL.revokeObjectURL(url), 1000);
-      onToast('Modèle Excel (.xlsx) généré et téléchargé avec succès.');
+      onToast(t('Modèle Excel (.xlsx) généré et téléchargé avec succès.'));
     } catch {
       downloadCsvTemplate();
     }
@@ -252,7 +254,7 @@ export const VehicleImportModal: React.FC<VehicleImportModalProps> = ({
     link.click();
     document.body.removeChild(link);
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-    onToast('Modèle CSV (compatible 100% Excel) téléchargé avec succès.');
+    onToast(t('Modèle CSV (compatible 100% Excel) téléchargé avec succès.'));
   };
 
   const loadMorvelloTemplate = () => {
@@ -270,7 +272,7 @@ HYUNDAI;Tucson 1.6 CRDi DCT;19384 | D | 6;Diesel;available;58400;650;2024;Noir F
     // Contrôle de sécurité défensif : bloquer le parsing si non autorisé
     if (!isAuthorized) {
       setImportError(
-        "Opération non autorisée : L'analyse de fichiers est strictement réservée aux administrateurs."
+        t("Opération non autorisée : L'analyse de fichiers est strictement réservée aux administrateurs.")
       );
       return;
     }
@@ -279,7 +281,7 @@ HYUNDAI;Tucson 1.6 CRDi DCT;19384 | D | 6;Diesel;available;58400;650;2024;Noir F
 
     if (fileName.endsWith('.xls')) {
       setImportError(
-        'L’ancien format Excel .xls n’est pas pris en charge. Enregistrez le fichier au format .xlsx ou CSV, puis réessayez.'
+        t('L’ancien format Excel .xls n’est pas pris en charge. Enregistrez le fichier au format .xlsx ou CSV, puis réessayez.')
       );
       return;
     }
@@ -291,12 +293,12 @@ HYUNDAI;Tucson 1.6 CRDi DCT;19384 | D | 6;Diesel;available;58400;650;2024;Noir F
           return lower.includes('vehicule') || lower.includes('véhicule') || lower.includes('flotte');
         });
         if (!sheet) {
-          setImportError('Aucune feuille exploitable trouvée dans le classeur Excel.');
+          setImportError(t('Aucune feuille exploitable trouvée dans le classeur Excel.'));
           return;
         }
 
         setImportText(sheet.csv);
-        onToast(`Feuille Excel "${sheet.sheetName}" analysée avec succès.`);
+        onToast(t('Feuille Excel "{sheetName}" analysée avec succès.', { sheetName: sheet.sheetName }));
       } catch (err) {
         setImportError(
           `Impossible de lire le fichier Excel : ${err instanceof Error ? err.message : 'Format corrompu'}`
@@ -308,7 +310,7 @@ HYUNDAI;Tucson 1.6 CRDi DCT;19384 | D | 6;Diesel;available;58400;650;2024;Noir F
         const content = event.target?.result as string;
         if (content) {
           setImportText(content);
-          onToast(`Fichier texte/CSV "${file.name}" chargé.`);
+          onToast(t('Fichier texte/CSV "{name}" chargé.', { name: file.name }));
         }
       };
       reader.readAsText(file, 'UTF-8');
@@ -318,13 +320,13 @@ HYUNDAI;Tucson 1.6 CRDi DCT;19384 | D | 6;Diesel;available;58400;650;2024;Noir F
   const handleProcessImportCSV = () => {
     if (!isAuthorized) {
       setImportError(
-        "Opération non autorisée : Droits administrateurs requis pour importer des véhicules."
+        t('Opération non autorisée : Droits administrateurs requis pour importer des véhicules.')
       );
       return;
     }
 
     if (!importText.trim()) {
-      setImportError('Veuillez sélectionner un fichier Excel / CSV ou coller des lignes de données.');
+      setImportError(t('Veuillez sélectionner un fichier Excel / CSV ou coller des lignes de données.'));
       return;
     }
 
@@ -336,7 +338,7 @@ HYUNDAI;Tucson 1.6 CRDi DCT;19384 | D | 6;Diesel;available;58400;650;2024;Noir F
         .filter((l) => l.length > 0);
 
       if (lines.length === 0) {
-        setImportError('Aucune ligne détectée dans le fichier.');
+        setImportError(t('Aucune ligne détectée dans le fichier.'));
         return;
       }
 
@@ -408,11 +410,11 @@ HYUNDAI;Tucson 1.6 CRDi DCT;19384 | D | 6;Diesel;available;58400;650;2024;Noir F
       }
 
       if (importedCount === 0) {
-        setImportError('Aucun véhicule valide n’a pu être extrait. Vérifiez le format des colonnes.');
+        setImportError(t('Aucun véhicule valide n’a pu être extrait. Vérifiez le format des colonnes.'));
         return;
       }
 
-      onToast(`${importedCount} véhicule(s) importé(s) avec succès dans le parc Morvello !`);
+      onToast(t('{importedCount} véhicule(s) importé(s) avec succès dans le parc Morvello !', { importedCount }));
       onClose();
       setImportText('');
       setImportError(null);
@@ -430,8 +432,8 @@ HYUNDAI;Tucson 1.6 CRDi DCT;19384 | D | 6;Diesel;available;58400;650;2024;Noir F
               <FileSpreadsheet className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white">Importation du Parc Automobile (Excel / CSV)</h3>
-              <p className="text-xs text-slate-400">Intégrez votre flotte en masse via le modèle Excel officiel ou fichier CSV</p>
+              <h3 className="text-base font-bold text-white">{t('Importation du Parc Automobile (Excel / CSV)')}</h3>
+              <p className="text-xs text-slate-400">{t('Intégrez votre flotte en masse via le modèle Excel officiel ou fichier CSV')}</p>
             </div>
           </div>
           <button
@@ -454,14 +456,14 @@ HYUNDAI;Tucson 1.6 CRDi DCT;19384 | D | 6;Diesel;available;58400;650;2024;Noir F
                   <FileSpreadsheet className="w-4 h-4" />
                 </div>
                 <div>
-                  <div className="text-xs font-bold text-emerald-300">Fichier Modèle Officiel Morvello</div>
+                  <div className="text-xs font-bold text-emerald-300">{t('Fichier Modèle Officiel Morvello')}</div>
                   <div className="text-[11px] text-slate-300">
-                    Téléchargez le gabarit type pré-rempli pour préparer votre liste de véhicules
+                    {t('Téléchargez le gabarit type pré-rempli pour préparer votre liste de véhicules')}
                   </div>
                 </div>
               </div>
               <span className="text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/30 shrink-0">
-                Format Garanti
+                {t('Format Garanti')}
               </span>
             </div>
 
@@ -472,7 +474,7 @@ HYUNDAI;Tucson 1.6 CRDi DCT;19384 | D | 6;Diesel;available;58400;650;2024;Noir F
                 className="flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-700/30 transition-all cursor-pointer active:scale-95"
               >
                 <Download className="w-3.5 h-3.5" />
-                <span>Modèle Excel (.xlsx)</span>
+                <span>{t('Modèle Excel (.xlsx)')}</span>
               </button>
 
               <button
@@ -481,7 +483,7 @@ HYUNDAI;Tucson 1.6 CRDi DCT;19384 | D | 6;Diesel;available;58400;650;2024;Noir F
                 className="flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
               >
                 <Download className="w-3.5 h-3.5 text-slate-400" />
-                <span>Modèle CSV (.csv)</span>
+                <span>{t('Modèle CSV (.csv)')}</span>
               </button>
 
               <button
@@ -490,14 +492,14 @@ HYUNDAI;Tucson 1.6 CRDi DCT;19384 | D | 6;Diesel;available;58400;650;2024;Noir F
                 className="flex items-center justify-center gap-1.5 px-3 py-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
               >
                 <Layers className="w-3.5 h-3.5" />
-                <span>Exemple direct</span>
+                <span>{t('Exemple direct')}</span>
               </button>
             </div>
           </div>
 
           <div>
             <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-              1. Charger un fichier Excel (.xlsx) ou CSV (.csv, .txt) :
+              {t('1. Charger un fichier Excel (.xlsx) ou CSV (.csv, .txt) :')}
             </label>
             <input
               type="file"
@@ -508,13 +510,13 @@ HYUNDAI;Tucson 1.6 CRDi DCT;19384 | D | 6;Diesel;available;58400;650;2024;Noir F
                   handleFileUpload(file);
                 }
               }}
-              className="w-full text-xs text-slate-400 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-500 cursor-pointer bg-slate-950 p-2 rounded-xl border border-slate-800"
+              className="w-full text-xs text-slate-400 file:me-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-500 cursor-pointer bg-slate-950 p-2 rounded-xl border border-slate-800"
             />
           </div>
 
           <div>
             <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-              2. Aperçu des données à importer (éditable ou coller directement) :
+              {t('2. Aperçu des données à importer (éditable ou coller directement) :')}
             </label>
             <textarea
               rows={6}
@@ -523,7 +525,7 @@ HYUNDAI;Tucson 1.6 CRDi DCT;19384 | D | 6;Diesel;available;58400;650;2024;Noir F
                 setImportText(e.target.value);
                 setImportError(null);
               }}
-              placeholder="Marque;Modèle;Immatriculation;Carburant;Statut;Kilométrage;Tarif_Journalier;Année;Couleur;Responsable;..."
+              placeholder={t('Marque;Modèle;Immatriculation;Carburant;Statut;Kilométrage;Tarif_Journalier;Année;Couleur;Responsable;...')}
               className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white font-mono text-xs focus:border-emerald-500 focus:outline-none placeholder-slate-600"
             />
           </div>
@@ -536,8 +538,8 @@ HYUNDAI;Tucson 1.6 CRDi DCT;19384 | D | 6;Diesel;available;58400;650;2024;Noir F
           )}
 
           <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-3 text-[11px] text-slate-400 space-y-1">
-            <div className="font-semibold text-slate-300">Colonnes reconnues dans le fichier Excel :</div>
-            <div>Marque • Modèle • Immatriculation • Carburant (Diesel/Essence/Hybride) • Statut • Kilométrage • Tarif Journalier (MAD) • Année • Couleur • Nom du Responsable • Compagnie Assurance • Expiration Assurance • Expiration Visite Technique • Vignette Fiscale</div>
+            <div className="font-semibold text-slate-300">{t('Colonnes reconnues dans le fichier Excel :')}</div>
+            <div>{t('Marque • Modèle • Immatriculation • Carburant (Diesel/Essence/Hybride) • Statut • Kilométrage • Tarif Journalier (MAD) • Année • Couleur • Nom du Responsable • Compagnie Assurance • Expiration Assurance • Expiration Visite Technique • Vignette Fiscale')}</div>
           </div>
         </div>
 
@@ -550,7 +552,7 @@ HYUNDAI;Tucson 1.6 CRDi DCT;19384 | D | 6;Diesel;available;58400;650;2024;Noir F
             }}
             className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl transition-colors cursor-pointer"
           >
-            Annuler
+            {t('Annuler')}
           </button>
           <button
             type="button"
@@ -558,7 +560,7 @@ HYUNDAI;Tucson 1.6 CRDi DCT;19384 | D | 6;Diesel;available;58400;650;2024;Noir F
             className="flex items-center gap-1.5 px-5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-blue-600/30 transition-all cursor-pointer active:scale-95"
           >
             <CheckCircle2 className="w-3.5 h-3.5" />
-            Valider et importer dans le parc
+            {t('Valider et importer dans le parc')}
           </button>
         </div>
       </div>

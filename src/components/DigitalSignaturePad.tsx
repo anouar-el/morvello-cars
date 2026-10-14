@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { RotateCcw, Trash2, Check, PenTool, ShieldCheck, Sparkles } from 'lucide-react';
 
+import { useI18n } from '../i18n/I18nContext';
 interface Point {
   x: number;
   y: number;
@@ -33,6 +34,7 @@ export const DigitalSignaturePad: React.FC<DigitalSignaturePadProps> = ({
   className = '',
   readOnly = false,
 }) => {
+  const { t } = useI18n();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -302,7 +304,7 @@ export const DigitalSignaturePad: React.FC<DigitalSignaturePadProps> = ({
             </div>
             {contractNumber && (
               <p className="text-[10px] text-slate-400">
-                Contrat N° <span className="font-mono text-slate-300 font-semibold">{contractNumber}</span>
+                {t('Contrat N°')} <span className="font-mono text-slate-300 font-semibold">{contractNumber}</span>
               </p>
             )}
           </div>
@@ -320,7 +322,7 @@ export const DigitalSignaturePad: React.FC<DigitalSignaturePadProps> = ({
                   inkColor === '#0f2b5c' ? 'ring-2 ring-amber-400 scale-110' : 'opacity-70 hover:opacity-100'
                 }`}
                 style={{ backgroundColor: '#0f2b5c' }}
-                title="Encre Bleu Marine Officiel"
+                title={t('Encre Bleu Marine Officiel')}
               />
               <button
                 type="button"
@@ -329,7 +331,7 @@ export const DigitalSignaturePad: React.FC<DigitalSignaturePadProps> = ({
                   inkColor === '#111827' ? 'ring-2 ring-amber-400 scale-110' : 'opacity-70 hover:opacity-100'
                 }`}
                 style={{ backgroundColor: '#111827' }}
-                title="Encre Noire"
+                title={t('Encre Noire')}
               />
             </div>
 
@@ -339,18 +341,18 @@ export const DigitalSignaturePad: React.FC<DigitalSignaturePadProps> = ({
                 type="button"
                 onClick={() => setStrokeWidth(2)}
                 className={`px-1 rounded ${strokeWidth === 2 ? 'text-amber-400 font-bold' : 'hover:text-white'}`}
-                title="Trait fin"
+                title={t('Trait fin')}
               >
-                Fin
+                {t('Fin')}
               </button>
               <span className="text-slate-600">|</span>
               <button
                 type="button"
                 onClick={() => setStrokeWidth(3)}
                 className={`px-1 rounded ${strokeWidth === 3 ? 'text-amber-400 font-bold' : 'hover:text-white'}`}
-                title="Trait standard"
+                title={t('Trait standard')}
               >
-                Moyen
+                {t('Moyen')}
               </button>
             </div>
           </div>
@@ -373,9 +375,9 @@ export const DigitalSignaturePad: React.FC<DigitalSignaturePadProps> = ({
         />
 
         {/* Watermark certificate */}
-        <div className="absolute top-2.5 right-3 pointer-events-none flex items-center gap-1 text-[9px] text-slate-400/80 font-mono select-none">
+        <div className="absolute top-2.5 end-3 pointer-events-none flex items-center gap-1 text-[9px] text-slate-400/80 font-mono select-none">
           <ShieldCheck className="w-3 h-3 text-emerald-600/70" />
-          <span>Certification Morvello e-Sign</span>
+          <span>{t('Certification Morvello e-Sign')}</span>
         </div>
 
         {/* Empty state hint */}
@@ -383,10 +385,10 @@ export const DigitalSignaturePad: React.FC<DigitalSignaturePadProps> = ({
           <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center text-slate-400 select-none">
             <PenTool className="w-6 h-6 text-slate-300 mb-1 animate-bounce" />
             <span className="text-xs font-medium text-slate-500">
-              Signez ici avec le doigt, stylet ou souris
+              {t('Signez ici avec le doigt, stylet ou souris')}
             </span>
             <span className="text-[10px] text-slate-400 font-arabic mt-0.5">
-              وقع هنا بواسطة الإصبع أو القلم
+              {t('وقع هنا بواسطة الإصبع أو القلم')}
             </span>
           </div>
         )}
@@ -396,10 +398,10 @@ export const DigitalSignaturePad: React.FC<DigitalSignaturePadProps> = ({
       <div className="mt-2.5 px-3 py-2 bg-slate-950/60 rounded-xl border border-slate-800/80 text-[10.5px] text-slate-300 flex items-start gap-2">
         <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
         <div className="leading-snug">
-          <span className="font-semibold text-slate-200">Mention légale obligatoire : </span>
-          « Lu et approuvé, bon pour accord des conditions générales et particulières de location. »
+          <span className="font-semibold text-slate-200">{t('Mention légale obligatoire :')} </span>
+          {t('« Lu et approuvé, bon pour accord des conditions générales et particulières de location. »')}
           <span className="text-[9.5px] text-slate-400 block font-arabic mt-0.5">
-            قرئ وصودق عليه، موافقة تامة على شروط وأحكام عقد الكراء
+            {t('قرئ وصودق عليه، موافقة تامة على شروط وأحكام عقد الكراء')}
           </span>
         </div>
       </div>
@@ -415,7 +417,7 @@ export const DigitalSignaturePad: React.FC<DigitalSignaturePadProps> = ({
               className="flex items-center gap-1 text-xs text-slate-400 hover:text-red-400 px-3 py-1.5 rounded-lg border border-slate-800 hover:border-red-500/30 transition-colors disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
             >
               <Trash2 className="w-3.5 h-3.5" />
-              <span>Effacer</span>
+              <span>{t('Effacer')}</span>
             </button>
             <button
               type="button"
@@ -424,7 +426,7 @@ export const DigitalSignaturePad: React.FC<DigitalSignaturePadProps> = ({
               className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-200 px-3 py-1.5 rounded-lg border border-slate-800 hover:border-slate-700 transition-colors disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
             >
               <RotateCcw className="w-3.5 h-3.5" />
-              <span>Annuler trait</span>
+              <span>{t('Annuler trait')}</span>
             </button>
           </div>
 
@@ -444,12 +446,12 @@ export const DigitalSignaturePad: React.FC<DigitalSignaturePadProps> = ({
               {isSaved ? (
                 <>
                   <Check className="w-4 h-4" />
-                  <span>Signature Enregistrée !</span>
+                  <span>{t('Signature Enregistrée !')}</span>
                 </>
               ) : (
                 <>
                   <Sparkles className="w-3.5 h-3.5" />
-                  <span>Valider la Signature</span>
+                  <span>{t('Valider la Signature')}</span>
                 </>
               )}
             </button>

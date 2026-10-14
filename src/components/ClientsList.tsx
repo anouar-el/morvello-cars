@@ -31,7 +31,9 @@ import {
   UserCheck,
 } from 'lucide-react';
 
+import { useI18n } from '../i18n/I18nContext';
 export const ClientsList: React.FC = () => {
+  const { t } = useI18n();
   const {
     clients,
     contracts,
@@ -69,7 +71,7 @@ export const ClientsList: React.FC = () => {
     setDeleteError('');
     const res = deleteClient(clientToDelete.id);
     if (!res.success) {
-      setDeleteError(res.error || 'Erreur lors de la suppression.');
+      setDeleteError(res.error || t('Erreur lors de la suppression.'));
       return;
     }
     if (selectedClientDetail && selectedClientDetail.id === clientToDelete.id) {
@@ -77,7 +79,7 @@ export const ClientsList: React.FC = () => {
     }
     const deletedName = `${clientToDelete.firstName} ${clientToDelete.lastName}`;
     setClientToDelete(null);
-    setEditSuccessMsg(`Fiche client de ${deletedName} supprimée avec succès.`);
+    setEditSuccessMsg(t('Fiche client de {deletedName} supprimée avec succès.', { deletedName }));
     setTimeout(() => {
       setEditSuccessMsg('');
     }, 4000);
@@ -117,7 +119,7 @@ export const ClientsList: React.FC = () => {
     if (currentUser.role === 'manager') {
       const isOwned = isClientOwnedByManager(client, currentUser.id, contracts, vehicles, users);
       if (!isOwned) {
-        alert("Accès refusé : Ce client est rattaché à une autre agence ou un autre responsable.");
+        alert(t('Accès refusé : Ce client est rattaché à une autre agence ou un autre responsable.'));
         return;
       }
     }
@@ -142,7 +144,7 @@ export const ClientsList: React.FC = () => {
     if (!editingClient) return;
 
     if (!editClientForm.firstName || !editClientForm.lastName || !editClientForm.docNumber || !editClientForm.drivingLicense) {
-      alert('Veuillez renseigner les champs obligatoires (Nom, Prénom, Pièce d\'identité, Permis de conduire)');
+      alert(t("Veuillez renseigner les champs obligatoires (Nom, Prénom, Pièce d'identité, Permis de conduire)"));
       return;
     }
 
@@ -170,7 +172,7 @@ export const ClientsList: React.FC = () => {
     }
 
     setEditingClient(null);
-    setEditSuccessMsg(`Fiche de ${updatedData.firstName} ${updatedData.lastName} mise à jour avec succès !`);
+    setEditSuccessMsg(t('Fiche de {firstName} {lastName} mise à jour avec succès !', { firstName: updatedData.firstName, lastName: updatedData.lastName }));
     setTimeout(() => {
       setEditSuccessMsg('');
     }, 4000);
@@ -238,7 +240,7 @@ export const ClientsList: React.FC = () => {
   const handleCreateClient = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newClientForm.firstName || !newClientForm.lastName || !newClientForm.docNumber || !newClientForm.drivingLicense) {
-      alert('Veuillez remplir tous les champs obligatoires (Nom, Prénom, Pièce d\'identité, Permis)');
+      alert(t("Veuillez remplir tous les champs obligatoires (Nom, Prénom, Pièce d'identité, Permis)"));
       return;
     }
 
@@ -293,13 +295,13 @@ export const ClientsList: React.FC = () => {
         <div>
           <div className="flex items-center gap-2 text-xs font-semibold text-blue-400 uppercase tracking-widest font-mono">
             <Users className="w-4 h-4" />
-            Module Clients • Répertoire & Fiches
+            {t('Module Clients • Répertoire & Fiches')}
           </div>
           <h1 className="text-xl font-bold text-white tracking-tight mt-1">
-            Fichier Clients & Historique des Locations
+            {t('Fichier Clients & Historique des Locations')}
           </h1>
           <p className="text-xs text-slate-400 mt-0.5">
-            Répertoire centralisé des locataires, pièces d’identité, permis et suivi des contrats.
+            {t('Répertoire centralisé des locataires, pièces d’identité, permis et suivi des contrats.')}
           </p>
         </div>
 
@@ -308,7 +310,7 @@ export const ClientsList: React.FC = () => {
           className="flex items-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold px-4 py-2 rounded-xl text-xs sm:text-sm shadow-md shadow-amber-500/20 transition-all cursor-pointer"
         >
           <UserPlus className="w-4 h-4" />
-          + Nouveau Client
+          {t('+ Nouveau Client')}
         </button>
       </div>
 
@@ -324,13 +326,13 @@ export const ClientsList: React.FC = () => {
       <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl shadow-md space-y-3">
         <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3">
           <div className="relative flex-1">
-            <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+            <Search className="w-4 h-4 absolute start-3 top-3 text-slate-400" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Rechercher par nom, prénom, téléphone, C.I.N, responsable, véhicule, matricule..."
-              className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
+              placeholder={t('Rechercher par nom, prénom, téléphone, C.I.N, responsable, véhicule, matricule...')}
+              className="w-full bg-slate-950 border border-slate-700 rounded-xl ps-9 pe-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
             />
           </div>
 
@@ -338,16 +340,16 @@ export const ClientsList: React.FC = () => {
           <div className="flex items-center gap-2 min-w-0">
             <div className="flex items-center gap-1.5 bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-slate-300 min-w-0 flex-1 md:flex-none">
               <Filter className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-              <span className="text-[11px] text-slate-400 hidden sm:inline">Filtrer par :</span>
+              <span className="text-[11px] text-slate-400 hidden sm:inline">{t('Filtrer par :')}</span>
               {currentUser.role === 'admin' ? (
                 <select
                   value={managerFilter}
                   onChange={(e) => setManagerFilter(e.target.value)}
-                  aria-label="Filtrer par responsable"
-                  className="bg-transparent border-none text-white text-xs focus:outline-none cursor-pointer pr-2 min-w-0 w-full md:w-auto"
+                  aria-label={t('Filtrer par responsable')}
+                  className="bg-transparent border-none text-white text-xs focus:outline-none cursor-pointer pe-2 min-w-0 w-full md:w-auto"
                 >
-                  <option value="all" className="bg-slate-900 text-white">Tous les responsables</option>
-                  <option value="unassigned" className="bg-slate-900 text-slate-400">Non affectés (Aucune location)</option>
+                  <option value="all" className="bg-slate-900 text-white">{t('Tous les responsables')}</option>
+                  <option value="unassigned" className="bg-slate-900 text-slate-400">{t('Non affectés (Aucune location)')}</option>
                   {users
                     .filter((u) => u.role === 'manager' || u.role === 'admin')
                     .map((u) => (
@@ -360,24 +362,24 @@ export const ClientsList: React.FC = () => {
                 <select
                   value={managerFilter}
                   onChange={(e) => setManagerFilter(e.target.value)}
-                  aria-label="Filtrer par responsable"
-                  className="bg-transparent border-none text-white text-xs focus:outline-none cursor-pointer pr-2 min-w-0 w-full md:w-auto"
+                  aria-label={t('Filtrer par responsable')}
+                  className="bg-transparent border-none text-white text-xs focus:outline-none cursor-pointer pe-2 min-w-0 w-full md:w-auto"
                 >
                   <option value="mine" className="bg-slate-900 text-amber-400 font-semibold">
-                    ★ Mes clients affectés ({currentUser.name})
+                    {t('★ Mes clients affectés ({name})', { name: currentUser.name })}
                   </option>
                   <option value="all" className="bg-slate-900 text-white">
-                    Tous mes clients autorisés
+                    {t('Tous mes clients autorisés')}
                   </option>
                   <option value="unassigned" className="bg-slate-900 text-slate-400">
-                    Non affectés (prospects)
+                    {t('Non affectés (prospects)')}
                   </option>
                 </select>
               )}
             </div>
 
             <span className="text-xs font-mono text-slate-400 bg-slate-950 px-3 py-2 rounded-xl border border-slate-800 shrink-0">
-              {filteredClients.length} client(s)
+              {t('{filteredClientsCount} client(s)', { filteredClientsCount: filteredClients.length })}
             </span>
           </div>
         </div>
@@ -386,7 +388,7 @@ export const ClientsList: React.FC = () => {
         {currentUser.role === 'manager' && (
           <div className="pt-2 border-t border-slate-800/60 space-y-2">
             <div className="flex flex-wrap items-center gap-2 text-xs">
-              <span className="text-[11px] text-slate-400">Vue rapide :</span>
+              <span className="text-[11px] text-slate-400">{t('Vue rapide :')}</span>
               <button
                 onClick={() => setManagerFilter('mine')}
                 className={`px-2.5 py-1 rounded-lg text-[11px] font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
@@ -396,7 +398,7 @@ export const ClientsList: React.FC = () => {
                 }`}
               >
                 <UserCheck className="w-3.5 h-3.5 text-blue-400" />
-                <span>Mes clients ({clients.filter((c) => getClientAssignedManager(c).managerId === currentUser.id).length})</span>
+                <span>{t('Mes clients (')}{clients.filter((c) => getClientAssignedManager(c).managerId === currentUser.id).length})</span>
               </button>
               <button
                 onClick={() => setManagerFilter('all')}
@@ -406,7 +408,7 @@ export const ClientsList: React.FC = () => {
                     : 'bg-slate-950 text-slate-400 hover:text-white border border-slate-800'
                 }`}
               >
-                Tous mes autorisés ({clients.filter((c) => {
+                {t('Tous mes autorisés (')}{clients.filter((c) => {
                   const m = getClientAssignedManager(c);
                   return !m.managerId || m.managerId === currentUser.id;
                 }).length})
@@ -419,7 +421,7 @@ export const ClientsList: React.FC = () => {
                     : 'bg-slate-950 text-slate-400 hover:text-white border border-slate-800'
                 }`}
               >
-                Sans location / Prospects ({clients.filter((c) => !getClientAssignedManager(c).managerId).length})
+                {t('Sans location / Prospects (')}{clients.filter((c) => !getClientAssignedManager(c).managerId).length})
               </button>
             </div>
           </div>
@@ -430,24 +432,24 @@ export const ClientsList: React.FC = () => {
       <div className="bg-slate-900 border border-slate-800 rounded-xl shadow-md overflow-hidden">
         {/* DESKTOP TABLE ONLY (md:block) */}
         <div className="hidden md:block overflow-x-auto">
-          <table className="w-full text-left text-xs text-slate-300">
+          <table className="w-full text-start text-xs text-slate-300">
             <thead className="bg-slate-950/70 text-slate-400 uppercase text-[10px] font-semibold border-b border-slate-800">
               <tr>
-                <th className="px-4 py-3.5">Nom Complet & Pays</th>
-                <th className="px-4 py-3.5">Contact (Téléphone & Email)</th>
-                <th className="px-4 py-3.5">Pièce d'Identité</th>
-                <th className="px-4 py-3.5">Permis de Conduire</th>
-                <th className="px-4 py-3.5">Responsable & Véhicule Loué</th>
-                <th className="px-4 py-3.5">Contrats</th>
-                <th className="px-4 py-3.5">Dernier Contrat</th>
-                <th className="px-4 py-3.5 text-right">Actions</th>
+                <th className="px-4 py-3.5">{t('Nom Complet & Pays')}</th>
+                <th className="px-4 py-3.5">{t('Contact (Téléphone & Email)')}</th>
+                <th className="px-4 py-3.5">{t("Pièce d'Identité")}</th>
+                <th className="px-4 py-3.5">{t('Permis de Conduire')}</th>
+                <th className="px-4 py-3.5">{t('Responsable & Véhicule Loué')}</th>
+                <th className="px-4 py-3.5">{t('Contrats')}</th>
+                <th className="px-4 py-3.5">{t('Dernier Contrat')}</th>
+                <th className="px-4 py-3.5 text-end">{t('Actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800">
               {filteredClients.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="text-center py-12 text-slate-500 text-xs">
-                    Aucun client trouvé.
+                    {t('Aucun client trouvé.')}
                   </td>
                 </tr>
               ) : (
@@ -461,27 +463,27 @@ export const ClientsList: React.FC = () => {
                         {cli.lastName} {cli.firstName}
                       </div>
                       <div className="text-[10px] text-slate-400">
-                        Né(e) le {cli.birthDate} • {cli.country || 'Maroc'}
+                        {t('Né(e) le {birthDate} • {country}', { birthDate: cli.birthDate, country: cli.country || 'Maroc' })}
                       </div>
                     </td>
 
                     {/* CONTACT */}
                     <td className="px-4 py-3.5">
                       <div className="text-amber-400 font-medium font-mono">
-                        {cli.phone || <span className="text-slate-500 italic text-xs">Non renseigné</span>}
+                        {cli.phone || <span className="text-slate-500 italic text-xs">{t('Non renseigné')}</span>}
                       </div>
                       <div className="text-[10px] text-slate-400">{cli.email || '—'}</div>
                       {(cli.licenseDocUrl || cli.cinDocUrl) && (
                         <div className="text-[9px] text-emerald-400 font-mono flex items-center gap-1 mt-0.5">
                           <FileCheck className="w-3 h-3 text-emerald-400" />
-                          <span>Docs numérisés</span>
+                          <span>{t('Docs numérisés')}</span>
                         </div>
                       )}
                     </td>
 
                     {/* DOCUMENT */}
                     <td className="px-4 py-3.5">
-                      <span className="text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded font-mono mr-1.5">
+                      <span className="text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded font-mono me-1.5">
                         {cli.docType}
                       </span>
                       <span className="font-bold font-mono text-white">{cli.docNumber}</span>
@@ -507,14 +509,14 @@ export const ClientsList: React.FC = () => {
                               <UserCheck className="w-3 h-3 text-blue-400 shrink-0" />
                               <span>{mgrInfo.managerName}</span>
                               {mgrInfo.managerId === currentUser.id && (
-                                <span className="text-[9px] bg-blue-400/20 text-blue-300 px-1 rounded ml-0.5 font-bold">
-                                  Moi
+                                <span className="text-[9px] bg-blue-400/20 text-blue-300 px-1 rounded ms-0.5 font-bold">
+                                  {t('Moi')}
                                 </span>
                               )}
                             </span>
                           </div>
                         ) : (
-                          <span className="text-slate-500 text-[11px] italic">Non affecté</span>
+                          <span className="text-slate-500 text-[11px] italic">{t('Non affecté')}</span>
                         )}
 
                         {mgrInfo.vehicleName && (
@@ -533,7 +535,7 @@ export const ClientsList: React.FC = () => {
 
                         {mgrInfo.isActiveRental && (
                           <span className="inline-block text-[9px] font-semibold text-emerald-400 bg-emerald-950/50 border border-emerald-500/30 px-1.5 py-0.5 rounded">
-                            ● Location en cours
+                            {t('● Location en cours')}
                           </span>
                         )}
                       </div>
@@ -542,7 +544,7 @@ export const ClientsList: React.FC = () => {
                     {/* CONTRATS */}
                     <td className="px-4 py-3.5">
                       <span className="inline-block bg-slate-800 border border-slate-700 text-slate-200 font-mono px-2 py-0.5 rounded-full text-xs font-bold">
-                        {cli.contractCount} location(s)
+                        {t('{contractCount} location(s)', { contractCount: cli.contractCount })}
                       </span>
                     </td>
 
@@ -554,26 +556,26 @@ export const ClientsList: React.FC = () => {
                           <span className="block text-[10px] text-slate-500">{cli.lastContractDate}</span>
                         </div>
                       ) : (
-                        <span className="text-slate-500">Aucun</span>
+                        <span className="text-slate-500">{t('Aucun')}</span>
                       )}
                     </td>
 
                     {/* ACTIONS */}
-                    <td className="px-4 py-3.5 text-right">
+                    <td className="px-4 py-3.5 text-end">
                       <div className="flex items-center justify-end gap-1.5">
                         <button
                           onClick={() => handleOpenEdit(cli)}
                           className="px-2.5 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 hover:text-amber-200 border border-amber-500/30 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-                          title="Modifier la fiche client"
+                          title={t('Modifier la fiche client')}
                         >
                           <Edit3 className="w-3.5 h-3.5" />
-                          <span>Modifier</span>
+                          <span>{t('Modifier')}</span>
                         </button>
                         <button
                           onClick={() => setSelectedClientDetail(cli)}
                           className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
                         >
-                          Fiche Client
+                          {t('Fiche Client')}
                         </button>
                         {canDeleteClient && (
                           <button
@@ -582,7 +584,7 @@ export const ClientsList: React.FC = () => {
                               setClientToDelete(cli);
                             }}
                             className="p-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 border border-rose-500/30 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
-                            title="Supprimer la fiche client"
+                            title={t('Supprimer la fiche client')}
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -603,7 +605,7 @@ export const ClientsList: React.FC = () => {
         <div className="md:hidden divide-y divide-slate-800">
           {filteredClients.length === 0 ? (
             <div className="text-center py-12 text-slate-500 text-xs">
-              Aucun client trouvé.
+              {t('Aucun client trouvé.')}
             </div>
           ) : (
             filteredClients.map((cli) => {
@@ -619,10 +621,10 @@ export const ClientsList: React.FC = () => {
                       </div>
                       <div className="text-[10px] text-slate-400 flex items-center gap-1.5 mt-0.5">
                         <span className="bg-slate-800 text-slate-300 font-mono px-1.5 py-0.2 rounded text-[9.5px]">
-                          {cli.country || 'Maroc'}
+                          {cli.country || t('Maroc')}
                         </span>
-                        <span>• Réf. {cli.id}</span>
-                        {cli.birthDate && <span>• Né(e) {cli.birthDate}</span>}
+                        <span>{t('• Réf. {id}', { id: cli.id })}</span>
+                        {cli.birthDate && <span>{t('• Né(e) {birthDate}', { birthDate: cli.birthDate })}</span>}
                       </div>
                     </div>
 
@@ -630,7 +632,7 @@ export const ClientsList: React.FC = () => {
                       <a
                         href={`tel:${cli.phone}`}
                         className="p-2 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25 active:scale-95 transition-all flex items-center justify-center shrink-0"
-                        title={`Appeler ${cli.firstName}`}
+                        title={t('Appeler {firstName}', { firstName: cli.firstName })}
                       >
                         <Phone className="w-4 h-4" />
                       </a>
@@ -640,24 +642,24 @@ export const ClientsList: React.FC = () => {
                   {/* CONTACT & IDENTITY ROW */}
                   <div className="grid grid-cols-2 gap-2 text-[11px] bg-slate-950/70 p-2.5 rounded-xl border border-slate-800">
                     <div>
-                      <span className="text-[9.5px] text-slate-500 uppercase font-bold block">Pièce d'Identité</span>
+                      <span className="text-[9.5px] text-slate-500 uppercase font-bold block">{t("Pièce d'Identité")}</span>
                       <div className="font-mono font-bold text-slate-200 truncate mt-0.5">
                         {cli.docNumber || '—'}
                       </div>
                       <div className="text-[10px] text-slate-400 mt-0.5">
-                        Type : <span className="font-mono text-amber-400 font-semibold">{cli.docType}</span>
+                        {t('Type :')} <span className="font-mono text-amber-400 font-semibold">{cli.docType}</span>
                       </div>
                     </div>
 
                     <div>
-                      <span className="text-[9.5px] text-slate-500 uppercase font-bold block">Permis de Conduire</span>
+                      <span className="text-[9.5px] text-slate-500 uppercase font-bold block">{t('Permis de Conduire')}</span>
                       <div className="font-mono font-bold text-amber-400 truncate mt-0.5">
                         {cli.drivingLicense || '—'}
                       </div>
                       {(cli.licenseDocUrl || cli.cinDocUrl) && (
                         <div className="text-[9px] text-emerald-400 font-mono flex items-center gap-1 mt-0.5">
                           <FileCheck className="w-3 h-3 text-emerald-400" />
-                          <span>Docs numérisés</span>
+                          <span>{t('Docs numérisés')}</span>
                         </div>
                       )}
                     </div>
@@ -668,14 +670,14 @@ export const ClientsList: React.FC = () => {
                     <div className="flex items-center gap-1.5 min-w-0">
                       <UserCheck className="w-3.5 h-3.5 text-blue-400 shrink-0" />
                       <div className="min-w-0 truncate">
-                        <span className="text-[10px] text-slate-400 block">Responsable</span>
+                        <span className="text-[10px] text-slate-400 block">{t('Responsable')}</span>
                         <span className="text-[11px] font-semibold text-white truncate">
-                          {mgrInfo.managerName || 'Non affecté'}
+                          {mgrInfo.managerName || t('Non affecté')}
                         </span>
                       </div>
                     </div>
 
-                    <div className="text-right shrink-0">
+                    <div className="text-end shrink-0">
                       {mgrInfo.vehicleName ? (
                         <div className="flex items-center gap-1 text-[10px] font-bold text-emerald-300 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-full">
                           <span>{mgrInfo.vehicleName}</span>
@@ -685,7 +687,7 @@ export const ClientsList: React.FC = () => {
                         </div>
                       ) : (
                         <span className="text-[10px] text-slate-500 font-mono">
-                          {cli.contractCount} location(s)
+                          {t('{contractCount} location(s)', { contractCount: cli.contractCount })}
                         </span>
                       )}
                     </div>
@@ -699,14 +701,14 @@ export const ClientsList: React.FC = () => {
                       className="flex-1 py-2 px-2.5 rounded-xl bg-blue-500/15 hover:bg-blue-500/25 text-blue-300 border border-blue-500/30 font-bold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer min-h-[38px]"
                     >
                       <Eye className="w-3.5 h-3.5" />
-                      <span>Fiche Client</span>
+                      <span>{t('Fiche Client')}</span>
                     </button>
 
                     <button
                       type="button"
                       onClick={() => handleOpenEdit(cli)}
                       className="p-2 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-xs transition-colors cursor-pointer min-h-[38px] min-w-[38px] flex items-center justify-center"
-                      title="Modifier le client"
+                      title={t('Modifier le client')}
                     >
                       <Edit3 className="w-4 h-4" />
                     </button>
@@ -718,8 +720,8 @@ export const ClientsList: React.FC = () => {
                           setDeleteError('');
                           setClientToDelete(cli);
                         }}
-                        className="p-2 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 border border-rose-500/30 text-xs transition-colors cursor-pointer min-h-[38px] min-w-[38px] flex items-center justify-center ml-auto"
-                        title="Supprimer la fiche client"
+                        className="p-2 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 border border-rose-500/30 text-xs transition-colors cursor-pointer min-h-[38px] min-w-[38px] flex items-center justify-center ms-auto"
+                        title={t('Supprimer la fiche client')}
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -740,13 +742,13 @@ export const ClientsList: React.FC = () => {
             <div className="flex items-start justify-between border-b border-slate-800 pb-3">
               <div>
                 <span className="text-[10px] text-blue-400 font-bold uppercase tracking-widest font-mono">
-                  Fiche Client Réf. {selectedClientDetail.id}
+                  {t('Fiche Client Réf. {id}', { id: selectedClientDetail.id })}
                 </span>
                 <h2 className="text-lg font-bold text-white uppercase mt-0.5">
                   {selectedClientDetail.lastName} {selectedClientDetail.firstName}
                 </h2>
                 <p className="text-xs text-slate-400">
-                  Client enregistré le {new Date(selectedClientDetail.createdAt).toLocaleDateString('fr-FR')}
+                  {t('Client enregistré le')} {new Date(selectedClientDetail.createdAt).toLocaleDateString('fr-FR')}
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -754,10 +756,10 @@ export const ClientsList: React.FC = () => {
                   type="button"
                   onClick={() => handleOpenEdit(selectedClientDetail)}
                   className="px-3 py-1.5 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 hover:text-white border border-amber-500/40 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-                  title="Modifier les coordonnées de cette fiche"
+                  title={t('Modifier les coordonnées de cette fiche')}
                 >
                   <Edit3 className="w-3.5 h-3.5" />
-                  <span>Modifier la fiche</span>
+                  <span>{t('Modifier la fiche')}</span>
                 </button>
                 <button
                   onClick={() => setSelectedClientDetail(null)}
@@ -776,20 +778,20 @@ export const ClientsList: React.FC = () => {
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="text-xs font-bold text-blue-400 uppercase tracking-wider flex items-center gap-1.5">
                       <UserCheck className="w-4 h-4 text-blue-400" />
-                      Affectation Responsable (Par Véhicule Loué)
+                      {t('Affectation Responsable (Par Véhicule Loué)')}
                     </span>
                     {mgrInfo.isActiveRental ? (
                       <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-semibold px-2 py-0.5 rounded-full border border-emerald-500/30 flex items-center gap-1">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                        Location active en cours
+                        {t('Location active en cours')}
                       </span>
                     ) : mgrInfo.vehicleName ? (
                       <span className="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded-full border border-slate-700">
-                        Véhicule historique / Contrat clôturé
+                        {t('Véhicule historique / Contrat clôturé')}
                       </span>
                     ) : (
                       <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full border border-slate-700">
-                        Aucune location enregistrée
+                        {t('Aucune location enregistrée')}
                       </span>
                     )}
                   </div>
@@ -797,7 +799,7 @@ export const ClientsList: React.FC = () => {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                     {/* MANAGER */}
                     <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-800">
-                      <span className="text-slate-400 text-[11px] block font-medium">Manager Responsable du Dossier :</span>
+                      <span className="text-slate-400 text-[11px] block font-medium">{t('Manager Responsable du Dossier :')}</span>
                       {mgrInfo.managerName ? (
                         <div className="mt-1.5 flex items-center gap-2.5">
                           <div className="w-8 h-8 rounded-lg bg-blue-500/20 text-blue-400 border border-blue-500/30 flex items-center justify-center font-bold text-xs shrink-0">
@@ -809,7 +811,7 @@ export const ClientsList: React.FC = () => {
                               {mgrInfo.managerAgency && <span>{mgrInfo.managerAgency}</span>}
                               {mgrInfo.managerId === currentUser.id && (
                                 <span className="bg-blue-500/20 text-blue-300 px-1.5 py-0.2 rounded font-semibold border border-blue-500/30">
-                                  Votre agence / Vous
+                                  {t('Votre agence / Vous')}
                                 </span>
                               )}
                             </div>
@@ -817,14 +819,14 @@ export const ClientsList: React.FC = () => {
                         </div>
                       ) : (
                         <p className="text-slate-500 italic text-[11px] mt-1">
-                          Non affecté (Ce client n'a pas encore de location ou de véhicule associé)
+                          {t("Non affecté (Ce client n'a pas encore de location ou de véhicule associé)")}
                         </p>
                       )}
                     </div>
 
                     {/* VÉHICULE LOUÉ */}
                     <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-800">
-                      <span className="text-slate-400 text-[11px] block font-medium">Véhicule Loué par le Client :</span>
+                      <span className="text-slate-400 text-[11px] block font-medium">{t('Véhicule Loué par le Client :')}</span>
                       {mgrInfo.vehicleName ? (
                         <div className="mt-1.5 flex items-center gap-2.5">
                           <div className="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center shrink-0">
@@ -848,7 +850,7 @@ export const ClientsList: React.FC = () => {
                         </div>
                       ) : (
                         <p className="text-slate-500 italic text-[11px] mt-1">
-                          Aucun véhicule loué pour le moment
+                          {t('Aucun véhicule loué pour le moment')}
                         </p>
                       )}
                     </div>
@@ -857,7 +859,7 @@ export const ClientsList: React.FC = () => {
                   <div className="text-[11px] text-slate-400 bg-slate-950/40 px-3 py-1.5 rounded-lg border border-slate-800/80 flex items-center gap-2">
                     <Shield className="w-3.5 h-3.5 text-blue-400 shrink-0" />
                     <span>
-                      Règle d'affectation automatique : Le client est automatiquement rattaché au manager responsable du véhicule loué.
+                      {t("Règle d'affectation automatique : Le client est automatiquement rattaché au manager responsable du véhicule loué.")}
                     </span>
                   </div>
                 </div>
@@ -867,38 +869,38 @@ export const ClientsList: React.FC = () => {
             {/* DETAILS GRID */}
             <div className="bg-slate-950/70 p-4 rounded-xl border border-slate-800 grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
               <div>
-                <span className="text-slate-500 block">Date de Naissance :</span>
+                <span className="text-slate-500 block">{t('Date de Naissance :')}</span>
                 <strong className="text-white">{selectedClientDetail.birthDate}</strong>
               </div>
               <div>
-                <span className="text-slate-500 block">Document ({selectedClientDetail.docType}) :</span>
+                <span className="text-slate-500 block">{t('Document ({docType}) :', { docType: selectedClientDetail.docType })}</span>
                 <strong className="text-white font-mono">{selectedClientDetail.docNumber}</strong>
               </div>
               <div>
-                <span className="text-slate-500 block">Permis de Conduire :</span>
+                <span className="text-slate-500 block">{t('Permis de Conduire :')}</span>
                 <strong className="text-white font-mono">{selectedClientDetail.drivingLicense}</strong>
               </div>
               <div>
-                <span className="text-slate-500 block">Téléphone / GSM :</span>
+                <span className="text-slate-500 block">{t('Téléphone / GSM :')}</span>
                 <strong className="text-amber-400 font-mono">
-                  {selectedClientDetail.phone || <span className="text-slate-500 italic font-normal">Non renseigné</span>}
+                  {selectedClientDetail.phone || <span className="text-slate-500 italic font-normal">{t('Non renseigné')}</span>}
                 </strong>
               </div>
               <div>
-                <span className="text-slate-500 block">Email :</span>
-                <span className="text-slate-300">{selectedClientDetail.email || 'Non renseigné'}</span>
+                <span className="text-slate-500 block">{t('Email :')}</span>
+                <span className="text-slate-300">{selectedClientDetail.email || t('Non renseigné')}</span>
               </div>
               <div>
-                <span className="text-slate-500 block">Pays :</span>
-                <span className="text-slate-300">{selectedClientDetail.country || 'Maroc'}</span>
+                <span className="text-slate-500 block">{t('Pays :')}</span>
+                <span className="text-slate-300">{selectedClientDetail.country || t('Maroc')}</span>
               </div>
               <div className="col-span-2 sm:col-span-3">
-                <span className="text-slate-500 block">Adresse :</span>
-                <span className="text-slate-300">{selectedClientDetail.address || 'Non renseignée'}</span>
+                <span className="text-slate-500 block">{t('Adresse :')}</span>
+                <span className="text-slate-300">{selectedClientDetail.address || t('Non renseignée')}</span>
               </div>
               {selectedClientDetail.notes && (
                 <div className="col-span-2 sm:col-span-3 bg-slate-900 p-2.5 rounded-lg border border-slate-800">
-                  <span className="text-slate-400 block font-semibold text-[11px]">Notes internes :</span>
+                  <span className="text-slate-400 block font-semibold text-[11px]">{t('Notes internes :')}</span>
                   <p className="text-slate-300 italic text-[11px] mt-0.5">{selectedClientDetail.notes}</p>
                 </div>
               )}
@@ -909,7 +911,7 @@ export const ClientsList: React.FC = () => {
               <div className="flex items-center justify-between">
                 <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
                   <CreditCard className="w-4 h-4 text-blue-400" />
-                  Documents Numérisés (Permis & Pièce d'Identité)
+                  {t("Documents Numérisés (Permis & Pièce d'Identité)")}
                 </h3>
                 <button
                   type="button"
@@ -917,7 +919,7 @@ export const ClientsList: React.FC = () => {
                   className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-amber-400 rounded-lg text-xs font-medium flex items-center gap-1 transition-colors"
                 >
                   <Upload className="w-3.5 h-3.5" />
-                  {isEditingDocsInDetail ? 'Fermer l\'éditeur' : 'Téléverser / Modifier'}
+                  {isEditingDocsInDetail ? t("Fermer l'éditeur") : t('Téléverser / Modifier')}
                 </button>
               </div>
 
@@ -929,14 +931,14 @@ export const ClientsList: React.FC = () => {
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold text-white flex items-center gap-1.5">
                         <FileBadge className="w-3.5 h-3.5 text-amber-400" />
-                        Permis de Conduire
+                        {t('Permis de Conduire')}
                       </span>
                       {selectedClientDetail.licenseDocUrl ? (
                         <span className="text-[10px] text-emerald-400 font-semibold bg-emerald-950/40 border border-emerald-500/30 px-1.5 py-0.5 rounded">
-                          ✓ Archivé
+                          {t('✓ Archivé')}
                         </span>
                       ) : (
-                        <span className="text-[10px] text-slate-500">Non attaché</span>
+                        <span className="text-[10px] text-slate-500">{t('Non attaché')}</span>
                       )}
                     </div>
 
@@ -953,15 +955,15 @@ export const ClientsList: React.FC = () => {
                         >
                           <img
                             src={selectedClientDetail.licenseDocUrl}
-                            alt="Permis Recto"
+                            alt={t('Permis Recto')}
                             className="w-10 h-10 object-cover rounded bg-slate-900 border border-slate-700 shrink-0"
                             referrerPolicy="no-referrer"
                           />
                           <div className="min-w-0 flex-1">
                             <p className="text-xs font-mono text-slate-200 truncate">
-                              {selectedClientDetail.licenseDocName || 'Permis_Recto'}
+                              {selectedClientDetail.licenseDocName || t('Permis_Recto')}
                             </p>
-                            <p className="text-[10px] text-amber-400">Cliquer pour agrandir</p>
+                            <p className="text-[10px] text-amber-400">{t('Cliquer pour agrandir')}</p>
                           </div>
                         </div>
 
@@ -977,22 +979,22 @@ export const ClientsList: React.FC = () => {
                           >
                             <img
                               src={selectedClientDetail.licenseDocVersoUrl}
-                              alt="Permis Verso"
+                              alt={t('Permis Verso')}
                               className="w-10 h-10 object-cover rounded bg-slate-900 border border-slate-700 shrink-0"
                               referrerPolicy="no-referrer"
                             />
                             <div className="min-w-0 flex-1">
                               <p className="text-xs font-mono text-slate-200 truncate">
-                                {selectedClientDetail.licenseDocVersoName || 'Permis_Verso'}
+                                {selectedClientDetail.licenseDocVersoName || t('Permis_Verso')}
                               </p>
-                              <p className="text-[10px] text-amber-400">Verso • Cliquer pour agrandir</p>
+                              <p className="text-[10px] text-amber-400">{t('Verso • Cliquer pour agrandir')}</p>
                             </div>
                           </div>
                         )}
                       </div>
                     ) : (
                       <p className="text-xs text-slate-500 italic py-2">
-                        Aucun document de permis téléversé.
+                        {t('Aucun document de permis téléversé.')}
                       </p>
                     )}
                   </div>
@@ -1002,14 +1004,14 @@ export const ClientsList: React.FC = () => {
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold text-white flex items-center gap-1.5">
                         <CreditCard className="w-3.5 h-3.5 text-blue-400" />
-                        {selectedClientDetail.docType} / Passeport
+                        {t('{docType} / Passeport', { docType: selectedClientDetail.docType })}
                       </span>
                       {selectedClientDetail.cinDocUrl ? (
                         <span className="text-[10px] text-emerald-400 font-semibold bg-emerald-950/40 border border-emerald-500/30 px-1.5 py-0.5 rounded">
-                          ✓ Archivé
+                          {t('✓ Archivé')}
                         </span>
                       ) : (
-                        <span className="text-[10px] text-slate-500">Non attaché</span>
+                        <span className="text-[10px] text-slate-500">{t('Non attaché')}</span>
                       )}
                     </div>
 
@@ -1026,15 +1028,15 @@ export const ClientsList: React.FC = () => {
                         >
                           <img
                             src={selectedClientDetail.cinDocUrl}
-                            alt="Pièce Recto"
+                            alt={t('Pièce Recto')}
                             className="w-10 h-10 object-cover rounded bg-slate-900 border border-slate-700 shrink-0"
                             referrerPolicy="no-referrer"
                           />
                           <div className="min-w-0 flex-1">
                             <p className="text-xs font-mono text-slate-200 truncate">
-                              {selectedClientDetail.cinDocName || `${selectedClientDetail.docType}_Recto`}
+                              {selectedClientDetail.cinDocName || t('{docType}_Recto', { docType: selectedClientDetail.docType })}
                             </p>
-                            <p className="text-[10px] text-blue-400">Cliquer pour agrandir</p>
+                            <p className="text-[10px] text-blue-400">{t('Cliquer pour agrandir')}</p>
                           </div>
                         </div>
 
@@ -1050,22 +1052,22 @@ export const ClientsList: React.FC = () => {
                           >
                             <img
                               src={selectedClientDetail.cinDocVersoUrl}
-                              alt="Pièce Verso"
+                              alt={t('Pièce Verso')}
                               className="w-10 h-10 object-cover rounded bg-slate-900 border border-slate-700 shrink-0"
                               referrerPolicy="no-referrer"
                             />
                             <div className="min-w-0 flex-1">
                               <p className="text-xs font-mono text-slate-200 truncate">
-                                {selectedClientDetail.cinDocVersoName || `${selectedClientDetail.docType}_Verso`}
+                                {selectedClientDetail.cinDocVersoName || t('{docType}_Verso', { docType: selectedClientDetail.docType })}
                               </p>
-                              <p className="text-[10px] text-blue-400">Verso • Cliquer pour agrandir</p>
+                              <p className="text-[10px] text-blue-400">{t('Verso • Cliquer pour agrandir')}</p>
                             </div>
                           </div>
                         )}
                       </div>
                     ) : (
                       <p className="text-xs text-slate-500 italic py-2">
-                        Aucune pièce d'identité téléversée.
+                        {t("Aucune pièce d'identité téléversée.")}
                       </p>
                     )}
                   </div>
@@ -1113,12 +1115,12 @@ export const ClientsList: React.FC = () => {
             <div>
               <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-2 flex items-center gap-1.5">
                 <History className="w-4 h-4 text-amber-400" />
-                Historique des Contrats de ce Client ({clientContracts.length})
+                {t('Historique des Contrats de ce Client ({clientContractsCount})', { clientContractsCount: clientContracts.length })}
               </h3>
 
               {clientContracts.length === 0 ? (
                 <div className="bg-slate-950/40 p-4 rounded-xl text-center text-slate-500 text-xs">
-                  Aucun contrat historique trouvé pour ce client.
+                  {t('Aucun contrat historique trouvé pour ce client.')}
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -1135,8 +1137,8 @@ export const ClientsList: React.FC = () => {
                           </span>
                         </div>
                         <p className="text-[11px] text-slate-400 mt-0.5">
-                          Du {new Date(cnt.startDate).toLocaleDateString('fr-FR')} au{' '}
-                          {new Date(cnt.endDate).toLocaleDateString('fr-FR')} • {cnt.totalDays} jours
+                          {t('Du')} {new Date(cnt.startDate).toLocaleDateString('fr-FR')} {t('au')}{' '}
+                          {new Date(cnt.endDate).toLocaleDateString('fr-FR')} {t('• {totalDays} jours', { totalDays: cnt.totalDays })}
                         </p>
                       </div>
 
@@ -1144,7 +1146,7 @@ export const ClientsList: React.FC = () => {
                         <button
                           onClick={() => openPdfModal(cnt)}
                           className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded transition-colors"
-                          title="Voir le PDF A4"
+                          title={t('Voir le PDF A4')}
                         >
                           <Eye className="w-3.5 h-3.5" />
                         </button>
@@ -1155,7 +1157,7 @@ export const ClientsList: React.FC = () => {
                           }}
                           className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-slate-950 border border-amber-500/30 rounded font-semibold text-[11px] transition-colors"
                         >
-                          Relouer
+                          {t('Relouer')}
                         </button>
                       </div>
                     </div>
@@ -1171,7 +1173,7 @@ export const ClientsList: React.FC = () => {
                   onClick={() => setSelectedClientDetail(null)}
                   className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl transition-colors cursor-pointer"
                 >
-                  Fermer
+                  {t('Fermer')}
                 </button>
                 {canDeleteClient && (
                   <button
@@ -1181,10 +1183,10 @@ export const ClientsList: React.FC = () => {
                       setClientToDelete(selectedClientDetail);
                     }}
                     className="px-3 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 border border-rose-500/30 text-xs font-semibold rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer"
-                    title="Supprimer ce client"
+                    title={t('Supprimer ce client')}
                   >
                     <Trash2 className="w-3.5 h-3.5" />
-                    <span>Supprimer</span>
+                    <span>{t('Supprimer')}</span>
                   </button>
                 )}
               </div>
@@ -1195,7 +1197,7 @@ export const ClientsList: React.FC = () => {
                 }}
                 className="px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 text-xs font-bold rounded-xl shadow-md shadow-amber-500/20 transition-transform active:scale-95 cursor-pointer"
               >
-                + Créer un nouveau contrat
+                {t('+ Créer un nouveau contrat')}
               </button>
             </div>
           </div>
@@ -1210,7 +1212,7 @@ export const ClientsList: React.FC = () => {
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div className="flex items-center gap-2">
                 <UserPlus className="w-5 h-5 text-amber-400" />
-                <h2 className="text-base font-bold text-white">Nouveau Client Locataire</h2>
+                <h2 className="text-base font-bold text-white">{t('Nouveau Client Locataire')}</h2>
               </div>
               <button
                 onClick={() => setIsAddModalOpen(false)}
@@ -1223,7 +1225,7 @@ export const ClientsList: React.FC = () => {
             <form onSubmit={handleCreateClient} className="space-y-3 text-xs">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-400 mb-1">Prénom *</label>
+                  <label className="block text-slate-400 mb-1">{t('Prénom *')}</label>
                   <input
                     type="text"
                     required
@@ -1233,7 +1235,7 @@ export const ClientsList: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-400 mb-1">Nom *</label>
+                  <label className="block text-slate-400 mb-1">{t('Nom *')}</label>
                   <input
                     type="text"
                     required
@@ -1246,7 +1248,7 @@ export const ClientsList: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-400 mb-1">Date de naissance *</label>
+                  <label className="block text-slate-400 mb-1">{t('Date de naissance *')}</label>
                   <input
                     type="date"
                     required
@@ -1256,37 +1258,37 @@ export const ClientsList: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-400 mb-1">Type de Document *</label>
+                  <label className="block text-slate-400 mb-1">{t('Type de Document *')}</label>
                   <select
                     value={newClientForm.docType}
                     onChange={(e) => setNewClientForm({ ...newClientForm, docType: e.target.value as DocumentType })}
                     className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white focus:border-amber-500 focus:outline-none"
                   >
                     <option value="CIN">C.I.N</option>
-                    <option value="Passeport">Passeport</option>
-                    <option value="Carte de Séjour">Carte de Séjour</option>
+                    <option value="Passeport">{t('Passeport')}</option>
+                    <option value="Carte de Séjour">{t('Carte de Séjour')}</option>
                   </select>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-400 mb-1">N° Document *</label>
+                  <label className="block text-slate-400 mb-1">{t('N° Document *')}</label>
                   <input
                     type="text"
                     required
-                    placeholder="Ex: BH458921"
+                    placeholder={t('Ex: BH458921')}
                     value={newClientForm.docNumber}
                     onChange={(e) => setNewClientForm({ ...newClientForm, docNumber: e.target.value })}
                     className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white uppercase font-mono focus:border-amber-500 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-400 mb-1">N° Permis de Conduire *</label>
+                  <label className="block text-slate-400 mb-1">{t('N° Permis de Conduire *')}</label>
                   <input
                     type="text"
                     required
-                    placeholder="Ex: B-198425/08"
+                    placeholder={t('Ex: B-198425/08')}
                     value={newClientForm.drivingLicense}
                     onChange={(e) => setNewClientForm({ ...newClientForm, drivingLicense: e.target.value })}
                     className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono focus:border-amber-500 focus:outline-none"
@@ -1297,21 +1299,21 @@ export const ClientsList: React.FC = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-slate-400 mb-1">
-                    Téléphone / GSM <span className="text-slate-500 font-normal">(Facultatif)</span>
+                    {t('Téléphone / GSM')} <span className="text-slate-500 font-normal">{t('(Facultatif)')}</span>
                   </label>
                   <input
                     type="tel"
-                    placeholder="+212 6... (Optionnel)"
+                    placeholder={t('+212 6... (Optionnel)')}
                     value={newClientForm.phone}
                     onChange={(e) => setNewClientForm({ ...newClientForm, phone: e.target.value })}
                     className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white focus:border-amber-500 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-400 mb-1">Email</label>
+                  <label className="block text-slate-400 mb-1">{t('Email')}</label>
                   <input
                     type="email"
-                    placeholder="client@gmail.com"
+                    placeholder={t('client@gmail.com')}
                     value={newClientForm.email}
                     onChange={(e) => setNewClientForm({ ...newClientForm, email: e.target.value })}
                     className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white focus:border-amber-500 focus:outline-none"
@@ -1320,10 +1322,10 @@ export const ClientsList: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-slate-400 mb-1">Adresse</label>
+                <label className="block text-slate-400 mb-1">{t('Adresse')}</label>
                 <input
                   type="text"
-                  placeholder="Casablanca, Maroc"
+                  placeholder={t('Casablanca, Maroc')}
                   value={newClientForm.address}
                   onChange={(e) => setNewClientForm({ ...newClientForm, address: e.target.value })}
                   className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white focus:border-amber-500 focus:outline-none"
@@ -1348,13 +1350,13 @@ export const ClientsList: React.FC = () => {
                   onClick={() => setIsAddModalOpen(false)}
                   className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl transition-colors"
                 >
-                  Annuler
+                  {t('Annuler')}
                 </button>
                 <button
                   type="submit"
                   className="px-5 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 text-xs font-bold rounded-xl shadow-md shadow-amber-500/20 transition-transform active:scale-95"
                 >
-                  Enregistrer la Fiche Client
+                  {t('Enregistrer la Fiche Client')}
                 </button>
               </div>
             </form>
@@ -1384,7 +1386,7 @@ export const ClientsList: React.FC = () => {
               {previewDocModal.url.startsWith('data:application/pdf') ? (
                 <iframe
                   src={previewDocModal.url}
-                  title="PDF Preview"
+                  title={t('PDF Preview')}
                   className="w-full h-[500px] rounded"
                 />
               ) : (
@@ -1403,14 +1405,14 @@ export const ClientsList: React.FC = () => {
                 download="document_client"
                 className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl transition-colors"
               >
-                Télécharger le document
+                {t('Télécharger le document')}
               </a>
               <button
                 type="button"
                 onClick={() => setPreviewDocModal(null)}
                 className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold rounded-xl transition-colors"
               >
-                Fermer
+                {t('Fermer')}
               </button>
             </div>
           </div>
@@ -1427,9 +1429,9 @@ export const ClientsList: React.FC = () => {
                   <Edit3 className="w-5 h-5" />
                 </div>
                 <div>
-                  <h2 className="text-base font-bold text-white">Modifier la Fiche Client</h2>
+                  <h2 className="text-base font-bold text-white">{t('Modifier la Fiche Client')}</h2>
                   <p className="text-xs text-slate-400 font-mono">
-                    Réf : {editingClient.id} • {editingClient.firstName} {editingClient.lastName}
+                    {t('Réf : {id} • {firstName} {lastName}', { id: editingClient.id, firstName: editingClient.firstName, lastName: editingClient.lastName })}
                   </p>
                 </div>
               </div>
@@ -1446,7 +1448,7 @@ export const ClientsList: React.FC = () => {
               {/* Identité */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Prénom *</label>
+                  <label className="block text-slate-400 mb-1 font-medium">{t('Prénom *')}</label>
                   <input
                     type="text"
                     required
@@ -1456,7 +1458,7 @@ export const ClientsList: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Nom de famille *</label>
+                  <label className="block text-slate-400 mb-1 font-medium">{t('Nom de famille *')}</label>
                   <input
                     type="text"
                     required
@@ -1470,7 +1472,7 @@ export const ClientsList: React.FC = () => {
               {/* Naissance & Type doc */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Date de Naissance *</label>
+                  <label className="block text-slate-400 mb-1 font-medium">{t('Date de Naissance *')}</label>
                   <input
                     type="date"
                     required
@@ -1480,15 +1482,15 @@ export const ClientsList: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Type de Document</label>
+                  <label className="block text-slate-400 mb-1 font-medium">{t('Type de Document')}</label>
                   <select
                     value={editClientForm.docType}
                     onChange={(e) => setEditClientForm({ ...editClientForm, docType: e.target.value as DocumentType })}
                     className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white focus:border-amber-500 focus:outline-none"
                   >
-                    <option value="CIN">CIN (Carte Nationale)</option>
-                    <option value="Passeport">Passeport</option>
-                    <option value="Carte de Séjour">Carte de Séjour</option>
+                    <option value="CIN">{t('CIN (Carte Nationale)')}</option>
+                    <option value="Passeport">{t('Passeport')}</option>
+                    <option value="Carte de Séjour">{t('Carte de Séjour')}</option>
                   </select>
                 </div>
               </div>
@@ -1497,7 +1499,7 @@ export const ClientsList: React.FC = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-slate-400 mb-1 font-medium">
-                    N° de Document ({editClientForm.docType}) *
+                    {t('N° de Document ({docType}) *', { docType: editClientForm.docType })}
                   </label>
                   <input
                     type="text"
@@ -1508,7 +1510,7 @@ export const ClientsList: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">N° Permis de Conduire *</label>
+                  <label className="block text-slate-400 mb-1 font-medium">{t('N° Permis de Conduire *')}</label>
                   <input
                     type="text"
                     required
@@ -1522,7 +1524,7 @@ export const ClientsList: React.FC = () => {
               {/* Coordonnées */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Téléphone / GSM</label>
+                  <label className="block text-slate-400 mb-1 font-medium">{t('Téléphone / GSM')}</label>
                   <input
                     type="tel"
                     value={editClientForm.phone}
@@ -1532,13 +1534,13 @@ export const ClientsList: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Email</label>
+                  <label className="block text-slate-400 mb-1 font-medium">{t('Email')}</label>
                   <input
                     type="email"
                     value={editClientForm.email}
                     onChange={(e) => setEditClientForm({ ...editClientForm, email: e.target.value })}
                     className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white focus:border-amber-500 focus:outline-none"
-                    placeholder="client@domaine.com"
+                    placeholder={t('client@domaine.com')}
                   />
                 </div>
               </div>
@@ -1546,7 +1548,7 @@ export const ClientsList: React.FC = () => {
               {/* Nationalité & Adresse */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Pays / Nationalité</label>
+                  <label className="block text-slate-400 mb-1 font-medium">{t('Pays / Nationalité')}</label>
                   <input
                     type="text"
                     value={editClientForm.country}
@@ -1555,33 +1557,33 @@ export const ClientsList: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Adresse</label>
+                  <label className="block text-slate-400 mb-1 font-medium">{t('Adresse')}</label>
                   <input
                     type="text"
                     value={editClientForm.address}
                     onChange={(e) => setEditClientForm({ ...editClientForm, address: e.target.value })}
                     className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white focus:border-amber-500 focus:outline-none"
-                    placeholder="Ville, Rue, N°"
+                    placeholder={t('Ville, Rue, N°')}
                   />
                 </div>
               </div>
 
               {/* Notes */}
               <div>
-                <label className="block text-slate-400 mb-1 font-medium">Notes & Commentaires Internes</label>
+                <label className="block text-slate-400 mb-1 font-medium">{t('Notes & Commentaires Internes')}</label>
                 <textarea
                   rows={2}
                   value={editClientForm.notes}
                   onChange={(e) => setEditClientForm({ ...editClientForm, notes: e.target.value })}
                   className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white focus:border-amber-500 focus:outline-none resize-none"
-                  placeholder="Informations particulières, habitudes de location..."
+                  placeholder={t('Informations particulières, habitudes de location...')}
                 />
               </div>
 
               <PropagationScopeSelect
                 value={propagateScope}
                 onChange={setPropagateScope}
-                subject="de ce client (nom, téléphone, pièces d'identité…)"
+                subject={t("de ce client (nom, téléphone, pièces d'identité…)")}
               />
 
               <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-800">
@@ -1590,14 +1592,14 @@ export const ClientsList: React.FC = () => {
                   onClick={() => setEditingClient(null)}
                   className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold rounded-xl transition-colors cursor-pointer"
                 >
-                  Annuler
+                  {t('Annuler')}
                 </button>
                 <button
                   type="submit"
                   className="px-5 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold rounded-xl shadow-md shadow-amber-500/20 transition-transform active:scale-95 flex items-center gap-1.5 cursor-pointer"
                 >
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>Enregistrer les modifications</span>
+                  <span>{t('Enregistrer les modifications')}</span>
                 </button>
               </div>
             </form>
@@ -1616,10 +1618,10 @@ export const ClientsList: React.FC = () => {
               </div>
               <div className="flex-1">
                 <h3 className="text-base font-bold text-white">
-                  Supprimer ce client ?
+                  {t('Supprimer ce client ?')}
                 </h3>
                 <p className="text-xs text-slate-400 mt-1">
-                  Êtes-vous certain de vouloir supprimer la fiche de{' '}
+                  {t('Êtes-vous certain de vouloir supprimer la fiche de')}{' '}
                   <strong className="text-white uppercase">{clientToDelete.lastName} {clientToDelete.firstName}</strong> ?
                 </p>
               </div>
@@ -1628,20 +1630,20 @@ export const ClientsList: React.FC = () => {
             {/* INFO RECAP */}
             <div className="bg-slate-950/70 p-3.5 rounded-xl border border-slate-800 text-xs space-y-2">
               <div className="flex justify-between">
-                <span className="text-slate-400">Réf. Client :</span>
+                <span className="text-slate-400">{t('Réf. Client :')}</span>
                 <span className="text-white font-mono">{clientToDelete.id}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">Pièce d'identité :</span>
+                <span className="text-slate-400">{t("Pièce d'identité :")}</span>
                 <span className="text-white font-mono">{clientToDelete.docType} {clientToDelete.docNumber}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">Permis de conduire :</span>
+                <span className="text-slate-400">{t('Permis de conduire :')}</span>
                 <span className="text-white font-mono">{clientToDelete.drivingLicense}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">Téléphone :</span>
-                <span className="text-amber-400 font-mono">{clientToDelete.phone || 'Non renseigné'}</span>
+                <span className="text-slate-400">{t('Téléphone :')}</span>
+                <span className="text-amber-400 font-mono">{clientToDelete.phone || t('Non renseigné')}</span>
               </div>
             </div>
 
@@ -1669,10 +1671,10 @@ export const ClientsList: React.FC = () => {
                   <div className="p-3 bg-rose-500/15 border border-rose-500/40 rounded-xl text-xs text-rose-300 space-y-1">
                     <div className="flex items-center gap-1.5 font-bold text-rose-200">
                       <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
-                      <span>Suppression impossible (Contrat actif en cours)</span>
+                      <span>{t('Suppression impossible (Contrat actif en cours)')}</span>
                     </div>
                     <p className="text-[11px] text-rose-300 leading-relaxed">
-                      Ce client a un contrat en cours : <strong className="font-mono text-white">N° {activeContract.contractNumber}</strong> ({activeContract.vehicleSnapshot?.brand} {activeContract.vehicleSnapshot?.model}). Vous devez d'abord clôturer ou annuler ce contrat pour pouvoir supprimer la fiche client.
+                      {t('Ce client a un contrat en cours :')} <strong className="font-mono text-white">N° {activeContract.contractNumber}</strong> {t("({brand} {model}). Vous devez d'abord clôturer ou annuler ce contrat pour pouvoir supprimer la fiche client.", { brand: activeContract.vehicleSnapshot?.brand, model: activeContract.vehicleSnapshot?.model })}
                     </p>
                   </div>
                 );
@@ -1683,10 +1685,10 @@ export const ClientsList: React.FC = () => {
                   <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs text-amber-300 space-y-1">
                     <div className="flex items-center gap-1.5 font-semibold text-amber-200">
                       <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
-                      <span>Historique associé ({pastContracts.length} contrat{pastContracts.length > 1 ? 's' : ''})</span>
+                      <span>{t('Historique associé ({pastContractsCount} contrat', { pastContractsCount: pastContracts.length })}{pastContracts.length > 1 ? 's' : ''})</span>
                     </div>
                     <p className="text-[11px] text-amber-300/90 leading-relaxed">
-                      Ce client possède {pastContracts.length} contrat(s) passé(s) dans l'historique. La suppression retirera la fiche du répertoire des clients.
+                      {t("Ce client possède {pastContractsCount} contrat(s) passé(s) dans l'historique. La suppression retirera la fiche du répertoire des clients.", { pastContractsCount: pastContracts.length })}
                     </p>
                   </div>
                 );
@@ -1711,7 +1713,7 @@ export const ClientsList: React.FC = () => {
                 }}
                 className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
               >
-                Annuler
+                {t('Annuler')}
               </button>
               {(() => {
                 const hasActiveContract = contracts.some(
@@ -1734,7 +1736,7 @@ export const ClientsList: React.FC = () => {
                     }`}
                   >
                     <Trash2 className="w-3.5 h-3.5" />
-                    <span>Confirmer la suppression</span>
+                    <span>{t('Confirmer la suppression')}</span>
                   </button>
                 );
               })()}

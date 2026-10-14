@@ -16,6 +16,7 @@ import {
   SupabaseSyncError,
 } from '../lib/supabaseSync';
 
+import { useI18n } from '../i18n/I18nContext';
 const FIX_SQL_SCRIPT = `-- MORVELLO CARS - Migration Colonnes & Cache Supabase
 ALTER TABLE public.contracts ADD COLUMN IF NOT EXISTS assigned_manager_id TEXT;
 ALTER TABLE public.contracts ADD COLUMN IF NOT EXISTS created_by TEXT;
@@ -169,6 +170,7 @@ $$;
 NOTIFY pgrst, 'reload schema';`;
 
 export const SyncErrorBanner: React.FC = () => {
+  const { t } = useI18n();
   const [syncError, setSyncError] = useState<SupabaseSyncError | null>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [copiedSql, setCopiedSql] = useState(false);
@@ -258,10 +260,10 @@ export const SyncErrorBanner: React.FC = () => {
                 }`}
               >
                 {isSchemaCache
-                  ? 'Mise à jour requise du schéma Supabase'
+                  ? t('Mise à jour requise du schéma Supabase')
                   : isRls
-                  ? 'Avertissement Sécurité RLS'
-                  : 'Incident de Synchronisation'}
+                  ? t('Avertissement Sécurité RLS')
+                  : t('Incident de Synchronisation')}
               </span>
               <span
                 className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono border ${
@@ -270,10 +272,10 @@ export const SyncErrorBanner: React.FC = () => {
                     : 'bg-rose-500/20 text-rose-200 border-rose-500/30'
                 }`}
               >
-                {syncError.code || 'ERR'}
+                {syncError.code || t('ERR')}
               </span>
               <span className="text-xs text-slate-400">
-                sur <strong className="text-slate-200">{tableLabel}</strong>
+                {t('sur')} <strong className="text-slate-200">{tableLabel}</strong>
                 {syncError.entityId && (
                   <span className="font-mono text-slate-300"> ({syncError.entityId})</span>
                 )}
@@ -282,9 +284,9 @@ export const SyncErrorBanner: React.FC = () => {
 
             <p className="text-xs text-slate-300 leading-snug">
               {isSchemaCache
-                ? `La colonne '${missingColumn ?? 'inconnue'}' est absente ou non indexée dans le cache PostgREST. Le mode de repli sécurisé a sauvegardé les données dans 'data' (JSONB).`
+                ? t("La colonne '{missingColumn}' est absente ou non indexée dans le cache PostgREST. Le mode de repli sécurisé a sauvegardé les données dans 'data' (JSONB).", { missingColumn: missingColumn ?? 'inconnue' })
                 : isRls
-                ? `La politique RLS Supabase interdit l'écriture sur cette fiche pour le compte actuel.`
+                ? t("La politique RLS Supabase interdit l'écriture sur cette fiche pour le compte actuel.")
                 : syncError.message}
             </p>
 
@@ -302,23 +304,23 @@ export const SyncErrorBanner: React.FC = () => {
                   {copiedSql ? (
                     <>
                       <Check className="w-3.5 h-3.5 text-emerald-400" />
-                      <span className="text-emerald-300 font-bold">SQL copié dans le presse-papiers !</span>
+                      <span className="text-emerald-300 font-bold">{t('SQL copié dans le presse-papiers !')}</span>
                     </>
                   ) : (
                     <>
                       <Copy className={`w-3.5 h-3.5 ${isRls ? 'text-rose-400' : 'text-amber-400'}`} />
                       <span>
                         {isRls
-                          ? 'Copier le script SQL de déblocage RLS (fix_manager_rls_mapping.sql)'
-                          : 'Copier le script SQL de réparation (Cache & Colonnes)'}
+                          ? t('Copier le script SQL de déblocage RLS (fix_manager_rls_mapping.sql)')
+                          : t('Copier le script SQL de réparation (Cache & Colonnes)')}
                       </span>
                     </>
                   )}
                 </button>
                 <span className="text-[11px] text-slate-400">
                   {isRls
-                    ? 'À coller dans Supabase SQL Editor pour débloquer les droits et réassigner la fiche.'
-                    : 'À exécuter dans Supabase SQL Editor pour recharger le cache.'}
+                    ? t('À coller dans Supabase SQL Editor pour débloquer les droits et réassigner la fiche.')
+                    : t('À exécuter dans Supabase SQL Editor pour recharger le cache.')}
                 </span>
               </div>
             )}
@@ -326,22 +328,22 @@ export const SyncErrorBanner: React.FC = () => {
             {showDetails && (
               <div className="mt-2 p-2.5 rounded-md bg-slate-950/80 border border-slate-800 text-[11px] font-mono text-slate-400 space-y-1">
                 <div>
-                  <strong>Erreur :</strong> {syncError.message}
+                  <strong>{t('Erreur :')}</strong> {syncError.message}
                 </div>
                 {syncError.details && (
                   <div>
-                    <strong>Détails :</strong> {syncError.details}
+                    <strong>{t('Détails :')}</strong> {syncError.details}
                   </div>
                 )}
                 <div>
-                  <strong>Horodatage :</strong> {new Date(syncError.timestamp).toLocaleTimeString()}
+                  <strong>{t('Horodatage :')}</strong> {new Date(syncError.timestamp).toLocaleTimeString()}
                 </div>
                 {(isSchemaCache || isRls) && (
                   <div className="mt-2 pt-2 border-t border-slate-800/80">
                     <p className={`font-semibold mb-1 ${isRls ? 'text-rose-300' : 'text-amber-300'}`}>
                       {isRls
-                        ? 'Script SQL correctif RLS à exécuter dans Supabase (fix_manager_rls_mapping.sql) :'
-                        : 'Script SQL à exécuter dans Supabase (fix_supabase_schema_cache.sql) :'}
+                        ? t('Script SQL correctif RLS à exécuter dans Supabase (fix_manager_rls_mapping.sql) :')
+                        : t('Script SQL à exécuter dans Supabase (fix_supabase_schema_cache.sql) :')}
                     </p>
                     <pre className="text-[10px] text-slate-300 bg-slate-900/90 p-2 rounded border border-slate-800 overflow-x-auto whitespace-pre max-h-48">
                       {activeSqlScript}
@@ -361,11 +363,11 @@ export const SyncErrorBanner: React.FC = () => {
           >
             {showDetails ? (
               <>
-                Masquer <ChevronUp className="w-3 h-3" />
+                {t('Masquer')} <ChevronUp className="w-3 h-3" />
               </>
             ) : (
               <>
-                Détails <ChevronDown className="w-3 h-3" />
+                {t('Détails')} <ChevronDown className="w-3 h-3" />
               </>
             )}
           </button>
@@ -374,8 +376,8 @@ export const SyncErrorBanner: React.FC = () => {
             type="button"
             onClick={clearSyncError}
             className="p-1 text-slate-400 hover:text-slate-200 rounded-lg hover:bg-slate-800/80 transition-colors"
-            title="Ignorer l'alerte"
-            aria-label="Ignorer l'alerte"
+            title={t("Ignorer l'alerte")}
+            aria-label={t("Ignorer l'alerte")}
           >
             <X className="w-4 h-4" />
           </button>

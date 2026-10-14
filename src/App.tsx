@@ -14,6 +14,7 @@ import { Contract } from './types';
 import { Bot, Loader2, Sparkles } from 'lucide-react';
 import { lazyView, preloadViewsWhenIdle } from './lazyView';
 import { ASK_ASSISTANT_EVENT } from './lib/askAssistant';
+import { useI18n } from './i18n/I18nContext';
 
 // Everything but the login screen and the dashboard is split out of the initial bundle,
 // then preloaded in the background right after sign-in so tab navigation stays instant.
@@ -62,12 +63,15 @@ const BACKGROUND_PRELOAD_ORDER = [
   AuditView,
 ];
 
-const ViewLoadingFallback = () => (
-  <div className="flex flex-col items-center justify-center min-h-[400px] w-full gap-3 text-slate-400">
-    <Loader2 className="w-8 h-8 text-amber-500 animate-spin" />
-    <span className="text-xs font-mono tracking-wider">Chargement du module...</span>
-  </div>
-);
+const ViewLoadingFallback = () => {
+  const { t } = useI18n();
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[400px] w-full gap-3 text-slate-400">
+      <Loader2 className="w-8 h-8 text-amber-500 animate-spin" />
+      <span className="text-xs font-mono tracking-wider">{t('Chargement du module...')}</span>
+    </div>
+  );
+};
 
 function MainAppContent() {
   const { activeTab, setActiveTab, currentUser } = useApp();
@@ -77,6 +81,7 @@ function MainAppContent() {
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
   const [isAssistantExpanded, setIsAssistantExpanded] = useState(false);
   const [assistantPrompt, setAssistantPrompt] = useState<string | null>(null);
+  const { t } = useI18n();
 
   useEffect(() => {
     const onAsk = (e: Event) => {
@@ -130,9 +135,9 @@ function MainAppContent() {
                 🛡️
               </div>
               <div className="space-y-2">
-                <h2 className="text-xl font-bold text-white">Accès Réservé au Gérant & Administrateur</h2>
+                <h2 className="text-xl font-bold text-white">{t('Accès Réservé au Gérant & Administrateur')}</h2>
                 <p className="text-xs text-slate-400 leading-relaxed max-w-md mx-auto">
-                  La rubrique de gestion de l'équipe, des permissions et des identifiants est strictement réservée au Gérant de l’agence Morvello Cars.
+                  {t("La rubrique de gestion de l'équipe, des permissions et des identifiants est strictement réservée au Gérant de l’agence Morvello Cars.")}
                 </p>
               </div>
               <div className="pt-2">
@@ -140,7 +145,7 @@ function MainAppContent() {
                   onClick={() => setActiveTab('dashboard')}
                   className="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold rounded-xl shadow-lg shadow-amber-500/20 cursor-pointer transition-colors"
                 >
-                  Retour au Tableau de Bord
+                  {t('Retour au Tableau de Bord')}
                 </button>
               </div>
             </div>
@@ -188,20 +193,20 @@ function MainAppContent() {
 
       {/* FLOATING AI ASSISTANT TRIGGER BUTTON (BOTTOM-RIGHT) */}
       {activeTab !== 'ai_assistant' && (
-        <div className="fixed bottom-20 right-4 sm:bottom-6 sm:right-6 z-30 no-print">
+        <div className="fixed bottom-20 end-4 sm:bottom-6 sm:end-6 z-30 no-print">
           <button
             onClick={() => setIsAssistantOpen(!isAssistantOpen)}
             className="group relative flex items-center gap-3 px-4 py-3 rounded-full bg-gradient-to-r from-amber-500 via-amber-600 to-amber-500 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold shadow-xl shadow-amber-500/25 hover:shadow-amber-500/40 hover:scale-105 active:scale-95 transition-all duration-200 border border-amber-300/40"
-            title={`Ouvrir l’assistant IA personnel de ${currentUser.name}`}
+            title={t('Ouvrir l’assistant IA personnel de {name}', { name: currentUser.name })}
           >
             <div className="relative">
               <Bot className="w-5 h-5" />
-              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-500 border-2 border-slate-950 rounded-full animate-ping" />
-              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-500 border-2 border-slate-950 rounded-full" />
+              <span className="absolute -top-1 -end-1 w-2.5 h-2.5 bg-emerald-500 border-2 border-slate-950 rounded-full animate-ping" />
+              <span className="absolute -top-1 -end-1 w-2.5 h-2.5 bg-emerald-500 border-2 border-slate-950 rounded-full" />
             </div>
-            <div className="text-left leading-tight hidden sm:block">
+            <div className="text-start leading-tight hidden sm:block">
               <div className="text-xs font-black tracking-wide flex items-center gap-1">
-                ASSISTANT IA
+                {t('ASSISTANT IA')}
                 <Sparkles className="w-3 h-3 text-slate-950 fill-slate-950" />
               </div>
               <div className="text-[10px] text-slate-900 font-semibold opacity-90 truncate max-w-[120px]">
@@ -224,7 +229,7 @@ function MainAppContent() {
           <div
             className={`w-full ${
               isAssistantExpanded ? 'sm:w-[780px] md:w-[880px]' : 'sm:w-[520px] md:w-[580px]'
-            } h-full bg-slate-900 shadow-2xl border-l border-slate-800 flex flex-col transform transition-all duration-300 ease-in-out`}
+            } h-full bg-slate-900 shadow-2xl border-s border-slate-800 flex flex-col transform transition-all duration-300 ease-in-out`}
           >
             <ErrorBoundary isolateView fallbackTitle="Erreur dans l’assistant IA">
               <Suspense fallback={<ViewLoadingFallback />}>
@@ -246,10 +251,10 @@ function MainAppContent() {
       <footer className="border-t border-slate-900 bg-slate-950/80 py-4 px-6 text-center text-xs text-slate-500 font-mono">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
           <div>
-            <strong className="text-slate-400">MORVELLO CARS</strong> • Système de Gestion & Édition de Contrats A4
+            <strong className="text-slate-400">MORVELLO CARS</strong> • {t('Système de Gestion & Édition de Contrats A4')}
           </div>
           <div className="text-[11px] text-slate-600">
-            IF: 66223306 | RC: 664751 | ICE: 00366965500062 • Nouaceur Casablanca
+            IF: 66223306 | RC: 664751 | ICE: 00366965500062 • {t('Nouaceur Casablanca')}
           </div>
         </div>
       </footer>

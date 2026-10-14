@@ -9,6 +9,7 @@ import {
 } from '../../utils/vehicleExpiryUtils';
 import { Shield, FileCheck, Award, Wrench, AlertTriangle, CheckCircle2, AlertOctagon, Receipt, ChevronRight } from 'lucide-react';
 
+import { useI18n } from '../../i18n/I18nContext';
 interface VehicleCompliancePanelProps {
   vehicle: Vehicle;
   compact?: boolean;
@@ -20,6 +21,7 @@ export const VehicleCompliancePanel: React.FC<VehicleCompliancePanelProps> = ({
   compact = false,
   onOpenMaintenanceModal,
 }) => {
+  const { t } = useI18n();
   const insurance = checkInsuranceStatus(vehicle);
   const inspection = checkTechnicalInspectionStatus(vehicle);
   const vignette = checkVignetteStatus(vehicle);
@@ -34,23 +36,23 @@ export const VehicleCompliancePanel: React.FC<VehicleCompliancePanelProps> = ({
       <div className="flex items-center justify-between pb-2 border-b border-slate-800/80">
         <div className="flex items-center gap-1.5 font-semibold text-slate-300 text-[11px] uppercase tracking-wider">
           <Shield className="w-3.5 h-3.5 text-amber-400" />
-          <span>Suivi Échéances & Conformité</span>
+          <span>{t('Suivi Échéances & Conformité')}</span>
         </div>
 
         {summary.overallStatus === 'expired' ? (
           <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40">
             <AlertOctagon className="w-3 h-3 text-rose-400" />
-            Échéance Dépassée
+            {t('Échéance Dépassée')}
           </span>
         ) : summary.overallStatus === 'warning' ? (
           <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">
             <AlertTriangle className="w-3 h-3 text-amber-400" />
-            À renouveler sous peu
+            {t('À renouveler sous peu')}
           </span>
         ) : (
           <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
             <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-            Conforme
+            {t('Conforme')}
           </span>
         )}
       </div>
@@ -62,12 +64,12 @@ export const VehicleCompliancePanel: React.FC<VehicleCompliancePanelProps> = ({
             <Shield className="w-3.5 h-3.5 text-blue-400 shrink-0" />
             <div className="truncate">
               <span className="text-slate-300 font-medium text-[11px] block">
-                Assurance {vehicle.insuranceCompany ? `(${vehicle.insuranceCompany})` : ''}
+                {t('Assurance')} {vehicle.insuranceCompany ? `(${vehicle.insuranceCompany})` : ''}
               </span>
               <span className="text-[10px] text-slate-500 font-mono">
                 {vehicle.insuranceExpiryDate
                   ? new Date(vehicle.insuranceExpiryDate).toLocaleDateString('fr-FR')
-                  : 'Non spécifiée'}
+                  : t('Non spécifiée')}
               </span>
             </div>
           </div>
@@ -83,11 +85,11 @@ export const VehicleCompliancePanel: React.FC<VehicleCompliancePanelProps> = ({
           <div className="flex items-center gap-1.5 text-slate-400 truncate min-w-0">
             <FileCheck className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
             <div className="truncate">
-              <span className="text-slate-300 font-medium text-[11px] block">Contrôle Technique</span>
+              <span className="text-slate-300 font-medium text-[11px] block">{t('Contrôle Technique')}</span>
               <span className="text-[10px] text-slate-500 font-mono">
                 {vehicle.technicalInspectionExpiryDate
                   ? new Date(vehicle.technicalInspectionExpiryDate).toLocaleDateString('fr-FR')
-                  : 'Non spécifié'}
+                  : t('Non spécifié')}
               </span>
             </div>
           </div>
@@ -104,7 +106,7 @@ export const VehicleCompliancePanel: React.FC<VehicleCompliancePanelProps> = ({
           <div className="flex flex-col">
             <div className="flex items-center gap-1 text-[10px] text-slate-400 mb-0.5">
               <Award className="w-3 h-3 text-amber-400 shrink-0" />
-              <span>Vignette 2026</span>
+              <span>{t('Vignette 2026')}</span>
             </div>
             <span
               className={`text-[10px] px-1.5 py-0.5 rounded text-center border truncate ${vignette.badgeClass}`}
@@ -117,13 +119,13 @@ export const VehicleCompliancePanel: React.FC<VehicleCompliancePanelProps> = ({
           <div className="flex flex-col">
             <div className="flex items-center gap-1 text-[10px] text-slate-400 mb-0.5">
               <Wrench className="w-3 h-3 text-emerald-400 shrink-0" />
-              <span>Prochaine Vidange</span>
+              <span>{t('Prochaine Vidange')}</span>
             </div>
             <span
               className={`text-[10px] px-1.5 py-0.5 rounded text-center border truncate ${oil.badgeClass}`}
-              title={vehicle.nextOilChangeKm ? `Prévue à ${vehicle.nextOilChangeKm.toLocaleString('fr-FR')} KM` : undefined}
+              title={vehicle.nextOilChangeKm ? t('Prévue à {nextOilChangeKm} KM', { nextOilChangeKm: vehicle.nextOilChangeKm.toLocaleString('fr-FR') }) : undefined}
             >
-              {vehicle.nextOilChangeKm ? oil.text : 'Non définie'}
+              {vehicle.nextOilChangeKm ? oil.text : t('Non définie')}
             </span>
           </div>
         </div>
@@ -140,14 +142,14 @@ export const VehicleCompliancePanel: React.FC<VehicleCompliancePanelProps> = ({
           >
             <span className="flex items-center gap-1.5">
               <Receipt className="w-3.5 h-3.5 text-amber-400" />
-              <span className="font-semibold">Carnet Dépenses & Vidanges</span>
+              <span className="font-semibold">{t('Carnet Dépenses & Vidanges')}</span>
               {expenses.length > 0 && (
                 <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-900 border border-slate-800 text-amber-400 font-mono font-bold">
-                  {totalCost.toLocaleString('fr-FR')} MAD ({expenses.length})
+                  {t('{totalCost} MAD ({expensesCount})', { totalCost: totalCost.toLocaleString('fr-FR'), expensesCount: expenses.length })}
                 </span>
               )}
             </span>
-            <ChevronRight className="w-3.5 h-3.5 text-slate-500 group-hover/btn:text-amber-400 group-hover/btn:translate-x-0.5 transition-all" />
+            <ChevronRight className="w-3.5 h-3.5 text-slate-500 group-hover/btn:text-amber-400 group-hover/btn:translate-x-0.5 transition-all rtl:rotate-180" />
           </button>
         )}
       </div>
