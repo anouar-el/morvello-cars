@@ -28,7 +28,9 @@ import {
   Eye,
 } from 'lucide-react';
 
+import { useI18n } from '../i18n/I18nContext';
 export const AiCharterSettings: React.FC = () => {
+  const { t } = useI18n();
   const { aiSettings, updateAiSettings, resetAiSettings, currentUser } = useApp();
   const [formData, setFormData] = useState<AiAssistantSettings>(aiSettings);
   const [savedSuccess, setSavedSuccess] = useState(false);
@@ -54,7 +56,7 @@ export const AiCharterSettings: React.FC = () => {
   const handleReset = () => {
     if (
       window.confirm(
-        'Voulez-vous restaurer la charte éditoriale et le style par défaut de Morvello Cars ?'
+        t('Voulez-vous restaurer la charte éditoriale et le style par défaut de Morvello Cars ?')
       )
     ) {
       resetAiSettings();
@@ -135,26 +137,26 @@ export const AiCharterSettings: React.FC = () => {
   const toneOptions: { id: AiToneOfVoice; label: string; desc: string; icon: any }[] = [
     {
       id: 'luxury_concierge',
-      label: 'Luxe & Conciergerie',
-      desc: 'Poli, raffiné, digne des plus grands palaces, rassurant et valorisant le service haut de gamme Morvello.',
+      label: t('Luxe & Conciergerie'),
+      desc: t('Poli, raffiné, digne des plus grands palaces, rassurant et valorisant le service haut de gamme Morvello.'),
       icon: Crown,
     },
     {
       id: 'business_formal',
-      label: 'Formel d’Affaires',
-      desc: 'Corporate, concis, rigoureux, respectueux des termes contractuels et des procédures d’entreprise.',
+      label: t('Formel d’Affaires'),
+      desc: t('Corporate, concis, rigoureux, respectueux des termes contractuels et des procédures d’entreprise.'),
       icon: Briefcase,
     },
     {
       id: 'warm_commercial',
-      label: 'Commercial Chaleureux',
-      desc: 'Enthousiaste, accueillant, empreint de l’hospitalité marocaine et orienté fidélisation client.',
+      label: t('Commercial Chaleureux'),
+      desc: t('Enthousiaste, accueillant, empreint de l’hospitalité marocaine et orienté fidélisation client.'),
       icon: Smile,
     },
     {
       id: 'direct_operational',
-      label: 'Opérationnel Direct',
-      desc: 'Ultra-synthétique, factuel, focalisé sur les chiffres, le kilométrage et l’action immédiate.',
+      label: t('Opérationnel Direct'),
+      desc: t('Ultra-synthétique, factuel, focalisé sur les chiffres, le kilométrage et l’action immédiate.'),
       icon: Zap,
     },
   ];
@@ -172,17 +174,17 @@ export const AiCharterSettings: React.FC = () => {
           <div>
             <div className="flex items-center gap-2">
               <span className="text-xs font-semibold text-amber-400 uppercase tracking-widest font-mono">
-                Apprentissage & Intelligence Artificielle
+                {t('Apprentissage & Intelligence Artificielle')}
               </span>
               <span className="bg-amber-500/15 text-amber-300 border border-amber-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                Few-Shot Learning Actif
+                {t('Few-Shot Learning Actif')}
               </span>
             </div>
             <h2 className="text-lg sm:text-xl font-bold text-white tracking-tight mt-0.5">
-              Charte Éditoriale & Personnalité de l'Assistant
+              {t("Charte Éditoriale & Personnalité de l'Assistant")}
             </h2>
             <p className="text-xs text-slate-400 mt-1 max-w-2xl">
-              Inculquez à l'assistant l'ADN de Morvello Cars : votre vision de marque, votre ton, vos valeurs clés et vos modèles de réponses idéales pour tous les gestionnaires.
+              {t("Inculquez à l'assistant l'ADN de Morvello Cars : votre vision de marque, votre ton, vos valeurs clés et vos modèles de réponses idéales pour tous les gestionnaires.")}
             </p>
           </div>
         </div>
@@ -193,10 +195,10 @@ export const AiCharterSettings: React.FC = () => {
             onClick={handleReset}
             disabled={isAgent}
             className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-medium border border-slate-700 transition-colors cursor-pointer disabled:opacity-50"
-            title="Rétablir les réglages par défaut de la conciergerie"
+            title={t('Rétablir les réglages par défaut de la conciergerie')}
           >
             <RotateCcw className="w-3.5 h-3.5 text-slate-400" />
-            <span>Réinitialiser</span>
+            <span>{t('Réinitialiser')}</span>
           </button>
         </div>
       </div>
@@ -207,7 +209,7 @@ export const AiCharterSettings: React.FC = () => {
         <div className="bg-emerald-500/15 border border-emerald-500/40 text-emerald-400 p-3.5 rounded-xl text-xs flex items-center gap-2 animate-in fade-in">
           <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
           <span>
-            Charte éditoriale et vision de marque enregistrées ! L’assistant IA appliquera immédiatement ces consignes lors de ses prochains échanges.
+            {t('Charte éditoriale et vision de marque enregistrées ! L’assistant IA appliquera immédiatement ces consignes lors de ses prochains échanges.')}
           </span>
         </div>
       )}
@@ -224,7 +226,7 @@ export const AiCharterSettings: React.FC = () => {
           }`}
         >
           <Building className="w-4 h-4" />
-          <span>1. Vision & Signature</span>
+          <span>{t('1. Vision & Signature')}</span>
         </button>
 
         <button
@@ -237,7 +239,7 @@ export const AiCharterSettings: React.FC = () => {
           }`}
         >
           <Bot className="w-4 h-4" />
-          <span>2. Posture & Ton</span>
+          <span>{t('2. Posture & Ton')}</span>
         </button>
 
         <button
@@ -250,7 +252,7 @@ export const AiCharterSettings: React.FC = () => {
           }`}
         >
           <ShieldCheck className="w-4 h-4" />
-          <span>3. Valeurs & Interdictions</span>
+          <span>{t('3. Valeurs & Interdictions')}</span>
         </button>
 
         <button
@@ -263,7 +265,7 @@ export const AiCharterSettings: React.FC = () => {
           }`}
         >
           <MessageSquare className="w-4 h-4" />
-          <span>4. Réponses Modèles ({formData.sampleResponses.length})</span>
+          <span>{t('4. Réponses Modèles ({sampleResponsesCount})', { sampleResponsesCount: formData.sampleResponses.length })}</span>
         </button>
 
         <button
@@ -276,7 +278,7 @@ export const AiCharterSettings: React.FC = () => {
           }`}
         >
           <Eye className="w-4 h-4" />
-          <span>5. Aperçu de la Personnalité</span>
+          <span>{t('5. Aperçu de la Personnalité')}</span>
         </button>
       </div>
 
@@ -286,10 +288,10 @@ export const AiCharterSettings: React.FC = () => {
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-5">
             <div>
               <label className="block text-xs font-bold text-slate-300 uppercase tracking-wide mb-1.5">
-                Vision de Marque & Positionnement Morvello Cars
+                {t('Vision de Marque & Positionnement Morvello Cars')}
               </label>
               <p className="text-xs text-slate-400 mb-2">
-                Expliquez à l'IA ce qui rend Morvello unique, vos engagements de qualité et la façon dont vous souhaitez être perçu par les clients.
+                {t("Expliquez à l'IA ce qui rend Morvello unique, vos engagements de qualité et la façon dont vous souhaitez être perçu par les clients.")}
               </p>
               <textarea
                 rows={4}
@@ -297,14 +299,14 @@ export const AiCharterSettings: React.FC = () => {
                 disabled={isAgent}
                 onChange={(e) => setFormData({ ...formData, brandVision: e.target.value })}
                 className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs text-white leading-relaxed focus:border-amber-500 focus:outline-none"
-                placeholder="Ex: Morvello Cars incarne la conciergerie haut de gamme au Maroc..."
+                placeholder={t('Ex: Morvello Cars incarne la conciergerie haut de gamme au Maroc...')}
               />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-300 uppercase tracking-wide mb-1.5">
-                  Signature & Slogan de l’Agence
+                  {t('Signature & Slogan de l’Agence')}
                 </label>
                 <input
                   type="text"
@@ -312,16 +314,16 @@ export const AiCharterSettings: React.FC = () => {
                   disabled={isAgent}
                   onChange={(e) => setFormData({ ...formData, signatureGreeting: e.target.value })}
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:border-amber-500 focus:outline-none"
-                  placeholder="Ex: Sté MORVELLO CARS • Where luxury meets the road"
+                  placeholder={t('Ex: Sté MORVELLO CARS • Where luxury meets the road')}
                 />
                 <p className="text-[11px] text-slate-500 mt-1">
-                  Apparaît en bas des messages formels ou devis rédigés.
+                  {t('Apparaît en bas des messages formels ou devis rédigés.')}
                 </p>
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-300 uppercase tracking-wide mb-1.5">
-                  Règle Tarifaire & Financière Standard
+                  {t('Règle Tarifaire & Financière Standard')}
                 </label>
                 <input
                   type="text"
@@ -329,17 +331,17 @@ export const AiCharterSettings: React.FC = () => {
                   disabled={isAgent}
                   onChange={(e) => setFormData({ ...formData, standardPricingRule: e.target.value })}
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:border-amber-500 focus:outline-none"
-                  placeholder="Ex: Tarif de la fiche véhicule. Packs Base / Amélioré / Confort, franchise 5 % des dégâts (minimum par pack)."
+                  placeholder={t('Ex: Tarif de la fiche véhicule. Packs Base / Amélioré / Confort, franchise 5 % des dégâts (minimum par pack).')}
                 />
                 <p className="text-[11px] text-slate-500 mt-1">
-                  Base sur laquelle l'IA s'appuie pour calculer les devis et prolongations.
+                  {t("Base sur laquelle l'IA s'appuie pour calculer les devis et prolongations.")}
                 </p>
               </div>
             </div>
 
             <div>
               <label className="block text-xs font-bold text-slate-300 uppercase tracking-wide mb-1.5">
-                Consignes Spécifiques & Instructions du Gérant
+                {t('Consignes Spécifiques & Instructions du Gérant')}
               </label>
               <textarea
                 rows={3}
@@ -347,7 +349,7 @@ export const AiCharterSettings: React.FC = () => {
                 disabled={isAgent}
                 onChange={(e) => setFormData({ ...formData, customInstructions: e.target.value })}
                 className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs text-white leading-relaxed focus:border-amber-500 focus:outline-none"
-                placeholder="Ex: Prioriser toujours la sécurité juridique de l’agence, rappeler systématiquement la présentation du permis physique..."
+                placeholder={t('Ex: Prioriser toujours la sécurité juridique de l’agence, rappeler systématiquement la présentation du permis physique...')}
               />
             </div>
           </div>
@@ -358,7 +360,7 @@ export const AiCharterSettings: React.FC = () => {
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-6">
             <div>
               <label className="block text-xs font-bold text-slate-300 uppercase tracking-wide mb-3">
-                Sélectionnez la Posture Principale de l'Assistant
+                {t("Sélectionnez la Posture Principale de l'Assistant")}
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 {toneOptions.map((opt) => {
@@ -394,24 +396,24 @@ export const AiCharterSettings: React.FC = () => {
             {/* Language Strategy */}
             <div className="border-t border-slate-800 pt-5">
               <label className="block text-xs font-bold text-slate-300 uppercase tracking-wide mb-2">
-                Stratégie Linguistique (Français & Langue Arabe)
+                {t('Stratégie Linguistique (Français & Langue Arabe)')}
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                 {[
                   {
                     id: 'french_darija' as AiLanguagePreference,
-                    label: '🇫🇷 Français & 🇲🇦 Arabe au choix',
-                    desc: 'Alternance naturelle selon le contexte ou la langue choisie par l’interlocuteur.',
+                    label: t('🇫🇷 Français & 🇲🇦 Arabe au choix'),
+                    desc: t('Alternance naturelle selon le contexte ou la langue choisie par l’interlocuteur.'),
                   },
                   {
                     id: 'french_only' as AiLanguagePreference,
-                    label: '🇫🇷 Français exclusivement',
-                    desc: 'Tous les échanges et messages rédigés sont strictement formulés en français d’affaires.',
+                    label: t('🇫🇷 Français exclusivement'),
+                    desc: t('Tous les échanges et messages rédigés sont strictement formulés en français d’affaires.'),
                   },
                   {
                     id: 'darija_arabic_french' as AiLanguagePreference,
-                    label: '🇲🇦 Priorité Langue Arabe',
-                    desc: 'Favorise la langue arabe soignée pour les contacts WhatsApp et messages de bienvenue.',
+                    label: t('🇲🇦 Priorité Langue Arabe'),
+                    desc: t('Favorise la langue arabe soignée pour les contacts WhatsApp et messages de bienvenue.'),
                   },
                 ].map((item) => (
                   <label
@@ -450,10 +452,10 @@ export const AiCharterSettings: React.FC = () => {
                 <div>
                   <h3 className="text-sm font-bold text-white uppercase tracking-wide flex items-center gap-2">
                     <Crown className="w-4 h-4 text-amber-400" />
-                    Valeurs Fondamentales de Morvello Cars
+                    {t('Valeurs Fondamentales de Morvello Cars')}
                   </h3>
                   <p className="text-xs text-slate-400 mt-0.5">
-                    L'IA intégrera ces principes dans ses conseils opérationnels et ses interactions.
+                    {t("L'IA intégrera ces principes dans ses conseils opérationnels et ses interactions.")}
                   </p>
                 </div>
               </div>
@@ -490,7 +492,7 @@ export const AiCharterSettings: React.FC = () => {
                     value={newKeyValue}
                     onChange={(e) => setNewKeyValue(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddKeyValue())}
-                    placeholder="Ex: Véhicules impeccables, inspection photo systématique..."
+                    placeholder={t('Ex: Véhicules impeccables, inspection photo systématique...')}
                     className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:border-amber-500 focus:outline-none"
                   />
                   <button
@@ -499,7 +501,7 @@ export const AiCharterSettings: React.FC = () => {
                     className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-amber-400 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
                   >
                     <Plus className="w-3.5 h-3.5" />
-                    <span>Ajouter</span>
+                    <span>{t('Ajouter')}</span>
                   </button>
                 </div>
               )}
@@ -510,10 +512,10 @@ export const AiCharterSettings: React.FC = () => {
               <div>
                 <h3 className="text-sm font-bold text-white uppercase tracking-wide flex items-center gap-2">
                   <AlertTriangle className="w-4 h-4 text-rose-400" />
-                  Lignes Rouges & Règles Strictement Interdites
+                  {t('Lignes Rouges & Règles Strictement Interdites')}
                 </h3>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Ce que l'IA ne doit JAMAIS faire, dire ou concéder lors de ses échanges avec l'équipe ou les clients.
+                  {t("Ce que l'IA ne doit JAMAIS faire, dire ou concéder lors de ses échanges avec l'équipe ou les clients.")}
                 </p>
               </div>
 
@@ -549,7 +551,7 @@ export const AiCharterSettings: React.FC = () => {
                     value={newProhibited}
                     onChange={(e) => setNewProhibited(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddProhibited())}
-                    placeholder="Ex: Ne jamais promettre une remise sans validation écrite du gérant..."
+                    placeholder={t('Ex: Ne jamais promettre une remise sans validation écrite du gérant...')}
                     className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:border-rose-500 focus:outline-none"
                   />
                   <button
@@ -558,7 +560,7 @@ export const AiCharterSettings: React.FC = () => {
                     className="px-3.5 py-2 bg-rose-950/40 hover:bg-rose-900/40 border border-rose-800/40 text-rose-300 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
                   >
                     <Plus className="w-3.5 h-3.5" />
-                    <span>Ajouter</span>
+                    <span>{t('Ajouter')}</span>
                   </button>
                 </div>
               )}
@@ -573,10 +575,10 @@ export const AiCharterSettings: React.FC = () => {
               <div>
                 <h3 className="text-sm font-bold text-white uppercase tracking-wide flex items-center gap-2">
                   <MessageSquare className="w-4 h-4 text-amber-400" />
-                  Bibliothèque des Réponses Modèles (Apprentissage par l'exemple)
+                  {t("Bibliothèque des Réponses Modèles (Apprentissage par l'exemple)")}
                 </h3>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  L'IA apprend votre style en calquant ces formulations modèles. Modifiez les textes ou ajoutez vos propres cas types.
+                  {t("L'IA apprend votre style en calquant ces formulations modèles. Modifiez les textes ou ajoutez vos propres cas types.")}
                 </p>
               </div>
 
@@ -587,7 +589,7 @@ export const AiCharterSettings: React.FC = () => {
                   className="px-3 py-1.5 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-300 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span>Nouveau Cas Type</span>
+                  <span>{t('Nouveau Cas Type')}</span>
                 </button>
               )}
             </div>
@@ -596,32 +598,32 @@ export const AiCharterSettings: React.FC = () => {
             {showAddSample && (
               <div className="p-4 bg-slate-950 border border-amber-500/40 rounded-xl space-y-3 animate-in fade-in">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-amber-400">Ajouter un exemple modèle</span>
+                  <span className="text-xs font-bold text-amber-400">{t('Ajouter un exemple modèle')}</span>
                   <button
                     type="button"
                     onClick={() => setShowAddSample(false)}
                     className="text-slate-400 hover:text-white text-xs"
                   >
-                    Annuler
+                    {t('Annuler')}
                   </button>
                 </div>
                 <div>
-                  <label className="block text-[11px] text-slate-400 mb-1 font-medium">Scénario ou Situation</label>
+                  <label className="block text-[11px] text-slate-400 mb-1 font-medium">{t('Scénario ou Situation')}</label>
                   <input
                     type="text"
                     value={newSampleScenario}
                     onChange={(e) => setNewSampleScenario(e.target.value)}
-                    placeholder="Ex: Accueil Client aéroport Nouaceur (WhatsApp)"
+                    placeholder={t('Ex: Accueil Client aéroport Nouaceur (WhatsApp)')}
                     className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:border-amber-500 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] text-slate-400 mb-1 font-medium">Votre Réponse Idéale (Le modèle)</label>
+                  <label className="block text-[11px] text-slate-400 mb-1 font-medium">{t('Votre Réponse Idéale (Le modèle)')}</label>
                   <textarea
                     rows={3}
                     value={newSampleReply}
                     onChange={(e) => setNewSampleReply(e.target.value)}
-                    placeholder="Tapez le message parfait tel que vous aimeriez que l'IA le rédige..."
+                    placeholder={t("Tapez le message parfait tel que vous aimeriez que l'IA le rédige...")}
                     className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-xs text-white leading-relaxed focus:border-amber-500 focus:outline-none"
                   />
                 </div>
@@ -631,14 +633,14 @@ export const AiCharterSettings: React.FC = () => {
                     onClick={() => setShowAddSample(false)}
                     className="px-3 py-1.5 bg-slate-800 text-slate-300 text-xs rounded-lg"
                   >
-                    Annuler
+                    {t('Annuler')}
                   </button>
                   <button
                     type="button"
                     onClick={handleAddSample}
                     className="px-4 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-lg"
                   >
-                    Enregistrer l’exemple
+                    {t('Enregistrer l’exemple')}
                   </button>
                 </div>
               </div>
@@ -654,7 +656,7 @@ export const AiCharterSettings: React.FC = () => {
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2">
                       <span className="px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 font-mono text-[10px] font-bold">
-                        Modèle #{idx + 1}
+                        {t('Modèle #{idx}', { idx: idx + 1 })}
                       </span>
                       <span className="text-xs font-bold text-white">{sample.scenario}</span>
                     </div>
@@ -663,7 +665,7 @@ export const AiCharterSettings: React.FC = () => {
                         type="button"
                         onClick={() => handleRemoveSample(sample.id)}
                         className="p-1 text-slate-500 hover:text-rose-400 transition-colors"
-                        title="Supprimer cet exemple"
+                        title={t('Supprimer cet exemple')}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -690,10 +692,10 @@ export const AiCharterSettings: React.FC = () => {
               <div>
                 <h3 className="text-sm font-bold text-white uppercase tracking-wide flex items-center gap-2">
                   <Eye className="w-4 h-4 text-amber-400" />
-                  Simulateur de Personnalité en Direct
+                  {t('Simulateur de Personnalité en Direct')}
                 </h3>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Voici comment l'assistant Morvello Cars se présentera et s'exprimera selon vos réglages actuels.
+                  {t("Voici comment l'assistant Morvello Cars se présentera et s'exprimera selon vos réglages actuels.")}
                 </p>
               </div>
               <span className="px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/30 text-xs font-mono font-bold">
@@ -705,31 +707,31 @@ export const AiCharterSettings: React.FC = () => {
             <div className="p-4 bg-slate-950 border border-slate-800 rounded-xl space-y-3">
               <div className="flex items-center gap-2.5 text-xs text-amber-400 font-bold">
                 <Bot className="w-4 h-4" />
-                <span>Assistant Morvello Cars ({currentUser.name})</span>
+                <span>{t('Assistant Morvello Cars ({name})', { name: currentUser.name })}</span>
               </div>
               <div className="text-xs text-slate-300 space-y-2 leading-relaxed">
                 <p>
-                  Bonjour <strong>{currentUser.name}</strong>. À votre service pour orchestrer les opérations de l'agence.
+                  {t('Bonjour')} <strong>{currentUser.name}</strong>{t(". À votre service pour orchestrer les opérations de l'agence.")}
                 </p>
                 <div className="p-3 bg-slate-900 border border-slate-800 rounded-lg text-xs space-y-1">
                   <p className="font-semibold text-slate-200">
                     🏛️ <em>« {formData.signatureGreeting} »</em>
                   </p>
                   <p className="text-slate-400 text-[11px]">
-                    <strong>Posture active :</strong> {
+                    <strong>{t('Posture active :')}</strong> {
                       formData.toneOfVoice === 'luxury_concierge'
-                        ? 'Conciergerie de luxe & excellence'
+                        ? t('Conciergerie de luxe & excellence')
                         : formData.toneOfVoice === 'business_formal'
-                        ? 'Rigueur formelle d’affaires'
+                        ? t('Rigueur formelle d’affaires')
                         : formData.toneOfVoice === 'warm_commercial'
-                        ? 'Chaleur commerciale & hospitalité'
-                        : 'Opérationnel direct & précis'
+                        ? t('Chaleur commerciale & hospitalité')
+                        : t('Opérationnel direct & précis')
                     }
                   </p>
                 </div>
                 <p className="text-slate-400 text-[11px]">
                   💡 <em>
-                    « Vos gestionnaires recevront des réponses calibrées sur ces valeurs : rigueur contractuelle, hospitalité marocaine, et respect strict du cloisonnement de leur propre parc. »
+                    {t('« Vos gestionnaires recevront des réponses calibrées sur ces valeurs : rigueur contractuelle, hospitalité marocaine, et respect strict du cloisonnement de leur propre parc. »')}
                   </em>
                 </p>
               </div>
@@ -741,14 +743,14 @@ export const AiCharterSettings: React.FC = () => {
         {!isAgent && (
           <div className="flex items-center justify-between pt-2">
             <p className="text-xs text-slate-500">
-              Les modifications s'appliquent immédiatement à toutes les agences et tous les gestionnaires.
+              {t("Les modifications s'appliquent immédiatement à toutes les agences et tous les gestionnaires.")}
             </p>
             <button
               type="submit"
               className="flex items-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold px-6 py-2.5 rounded-xl shadow-lg shadow-amber-500/25 transition-transform active:scale-95 text-xs sm:text-sm cursor-pointer"
             >
               <Save className="w-4 h-4" />
-              <span>Enregistrer la Charte IA</span>
+              <span>{t('Enregistrer la Charte IA')}</span>
             </button>
           </div>
         )}

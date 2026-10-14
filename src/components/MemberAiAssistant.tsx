@@ -39,6 +39,7 @@ import {
   Zap,
 } from 'lucide-react';
 
+import { useI18n } from '../i18n/I18nContext';
 interface MemberAiAssistantProps {
   isDrawer?: boolean;
   onClose?: () => void;
@@ -81,6 +82,7 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
   initialPrompt = null,
   onInitialPromptHandled,
 }) => {
+  const { t } = useI18n();
   const {
     currentUser,
     vehicles,
@@ -122,7 +124,10 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
       {
         id: 'welcome',
         role: 'model',
-        content: `Bonjour **${currentUser.name}**.\n\nJe suis votre assistant d'affaires exécutif Morvello Cars. Je peux vous accompagner sur le briefing opérationnel, la disponibilité de votre flotte, le suivi des cautions et la rédaction de communications clients.\n\nQue souhaitez-vous traiter aujourd'hui ?`,
+        content: t(
+          "Bonjour **{name}**.\n\nJe suis votre assistant d'affaires exécutif Morvello Cars. Je peux vous accompagner sur le briefing opérationnel, la disponibilité de votre flotte, le suivi des cautions et la rédaction de communications clients.\n\nQue souhaitez-vous traiter aujourd'hui ?",
+          { name: currentUser.name }
+        ),
         timestamp: nowTime(),
         createdAt: new Date().toISOString(),
       },
@@ -216,63 +221,63 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
   const capabilityCards = [
     {
       id: 'briefing',
-      title: 'Briefing Opérationnel',
-      subtitle: 'Départs, retours et alertes du jour',
-      description: 'Départs et retours prévus, retards de restitution, soldes à encaisser et 3 priorités d’action.',
+      title: t('Briefing Opérationnel'),
+      subtitle: t('Départs, retours et alertes du jour'),
+      description: t('Départs et retours prévus, retards de restitution, soldes à encaisser et 3 priorités d’action.'),
       prompt:
         'Fais-moi le briefing opérationnel du jour : départs et retours d’aujourd’hui et de demain, retards de restitution, cautions non prises, soldes à encaisser et alertes véhicules. Termine par les 3 actions prioritaires.',
       icon: Calendar,
-      tag: 'Opérations',
+      tag: t('Opérations'),
     },
     {
       id: 'disponibilite',
-      title: 'Disponibilité Flotte',
-      subtitle: 'Véhicules libres & tarifs journaliers',
-      description: 'Inventaire des véhicules disponibles groupés par gamme (citadine, SUV, prestige) avec immatriculation.',
+      title: t('Disponibilité Flotte'),
+      subtitle: t('Véhicules libres & tarifs journaliers'),
+      description: t('Inventaire des véhicules disponibles groupés par gamme (citadine, SUV, prestige) avec immatriculation.'),
       prompt:
         'Liste mes véhicules actuellement disponibles, groupés par gamme (citadine, SUV, premium), avec immatriculation et tarif journalier.',
       icon: Car,
-      tag: 'Flotte',
+      tag: t('Flotte'),
     },
     {
       id: 'cautions',
-      title: 'Cautions & Soldes',
-      subtitle: 'Régularisation financière',
-      description: 'Contrats actifs avec caution non encore retenue et soldes résiduels restant à encaisser.',
+      title: t('Cautions & Soldes'),
+      subtitle: t('Régularisation financière'),
+      description: t('Contrats actifs avec caution non encore retenue et soldes résiduels restant à encaisser.'),
       prompt:
         'Liste les cautions non prises et les soldes restant à encaisser sur mes contrats en cours, avec le montant et le client.',
       icon: ShieldCheck,
-      tag: 'Finances',
+      tag: t('Finances'),
     },
     {
       id: 'alertes',
-      title: 'Alertes Échéances',
-      subtitle: 'Conformité & entretien véhicule',
-      description: 'Assurances à renouveler, visites techniques imminentes, vidanges dépassées et vignettes annuelles.',
+      title: t('Alertes Échéances'),
+      subtitle: t('Conformité & entretien véhicule'),
+      description: t('Assurances à renouveler, visites techniques imminentes, vidanges dépassées et vignettes annuelles.'),
       prompt:
         'Quelles sont les échéances à traiter sur ma flotte : assurances, visites techniques, vidanges et vignettes ?',
       icon: Clock,
-      tag: 'Conformité',
+      tag: t('Conformité'),
     },
     {
       id: 'accueil_whatsapp',
-      title: 'Accueil Remise des Clés',
-      subtitle: 'Message WhatsApp de bienvenue',
-      description: 'Message WhatsApp courtois précisant l’heure de départ convenue et les pièces justificatives à fournir.',
+      title: t('Accueil Remise des Clés'),
+      subtitle: t('Message WhatsApp de bienvenue'),
+      description: t('Message WhatsApp courtois précisant l’heure de départ convenue et les pièces justificatives à fournir.'),
       prompt:
         'Rédige un court message WhatsApp d’accueil pour la remise des clés au client de mon prochain départ, avec les documents à présenter.',
       icon: MessageSquare,
-      tag: 'Client',
+      tag: t('Client'),
     },
     {
       id: 'rappel_restitution',
-      title: 'Rappel Restitution',
-      subtitle: 'Restitution & niveau carburant',
-      description: 'Rappel cordial de l’heure de retour, du lieu convenu et de la remise du véhicule avec carburant identique.',
+      title: t('Rappel Restitution'),
+      subtitle: t('Restitution & niveau carburant'),
+      description: t('Rappel cordial de l’heure de retour, du lieu convenu et de la remise du véhicule avec carburant identique.'),
       prompt:
         'Rédige un rappel WhatsApp courtois pour le client qui doit restituer son véhicule aujourd’hui (heure convenue, carburant à l’identique et restitution de caution).',
       icon: RotateCcw,
-      tag: 'Client',
+      tag: t('Client'),
     },
   ];
 
@@ -281,27 +286,27 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
   const digest = buildAssistantDigest(new Date(), memberVehicles, memberContracts);
   const quickActionChips: { label: string; prompt: string; icon: typeof Calendar; count: number }[] = [
     {
-      label: 'Briefing du jour',
+      label: t('Briefing du jour'),
       prompt: capabilityCards[0].prompt,
       icon: Calendar,
       count: digest.departuresToday.length + digest.returnsToday.length,
     },
     {
-      label: 'Retours & retards',
+      label: t('Retours & retards'),
       prompt:
         'Quels véhicules doivent revenir aujourd’hui et demain, et lesquels sont en retard ? Donne le client, le téléphone et l’heure prévue.',
       icon: Clock,
       count: digest.overdue.length,
     },
     {
-      label: 'Cautions & soldes',
+      label: t('Cautions & soldes'),
       prompt: capabilityCards[2].prompt,
       icon: ShieldCheck,
       count: digest.depositsNotCollected.length + digest.unpaidBalances.length,
     },
-    { label: 'Alertes flotte', prompt: capabilityCards[3].prompt, icon: AlertCircle, count: digest.vehicleAlerts.length },
-    { label: 'Véhicules dispo', prompt: capabilityCards[1].prompt, icon: Car, count: 0 },
-    { label: 'Accueil WhatsApp', prompt: capabilityCards[4].prompt, icon: MessageSquare, count: 0 },
+    { label: t('Alertes flotte'), prompt: capabilityCards[3].prompt, icon: AlertCircle, count: digest.vehicleAlerts.length },
+    { label: t('Véhicules dispo'), prompt: capabilityCards[1].prompt, icon: Car, count: 0 },
+    { label: t('Accueil WhatsApp'), prompt: capabilityCards[4].prompt, icon: MessageSquare, count: 0 },
   ]
     .map((chip, order) => ({ chip, order }))
     .sort((a, b) => Number(b.chip.count > 0) - Number(a.chip.count > 0) || a.order - b.order)
@@ -323,16 +328,16 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
     try {
       if (action.type === 'whatsapp') {
         window.open(`https://wa.me/${action.phone}?text=${encodeURIComponent(action.message || '')}`, '_blank', 'noopener');
-        return setResult(true, 'WhatsApp ouvert : relisez puis envoyez.');
+        return setResult(true, t('WhatsApp ouvert : relisez puis envoyez.'));
       }
       if (action.type === 'deposit_collected') {
-        if (!hasPermission('canCollectDeposit')) return setResult(false, 'Vous n’avez pas le droit d’enregistrer une caution.');
+        if (!hasPermission('canCollectDeposit')) return setResult(false, t('Vous n’avez pas le droit d’enregistrer une caution.'));
         updateContractFinancials(
           action.contractId,
           { depositAmount: Number(contract?.depositAmount) || 0, depositCollected: true },
           currentUser.name
         );
-        return setResult(true, 'Caution marquée comme prise.');
+        return setResult(true, t('Caution marquée comme prise.'));
       }
       if (action.type === 'payment') {
         const updated = addPaymentToContract(
@@ -341,11 +346,11 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
           currentUser.name
         );
         return updated
-          ? setResult(true, `Règlement de ${action.amount} MAD enregistré.`)
-          : setResult(false, 'Le règlement n’a pas pu être enregistré.');
+          ? setResult(true, t('Règlement de {amount} MAD enregistré.', { amount: action.amount ?? 0 }))
+          : setResult(false, t('Le règlement n’a pas pu être enregistré.'));
       }
     } catch {
-      setResult(false, 'L’action a échoué. Réessayez depuis le contrat.');
+      setResult(false, t('L’action a échoué. Réessayez depuis le contrat.'));
     }
   };
 
@@ -446,7 +451,7 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
         }
       };
       const sessionClosedError = () =>
-        new Error('Votre session a été fermée (déconnexion ou expiration). Veuillez vous reconnecter.');
+        new Error(t('Votre session a été fermée (déconnexion ou expiration). Veuillez vous reconnecter.'));
 
       let res = await postChat(false);
       if (res.status === 401) {
@@ -464,7 +469,9 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
           throw sessionClosedError();
         }
         throw new Error(
-          `Connexion refusée par le serveur : ${second.error || 'Jeton invalide'}. Veuillez vous reconnecter.`
+          t('Connexion refusée par le serveur : {error}. Veuillez vous reconnecter.', {
+            error: second.error || t('Jeton invalide'),
+          })
         );
       }
 
@@ -513,7 +520,7 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
             const items = evt.items.filter((a: any) => a && a.kind === 'action' && typeof a.id === 'string');
             setMessages((prev) => prev.map((m) => (m.id === streamId ? { ...m, actions: items } : m)));
           } else if (evt.type === 'error') {
-            streamError = typeof evt.error === 'string' ? evt.error : 'Réponse indisponible.';
+            streamError = typeof evt.error === 'string' ? evt.error : t('Réponse indisponible.');
           } else if (evt.type === 'done') {
             finished = true;
             if (evt.quota) setQuota(evt.quota);
@@ -536,7 +543,7 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
         }
 
         if (streamError) throw new Error(streamError);
-        if (!text && !finished) throw new Error('Réponse indisponible.');
+        if (!text && !finished) throw new Error(t('Réponse indisponible.'));
         return;
       }
 
@@ -548,18 +555,20 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
       }
       if (res.status === 429 && data?.code === 'QUOTA_EXCEEDED') {
         if (data.quota) setQuota(data.quota);
-        throw new Error(data.error || 'Quota quotidien de l’assistant atteint.');
+        throw new Error(data.error || t('Quota quotidien de l’assistant atteint.'));
       }
       if (res.status === 429) {
-        throw new Error(`Trop de demandes simultanées. Veuillez patienter ${data?.retryAfterSeconds || 60} secondes.`);
+        throw new Error(
+          t('Trop de demandes simultanées. Veuillez patienter {seconds} secondes.', { seconds: data?.retryAfterSeconds || 60 })
+        );
       }
       if (res.status === 403) {
         throw new Error(
-          data?.error || 'Accès refusé : votre compte ne dispose pas d’un profil collaborateur actif dans cette agence.'
+          data?.error || t('Accès refusé : votre compte ne dispose pas d’un profil collaborateur actif dans cette agence.')
         );
       }
       if (!res.ok) {
-        throw new Error(data?.error || `Le service IA ne répond pas (code ${res.status}).`);
+        throw new Error(data?.error || t('Le service IA ne répond pas (code {status}).', { status: res.status }));
       }
 
       if (data?.quota) setQuota(data.quota);
@@ -575,7 +584,7 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
         };
         setMessages((prev) => [...prev, assistantMsg]);
       } else {
-        throw new Error(data?.error || 'Réponse indisponible.');
+        throw new Error(data?.error || t('Réponse indisponible.'));
       }
     } catch (err: any) {
       if (isAbortException(err)) {
@@ -584,7 +593,7 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
           {
             id: `stopped-${Date.now()}`,
             role: 'model',
-            content: 'Génération interrompue par l’utilisateur.',
+            content: t('Génération interrompue par l’utilisateur.'),
             timestamp: nowTime(),
             createdAt: new Date().toISOString(),
           },
@@ -595,7 +604,9 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
       const errorMsg: AgentChatMessage = {
         id: `err-${Date.now()}`,
         role: 'model',
-        content: `Une difficulté est survenue : ${err.message || 'Service momentanément indisponible'}.`,
+        content: t('Une difficulté est survenue : {message}.', {
+          message: err.message || t('Service momentanément indisponible'),
+        }),
         timestamp: nowTime(),
         createdAt: new Date().toISOString(),
       };
@@ -636,7 +647,7 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
       {
         id: 'welcome-reset',
         role: 'model',
-        content: `Historique réinitialisé. Comment puis-je vous accompagner, **${currentUser.name}** ?`,
+        content: t('Historique réinitialisé. Comment puis-je vous accompagner, **{name}** ?', { name: currentUser.name }),
         timestamp: nowTime(),
         createdAt: new Date().toISOString(),
       },
@@ -685,12 +696,12 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
       <em className="italic text-slate-300">{children}</em>
     ),
     ul: ({ children }: { children?: React.ReactNode }) => (
-      <ul className="my-2.5 pl-5 space-y-1.5 list-disc marker:text-amber-500/80 text-[13.5px] sm:text-[14px] text-slate-300 leading-relaxed">
+      <ul className="my-2.5 ps-5 space-y-1.5 list-disc marker:text-amber-500/80 text-[13.5px] sm:text-[14px] text-slate-300 leading-relaxed">
         {children}
       </ul>
     ),
     ol: ({ children }: { children?: React.ReactNode }) => (
-      <ol className="my-2.5 pl-5 space-y-1.5 list-decimal marker:text-amber-400 font-medium text-[13.5px] sm:text-[14px] text-slate-300 leading-relaxed">
+      <ol className="my-2.5 ps-5 space-y-1.5 list-decimal marker:text-amber-400 font-medium text-[13.5px] sm:text-[14px] text-slate-300 leading-relaxed">
         {children}
       </ol>
     ),
@@ -716,7 +727,7 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
     ),
     table: ({ children }: { children?: React.ReactNode }) => (
       <div className="not-prose my-3.5 overflow-x-auto rounded-xl border border-slate-800 bg-slate-950/60 shadow-xs">
-        <table className="w-full text-left text-xs border-collapse">{children}</table>
+        <table className="w-full text-start text-xs border-collapse">{children}</table>
       </div>
     ),
     thead: ({ children }: { children?: React.ReactNode }) => (
@@ -755,24 +766,24 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
             <div className="flex items-center justify-between px-3.5 py-2 bg-emerald-500/10 border-b border-emerald-500/20">
               <span className="flex items-center gap-1.5 text-xs font-semibold text-emerald-400 uppercase tracking-wide">
                 <MessageSquare className="w-3.5 h-3.5" />
-                Message Client Proposé
+                {t('Message Client Proposé')}
               </span>
               <div className="flex items-center gap-2.5">
                 <button
                   type="button"
                   onClick={() => copyToClipboard(raw, blockId)}
                   className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-800 transition-colors cursor-pointer"
-                  title="Copier le texte du message"
+                  title={t('Copier le texte du message')}
                 >
                   {copiedId === blockId ? (
                     <>
                       <Check className="w-3 h-3 text-emerald-400" />
-                      <span className="text-emerald-400 font-medium">Copié</span>
+                      <span className="text-emerald-400 font-medium">{t('Copié')}</span>
                     </>
                   ) : (
                     <>
                       <Copy className="w-3 h-3" />
-                      <span>Copier</span>
+                      <span>{t('Copier')}</span>
                     </>
                   )}
                 </button>
@@ -780,10 +791,10 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
                   type="button"
                   onClick={() => shareViaWhatsApp(raw)}
                   className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-emerald-500 text-slate-950 font-semibold text-xs hover:bg-emerald-400 transition-colors cursor-pointer shadow-xs"
-                  title="Ouvrir dans WhatsApp"
+                  title={t('Ouvrir dans WhatsApp')}
                 >
                   <Share2 className="w-3 h-3" />
-                  <span>WhatsApp</span>
+                  <span>{t('WhatsApp')}</span>
                 </button>
               </div>
             </div>
@@ -809,12 +820,12 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
               {copiedId === blockId ? (
                 <>
                   <Check className="w-3 h-3 text-emerald-400" />
-                  <span className="text-emerald-400 font-medium">Copié</span>
+                  <span className="text-emerald-400 font-medium">{t('Copié')}</span>
                 </>
               ) : (
                 <>
                   <Copy className="w-3 h-3" />
-                  <span>Copier</span>
+                  <span>{t('Copier')}</span>
                 </>
               )}
             </button>
@@ -842,27 +853,27 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
         <div className="flex items-center gap-3 min-w-0">
           <div className="relative flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500/20 via-slate-900 to-amber-900/30 border border-amber-500/30 text-amber-400 shadow-xs shrink-0">
             <Bot className="w-5 h-5 text-amber-400" />
-            <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 ring-2 ring-slate-950" />
+            <span className="absolute -bottom-0.5 -end-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 ring-2 ring-slate-950" />
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <h1 className="text-sm sm:text-base font-bold text-white tracking-tight leading-tight truncate">
-                Morvello AI
+                {t('Morvello AI')}
               </h1>
               <span className="hidden sm:inline-flex items-center gap-1 text-[11px] text-amber-400/90 font-medium">
-                · Assistant d'Affaires
+                {t("· Assistant d'Affaires")}
               </span>
             </div>
             <p className="text-[11px] text-slate-400 font-normal truncate">
               {loading ? (
-                <span className="text-amber-400 animate-pulse">Réflexion et calcul en cours…</span>
+                <span className="text-amber-400 animate-pulse">{t('Réflexion et calcul en cours…')}</span>
               ) : (
                 <>
-                  <span className="text-emerald-400 font-medium">● Prêt</span>
+                  <span className="text-emerald-400 font-medium">{t('● Prêt')}</span>
                   <span className="text-slate-600 mx-1.5">·</span>
-                  <span>{availableCount} véhicule(s) libre(s)</span>
+                  <span>{t('{availableCount} véhicule(s) libre(s)', { availableCount })}</span>
                   <span className="text-slate-600 mx-1.5">·</span>
-                  <span>{rentedCount} en location</span>
+                  <span>{t('{rentedCount} en location', { rentedCount })}</span>
                 </>
               )}
             </p>
@@ -881,9 +892,9 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
                   ? 'bg-amber-500 text-slate-950 shadow-xs'
                   : 'text-slate-400 hover:text-white'
               }`}
-              title="Réponses en Français"
+              title={t('Réponses en Français')}
             >
-              FR
+              {t('FR')}
             </button>
             <button
               type="button"
@@ -893,9 +904,9 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
                   ? 'bg-amber-500 text-slate-950 shadow-xs'
                   : 'text-slate-400 hover:text-white'
               }`}
-              title="Réponses en langue arabe"
+              title={t('Réponses en langue arabe')}
             >
-              العربية (Arabe)
+              {t('العربية (Arabe)')}
             </button>
           </div>
 
@@ -908,8 +919,8 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
                 ? 'text-amber-400 bg-slate-800 border-amber-500/40'
                 : 'text-slate-400 hover:text-white bg-slate-950/60 border-slate-800 hover:bg-slate-850'
             }`}
-            title="Rechercher dans la conversation"
-            aria-label="Rechercher"
+            title={t('Rechercher dans la conversation')}
+            aria-label={t('Rechercher')}
           >
             <Search className="w-3.5 h-3.5" />
           </button>
@@ -923,8 +934,8 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
                 setActiveTab('settings');
               }}
               className="p-2 text-slate-400 hover:text-white bg-slate-950/60 border border-slate-800 hover:bg-slate-850 rounded-lg transition-colors cursor-pointer"
-              title="Personnaliser les directives et la charte IA"
-              aria-label="Paramètres IA"
+              title={t('Personnaliser les directives et la charte IA')}
+              aria-label={t('Paramètres IA')}
             >
               <Sliders className="w-3.5 h-3.5" />
             </button>
@@ -935,8 +946,8 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
             type="button"
             onClick={() => setShowClearConfirm(true)}
             className="p-2 text-slate-400 hover:text-rose-400 bg-slate-950/60 border border-slate-800 hover:bg-slate-850 rounded-lg transition-colors cursor-pointer"
-            title="Effacer la conversation"
-            aria-label="Effacer la conversation"
+            title={t('Effacer la conversation')}
+            aria-label={t('Effacer la conversation')}
           >
             <RotateCcw className="w-3.5 h-3.5" />
           </button>
@@ -947,8 +958,8 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
               type="button"
               onClick={onToggleExpand}
               className="hidden sm:inline-flex p-2 text-slate-400 hover:text-white bg-slate-950/60 border border-slate-800 hover:bg-slate-850 rounded-lg transition-colors cursor-pointer"
-              title={isExpanded ? 'Réduire le volet' : 'Agrandir le volet'}
-              aria-label="Basculer largeur"
+              title={isExpanded ? t('Réduire le volet') : t('Agrandir le volet')}
+              aria-label={t('Basculer largeur')}
             >
               {isExpanded ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
             </button>
@@ -960,8 +971,8 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
               type="button"
               onClick={onClose}
               className="p-2 text-slate-400 hover:text-white bg-slate-950/60 border border-slate-800 hover:bg-slate-850 rounded-lg transition-colors cursor-pointer"
-              title="Fermer le volet"
-              aria-label="Fermer"
+              title={t('Fermer le volet')}
+              aria-label={t('Fermer')}
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -977,7 +988,7 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Filtrer les messages par mot-clé…"
+            placeholder={t('Filtrer les messages par mot-clé…')}
             className="w-full bg-transparent border-0 text-xs text-white placeholder-slate-500 focus:outline-none"
             autoFocus
           />
@@ -987,7 +998,7 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
               onClick={() => setSearchQuery('')}
               className="text-slate-400 hover:text-white text-xs px-2 py-0.5 rounded cursor-pointer"
             >
-              Effacer
+              {t('Effacer')}
             </button>
           )}
         </div>
@@ -996,21 +1007,21 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
       {/* 3. ALERTE DE CONFIRMATION DE RÉINITIALISATION */}
       {showClearConfirm && (
         <div className="px-4 sm:px-6 py-3 bg-slate-900/95 border-b border-rose-500/30 text-xs flex items-center justify-between text-slate-200">
-          <span className="font-medium">Effacer l'historique complet de cette conversation ?</span>
+          <span className="font-medium">{t("Effacer l'historique complet de cette conversation ?")}</span>
           <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={() => setShowClearConfirm(false)}
               className="px-2.5 py-1 text-slate-400 hover:text-white rounded-md transition-colors cursor-pointer"
             >
-              Annuler
+              {t('Annuler')}
             </button>
             <button
               type="button"
               onClick={handleClearHistory}
               className="px-3 py-1 bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 rounded-md font-semibold transition-colors cursor-pointer border border-rose-500/30"
             >
-              Confirmer
+              {t('Confirmer')}
             </button>
           </div>
         </div>
@@ -1033,7 +1044,7 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
             <div className="flex justify-center mb-6">
               <span className="text-[11px] text-slate-400 bg-slate-900/80 border border-slate-800 rounded-full px-3.5 py-1.5 text-center flex items-center gap-1.5 shadow-xs">
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-400/80" />
-                Données strictement cloisonnées à {isAdmin ? 'votre agence' : 'votre flotte et vos contrats'}.
+                {t('Données strictement cloisonnées à')} {isAdmin ? t('votre agence') : t('votre flotte et vos contrats')}.
               </span>
             </div>
 
@@ -1042,16 +1053,16 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
               <div className="flex flex-col items-center text-center px-2 py-4 sm:py-8 animate-fade-in">
                 <div className="relative mb-4 flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-500/20 via-slate-900 to-amber-950/40 border border-amber-500/30 text-amber-400 shadow-lg">
                   <Bot className="w-8 h-8 text-amber-400" />
-                  <span className="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-emerald-400 ring-2 ring-slate-950" />
+                  <span className="absolute -bottom-1 -end-1 w-3.5 h-3.5 rounded-full bg-emerald-400 ring-2 ring-slate-950" />
                 </div>
                 <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white mb-2">
-                  Morvello AI
+                  {t('Morvello AI')}
                 </h2>
                 <p className="text-xs sm:text-sm text-slate-400 max-w-md mx-auto leading-relaxed mb-8">
-                  Votre conseiller d'affaires opérationnel : briefing matinal, suivi des retours, surveillance des cautions et rédaction de messages clients de prestige.
+                  {t("Votre conseiller d'affaires opérationnel : briefing matinal, suivi des retours, surveillance des cautions et rédaction de messages clients de prestige.")}
                 </p>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full text-left">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full text-start">
                   {capabilityCards.map((card) => {
                     const IconComponent = card.icon;
                     return (
@@ -1060,7 +1071,7 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
                         type="button"
                         disabled={loading}
                         onClick={() => sendMessage(card.prompt)}
-                        className="flex flex-col p-4 rounded-xl border border-slate-800/90 bg-slate-900/60 hover:bg-slate-850/80 hover:border-amber-500/40 transition-all group cursor-pointer disabled:opacity-50 text-left shadow-xs"
+                        className="flex flex-col p-4 rounded-xl border border-slate-800/90 bg-slate-900/60 hover:bg-slate-850/80 hover:border-amber-500/40 transition-all group cursor-pointer disabled:opacity-50 text-start shadow-xs"
                       >
                         <div className="flex items-center justify-between mb-1.5">
                           <div className="flex items-center gap-2">
@@ -1085,7 +1096,7 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
               </div>
             ) : filteredMessages.length === 0 ? (
               <p className="text-center text-xs text-slate-500 py-12">
-                Aucun message ne correspond à votre recherche « {searchQuery} ».
+                {t('Aucun message ne correspond à votre recherche « {searchQuery} ».', { searchQuery })}
               </p>
             ) : (
               <div className="space-y-6">
@@ -1124,7 +1135,7 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
                               {msg.content}
                             </p>
                           </div>
-                          <span className="text-[10px] text-slate-500 font-mono mt-1 mr-1">
+                          <span className="text-[10px] text-slate-500 font-mono mt-1 me-1">
                             {msg.timestamp}
                           </span>
                         </div>
@@ -1136,7 +1147,7 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
                               <Bot className="w-3 h-3" />
                             </div>
                             <span className="text-xs font-semibold text-slate-300">
-                              {isError ? 'Notification' : 'Morvello AI'}
+                              {isError ? t('Notification') : t('Morvello AI')}
                             </span>
                             <span className="text-[10px] text-slate-500 font-mono">
                               {msg.timestamp}
@@ -1145,18 +1156,18 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
                               <button
                                 type="button"
                                 onClick={() => copyToClipboard(msg.content, msg.id)}
-                                className="opacity-0 group-hover:opacity-100 transition-opacity ml-2 text-[11px] text-slate-400 hover:text-white flex items-center gap-1 cursor-pointer"
-                                title="Copier la réponse complète"
+                                className="opacity-0 group-hover:opacity-100 transition-opacity ms-2 text-[11px] text-slate-400 hover:text-white flex items-center gap-1 cursor-pointer"
+                                title={t('Copier la réponse complète')}
                               >
                                 {copiedId === msg.id ? (
                                   <>
                                     <Check className="w-3 h-3 text-emerald-400" />
-                                    <span className="text-emerald-400">Copié</span>
+                                    <span className="text-emerald-400">{t('Copié')}</span>
                                   </>
                                 ) : (
                                   <>
                                     <Copy className="w-3 h-3" />
-                                    <span>Copier</span>
+                                    <span>{t('Copier')}</span>
                                   </>
                                 )}
                               </button>
@@ -1168,14 +1179,14 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
                             className={`w-full text-slate-200 select-text ${
                               isError
                                 ? 'p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-200 text-xs sm:text-[13px] leading-relaxed'
-                                : 'text-[13.5px] sm:text-[14px] leading-relaxed pl-7'
+                                : 'text-[13.5px] sm:text-[14px] leading-relaxed ps-7'
                             }`}
                           >
                             {isError ? (
                               <div className="space-y-2">
                                 <div className="flex items-center gap-2 font-semibold text-rose-300">
                                   <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
-                                  <span>Difficulté de traitement</span>
+                                  <span>{t('Difficulté de traitement')}</span>
                                 </div>
                                 <p className="leading-relaxed text-rose-200/90">{msg.content}</p>
                                 {msg.id === lastErrorId && lastFailedPrompt && !loading && (
@@ -1185,7 +1196,7 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
                                     className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 border border-rose-500/40 text-xs font-medium transition-colors cursor-pointer"
                                   >
                                     <RotateCcw className="w-3 h-3" />
-                                    <span>Réessayer la requête</span>
+                                    <span>{t('Réessayer la requête')}</span>
                                   </button>
                                 )}
                               </div>
@@ -1204,7 +1215,7 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
                                           className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 text-xs"
                                         >
                                           <div className="font-semibold text-amber-300">{a.title}</div>
-                                          <div className="mt-0.5 text-slate-400 font-mono">Contrat {a.contractNumber}</div>
+                                          <div className="mt-0.5 text-slate-400 font-mono">{t('Contrat {contractNumber}', { contractNumber: a.contractNumber })}</div>
                                           {a.type === 'whatsapp' && a.message && (
                                             <div className="mt-2 whitespace-pre-wrap rounded-lg bg-slate-950/70 border border-slate-800 p-2 text-slate-200">
                                               {a.message}
@@ -1212,7 +1223,7 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
                                           )}
                                           {a.type === 'payment' && a.method && (
                                             <div className="mt-1 text-slate-300">
-                                              {a.amount} MAD · {PAYMENT_METHOD_LABELS[a.method]}
+                                              {t('{amount} MAD ·', { amount: a.amount })} {PAYMENT_METHOD_LABELS[a.method]}
                                             </div>
                                           )}
                                           {result ? (
@@ -1226,7 +1237,7 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
                                               onClick={() => runAction(msg.id, a)}
                                               className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs cursor-pointer"
                                             >
-                                              {a.type === 'whatsapp' ? 'Ouvrir WhatsApp' : 'Confirmer'}
+                                              {a.type === 'whatsapp' ? t('Ouvrir WhatsApp') : t('Confirmer')}
                                             </button>
                                           )}
                                         </div>
@@ -1237,7 +1248,7 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
                                 {msg.sources && msg.sources.length > 0 && (
                                   <div className="mt-3 pt-2.5 border-t border-slate-800/80">
                                     <div className="text-[10.5px] uppercase tracking-wide text-slate-500 mb-1.5">
-                                      Sources consultées
+                                      {t('Sources consultées')}
                                     </div>
                                     <div className="flex flex-wrap gap-1.5">
                                       {msg.sources.map((s) => (
@@ -1246,7 +1257,7 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
                                           type="button"
                                           onClick={() => openSource(s)}
                                           className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] text-slate-300 hover:text-white bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-amber-500/40 transition-colors cursor-pointer max-w-full"
-                                          title="Ouvrir dans l’application"
+                                          title={t('Ouvrir dans l’application')}
                                         >
                                           {s.kind === 'contract' ? (
                                             <FileText className="w-3 h-3 text-amber-400 shrink-0" />
@@ -1272,24 +1283,24 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
 
                 {/* État de réflexion & chargement sophistiqué */}
                 {loading && !streamingId && (
-                  <div className="flex flex-col items-start w-full animate-fade-in pl-7">
+                  <div className="flex flex-col items-start w-full animate-fade-in ps-7">
                     <div className="flex items-center gap-2 mb-2">
                       <div className="w-5 h-5 rounded-md bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
                         <Sparkles className="w-3 h-3 animate-spin [animation-duration:3s]" />
                       </div>
-                      <span className="text-xs font-semibold text-slate-300">Morvello AI</span>
-                      <span className="text-[11px] text-amber-400/90 font-normal">Analyse en cours…</span>
+                      <span className="text-xs font-semibold text-slate-300">{t('Morvello AI')}</span>
+                      <span className="text-[11px] text-amber-400/90 font-normal">{t('Analyse en cours…')}</span>
                     </div>
                     <div className="p-3.5 rounded-xl border border-slate-800 bg-slate-900/60 max-w-md w-full space-y-2">
                       <div className="flex items-center justify-between text-xs text-slate-400">
-                        <span>Traitement des données de flotte et rédaction</span>
+                        <span>{t('Traitement des données de flotte et rédaction')}</span>
                         <button
                           type="button"
                           onClick={stopGenerating}
                           className="inline-flex items-center gap-1 text-[11px] font-medium text-rose-400 hover:text-rose-300 transition-colors cursor-pointer"
                         >
                           <Square className="w-3 h-3" />
-                          <span>Arrêter</span>
+                          <span>{t('Arrêter')}</span>
                         </button>
                       </div>
                       <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
@@ -1310,9 +1321,9 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
           <button
             type="button"
             onClick={() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })}
-            className="absolute bottom-4 right-6 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-900 border border-slate-700 text-slate-200 text-xs font-medium shadow-xl hover:bg-slate-800 transition-all cursor-pointer animate-fade-in"
+            className="absolute bottom-4 end-6 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-900 border border-slate-700 text-slate-200 text-xs font-medium shadow-xl hover:bg-slate-800 transition-all cursor-pointer animate-fade-in"
           >
-            <span>Derniers messages</span>
+            <span>{t('Derniers messages')}</span>
             <ArrowDown className="w-3.5 h-3.5 text-amber-400" />
           </button>
         )}
@@ -1333,7 +1344,7 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
               <IconComp className="w-3 h-3 text-amber-400 shrink-0" />
               <span>{chip.label}</span>
               {chip.count > 0 && (
-                <span className="ml-0.5 min-w-[18px] px-1 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-semibold text-center">
+                <span className="ms-0.5 min-w-[18px] px-1 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-semibold text-center">
                   {chip.count}
                 </span>
               )}
@@ -1364,8 +1375,8 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
             }}
             placeholder={
               preferredLang === 'ar'
-                ? 'اكتب سؤالك هنا باللغة العربية… (Posez votre question en langue arabe)'
-                : 'Posez une question sur votre flotte, un contrat, un client ou demandez une rédaction…'
+                ? t('اكتب سؤالك هنا باللغة العربية… (Posez votre question en langue arabe)')
+                : t('Posez une question sur votre flotte, un contrat, un client ou demandez une rédaction…')
             }
             disabled={loading}
             className="w-full bg-transparent border-0 text-xs sm:text-[13.5px] text-white placeholder-slate-500 resize-none outline-none leading-relaxed max-h-[140px] px-1.5 py-1 disabled:opacity-50"
@@ -1376,26 +1387,26 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
               {dictation.error
                 ? dictation.error
                 : quota && quota.limit > 0
-                ? `${quota.remaining ?? 0} demande(s) restante(s) aujourd’hui`
-                : 'Entrée pour envoyer · Maj + Entrée pour nouvelle ligne'}
+                ? t('{remaining} demande(s) restante(s) aujourd’hui', { remaining: quota.remaining ?? 0 })
+                : t('Entrée pour envoyer · Maj + Entrée pour nouvelle ligne')}
             </span>
             <span className="sm:hidden text-[10px] text-slate-400 font-mono">
               {dictation.error
                 ? dictation.error
                 : quota && quota.limit > 0
-                ? `${quota.remaining ?? 0} restante(s)`
+                ? t('{remaining} restante(s)', { remaining: quota.remaining ?? 0 })
                 : preferredLang === 'ar'
-                ? 'العربية'
-                : 'Français'}
+                ? t('العربية')
+                : t('Français')}
             </span>
 
-            <div className="flex items-center gap-2 ml-auto">
+            <div className="flex items-center gap-2 ms-auto">
               {dictation.supported && !loading && (
                 <button
                   type="button"
                   onClick={toggleDictation}
                   aria-pressed={dictation.listening}
-                  title={dictation.listening ? 'Arrêter la dictée' : 'Dicter la question à la voix'}
+                  title={dictation.listening ? t('Arrêter la dictée') : t('Dicter la question à la voix')}
                   className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-semibold transition-colors cursor-pointer ${
                     dictation.listening
                       ? 'bg-rose-500/20 border-rose-500/50 text-rose-300 animate-pulse'
@@ -1403,7 +1414,7 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
                   }`}
                 >
                   <Mic className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">{dictation.listening ? 'Écoute…' : 'Dicter'}</span>
+                  <span className="hidden sm:inline">{dictation.listening ? t('Écoute…') : t('Dicter')}</span>
                 </button>
               )}
               {loading ? (
@@ -1411,19 +1422,19 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
                   type="button"
                   onClick={stopGenerating}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 text-xs font-semibold transition-colors cursor-pointer"
-                  title="Interrompre la génération"
+                  title={t('Interrompre la génération')}
                 >
                   <Square className="w-3.5 h-3.5" />
-                  <span>Arrêter</span>
+                  <span>{t('Arrêter')}</span>
                 </button>
               ) : (
                 <button
                   type="submit"
                   disabled={!input.trim()}
                   className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-xs transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
-                  title="Envoyer la requête"
+                  title={t('Envoyer la requête')}
                 >
-                  <span>Envoyer</span>
+                  <span>{t('Envoyer')}</span>
                   <Send className="w-3 h-3" />
                 </button>
               )}

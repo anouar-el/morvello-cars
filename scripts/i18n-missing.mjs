@@ -26,11 +26,11 @@ const files = [];
 const missing = new Map();
 for (const file of files) {
   const src = fs.readFileSync(file, 'utf8');
-  for (const m of src.matchAll(/\bt\('((?:[^'\\]|\\.)*)'/g)) {
+  for (const m of src.matchAll(/\b(?:t|tr)\('((?:[^'\\]|\\.)*)'/g)) {
     const key = m[1].replace(/\\'/g, "'");
     if (!known.has(key)) missing.set(key, file);
   }
-  for (const m of src.matchAll(/\bt\("((?:[^"\\]|\\.)*)"/g)) {
+  for (const m of src.matchAll(/\b(?:t|tr)\("((?:[^"\\]|\\.)*)"/g)) {
     if (!known.has(m[1])) missing.set(m[1], file);
   }
 }

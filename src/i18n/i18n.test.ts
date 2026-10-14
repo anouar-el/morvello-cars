@@ -66,11 +66,11 @@ describe('couverture des appels t(...)', () => {
     const missing: string[] = [];
     for (const file of listTsx('src')) {
       const src = readFileSync(file, 'utf8');
-      for (const m of src.matchAll(/\bt\('((?:[^'\\]|\\.)*)'/g)) {
+      for (const m of src.matchAll(/\b(?:t|tr)\('((?:[^'\\]|\\.)*)'/g)) {
         const key = m[1].replace(/\\'/g, "'");
         if (!(key in AR)) missing.push(`${file}: ${key}`);
       }
-      for (const m of src.matchAll(/\bt\("((?:[^"\\]|\\.)*)"/g)) {
+      for (const m of src.matchAll(/\b(?:t|tr)\("((?:[^"\\]|\\.)*)"/g)) {
         if (!(m[1] in AR)) missing.push(`${file}: ${m[1]}`);
       }
     }

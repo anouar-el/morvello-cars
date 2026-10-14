@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import newStampImg from '../assets/images/morvello_nouveau_cachet_transp.png';
 
+import { useI18n } from '../i18n/I18nContext';
 export interface CompanyStampProps {
   className?: string;
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
@@ -16,6 +17,7 @@ export const CompanyStamp: React.FC<CompanyStampProps> = ({
   format = 'rectangular',
   renderMode = 'auto',
 }) => {
+  const { t } = useI18n();
   const [imgFailed, setImgFailed] = useState(false);
 
   // Rectangular Dimensions Map
@@ -49,7 +51,7 @@ export const CompanyStamp: React.FC<CompanyStampProps> = ({
           height: circleDimensions,
           transform: `rotate(${rotation}deg)`,
         }}
-        aria-label="Cachet circulaire Sté MORVELLO CARS"
+        aria-label={t('Cachet circulaire Sté MORVELLO CARS')}
       >
         <svg
           viewBox="0 0 300 300"
@@ -90,7 +92,7 @@ export const CompanyStamp: React.FC<CompanyStampProps> = ({
               fill="#173b87"
             >
               <textPath href="#text-path-arc-circle" startOffset="50%" textAnchor="middle">
-                Sté MORVELLO CARS
+                {t('Sté MORVELLO CARS')}
               </textPath>
             </text>
 
@@ -139,7 +141,7 @@ export const CompanyStamp: React.FC<CompanyStampProps> = ({
               stroke="none"
               fill="#173b87"
             >
-              IF : 66223306 • RC : 664751
+              {t('IF : 66223306 • RC : 664751')}
             </text>
             <text
               x="150"
@@ -152,7 +154,7 @@ export const CompanyStamp: React.FC<CompanyStampProps> = ({
               stroke="none"
               fill="#173b87"
             >
-              ICE : 00366965500062
+              {t('ICE : 00366965500062')}
             </text>
           </g>
         </svg>
@@ -171,11 +173,11 @@ export const CompanyStamp: React.FC<CompanyStampProps> = ({
           height: rectDimensions.height,
           transform: `rotate(${rotation}deg)`,
         }}
-        aria-label="Nouveau Cachet Officiel Rectangulaire Sté MORVELLO CARS"
+        aria-label={t('Nouveau Cachet Officiel Rectangulaire Sté MORVELLO CARS')}
       >
         <img
           src={newStampImg}
-          alt="Cachet officiel Sté MORVELLO CARS"
+          alt={t('Cachet officiel Sté MORVELLO CARS')}
           referrerPolicy="no-referrer"
           onError={() => setImgFailed(true)}
           className="w-full h-full object-contain filter drop-shadow-xs"
@@ -197,7 +199,7 @@ export const CompanyStamp: React.FC<CompanyStampProps> = ({
         height: rectDimensions.height,
         transform: `rotate(${rotation}deg)`,
       }}
-      aria-label="Nouveau Cachet Officiel Rectangulaire Sté MORVELLO CARS"
+      aria-label={t('Nouveau Cachet Officiel Rectangulaire Sté MORVELLO CARS')}
     >
       <svg
         viewBox="0 0 520 240"
@@ -333,7 +335,7 @@ export const CompanyStamp: React.FC<CompanyStampProps> = ({
             <tspan fontSize="28" dy="-4">S</tspan>
             <tspan fontSize="24" dy="-4">t</tspan>
             <tspan fontSize="24">é</tspan>
-            <tspan fontSize="37" dy="8"> MORVELLO CARS</tspan>
+            <tspan fontSize="37" dy="8"> {t('MORVELLO CARS')}</tspan>
           </text>
 
           {/* Horizontal Divider Rule */}
@@ -358,7 +360,7 @@ export const CompanyStamp: React.FC<CompanyStampProps> = ({
             stroke="none"
             fill="#163982"
           >
-            IF : 66223306 &nbsp;•&nbsp; RC : 664751
+            {t('IF : 66223306 • RC : 664751')}
           </text>
 
           {/* Line 3: ICE : 00366965500062 */}
@@ -373,7 +375,7 @@ export const CompanyStamp: React.FC<CompanyStampProps> = ({
             stroke="none"
             fill="#163982"
           >
-            ICE : 00366965500062
+            {t('ICE : 00366965500062')}
           </text>
 
           {/* Organic ink stamp distress particles */}

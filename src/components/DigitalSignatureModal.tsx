@@ -14,6 +14,7 @@ import {
   Lock,
 } from 'lucide-react';
 
+import { useI18n } from '../i18n/I18nContext';
 interface DigitalSignatureModalProps {
   contract: Contract;
   isOpen: boolean;
@@ -31,6 +32,7 @@ export const DigitalSignatureModal: React.FC<DigitalSignatureModalProps> = ({
   updateContract,
   defaultRole = 'client',
 }) => {
+  const { t } = useI18n();
   const [activeSigner, setActiveSigner] = useState<'client' | 'second_driver' | 'agency'>(defaultRole);
   const [signerFullName, setSignerFullName] = useState<string>(
     `${contract.clientSnapshot.firstName} ${contract.clientSnapshot.lastName}`
@@ -100,15 +102,15 @@ export const DigitalSignatureModal: React.FC<DigitalSignatureModalProps> = ({
             <div>
               <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
                 <h3 className="text-sm sm:text-base font-bold text-white tracking-wide">
-                  Signature Électronique Certifiée
+                  {t('Signature Électronique Certifiée')}
                 </h3>
                 <span className="text-[9px] sm:text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-semibold px-2 py-0.5 rounded-full flex items-center gap-1">
                   <Lock className="w-2.5 h-2.5" />
-                  Conforme A4
+                  {t('Conforme A4')}
                 </span>
               </div>
               <p className="text-[11px] sm:text-xs text-slate-400 truncate max-w-[240px] sm:max-w-none">
-                Contrat N° <span className="font-mono text-amber-300 font-bold">{contract.contractNumber}</span> • {contract.vehicleSnapshot.brand} {contract.vehicleSnapshot.model}
+                {t('Contrat N°')} <span className="font-mono text-amber-300 font-bold">{contract.contractNumber}</span> • {contract.vehicleSnapshot.brand} {contract.vehicleSnapshot.model}
               </p>
             </div>
           </div>
@@ -134,7 +136,7 @@ export const DigitalSignatureModal: React.FC<DigitalSignatureModalProps> = ({
               }`}
             >
               <User className="w-3.5 h-3.5" />
-              <span>Locataire Principal</span>
+              <span>{t('Locataire Principal')}</span>
               {contract.clientSignature && <CheckCircle2 className="w-3 h-3 text-emerald-950" />}
             </button>
 
@@ -149,12 +151,12 @@ export const DigitalSignatureModal: React.FC<DigitalSignatureModalProps> = ({
                 }`}
               >
                 <User className="w-3.5 h-3.5" />
-                <span>2ème Conducteur</span>
+                <span>{t('2ème Conducteur')}</span>
                 {contract.secondDriverSignature && <CheckCircle2 className="w-3 h-3 text-emerald-950" />}
               </button>
             ) : (
               <div className="hidden sm:flex items-center justify-center gap-1 py-2 px-3 text-slate-600 text-[11px] cursor-not-allowed">
-                <span>Sans 2e conducteur</span>
+                <span>{t('Sans 2e conducteur')}</span>
               </div>
             )}
 
@@ -168,7 +170,7 @@ export const DigitalSignatureModal: React.FC<DigitalSignatureModalProps> = ({
               }`}
             >
               <Building2 className="w-3.5 h-3.5" />
-              <span>Agence Morvello</span>
+              <span>{t('Agence Morvello')}</span>
               {contract.agencySignature && <CheckCircle2 className="w-3 h-3 text-emerald-950" />}
             </button>
           </div>
@@ -176,19 +178,19 @@ export const DigitalSignatureModal: React.FC<DigitalSignatureModalProps> = ({
           {/* Quick Recap Pill */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 p-3 bg-slate-950/70 border border-slate-800 rounded-xl text-xs">
             <div>
-              <span className="text-[10px] text-slate-500 block uppercase font-bold">Signataire Actif</span>
+              <span className="text-[10px] text-slate-500 block uppercase font-bold">{t('Signataire Actif')}</span>
               <span className="font-semibold text-slate-200 truncate block mt-0.5">
                 {signerFullName}
               </span>
             </div>
             <div>
-              <span className="text-[10px] text-slate-500 block uppercase font-bold">Véhicule & Immat</span>
+              <span className="text-[10px] text-slate-500 block uppercase font-bold">{t('Véhicule & Immat')}</span>
               <span className="font-semibold text-amber-300 font-mono block mt-0.5 truncate">
                 {contract.vehicleSnapshot.brand} • {contract.vehicleSnapshot.plate}
               </span>
             </div>
             <div>
-              <span className="text-[10px] text-slate-500 block uppercase font-bold">Période du Contrat</span>
+              <span className="text-[10px] text-slate-500 block uppercase font-bold">{t('Période du Contrat')}</span>
               <span className="font-semibold text-slate-300 block mt-0.5">
                 {contract.startDate} → {contract.endDate} ({contract.totalDays}j)
               </span>
@@ -201,9 +203,9 @@ export const DigitalSignatureModal: React.FC<DigitalSignatureModalProps> = ({
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
                 <div>
-                  <span className="font-bold">Contrat déjà signé numériquement par le locataire</span>
+                  <span className="font-bold">{t('Contrat déjà signé numériquement par le locataire')}</span>
                   <span className="text-[11px] text-emerald-400/80 block">
-                    Le {new Date(contract.clientSignedAt || '').toLocaleDateString('fr-FR')} à{' '}
+                    {t('Le')} {new Date(contract.clientSignedAt || '').toLocaleDateString('fr-FR')} à{' '}
                     {new Date(contract.clientSignedAt || '').toLocaleTimeString('fr-FR', {
                       hour: '2-digit',
                       minute: '2-digit',
@@ -212,7 +214,7 @@ export const DigitalSignatureModal: React.FC<DigitalSignatureModalProps> = ({
                 </div>
               </div>
               <span className="text-[10px] bg-emerald-500/20 px-2 py-1 rounded text-emerald-300 font-mono">
-                Vous pouvez re-signer ci-dessous pour écraser
+                {t('Vous pouvez re-signer ci-dessous pour écraser')}
               </span>
             </div>
           )}
@@ -235,7 +237,7 @@ export const DigitalSignatureModal: React.FC<DigitalSignatureModalProps> = ({
           {isSuccess && (
             <div className="p-3 bg-emerald-600 text-white rounded-xl text-center text-xs font-bold flex items-center justify-center gap-2 animate-in zoom-in-95">
               <CheckCircle2 className="w-4 h-4" />
-              <span>Signature numérique certifiée et insérée dans le contrat A4 !</span>
+              <span>{t('Signature numérique certifiée et insérée dans le contrat A4 !')}</span>
             </div>
           )}
         </div>

@@ -4,6 +4,7 @@ import newLogoTransp from '../assets/images/morvello_nouveau_logo_transp.png';
 import newLogoFull from '../assets/images/morvello_nouveau_logo_1788650487314.jpg';
 import rectLogoLegacy from '../assets/images/morvello_rect_logo_1788313603329.jpg';
 
+import { useI18n } from '../i18n/I18nContext';
 export interface CompanyLogoProps {
   className?: string;
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
@@ -23,6 +24,7 @@ export const CompanyLogo: React.FC<CompanyLogoProps> = ({
   theme = 'transparent',
   transparent = true,
 }) => {
+  const { t } = useI18n();
   const [imageError, setImageError] = useState(false);
 
   // Dimensions map adapted for maximum legibility and visual prestige
@@ -91,11 +93,11 @@ export const CompanyLogo: React.FC<CompanyLogoProps> = ({
         <div
           className={`inline-flex items-center justify-center select-none shrink-0 bg-transparent ${className}`}
           style={{ width: dimensions.iconOnlySize, height: dimensions.iconOnlySize }}
-          aria-label="Logo Sté MORVELLO CARS - Emblème officiel transparent"
+          aria-label={t('Logo Sté MORVELLO CARS - Emblème officiel transparent')}
         >
           <img
             src={emblemTransp || newLogoTransp}
-            alt="Sté MORVELLO CARS - Emblème officiel"
+            alt={t('Sté MORVELLO CARS - Emblème officiel')}
             referrerPolicy="no-referrer"
             onError={() => setImageError(true)}
             className="w-full h-full object-contain filter drop-shadow-sm transition-transform hover:scale-105"
@@ -108,7 +110,7 @@ export const CompanyLogo: React.FC<CompanyLogoProps> = ({
       <div
         className={`inline-flex items-center justify-center select-none shrink-0 bg-transparent ${className}`}
         style={{ width: dimensions.iconOnlySize, height: dimensions.iconOnlySize }}
-        aria-label="Logo Sté MORVELLO CARS"
+        aria-label={t('Logo Sté MORVELLO CARS')}
       >
         <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-sm">
           <defs>
@@ -198,7 +200,7 @@ export const CompanyLogo: React.FC<CompanyLogoProps> = ({
 
     return (
       <div
-        className={`inline-flex items-center select-none shrink-0 text-left relative ${
+        className={`inline-flex items-center select-none shrink-0 text-start relative ${
           isDark
             ? 'bg-slate-950 border border-amber-500/80 px-2.5 py-1 rounded'
             : transparent
@@ -209,21 +211,21 @@ export const CompanyLogo: React.FC<CompanyLogoProps> = ({
           height: dimensions.rectHeight,
           width: 'max-content',
         }}
-        aria-label="Logo Sté MORVELLO CARS - Where luxury meets the road"
+        aria-label={t('Logo Sté MORVELLO CARS - Where luxury meets the road')}
       >
         {/* Left: Gold Luxury Shield Emblem with transparent background */}
-        <div className="h-full flex items-center justify-center shrink-0 pr-3 z-10">
+        <div className="h-full flex items-center justify-center shrink-0 pe-3 z-10">
           {!imageError && (emblemTransp || newLogoTransp) ? (
             <img
               src={emblemTransp || newLogoTransp}
-              alt="Morvello Emblem"
+              alt={t('Morvello Emblem')}
               referrerPolicy="no-referrer"
               onError={() => setImageError(true)}
               className="h-full w-auto max-h-full object-contain filter drop-shadow-sm"
             />
           ) : (
             <div className="w-9 h-9 bg-slate-900 border border-amber-400 flex items-center justify-center">
-              <span className="text-[11px] font-bold text-amber-400">MC</span>
+              <span className="text-[11px] font-bold text-amber-400">{t('MC')}</span>
             </div>
           )}
         </div>
@@ -232,13 +234,13 @@ export const CompanyLogo: React.FC<CompanyLogoProps> = ({
         <div className="w-[1.5px] h-4/5 bg-gradient-to-b from-amber-500/20 via-amber-500/70 to-amber-500/20 shrink-0 z-10" />
 
         {/* Right: Typography with crisp lettering */}
-        <div className="pl-3 flex flex-col justify-center z-10 space-y-0.5">
+        <div className="ps-3 flex flex-col justify-center z-10 space-y-0.5">
           <span
             className={`font-serif font-black tracking-wider uppercase leading-none whitespace-nowrap ${
               isDark ? 'text-amber-300' : 'text-slate-950'
             } ${dimensions.titleSize}`}
           >
-            Sté MORVELLO CARS
+            {t('Sté MORVELLO CARS')}
           </span>
           <div
             className={`h-[1.5px] w-full ${
@@ -252,14 +254,14 @@ export const CompanyLogo: React.FC<CompanyLogoProps> = ({
               isDark ? 'text-amber-200' : 'text-amber-800'
             } ${dimensions.taglineSize}`}
           >
-            WHERE LUXURY MEETS THE ROAD
+            {t('WHERE LUXURY MEETS THE ROAD')}
           </span>
           <span
             className={`font-sans font-bold tracking-wider uppercase leading-none whitespace-nowrap ${
               isDark ? 'text-slate-300' : 'text-slate-600'
             } ${dimensions.subSize}`}
           >
-            Location de Voitures de Prestige
+            {t('Location de Voitures de Prestige')}
           </span>
         </div>
       </div>
@@ -274,11 +276,11 @@ export const CompanyLogo: React.FC<CompanyLogoProps> = ({
         style={{
           height: customHeight || dimensions.height,
         }}
-        aria-label="Logo Sté MORVELLO CARS - Where luxury meets the road"
+        aria-label={t('Logo Sté MORVELLO CARS - Where luxury meets the road')}
       >
         <img
           src={newLogoTransp || newLogoFull || emblemTransp}
-          alt="Sté MORVELLO CARS - Where luxury meets the road"
+          alt={t('Sté MORVELLO CARS - Where luxury meets the road')}
           referrerPolicy="no-referrer"
           onError={() => setImageError(true)}
           className="h-full w-auto max-h-full object-contain filter drop-shadow-sm transition-transform"
@@ -295,7 +297,7 @@ export const CompanyLogo: React.FC<CompanyLogoProps> = ({
     <div
       className={`inline-flex items-center select-none ${className}`}
       style={{ minWidth: dimensions.width }}
-      aria-label="Logo Sté MORVELLO CARS - Where luxury meets the road"
+      aria-label={t('Logo Sté MORVELLO CARS - Where luxury meets the road')}
     >
       <svg
         viewBox="0 0 320 120"
@@ -409,7 +411,7 @@ export const CompanyLogo: React.FC<CompanyLogoProps> = ({
             fill="url(#gold-text-grad)"
             filter="url(#gold-glow)"
           >
-            Sté MORVELLO CARS
+            {t('Sté MORVELLO CARS')}
           </text>
         </g>
 
@@ -428,7 +430,7 @@ export const CompanyLogo: React.FC<CompanyLogoProps> = ({
               letterSpacing="2.8"
               fill="#fbbf24"
             >
-              WHERE LUXURY MEETS THE ROAD
+              {t('WHERE LUXURY MEETS THE ROAD')}
             </text>
             <circle cx="252" cy="4" r="1.5" fill="#fbbf24" />
             <line x1="255" y1="4" x2="292" y2="4" stroke="url(#gold-luxury)" strokeWidth="1" />

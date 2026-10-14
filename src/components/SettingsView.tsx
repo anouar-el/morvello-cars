@@ -31,7 +31,9 @@ import { AiCharterSettings } from './AiCharterSettings';
 import { getNextAvailableContractNumber } from '../utils/contractNumberUtils';
 import { syncAllClientsToSupabase } from '../lib/supabaseSync';
 
+import { useI18n } from '../i18n/I18nContext';
 export const SettingsView: React.FC = () => {
+  const { t } = useI18n();
   const {
     companySettings,
     updateCompanySettings,
@@ -104,25 +106,28 @@ CREATE POLICY "clients_delete" ON public.clients FOR DELETE TO authenticated USI
       if (res.success) {
         setClientSyncFeedback({
           type: 'success',
-          text: `Succès : Les ${res.syncedCount} clients ont été synchronisés avec succès vers Supabase PostgreSQL !`,
+          text: t('Succès : Les {count} clients ont été synchronisés avec succès vers Supabase PostgreSQL !', { count: res.syncedCount }),
         });
       } else if (res.hasRlsError) {
         setShowRlsHelper(true);
         setClientSyncFeedback({
           type: 'warning',
-          text: `Origine du problème : La politique RLS de Supabase (code 42501) bloque l'écriture de ${res.totalCount - res.syncedCount} client(s). Exécutez le script SQL ci-dessous dans Supabase SQL Editor pour débloquer immédiatement.`,
+          text: t(
+            "Origine du problème : La politique RLS de Supabase (code 42501) bloque l'écriture de {count} client(s). Exécutez le script SQL ci-dessous dans Supabase SQL Editor pour débloquer immédiatement.",
+            { count: res.totalCount - res.syncedCount }
+          ),
           hasRlsError: true,
         });
       } else {
         setClientSyncFeedback({
           type: 'error',
-          text: res.error || 'Erreur lors de la synchronisation des clients.',
+          text: res.error || t('Erreur lors de la synchronisation des clients.'),
         });
       }
     } catch (err: any) {
       setClientSyncFeedback({
         type: 'error',
-        text: err?.message || 'Erreur imprévue lors de la synchronisation.',
+        text: err?.message || t('Erreur imprévue lors de la synchronisation.'),
       });
     } finally {
       setIsSyncingClients(false);
@@ -136,23 +141,23 @@ CREATE POLICY "clients_delete" ON public.clients FOR DELETE TO authenticated USI
   const isAgent = currentUser.role === 'agent';
 
   const handleManualSync = async () => {
-    setSyncFeedback('Synchronisation en cours avec Firebase...');
+    setSyncFeedback(t('Synchronisation en cours avec Firebase...'));
     const ok = await syncWithCloud();
     if (ok) {
-      setSyncFeedback('Base de données Firebase Cloud Firestore synchronisée avec succès !');
+      setSyncFeedback(t('Base de données Firebase Cloud Firestore synchronisée avec succès !'));
     } else {
-      setSyncFeedback('Erreur lors de la synchronisation Firebase. Vérifiez la connexion.');
+      setSyncFeedback(t('Erreur lors de la synchronisation Firebase. Vérifiez la connexion.'));
     }
     setTimeout(() => setSyncFeedback(null), 4000);
   };
 
   const handleManualPush = async () => {
-    setSyncFeedback('Sauvegarde complète vers Firebase en cours...');
+    setSyncFeedback(t('Sauvegarde complète vers Firebase en cours...'));
     const ok = await pushToCloud();
     if (ok) {
-      setSyncFeedback('Toutes les données locales ont été enregistrées dans Firebase Firestore !');
+      setSyncFeedback(t('Toutes les données locales ont été enregistrées dans Firebase Firestore !'));
     } else {
-      setSyncFeedback('Erreur lors de l’enregistrement vers Firebase.');
+      setSyncFeedback(t('Erreur lors de l’enregistrement vers Firebase.'));
     }
     setTimeout(() => setSyncFeedback(null), 4000);
   };
@@ -173,20 +178,20 @@ CREATE POLICY "clients_delete" ON public.clients FOR DELETE TO authenticated USI
         <div>
           <div className="flex items-center gap-2 text-xs font-semibold text-amber-400 uppercase tracking-widest font-mono">
             <Settings className="w-4 h-4" />
-            Module Paramètres • Section 41
+            {t('Module Paramètres • Section 41')}
           </div>
           <h1 className="text-xl font-bold text-white tracking-tight mt-1">
-            Paramètres Société & Numérotation des Contrats
+            {t('Paramètres Société & Numérotation des Contrats')}
           </h1>
           <p className="text-xs text-slate-400 mt-0.5">
-            Mentions légales obligatoires figurant sur le document imprimé et format des contrats.
+            {t('Mentions légales obligatoires figurant sur le document imprimé et format des contrats.')}
           </p>
         </div>
 
         {isAgent && (
           <span className="bg-amber-500/15 text-amber-400 border border-amber-500/30 text-xs font-semibold px-3 py-1.5 rounded-xl flex items-center gap-1.5">
             <Lock className="w-3.5 h-3.5" />
-            Lecture seule (Rôle Agent)
+            {t('Lecture seule (Rôle Agent)')}
           </span>
         )}
       </div>
@@ -194,7 +199,7 @@ CREATE POLICY "clients_delete" ON public.clients FOR DELETE TO authenticated USI
       {savedSuccess && (
         <div className="bg-emerald-500/15 border border-emerald-500/40 text-emerald-400 p-3.5 rounded-xl text-xs flex items-center gap-2 animate-in fade-in">
           <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
-          <span>Paramètres de la société et configuration des contrats mis à jour avec succès !</span>
+          <span>{t('Paramètres de la société et configuration des contrats mis à jour avec succès !')}</span>
         </div>
       )}
 
@@ -217,7 +222,7 @@ CREATE POLICY "clients_delete" ON public.clients FOR DELETE TO authenticated USI
           }`}
         >
           <Building className="w-4 h-4" />
-          <span>1. Société & Contrats</span>
+          <span>{t('1. Société & Contrats')}</span>
         </button>
 
         <button
@@ -230,13 +235,13 @@ CREATE POLICY "clients_delete" ON public.clients FOR DELETE TO authenticated USI
           }`}
         >
           <Bot className="w-4 h-4" />
-          <span>2. Assistant IA • Style & Vision</span>
+          <span>{t('2. Assistant IA • Style & Vision')}</span>
           <span
             className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
               activeSection === 'ai' ? 'bg-slate-950 text-amber-400' : 'bg-amber-500/20 text-amber-300'
             }`}
           >
-            ADN Marque
+            {t('ADN Marque')}
           </span>
         </button>
 
@@ -250,7 +255,7 @@ CREATE POLICY "clients_delete" ON public.clients FOR DELETE TO authenticated USI
           }`}
         >
           <Cloud className="w-4 h-4" />
-          <span>3. Cloud & Affichage</span>
+          <span>{t('3. Cloud & Affichage')}</span>
         </button>
       </div>
 
@@ -268,23 +273,23 @@ CREATE POLICY "clients_delete" ON public.clients FOR DELETE TO authenticated USI
               </div>
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h2 className="text-sm font-bold text-white">Base de données Cloud Supabase (PostgreSQL)</h2>
+                  <h2 className="text-sm font-bold text-white">{t('Base de données Cloud Supabase (PostgreSQL)')}</h2>
                   <span className="text-[10px] bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-semibold">
-                    Projet : uxswtmfrrxagkmewpwyd
+                    {t('Projet : uxswtmfrrxagkmewpwyd')}
                   </span>
                 </div>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Synchronisation PostgreSQL en temps réel des véhicules, contrats, cautions, clients et collaborateurs.
+                  {t('Synchronisation PostgreSQL en temps réel des véhicules, contrats, cautions, clients et collaborateurs.')}
                 </p>
                 <div className="text-[11px] text-slate-400 mt-1 flex items-center gap-2">
                   <span>
-                    Statut :{' '}
+                    {t('Statut :')}{' '}
                     <strong className={cloudSyncStatus === 'synced' ? 'text-emerald-400' : 'text-amber-400'}>
-                      {cloudSyncStatus === 'synced' ? 'Connecté & Synchronisé' : cloudSyncStatus === 'syncing' ? 'Synchronisation...' : 'En attente'}
+                      {cloudSyncStatus === 'synced' ? t('Connecté & Synchronisé') : cloudSyncStatus === 'syncing' ? t('Synchronisation...') : t('En attente')}
                     </strong>
                   </span>
                   {lastCloudSync && (
-                    <span className="text-slate-500">• Dernière synchro : {lastCloudSync}</span>
+                    <span className="text-slate-500">{t('• Dernière synchro : {lastCloudSync}', { lastCloudSync })}</span>
                   )}
                 </div>
               </div>
@@ -298,7 +303,7 @@ CREATE POLICY "clients_delete" ON public.clients FOR DELETE TO authenticated USI
                 className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700 text-xs px-3.5 py-2 rounded-xl transition-all cursor-pointer font-medium disabled:opacity-50"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${cloudSyncStatus === 'syncing' ? 'animate-spin' : ''}`} />
-                Actualiser
+                {t('Actualiser')}
               </button>
               <button
                 type="button"
@@ -307,7 +312,7 @@ CREATE POLICY "clients_delete" ON public.clients FOR DELETE TO authenticated USI
                 className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 text-xs px-3.5 py-2 rounded-xl transition-all cursor-pointer font-medium disabled:opacity-50"
               >
                 <CloudCheck className="w-3.5 h-3.5" />
-                Sauvegarder Supabase
+                {t('Sauvegarder Supabase')}
               </button>
             </div>
           </div>
@@ -321,13 +326,13 @@ CREATE POLICY "clients_delete" ON public.clients FOR DELETE TO authenticated USI
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                    Synchronisation des Clients Supabase
+                    {t('Synchronisation des Clients Supabase')}
                     <span className="text-[10px] bg-blue-500/15 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded-full font-semibold">
-                      {clients.length} client{clients.length > 1 ? 's' : ''} en local
+                      {t('{clientsCount} client', { clientsCount: clients.length })}{clients.length > 1 ? 's' : ''} {t('en local')}
                     </span>
                   </h3>
                   <p className="text-xs text-slate-400">
-                    Assure la présence intégrale de vos {clients.length} fiches clients dans la table PostgreSQL Supabase.
+                    {t('Assure la présence intégrale de vos {clientsCount} fiches clients dans la table PostgreSQL Supabase.', { clientsCount: clients.length })}
                   </p>
                 </div>
               </div>
@@ -339,7 +344,7 @@ CREATE POLICY "clients_delete" ON public.clients FOR DELETE TO authenticated USI
                   className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 bg-slate-800 hover:bg-slate-750 text-slate-300 border border-slate-750 text-xs px-3 py-2 rounded-xl transition-all cursor-pointer font-medium"
                 >
                   <FileCode className="w-3.5 h-3.5 text-amber-400" />
-                  Script SQL RLS
+                  {t('Script SQL RLS')}
                 </button>
                 <button
                   type="button"
@@ -348,7 +353,7 @@ CREATE POLICY "clients_delete" ON public.clients FOR DELETE TO authenticated USI
                   className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs px-3.5 py-2 rounded-xl transition-all cursor-pointer font-medium disabled:opacity-50 shadow-sm"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${isSyncingClients ? 'animate-spin' : ''}`} />
-                  {isSyncingClients ? 'Synchronisation...' : `Synchroniser les ${clients.length} clients`}
+                  {isSyncingClients ? t('Synchronisation...') : t('Synchroniser les {clientsCount} clients', { clientsCount: clients.length })}
                 </button>
               </div>
             </div>
@@ -382,14 +387,14 @@ CREATE POLICY "clients_delete" ON public.clients FOR DELETE TO authenticated USI
                   <div className="flex items-center gap-2">
                     <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" />
                     <h4 className="text-sm font-bold text-amber-300">
-                      Pourquoi seulement 1 client sur Supabase alors que vous en avez 3 ?
+                      {t('Pourquoi seulement 1 client sur Supabase alors que vous en avez 3 ?')}
                     </h4>
                   </div>
                   <p className="text-xs text-slate-300 leading-relaxed">
-                    <strong>Rassurez-vous :</strong> Vos 3 clients ne sont <strong>pas perdus</strong>. Ils sont bien sauvegardés dans votre application Morvello Cars et dans Firebase.
+                    <strong>{t('Rassurez-vous :')}</strong> {t('Vos 3 clients ne sont')} <strong>{t('pas perdus')}</strong>{t('. Ils sont bien sauvegardés dans votre application Morvello Cars et dans Firebase.')}
                   </p>
                   <p className="text-xs text-slate-400 leading-relaxed">
-                    Supabase possède un verrou de sécurité automatique (appelé <em>Row-Level Security</em>). Ce verrou empêche l'application d'écrire de nouveaux clients sans mot de passe administrateur Supabase. Pour lever ce verrou une bonne fois pour toutes, il suffit d'exécuter une autorisation en 3 étapes simples :
+                    {t('Supabase possède un verrou de sécurité automatique (appelé')} <em>{t('Row-Level Security')}</em>{t("). Ce verrou empêche l'application d'écrire de nouveaux clients sans mot de passe administrateur Supabase. Pour lever ce verrou une bonne fois pour toutes, il suffit d'exécuter une autorisation en 3 étapes simples :")}
                   </p>
                 </div>
 
@@ -398,10 +403,10 @@ CREATE POLICY "clients_delete" ON public.clients FOR DELETE TO authenticated USI
                   <div className="bg-slate-900 border border-slate-800 p-3.5 rounded-xl space-y-2">
                     <div className="flex items-center gap-2 text-xs font-bold text-amber-400">
                       <span className="w-5 h-5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center text-[11px]">1</span>
-                      Copier le code
+                      {t('Copier le code')}
                     </div>
                     <p className="text-[11px] text-slate-400">
-                      Copiez le script d'autorisation prêt à l'emploi dans votre presse-papier.
+                      {t("Copiez le script d'autorisation prêt à l'emploi dans votre presse-papier.")}
                     </p>
                     <button
                       type="button"
@@ -409,17 +414,17 @@ CREATE POLICY "clients_delete" ON public.clients FOR DELETE TO authenticated USI
                       className="w-full flex items-center justify-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs py-2 px-3 rounded-lg transition-all cursor-pointer shadow-sm mt-1"
                     >
                       {copiedSql ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                      {copiedSql ? 'Copié dans le presse-papier !' : 'Copier le script SQL'}
+                      {copiedSql ? t('Copié dans le presse-papier !') : t('Copier le script SQL')}
                     </button>
                   </div>
 
                   <div className="bg-slate-900 border border-slate-800 p-3.5 rounded-xl space-y-2">
                     <div className="flex items-center gap-2 text-xs font-bold text-blue-400">
                       <span className="w-5 h-5 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30 flex items-center justify-center text-[11px]">2</span>
-                      Ouvrir Supabase
+                      {t('Ouvrir Supabase')}
                     </div>
                     <p className="text-[11px] text-slate-400">
-                      Cliquez pour ouvrir directement la page de commande SQL de votre projet Supabase.
+                      {t('Cliquez pour ouvrir directement la page de commande SQL de votre projet Supabase.')}
                     </p>
                     <a
                       href="https://supabase.com/dashboard/project/uxswtmfrrxagkmewpwyd/sql/new"
@@ -428,28 +433,28 @@ CREATE POLICY "clients_delete" ON public.clients FOR DELETE TO authenticated USI
                       className="w-full flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs py-2 px-3 rounded-lg transition-all cursor-pointer shadow-sm mt-1"
                     >
                       <ExternalLink className="w-3.5 h-3.5" />
-                      Ouvrir Supabase SQL Editor
+                      {t('Ouvrir Supabase SQL Editor')}
                     </a>
                   </div>
 
                   <div className="bg-slate-900 border border-slate-800 p-3.5 rounded-xl space-y-2">
                     <div className="flex items-center gap-2 text-xs font-bold text-emerald-400">
                       <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center text-[11px]">3</span>
-                      Coller & Cliquer sur Run
+                      {t('Coller & Cliquer sur Run')}
                     </div>
                     <p className="text-[11px] text-slate-400">
-                      Dans la page Supabase, faites un clic droit &gt; <strong>Coller</strong> (Ctrl+V), puis cliquez sur le bouton vert <strong>Run</strong> en bas à droite.
+                      {t('Dans la page Supabase, faites un clic droit >')} <strong>{t('Coller')}</strong> {t('(Ctrl+V), puis cliquez sur le bouton vert')} <strong>{t('Run')}</strong> {t('en bas à droite.')}
                     </p>
                     <div className="text-[10px] text-emerald-400/90 font-medium bg-emerald-500/10 border border-emerald-500/20 p-1.5 rounded-md text-center mt-1">
-                      Dès que c'est fait, cliquez sur "Synchroniser les {clients.length} clients" ci-dessus !
+                      {t('Dès que c\'est fait, cliquez sur "Synchroniser les {clientsCount} clients" ci-dessus !', { clientsCount: clients.length })}
                     </div>
                   </div>
                 </div>
 
                 <div className="relative pt-2">
                   <div className="text-[11px] text-slate-400 font-semibold mb-1 flex items-center justify-between">
-                    <span>Aperçu du script de sécurité stricte (restore_strict_supabase_rls.sql) :</span>
-                    <span className="text-[10px] text-amber-500 font-mono">RLS strict • Isolation Manager</span>
+                    <span>{t('Aperçu du script de sécurité stricte (restore_strict_supabase_rls.sql) :')}</span>
+                    <span className="text-[10px] text-amber-500 font-mono">{t('RLS strict • Isolation Manager')}</span>
                   </div>
                   <pre className="text-[10px] text-slate-300 bg-slate-900 border border-slate-800 rounded-lg p-3 overflow-x-auto max-h-36 font-mono leading-relaxed select-all">
                     {SQL_FIX_SCRIPT}
@@ -468,15 +473,15 @@ CREATE POLICY "clients_delete" ON public.clients FOR DELETE TO authenticated USI
                 </div>
                 <div>
                   <h2 className="text-sm font-bold text-white uppercase tracking-wide">
-                    Thème de l'interface & Mode d'affichage
+                    {t("Thème de l'interface & Mode d'affichage")}
                   </h2>
                   <p className="text-xs text-slate-400">
-                    Basculez entre l'élégant mode sombre prestige et le mode clair haute lisibilité.
+                    {t("Basculez entre l'élégant mode sombre prestige et le mode clair haute lisibilité.")}
                   </p>
                 </div>
               </div>
               <span className="text-xs px-2.5 py-1 rounded-full font-semibold border bg-slate-800 border-slate-700 text-slate-300">
-                Actif : {theme === 'dark' ? '🌙 Mode Sombre' : '☀️ Mode Clair'}
+                {t('Actif :')} {theme === 'dark' ? t('🌙 Mode Sombre') : t('☀️ Mode Clair')}
               </span>
             </div>
 
@@ -485,7 +490,7 @@ CREATE POLICY "clients_delete" ON public.clients FOR DELETE TO authenticated USI
               <button
                 type="button"
                 onClick={() => setTheme('dark')}
-                className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-3.5 ${
+                className={`p-4 rounded-xl border text-start transition-all cursor-pointer flex items-start gap-3.5 ${
                   theme === 'dark'
                     ? 'bg-slate-950 border-amber-500 shadow-md ring-2 ring-amber-500/20'
                     : 'bg-slate-950/60 border-slate-800 hover:border-slate-700 opacity-75 hover:opacity-100'
@@ -496,15 +501,15 @@ CREATE POLICY "clients_delete" ON public.clients FOR DELETE TO authenticated USI
                 </div>
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold text-white">Mode Sombre (Prestige)</span>
+                    <span className="text-sm font-bold text-white">{t('Mode Sombre (Prestige)')}</span>
                     {theme === 'dark' && (
                       <span className="text-[10px] bg-amber-500 text-slate-950 px-1.5 py-0.5 rounded font-bold">
-                        Sélectionné
+                        {t('Sélectionné')}
                       </span>
                     )}
                   </div>
                   <p className="text-xs text-slate-400">
-                    Design sombre luxueux aux accents dorés, réduit la fatigue visuelle lors d'utilisations prolongées.
+                    {t("Design sombre luxueux aux accents dorés, réduit la fatigue visuelle lors d'utilisations prolongées.")}
                   </p>
                 </div>
               </button>
@@ -513,7 +518,7 @@ CREATE POLICY "clients_delete" ON public.clients FOR DELETE TO authenticated USI
               <button
                 type="button"
                 onClick={() => setTheme('light')}
-                className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-3.5 ${
+                className={`p-4 rounded-xl border text-start transition-all cursor-pointer flex items-start gap-3.5 ${
                   theme === 'light'
                     ? 'bg-amber-500/10 border-amber-500 shadow-md ring-2 ring-amber-500/20'
                     : 'bg-slate-950/60 border-slate-800 hover:border-slate-700 opacity-75 hover:opacity-100'
@@ -524,15 +529,15 @@ CREATE POLICY "clients_delete" ON public.clients FOR DELETE TO authenticated USI
                 </div>
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold text-white">Mode Clair (Corporate)</span>
+                    <span className="text-sm font-bold text-white">{t('Mode Clair (Corporate)')}</span>
                     {theme === 'light' && (
                       <span className="text-[10px] bg-amber-500 text-slate-950 px-1.5 py-0.5 rounded font-bold">
-                        Sélectionné
+                        {t('Sélectionné')}
                       </span>
                     )}
                   </div>
                   <p className="text-xs text-slate-400">
-                    Fond blanc épuré et contrasté, clarté optimale pour le comptoir et la saisie en pleine lumière du jour.
+                    {t('Fond blanc épuré et contrasté, clarté optimale pour le comptoir et la saisie en pleine lumière du jour.')}
                   </p>
                 </div>
               </button>
@@ -550,13 +555,13 @@ CREATE POLICY "clients_delete" ON public.clients FOR DELETE TO authenticated USI
           <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
             <Building className="w-5 h-5 text-amber-400" />
             <h2 className="text-sm font-bold text-white uppercase tracking-wide">
-              Informations Légales de MORVELLO CARS
+              {t('Informations Légales de MORVELLO CARS')}
             </h2>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
             <div>
-              <label className="block text-slate-400 mb-1 font-medium">Raison Sociale *</label>
+              <label className="block text-slate-400 mb-1 font-medium">{t('Raison Sociale *')}</label>
               <input
                 type="text"
                 disabled={isAgent}
@@ -567,7 +572,7 @@ CREATE POLICY "clients_delete" ON public.clients FOR DELETE TO authenticated USI
             </div>
 
             <div>
-              <label className="block text-slate-400 mb-1 font-medium">Identifiant Commun de l'Entreprise (ICE) *</label>
+              <label className="block text-slate-400 mb-1 font-medium">{t("Identifiant Commun de l'Entreprise (ICE) *")}</label>
               <input
                 type="text"
                 disabled={isAgent}
@@ -578,7 +583,7 @@ CREATE POLICY "clients_delete" ON public.clients FOR DELETE TO authenticated USI
             </div>
 
             <div>
-              <label className="block text-slate-400 mb-1 font-medium">Identifiant Fiscal (IF) *</label>
+              <label className="block text-slate-400 mb-1 font-medium">{t('Identifiant Fiscal (IF) *')}</label>
               <input
                 type="text"
                 disabled={isAgent}
@@ -589,7 +594,7 @@ CREATE POLICY "clients_delete" ON public.clients FOR DELETE TO authenticated USI
             </div>
 
             <div>
-              <label className="block text-slate-400 mb-1 font-medium">Registre du Commerce (RC) *</label>
+              <label className="block text-slate-400 mb-1 font-medium">{t('Registre du Commerce (RC) *')}</label>
               <input
                 type="text"
                 disabled={isAgent}
@@ -600,7 +605,7 @@ CREATE POLICY "clients_delete" ON public.clients FOR DELETE TO authenticated USI
             </div>
 
             <div className="sm:col-span-2">
-              <label className="block text-slate-400 mb-1 font-medium">Adresse du Siège Social & Agence *</label>
+              <label className="block text-slate-400 mb-1 font-medium">{t('Adresse du Siège Social & Agence *')}</label>
               <input
                 type="text"
                 disabled={isAgent}
@@ -611,7 +616,7 @@ CREATE POLICY "clients_delete" ON public.clients FOR DELETE TO authenticated USI
             </div>
 
             <div>
-              <label className="block text-slate-400 mb-1 font-medium">Téléphone 1 (GSM Principal) *</label>
+              <label className="block text-slate-400 mb-1 font-medium">{t('Téléphone 1 (GSM Principal) *')}</label>
               <input
                 type="text"
                 disabled={isAgent}
@@ -622,7 +627,7 @@ CREATE POLICY "clients_delete" ON public.clients FOR DELETE TO authenticated USI
             </div>
 
             <div>
-              <label className="block text-slate-400 mb-1 font-medium">Téléphone 2 (GSM Secondaire)</label>
+              <label className="block text-slate-400 mb-1 font-medium">{t('Téléphone 2 (GSM Secondaire)')}</label>
               <input
                 type="text"
                 disabled={isAgent}
@@ -633,7 +638,7 @@ CREATE POLICY "clients_delete" ON public.clients FOR DELETE TO authenticated USI
             </div>
 
             <div>
-              <label className="block text-slate-400 mb-1 font-medium">Assistance &amp; Dépannage 24/7 (Tél) *</label>
+              <label className="block text-slate-400 mb-1 font-medium">{t('Assistance & Dépannage 24/7 (Tél) *')}</label>
               <input
                 type="text"
                 disabled={isAgent}
@@ -645,7 +650,7 @@ CREATE POLICY "clients_delete" ON public.clients FOR DELETE TO authenticated USI
             </div>
 
             <div>
-              <label className="block text-slate-400 mb-1 font-medium">Site Web Officiel</label>
+              <label className="block text-slate-400 mb-1 font-medium">{t('Site Web Officiel')}</label>
               <input
                 type="text"
                 disabled={isAgent}
@@ -656,7 +661,7 @@ CREATE POLICY "clients_delete" ON public.clients FOR DELETE TO authenticated USI
             </div>
 
             <div>
-              <label className="block text-slate-400 mb-1 font-medium">Email de Contact</label>
+              <label className="block text-slate-400 mb-1 font-medium">{t('Email de Contact')}</label>
               <input
                 type="email"
                 disabled={isAgent}
@@ -677,15 +682,15 @@ CREATE POLICY "clients_delete" ON public.clients FOR DELETE TO authenticated USI
                 <Sparkles className="w-5 h-5 text-amber-400" />
                 <div>
                   <h2 className="text-sm font-bold text-white uppercase tracking-wide">
-                    Nouveau Logo Officiel de Prestige
+                    {t('Nouveau Logo Officiel de Prestige')}
                   </h2>
                   <p className="text-[11px] text-amber-400/80">
-                    Blason Or & Noir • Sté MORVELLO CARS
+                    {t('Blason Or & Noir • Sté MORVELLO CARS')}
                   </p>
                 </div>
               </div>
               <span className="text-[10px] font-mono text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded-full font-semibold">
-                ✓ Entête Contrat & PDF
+                {t('✓ Entête Contrat & PDF')}
               </span>
             </div>
 
@@ -694,10 +699,10 @@ CREATE POLICY "clients_delete" ON public.clients FOR DELETE TO authenticated USI
               <div className="w-full flex flex-col items-center">
                 <div className="flex items-center gap-2 mb-1.5">
                   <span className="text-[10px] font-mono uppercase tracking-widest text-amber-400 font-bold">
-                    Partie Logo (Écusson / Blason) — Fond Transparent :
+                    {t('Partie Logo (Écusson / Blason) — Fond Transparent :')}
                   </span>
                   <span className="text-[9px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-1.5 py-0.2 rounded font-mono">
-                    100% Transparent
+                    {t('100% Transparent')}
                   </span>
                 </div>
                 <div className="p-3 bg-slate-900/60 rounded-lg border border-slate-800 flex items-center justify-center">
@@ -708,7 +713,7 @@ CREATE POLICY "clients_delete" ON public.clients FOR DELETE TO authenticated USI
               {/* Format Entête Rectangulaire Contractuelle Transparent */}
               <div className="w-full flex flex-col items-center border-t border-slate-800 pt-3">
                 <span className="text-[10px] font-mono uppercase tracking-widest text-slate-300 mb-1.5 font-bold">
-                  Format Rectangulaire Officiel (Contrats & A4) — Typographie 100% Lisible :
+                  {t('Format Rectangulaire Officiel (Contrats & A4) — Typographie 100% Lisible :')}
                 </span>
                 <div className="p-2.5 bg-white rounded-md flex items-center justify-center shadow-xs">
                   <CompanyLogo size="md" variant="rectangular" transparent theme="light" />
@@ -718,7 +723,7 @@ CREATE POLICY "clients_delete" ON public.clients FOR DELETE TO authenticated USI
               {/* Logo Complet */}
               <div className="w-full flex flex-col items-center border-t border-slate-800 pt-3">
                 <span className="text-[10px] font-mono uppercase tracking-widest text-amber-400 mb-1.5 font-bold">
-                  Logo Complet Transparent — Haute Définition :
+                  {t('Logo Complet Transparent — Haute Définition :')}
                 </span>
                 <div className="p-3 bg-white/95 rounded-lg border border-amber-500/30 flex items-center justify-center shadow-xs">
                   <CompanyLogo size="lg" variant="full" />
@@ -728,13 +733,13 @@ CREATE POLICY "clients_delete" ON public.clients FOR DELETE TO authenticated USI
 
             <div className="text-center font-mono text-[11px] text-amber-300/90 bg-amber-950/30 border border-amber-800/40 p-2.5 rounded-lg space-y-0.5">
               <div className="font-bold text-amber-300 text-xs tracking-wider uppercase font-serif">
-                Sté MORVELLO CARS
+                {t('Sté MORVELLO CARS')}
               </div>
               <div className="text-[10px] text-slate-300 tracking-widest uppercase">
-                Where luxury meets the road
+                {t('Where luxury meets the road')}
               </div>
               <div className="text-[10px] text-amber-500/80">
-                Écusson vintage de collection • Calandre or chromée
+                {t('Écusson vintage de collection • Calandre or chromée')}
               </div>
             </div>
           </div>
@@ -746,15 +751,15 @@ CREATE POLICY "clients_delete" ON public.clients FOR DELETE TO authenticated USI
                 <Stamp className="w-5 h-5 text-blue-400" />
                 <div>
                   <h2 className="text-sm font-bold text-white uppercase tracking-wide">
-                    Nouveau Cachet Officiel de l'Agence
+                    {t("Nouveau Cachet Officiel de l'Agence")}
                   </h2>
                   <p className="text-[11px] text-blue-400/80">
-                    Modèle Rectangulaire Agréé Sté MORVELLO CARS
+                    {t('Modèle Rectangulaire Agréé Sté MORVELLO CARS')}
                   </p>
                 </div>
               </div>
               <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-full font-semibold">
-                ✓ Cadre Signature (Contrat PDF)
+                {t('✓ Cadre Signature (Contrat PDF)')}
               </span>
             </div>
 
@@ -763,9 +768,9 @@ CREATE POLICY "clients_delete" ON public.clients FOR DELETE TO authenticated USI
             </div>
 
             <div className="text-center font-mono text-[11px] text-blue-300 bg-blue-950/40 border border-blue-800/50 p-2.5 rounded-lg space-y-0.5">
-              <div className="font-bold text-white text-xs tracking-wide">Sté MORVELLO CARS</div>
-              <div className="text-slate-300">IF : 66223306 • RC : 664751</div>
-              <div className="text-amber-400 font-semibold">ICE : 00366965500062</div>
+              <div className="font-bold text-white text-xs tracking-wide">{t('Sté MORVELLO CARS')}</div>
+              <div className="text-slate-300">{t('IF : 66223306 • RC : 664751')}</div>
+              <div className="text-amber-400 font-semibold">{t('ICE : 00366965500062')}</div>
             </div>
           </div>
         </div>
@@ -775,13 +780,13 @@ CREATE POLICY "clients_delete" ON public.clients FOR DELETE TO authenticated USI
           <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
             <FileSpreadsheet className="w-5 h-5 text-amber-400" />
             <h2 className="text-sm font-bold text-white uppercase tracking-wide">
-              Numérotation Automatique des Contrats
+              {t('Numérotation Automatique des Contrats')}
             </h2>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
             <div>
-              <label className="block text-slate-400 mb-1 font-medium">Préfixe de Contrat</label>
+              <label className="block text-slate-400 mb-1 font-medium">{t('Préfixe de Contrat')}</label>
               <input
                 type="text"
                 disabled={isAgent}
@@ -792,7 +797,7 @@ CREATE POLICY "clients_delete" ON public.clients FOR DELETE TO authenticated USI
             </div>
 
             <div>
-              <label className="block text-slate-400 mb-1 font-medium">Année de référence</label>
+              <label className="block text-slate-400 mb-1 font-medium">{t('Année de référence')}</label>
               <input
                 type="number"
                 disabled={isAgent}
@@ -803,7 +808,7 @@ CREATE POLICY "clients_delete" ON public.clients FOR DELETE TO authenticated USI
             </div>
 
             <div>
-              <label className="block text-slate-400 mb-1 font-medium">Compteur Prochain Numéro</label>
+              <label className="block text-slate-400 mb-1 font-medium">{t('Compteur Prochain Numéro')}</label>
               <input
                 type="number"
                 disabled={isAgent}
@@ -816,9 +821,9 @@ CREATE POLICY "clients_delete" ON public.clients FOR DELETE TO authenticated USI
 
           <div className="bg-slate-950/70 p-3.5 rounded-xl border border-slate-800 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <span className="text-slate-300 font-medium block">Prochain numéro garanti unique :</span>
+              <span className="text-slate-300 font-medium block">{t('Prochain numéro garanti unique :')}</span>
               <span className="text-[11px] text-slate-500">
-                L'algorithme vérifie tous les contrats existants pour interdire les doublons en cas de conflit.
+                {t("L'algorithme vérifie tous les contrats existants pour interdire les doublons en cas de conflit.")}
               </span>
             </div>
             <span className="font-mono font-bold text-amber-400 text-sm bg-slate-900 px-3 py-1 rounded border border-slate-700 shrink-0">
@@ -834,7 +839,7 @@ CREATE POLICY "clients_delete" ON public.clients FOR DELETE TO authenticated USI
               className="flex items-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold px-6 py-2.5 rounded-xl shadow-lg shadow-amber-500/25 transition-transform active:scale-95 text-xs sm:text-sm cursor-pointer"
             >
               <Save className="w-4 h-4" />
-              Enregistrer les Paramètres
+              {t('Enregistrer les Paramètres')}
             </button>
           </div>
         )}

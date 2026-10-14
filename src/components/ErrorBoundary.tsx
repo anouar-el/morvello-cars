@@ -1,6 +1,11 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RotateCcw, Copy, Check, ChevronDown, ChevronUp, ShieldAlert, Home } from 'lucide-react';
 import { isAbortException } from '../initErrorHandling';
+import { translate } from '../i18n/I18nContext';
+
+// Composant de classe : pas de hook ici, on lit la langue courante posée sur <html lang>.
+const tr = (text: string) =>
+  translate(typeof document !== 'undefined' && document.documentElement.lang === 'ar' ? 'ar' : 'fr', text);
 
 interface Props {
   children: ReactNode;
@@ -116,17 +121,17 @@ export class ErrorBoundary extends Component<Props, State> {
                   }`}
                 >
                   <AlertTriangle className="w-3 h-3" />
-                  {isDynamicImportError ? 'Mise à jour détectée' : 'Interruption inattendue'}
+                  {isDynamicImportError ? tr('Mise à jour détectée') : tr('Interruption inattendue')}
                 </div>
                 <h2 className="text-xl font-bold text-white tracking-tight">
                   {isDynamicImportError
-                    ? 'Nouvelle version de l’application disponible'
-                    : this.props.fallbackTitle || 'Une erreur est survenue dans l\'application'}
+                    ? tr('Nouvelle version de l’application disponible')
+                    : this.props.fallbackTitle || tr("Une erreur est survenue dans l'application")}
                 </h2>
                 <p className="text-sm text-slate-400 leading-relaxed">
                   {isDynamicImportError
-                    ? 'Une mise à jour récente a été déployée sur le serveur. Vos fichiers locaux en cache doivent être synchronisés pour charger ce module.'
-                    : 'L\'application Morvello Cars a rencontré un problème imprévu. Vos données locales et sauvegardes restent protégées.'}
+                    ? tr('Une mise à jour récente a été déployée sur le serveur. Vos fichiers locaux en cache doivent être synchronisés pour charger ce module.')
+                    : tr("L'application Morvello Cars a rencontré un problème imprévu. Vos données locales et sauvegardes restent protégées.")}
                 </p>
               </div>
             </div>
@@ -134,7 +139,7 @@ export class ErrorBoundary extends Component<Props, State> {
             {/* Error Message summary */}
             {this.state.error?.message && (
               <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-xs font-mono text-red-300 break-words">
-                <span className="text-slate-500 select-none">Détail : </span>
+                <span className="text-slate-500 select-none">{tr('Détail :')} </span>
                 {this.state.error.message}
               </div>
             )}
@@ -148,7 +153,7 @@ export class ErrorBoundary extends Component<Props, State> {
                 className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-sm transition-all shadow-lg shadow-amber-500/20 active:scale-95"
               >
                 <RotateCcw className="w-4 h-4" />
-                {isDynamicImportError ? 'Mettre à jour et recharger' : 'Rafraîchir la page'}
+                {isDynamicImportError ? tr('Mettre à jour et recharger') : tr('Rafraîchir la page')}
               </button>
 
               {!isDynamicImportError && (
@@ -159,7 +164,7 @@ export class ErrorBoundary extends Component<Props, State> {
                   className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium text-sm transition-colors active:scale-95 border border-slate-700"
                 >
                   <Home className="w-4 h-4" />
-                  Réessayer la vue
+                  {tr('Réessayer la vue')}
                 </button>
               )}
 
@@ -167,18 +172,18 @@ export class ErrorBoundary extends Component<Props, State> {
                 type="button"
                 id="error-boundary-copy-btn"
                 onClick={this.handleCopyError}
-                className="inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-slate-800/60 hover:bg-slate-800 text-slate-400 hover:text-slate-200 text-xs font-mono transition-colors border border-slate-700/60 ml-auto"
-                title="Copier le rapport technique d'erreur"
+                className="inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-slate-800/60 hover:bg-slate-800 text-slate-400 hover:text-slate-200 text-xs font-mono transition-colors border border-slate-700/60 ms-auto"
+                title={tr("Copier le rapport technique d'erreur")}
               >
                 {this.state.copied ? (
                   <>
                     <Check className="w-3.5 h-3.5 text-emerald-400" />
-                    <span className="text-emerald-400">Rapport copié</span>
+                    <span className="text-emerald-400">{tr('Rapport copié')}</span>
                   </>
                 ) : (
                   <>
                     <Copy className="w-3.5 h-3.5" />
-                    <span>Copier rapport</span>
+                    <span>{tr('Copier rapport')}</span>
                   </>
                 )}
               </button>
@@ -194,12 +199,12 @@ export class ErrorBoundary extends Component<Props, State> {
                 {this.state.showDetails ? (
                   <>
                     <ChevronUp className="w-3.5 h-3.5" />
-                    Masquer la trace technique
+                    {tr('Masquer la trace technique')}
                   </>
                 ) : (
                   <>
                     <ChevronDown className="w-3.5 h-3.5" />
-                    Afficher la trace technique (support)
+                    {tr('Afficher la trace technique (support)')}
                   </>
                 )}
               </button>
