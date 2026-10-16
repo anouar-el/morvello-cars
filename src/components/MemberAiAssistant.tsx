@@ -788,7 +788,7 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
       return (
         <div className="not-prose my-3 rounded-xl overflow-hidden border border-slate-800 bg-slate-950 shadow-xs">
           <div className="flex items-center justify-between px-3.5 py-1.5 bg-slate-900 border-b border-slate-800 text-[11px] font-mono text-slate-400">
-            <span className="text-[10px] font-semibold text-amber-400 uppercase tracking-wider">
+            <span className="text-[11px] font-semibold text-amber-400 uppercase tracking-wider">
               {langMatch[1]}
             </span>
             <button
@@ -824,7 +824,7 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
       className={`flex flex-col bg-slate-950 text-slate-100 overflow-hidden select-text relative ${
         isDrawer
           ? 'h-full w-full'
-          : 'h-[calc(100vh-8.5rem)] min-h-[620px] max-w-5xl mx-auto rounded-2xl border border-slate-800 shadow-2xl'
+          : 'h-[calc(100dvh-8.5rem)] min-h-[620px] max-w-5xl mx-auto rounded-2xl border border-slate-800 shadow-2xl'
       }`}
     >
       {/* 1. HEADER EXÉCUTIF COMPACT & PRESTIGE */}
@@ -1061,7 +1061,7 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
                               {card.title}
                             </span>
                           </div>
-                          <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">
+                          <span className="text-[11px] font-mono text-slate-400 uppercase tracking-wider">
                             {card.tag}
                           </span>
                         </div>
@@ -1114,7 +1114,7 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
                               {msg.content}
                             </p>
                           </div>
-                          <span className="text-[10px] text-slate-500 font-mono mt-1 me-1">
+                          <span className="text-[11px] text-slate-500 font-mono mt-1 me-1">
                             {msg.timestamp}
                           </span>
                         </div>
@@ -1128,7 +1128,7 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
                             <span className="text-xs font-semibold text-slate-300">
                               {isError ? t('Notification') : t('Morvello AI')}
                             </span>
-                            <span className="text-[10px] text-slate-500 font-mono">
+                            <span className="text-[11px] text-slate-500 font-mono">
                               {msg.timestamp}
                             </span>
                             {!isError && (
@@ -1323,7 +1323,7 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
               <IconComp className="w-3 h-3 text-amber-400 shrink-0" />
               <span>{chip.label}</span>
               {chip.count > 0 && (
-                <span className="ms-0.5 min-w-[18px] px-1 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-semibold text-center">
+                <span className="ms-0.5 min-w-[18px] px-1 rounded-full bg-amber-500/20 text-amber-300 text-[11px] font-semibold text-center">
                   {chip.count}
                 </span>
               )}
@@ -1367,7 +1367,7 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
                 ? t('{remaining} demande(s) restante(s) aujourd’hui', { remaining: quota.remaining ?? 0 })
                 : t('Entrée pour envoyer · Maj + Entrée pour nouvelle ligne')}
             </span>
-            <span className="sm:hidden text-[10px] text-slate-400 font-mono">
+            <span className="sm:hidden text-[11px] text-slate-400 font-mono">
               {quota && quota.limit > 0
                 ? t('{remaining} restante(s)', { remaining: quota.remaining ?? 0 })
                 : preferredLang === 'ar'
