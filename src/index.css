@@ -32,6 +32,16 @@
   }
 }
 
+/*
+ * Focus clavier visible partout. Hors @layer pour passer devant les utilitaires `focus:outline-none`
+ * (une centaine de champs et boutons les portent). `.no-focus-ring` : le conteneur dessine déjà l'anneau
+ * (ex. zone de saisie de l'assistant, via focus-within).
+ */
+:is(a, button, input, select, textarea, summary, [role="button"], [tabindex]:not([tabindex="-1"])):focus-visible:not(.no-focus-ring) {
+  outline: 2px solid var(--color-amber-400);
+  outline-offset: 2px;
+}
+
 /* ========================================================================= */
 /* MORVELLO CARS THEME ENGINE: DARK PRESTIGE & LIGHT CORPORATE PALETTES     */
 /* ========================================================================= */

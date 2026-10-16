@@ -1358,7 +1358,7 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
                 : t('Posez une question sur votre flotte, un contrat, un client ou demandez une rédaction…')
             }
             disabled={loading}
-            className="w-full bg-transparent border-0 text-xs sm:text-[13.5px] text-white placeholder-slate-500 resize-none outline-none leading-relaxed max-h-[140px] px-1.5 py-1 disabled:opacity-50"
+            className="w-full bg-transparent border-0 text-xs sm:text-[13.5px] text-white placeholder-slate-500 resize-none outline-none no-focus-ring leading-relaxed max-h-[140px] px-1.5 py-1 disabled:opacity-50"
           />
 
           <div className="flex items-center justify-between pt-1 border-t border-slate-800/60 mt-1">
