@@ -5,7 +5,6 @@ import { isAbortException } from '../initErrorHandling';
 import { getScopedDataForUser } from '../utils/managerScopeUtils';
 import { buildAssistantDigest } from '../lib/aiAssistantContext';
 import { requestEntityFocus } from '../lib/entityFocus';
-import { useSpeechDictation } from '../lib/useSpeechDictation';
 import { validateAction, PAYMENT_METHOD_LABELS, type AssistantAction } from '../lib/assistantActions';
 import { getActiveAuthToken, endTerminatedSession, SESSION_TERMINATED } from '../lib/authToken';
 import Markdown from 'react-markdown';
@@ -13,7 +12,6 @@ import remarkGfm from 'remark-gfm';
 import {
   Send,
   Square,
-  Mic,
   Copy,
   Check,
   X,
@@ -141,24 +139,6 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
 
   // Quota quotidien de l'assistant (renvoyé par le serveur) : affiché près du champ de saisie.
   const [quota, setQuota] = useState<{ used: number; limit: number; remaining: number | null } | null>(null);
-
-  // Dictée vocale : le texte reconnu s'ajoute à ce qui était déjà saisi.
-  const dictationBaseRef = useRef('');
-  const dictation = useSpeechDictation({
-    lang: preferredLang === 'ar' ? 'ar-MA' : 'fr-FR',
-    onTranscript: (text) => {
-      const base = dictationBaseRef.current;
-      setInput(base ? `${base} ${text}` : text);
-    },
-  });
-  const toggleDictation = () => {
-    if (dictation.listening) {
-      dictation.stop();
-      return;
-    }
-    dictationBaseRef.current = input.trim();
-    dictation.start();
-  };
 
   useEffect(() => {
     let cancelled = false;
@@ -366,7 +346,6 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
 
   const sendMessage = async (userPrompt: string) => {
     if (!userPrompt.trim() || loading) return;
-    dictation.stop();
 
     let finalPrompt = userPrompt.trim();
     if (preferredLang === 'ar' && !finalPrompt.toLowerCase().includes('arabe') && !finalPrompt.includes('العربية')) {
@@ -1384,16 +1363,12 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
 
           <div className="flex items-center justify-between pt-1 border-t border-slate-800/60 mt-1">
             <span className="hidden sm:inline text-[10.5px] text-slate-400 font-mono">
-              {dictation.error
-                ? dictation.error
-                : quota && quota.limit > 0
+              {quota && quota.limit > 0
                 ? t('{remaining} demande(s) restante(s) aujourd’hui', { remaining: quota.remaining ?? 0 })
                 : t('Entrée pour envoyer · Maj + Entrée pour nouvelle ligne')}
             </span>
             <span className="sm:hidden text-[10px] text-slate-400 font-mono">
-              {dictation.error
-                ? dictation.error
-                : quota && quota.limit > 0
+              {quota && quota.limit > 0
                 ? t('{remaining} restante(s)', { remaining: quota.remaining ?? 0 })
                 : preferredLang === 'ar'
                 ? t('العربية')
@@ -1401,22 +1376,6 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
             </span>
 
             <div className="flex items-center gap-2 ms-auto">
-              {dictation.supported && !loading && (
-                <button
-                  type="button"
-                  onClick={toggleDictation}
-                  aria-pressed={dictation.listening}
-                  title={dictation.listening ? t('Arrêter la dictée') : t('Dicter la question à la voix')}
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-semibold transition-colors cursor-pointer ${
-                    dictation.listening
-                      ? 'bg-rose-500/20 border-rose-500/50 text-rose-300 animate-pulse'
-                      : 'bg-slate-900 border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800'
-                  }`}
-                >
-                  <Mic className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">{dictation.listening ? t('Écoute…') : t('Dicter')}</span>
-                </button>
-              )}
               {loading ? (
                 <button
                   type="button"
