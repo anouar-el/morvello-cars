@@ -496,4 +496,9 @@ export const AR_LOT4: Record<string, string> = {
   "Date d'effet": 'تاريخ السريان',
   "Modifier l'Article {number}": 'تعديل البند {number}',
   "Supprimer l'Article {number} ?": 'حذف البند {number}؟',
+  'Photo du véhicule': 'صورة السيارة',
+  'Ajouter une photo': 'إضافة صورة',
+  'Traitement…': 'جارٍ المعالجة…',
+  'Retirer': 'إزالة',
+  'Image illisible. Choisissez une photo JPG ou PNG.': 'تعذّرت قراءة الصورة. اختر صورة بصيغة JPG أو PNG.',
 };

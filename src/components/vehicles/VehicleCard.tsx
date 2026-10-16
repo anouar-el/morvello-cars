@@ -70,8 +70,14 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
     <div className="glass rounded-3xl p-5 hover:border-amber-500/30 transition-all flex flex-col justify-between group overflow-hidden">
       <div>
         {/* EN-TÊTE PREMIUM : monogramme, marque, statut, plaque */}
-        <div className="relative -mx-5 -mt-5 mb-4 px-5 pt-5 pb-4 bg-gradient-to-br from-amber-500/15 via-slate-900/10 to-transparent border-b border-white/5">
-          <div className="flex items-start justify-between gap-3">
+        <div className="relative -mx-5 -mt-5 mb-4 px-5 pt-5 pb-4 bg-gradient-to-br from-amber-500/15 via-slate-900/10 to-transparent border-b border-white/5 overflow-hidden">
+          {vehicle.photoUrl && (
+            <>
+              <img src={vehicle.photoUrl} alt="" loading="lazy" className="absolute inset-0 w-full h-full object-cover" />
+              <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-950/55 to-slate-950/20" />
+            </>
+          )}
+          <div className={`relative flex items-start justify-between gap-3 ${vehicle.photoUrl ? 'pt-14' : ''}`}>
             <div className="flex items-center gap-3 min-w-0">
               <div
                 aria-hidden="true"
@@ -105,7 +111,7 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
             </button>
           </div>
 
-          <div className="mt-3 inline-block bg-slate-950/70 border border-amber-500/40 px-3 py-1 rounded-lg text-amber-400 font-mono font-bold text-sm tracking-wider shadow-inner">
+          <div className="relative mt-3 inline-block bg-slate-950/70 border border-amber-500/40 px-3 py-1 rounded-lg text-amber-400 font-mono font-bold text-sm tracking-wider shadow-inner">
             {vehicle.plate}
           </div>
         </div>
