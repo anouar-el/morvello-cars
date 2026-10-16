@@ -233,7 +233,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                         </span>
                       )}
                     </div>
-                    <div className="text-[10px] text-slate-400">{t('Empreintes CB, chèques & restitutions')}</div>
+                    <div className="text-[11px] text-slate-400">{t('Empreintes CB, chèques & restitutions')}</div>
                   </div>
                 </div>
               </button>
@@ -254,7 +254,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                   </div>
                   <div className="text-start">
                     <div className="font-semibold text-white">{t('Clients & Conducteurs')}</div>
-                    <div className="text-[10px] text-slate-400">{t('Répertoire, permis & CIN numérisés')}</div>
+                    <div className="text-[11px] text-slate-400">{t('Répertoire, permis & CIN numérisés')}</div>
                   </div>
                 </div>
               </button>
@@ -278,7 +278,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                       <span>{t('Assistant IA Morvello')}</span>
                       <Sparkles className="w-3 h-3 text-amber-400" />
                     </div>
-                    <div className="text-[10px] text-slate-400">{t('Analyses, dispatch & requêtes intelligentes')}</div>
+                    <div className="text-[11px] text-slate-400">{t('Analyses, dispatch & requêtes intelligentes')}</div>
                   </div>
                 </div>
               </button>
@@ -306,7 +306,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                       </div>
                       <div className="text-start">
                         <div className="font-semibold text-white">{t('Modèles de Contrats A4')}</div>
-                        <div className="text-[10px] text-slate-400">{t('Standard, VIP Prestige, B2B Corporate')}</div>
+                        <div className="text-[11px] text-slate-400">{t('Standard, VIP Prestige, B2B Corporate')}</div>
                       </div>
                     </div>
                   </button>
@@ -327,7 +327,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                       </div>
                       <div className="text-start">
                         <div className="font-semibold text-white">{t('Équipe & Rôles')}</div>
-                        <div className="text-[10px] text-slate-400">{t('Managers, agents & permissions granulaires')}</div>
+                        <div className="text-[11px] text-slate-400">{t('Managers, agents & permissions granulaires')}</div>
                       </div>
                     </div>
                   </button>
@@ -348,7 +348,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                       </div>
                       <div className="text-start">
                         <div className="font-semibold text-white">{t("Journal d'Audit")}</div>
-                        <div className="text-[10px] text-slate-400">{t('Traçabilité complète des opérations')}</div>
+                        <div className="text-[11px] text-slate-400">{t('Traçabilité complète des opérations')}</div>
                       </div>
                     </div>
                   </button>
@@ -375,7 +375,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                   </div>
                   <div className="text-start">
                     <div className="font-semibold text-white">{t('Conditions Générales (Verso A4)')}</div>
-                    <div className="text-[10px] text-slate-400">{t('Version légale et clauses contractuelles')}</div>
+                    <div className="text-[11px] text-slate-400">{t('Version légale et clauses contractuelles')}</div>
                   </div>
                 </div>
               </button>
@@ -396,7 +396,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                   </div>
                   <div className="text-start">
                     <div className="font-semibold text-white">{t("Paramètres de l'Agence")}</div>
-                    <div className="text-[10px] text-slate-400">{t('Coordonnées, cachet, logo & tarifs')}</div>
+                    <div className="text-[11px] text-slate-400">{t('Coordonnées, cachet, logo & tarifs')}</div>
                   </div>
                 </div>
               </button>
@@ -441,7 +441,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
             <div className="relative">
               <LayoutDashboard className="w-5 h-5" />
             </div>
-            <span className="text-[10px] mt-1 tracking-tight">{t('Accueil')}</span>
+            <span className="text-[11px] mt-1 tracking-tight">{t('Accueil')}</span>
           </button>
 
           {/* TAB 2: CONTRATS */}
@@ -462,7 +462,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                 </span>
               )}
             </div>
-            <span className="text-[10px] mt-1 tracking-tight">{t('Contrats')}</span>
+            <span className="text-[11px] mt-1 tracking-tight">{t('Contrats')}</span>
           </button>
 
           {/* TAB 3: PROMINENT CENTRAL FAB (NOUVEAU CONTRAT) */}
@@ -479,7 +479,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
             >
               <Plus className="w-6 h-6 stroke-[3]" />
             </button>
-            <span className="text-[9.5px] font-bold text-amber-400 mt-1 tracking-tight">
+            <span className="text-[11px] font-bold text-amber-400 mt-1 tracking-tight">
               + {t('Contrat')}
             </span>
           </div>
@@ -502,7 +502,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                 </span>
               )}
             </div>
-            <span className="text-[10px] mt-1 tracking-tight">{t('Flotte')}</span>
+            <span className="text-[11px] mt-1 tracking-tight">{t('Flotte')}</span>
           </button>
 
           {/* TAB 5: PLUS (DRAWER MENU) */}
@@ -523,7 +523,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                 </span>
               )}
             </div>
-            <span className="text-[10px] mt-1 tracking-tight">{t('Plus...')}</span>
+            <span className="text-[11px] mt-1 tracking-tight">{t('Plus...')}</span>
           </button>
         </div>
       </nav>

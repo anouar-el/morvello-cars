@@ -118,11 +118,11 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
 
         {/* RESPONSABLE ATTITRÉ ROW */}
         <div className="mb-2.5 flex items-center justify-between text-xs bg-white/5 px-3 py-2 rounded-xl border border-white/10">
-          <div className="flex items-center gap-1.5 text-slate-400 text-[11px]">
+          <div className="flex items-center gap-1.5 text-slate-400 text-xs">
             <UserCheck className="w-3.5 h-3.5 text-amber-400" />
             <span>{t('Responsable attitré :')}</span>
           </div>
-          <span className="font-semibold text-slate-200 text-[11px] truncate max-w-[150px]">
+          <span className="font-semibold text-slate-200 text-xs truncate max-w-[150px]">
             {vehicle.assignedManagerName || (vehicle.assignedManagerId ? t('Responsable') : t('Flotte centrale (Non affecté)'))}
           </span>
         </div>
@@ -130,11 +130,11 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
         {/* SPECS */}
         <div className="grid grid-cols-2 gap-3 text-xs text-slate-400 mt-2 bg-white/5 p-3 rounded-2xl border border-white/10">
           <div>
-            <span className="text-[10px] text-slate-500 block">{t('Compteur actuel :')}</span>
+            <span className="text-[11px] text-slate-400 block">{t('Compteur actuel :')}</span>
             <strong className="text-white font-mono">{t('{currentKm} KM', { currentKm: vehicle.currentKm.toLocaleString() })}</strong>
           </div>
           <div>
-            <span className="text-[10px] text-slate-500 block">{t('Tarif journalier :')}</span>
+            <span className="text-[11px] text-slate-400 block">{t('Tarif journalier :')}</span>
             {vehicle.dailyRate ? (
               <strong className="text-amber-400 font-mono">{t('{dailyRate} MAD / j', { dailyRate: vehicle.dailyRate })}</strong>
             ) : (
@@ -144,17 +144,17 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
             )}
           </div>
           <div>
-            <span className="text-[10px] text-slate-500 block">{t('Année & Couleur :')}</span>
+            <span className="text-[11px] text-slate-400 block">{t('Année & Couleur :')}</span>
             <span className="text-slate-300">{vehicle.year || 2024} • {vehicle.color || t('Gris')}</span>
           </div>
           <div>
-            <span className="text-[10px] text-slate-500 block">{t('Dernière Révision :')}</span>
+            <span className="text-[11px] text-slate-400 block">{t('Dernière Révision :')}</span>
             <span className="text-slate-300 font-mono">{vehicle.lastInspectionDate || t('À jour')}</span>
           </div>
         </div>
 
         {vehicle.notes && (
-          <div className="mt-2 text-[11px] text-slate-400 italic bg-slate-950/40 px-2.5 py-1.5 rounded-lg border border-slate-800/60">
+          <div className="mt-2 text-xs text-slate-400 italic bg-slate-950/40 px-2.5 py-1.5 rounded-lg border border-slate-800/60">
             « {vehicle.notes} »
           </div>
         )}
@@ -173,7 +173,7 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
             <span className="font-semibold block">
               {t('Loué à : {lastName} {firstName}', { lastName: activeContract.clientSnapshot.lastName, firstName: activeContract.clientSnapshot.firstName })}
             </span>
-            <span className="text-[10px] text-blue-400">
+            <span className="text-[11px] text-blue-400">
               {t('Contrat N° {contractNumber} (Retour le {endDate})', { contractNumber: activeContract.contractNumber, endDate: activeContract.endDate })}
             </span>
           </div>
@@ -186,7 +186,7 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
           <button
             onClick={() => onStatusToggle(vehicle)}
             disabled={effectiveStatus === 'rented'}
-            className={`text-[11px] px-2.5 py-1 rounded-lg font-semibold transition-colors cursor-pointer ${
+            className={`text-xs px-3 min-h-11 rounded-lg font-semibold transition-colors cursor-pointer ${
               effectiveStatus === 'rented'
                 ? 'opacity-40 cursor-not-allowed text-slate-500 bg-slate-800'
                 : vehicle.status === 'maintenance'
@@ -203,7 +203,7 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
             <button
               onClick={() => onDeleteRequest(vehicle)}
               title={t('Supprimer ce véhicule du parc')}
-              className="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
+              className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>
@@ -212,14 +212,14 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
           {activeContract ? (
             <button
               onClick={() => onOpenPdfModal(activeContract)}
-              className="text-xs text-amber-400 hover:text-amber-300 font-semibold flex items-center gap-1 cursor-pointer"
+              className="text-xs text-amber-400 hover:text-amber-300 font-semibold flex items-center gap-1 cursor-pointer min-h-11 px-1"
             >
               {t('Voir contrat')} <FileText className="w-3.5 h-3.5" />
             </button>
           ) : (
             <button
               onClick={() => onEdit(vehicle)}
-              className="text-xs text-slate-400 hover:text-white font-medium flex items-center gap-1 cursor-pointer"
+              className="text-xs text-slate-400 hover:text-white font-medium flex items-center gap-1 cursor-pointer min-h-11 px-1"
             >
               <Pencil className="w-3 h-3" /> {t('Fiche détaillée')}
             </button>
