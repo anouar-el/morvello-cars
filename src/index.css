@@ -1026,3 +1026,29 @@ html.light .premium-backdrop {
     radial-gradient(900px 500px at 50% -10%, rgb(245 158 11 / 0.14), transparent 60%),
     #f8fafc;
 }
+
+/* Mode clair : le dégradé or pâle disparaît sur fond blanc, on le fonce ; les panneaux intérieurs
+   « blanc translucide » deviennent des voiles sombres légers pour rester visibles. */
+html.light .gold-text {
+  background: linear-gradient(180deg, #b45309 0%, #92400e 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+html.light .glass-gold {
+  border-color: rgb(217 119 6 / 0.45);
+  box-shadow: 0 8px 24px rgb(217 119 6 / 0.14), inset 0 1px 0 rgb(255 255 255 / 0.9);
+}
+html.light .bg-white\/5 {
+  background-color: rgb(15 23 42 / 0.04);
+}
+html.light .bg-white\/10,
+html.light .hover\:bg-white\/10:hover {
+  background-color: rgb(15 23 42 / 0.08);
+}
+html.light .border-white\/5 {
+  border-color: rgb(15 23 42 / 0.07);
+}
+html.light .border-white\/10 {
+  border-color: rgb(15 23 42 / 0.12);
+}
