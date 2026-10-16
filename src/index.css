@@ -1,5 +1,15 @@
 @import "tailwindcss";
 
+/*
+ * Nuances intermédiaires utilisées dans les composants (border/bg-slate-750, -850) : absentes de la palette
+ * Tailwind, elles ne produisaient aucune classe et les bordures retombaient sur currentColor (blanc).
+ * Valeurs sombres ici ; html.light les redéfinit plus bas.
+ */
+@theme {
+  --color-slate-750: oklch(32.5% 0.043 258.5);
+  --color-slate-850: oklch(24% 0.042 263);
+}
+
 @layer base {
   * {
     box-sizing: border-box;
@@ -56,6 +66,8 @@ html.light {
   --color-slate-200: oklch(18% 0.04 265);         /* #0f172a texte primaire */
   --color-slate-100: oklch(12% 0.04 265);         /* #020617 titres et emphase */
   --color-slate-50: oklch(5% 0.02 265);           /* #000000 */
+  --color-slate-750: oklch(91% 0.012 250);
+  --color-slate-850: oklch(96% 0.008 250);
 
   /* Variables d'accent rehaussées en mode clair : Teintes 800 profondes & contrastées (WCAG AAA > 7:1) */
   --color-amber-200: oklch(48% 0.14 55);   /* #92400e / ambre-800 */
