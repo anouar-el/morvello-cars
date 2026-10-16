@@ -54,7 +54,8 @@ html.dark {
   --color-slate-800: oklch(27.9% 0.041 260.031);
   --color-slate-700: oklch(37.2% 0.044 257.287);
   --color-slate-600: oklch(44.6% 0.043 257.281);
-  --color-slate-500: oklch(55.4% 0.046 257.417);
+  /* Relevé de 55,4 % à 64 % : texte secondaire à ~5:1 sur fond sombre (4,2:1 avant, sous le seuil AA). */
+  --color-slate-500: oklch(64% 0.045 257.417);
   --color-slate-400: oklch(70.4% 0.04 256.788);
   --color-slate-300: oklch(86.9% 0.022 252.894);
   --color-slate-200: oklch(92.9% 0.013 255.508);
@@ -693,6 +694,8 @@ html.light #caution-receipt-print {
   --color-slate-200: oklch(92.9% 0.013 255.508);
   --color-slate-100: oklch(96.8% 0.007 247.896);
   --color-slate-50: oklch(98.4% 0.003 247.858);
+  --color-slate-750: oklch(32.5% 0.043 258.5);
+  --color-slate-850: oklch(24% 0.042 263);
   --color-amber-200: oklch(92.4% 0.12 95.746);
   --color-amber-300: oklch(87.9% 0.169 91.605);
   --color-amber-400: oklch(82.8% 0.189 84.429);
