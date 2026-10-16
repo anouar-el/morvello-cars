@@ -67,46 +67,51 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
   };
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-md hover:border-slate-700 transition-all flex flex-col justify-between group">
+    <div className="glass rounded-3xl p-5 hover:border-amber-500/30 transition-all flex flex-col justify-between group overflow-hidden">
       <div>
-        {/* TOP STATUS & EDIT BUTTON */}
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            {getStatusBadge(effectiveStatus)}
-            <span className="text-xs font-mono text-slate-400 font-semibold">
-              {vehicle.fuelType}
-            </span>
+        {/* EN-TÊTE PREMIUM : monogramme, marque, statut, plaque */}
+        <div className="relative -mx-5 -mt-5 mb-4 px-5 pt-5 pb-4 bg-gradient-to-br from-amber-500/15 via-slate-900/10 to-transparent border-b border-white/5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div
+                aria-hidden="true"
+                className="w-12 h-12 shrink-0 rounded-2xl glass glass-gold flex items-center justify-center gold-text font-black text-lg tracking-wider"
+              >
+                {(vehicle.brand || '?').slice(0, 2).toUpperCase()}
+              </div>
+              <div className="min-w-0">
+                <h3 className="text-base font-extrabold text-white uppercase leading-tight truncate">
+                  {vehicle.brand} <span className="text-slate-300 font-medium">{vehicle.model}</span>
+                </h3>
+                <div className="mt-1.5 flex items-center gap-2 flex-wrap">
+                  {getStatusBadge(effectiveStatus)}
+                  <span className="text-[11px] font-mono text-slate-400 font-semibold">{vehicle.fuelType}</span>
+                  {vehicle.approvalStatus === 'pending_approval' && (
+                    <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-full font-mono font-semibold">
+                      {t('⏳ En validation')}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => onEdit(vehicle)}
+              className="shrink-0 flex items-center gap-1.5 bg-white/5 hover:bg-amber-500 hover:text-slate-950 text-slate-200 text-xs px-3 py-2 rounded-xl border border-white/10 hover:border-amber-400 transition-all cursor-pointer font-semibold"
+              title={t('Modifier ce véhicule')}
+            >
+              <Pencil className="w-3.5 h-3.5" />
+              <span className="hidden min-[380px]:inline">{t('Modifier')}</span>
+            </button>
           </div>
 
-          <button
-            onClick={() => onEdit(vehicle)}
-            className="flex items-center gap-1.5 bg-slate-800/80 hover:bg-amber-500 hover:text-slate-950 text-slate-300 text-xs px-2.5 py-1 rounded-lg border border-slate-700 hover:border-amber-400 transition-all cursor-pointer font-semibold shadow-xs"
-            title={t('Modifier ce véhicule')}
-          >
-            <Pencil className="w-3.5 h-3.5" />
-            {t('Modifier')}
-          </button>
-        </div>
-
-        {/* BRAND & MODEL */}
-        <h3 className="text-base font-bold text-white uppercase flex items-center justify-between">
-          <span>
-            {vehicle.brand} <span className="text-slate-300 font-normal">{vehicle.model}</span>
-          </span>
-          {vehicle.approvalStatus === 'pending_approval' && (
-            <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-full font-mono font-semibold">
-              {t('⏳ En validation')}
-            </span>
-          )}
-        </h3>
-
-        {/* PLATE BADGE (Moroccan plate design) */}
-        <div className="my-2 inline-block bg-slate-950 border border-amber-500/40 px-3 py-1 rounded-lg text-amber-400 font-mono font-bold text-sm tracking-wider shadow-inner">
-          {vehicle.plate}
+          <div className="mt-3 inline-block bg-slate-950/70 border border-amber-500/40 px-3 py-1 rounded-lg text-amber-400 font-mono font-bold text-sm tracking-wider shadow-inner">
+            {vehicle.plate}
+          </div>
         </div>
 
         {/* RESPONSABLE ATTITRÉ ROW */}
-        <div className="mb-2.5 flex items-center justify-between text-xs bg-slate-950/80 px-3 py-1.5 rounded-lg border border-slate-800">
+        <div className="mb-2.5 flex items-center justify-between text-xs bg-white/5 px-3 py-2 rounded-xl border border-white/10">
           <div className="flex items-center gap-1.5 text-slate-400 text-[11px]">
             <UserCheck className="w-3.5 h-3.5 text-amber-400" />
             <span>{t('Responsable attitré :')}</span>
@@ -117,7 +122,7 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
         </div>
 
         {/* SPECS */}
-        <div className="grid grid-cols-2 gap-2 text-xs text-slate-400 mt-2 bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/80">
+        <div className="grid grid-cols-2 gap-3 text-xs text-slate-400 mt-2 bg-white/5 p-3 rounded-2xl border border-white/10">
           <div>
             <span className="text-[10px] text-slate-500 block">{t('Compteur actuel :')}</span>
             <strong className="text-white font-mono">{t('{currentKm} KM', { currentKm: vehicle.currentKm.toLocaleString() })}</strong>
@@ -170,7 +175,7 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
       </div>
 
       {/* ACTIONS ROW */}
-      <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between">
+      <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           <button
             onClick={() => onStatusToggle(vehicle)}

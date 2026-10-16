@@ -95,15 +95,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCheckInModal, onOpen
   return (
     <div className="max-w-5xl mx-auto space-y-6 pb-8">
       {/* 1. EN-TÊTE AVEC AGENCE DYNAMIQUE */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2">
-        <div>
+      <div className="relative overflow-hidden glass glass-gold rounded-3xl p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -top-24 -end-16 w-72 h-72 rounded-full bg-amber-500/15 blur-3xl"
+        />
+        <div className="relative">
           <div className="flex items-center gap-2 mb-1">
             <span className="w-2 h-2 rounded-full bg-amber-400"></span>
             <span className="text-xs uppercase tracking-wider text-amber-400 font-bold">
               {t('Morvello Cars • {agencyDisplayName}', { agencyDisplayName })}
             </span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tight gold-text">
             {t('Bonjour, {name}', { name: currentUser?.name ?? '' })}
           </h1>
           <p className="text-xs text-slate-400 mt-0.5">
@@ -115,17 +119,37 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCheckInModal, onOpen
 
         <button
           onClick={() => setActiveTab('new_contract')}
-          className="flex items-center gap-2 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-bold px-4 py-2.5 rounded-xl shadow-md transition-all active:scale-95 text-xs cursor-pointer self-start sm:self-center"
+          className="relative flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-bold px-5 py-3 rounded-2xl shadow-lg shadow-amber-500/25 transition-all active:scale-95 text-sm cursor-pointer w-full sm:w-auto"
         >
           <FilePlus className="w-4 h-4" />
           <span>+ {t('Nouveau Contrat')}</span>
         </button>
       </div>
 
+      {/* ACCÈS RAPIDES (pouce) : mobile uniquement */}
+      <div className="grid grid-cols-4 gap-2 sm:hidden">
+        {[
+          { tab: 'contracts' as const, label: t('Contrats'), icon: <Clock className="w-5 h-5" /> },
+          { tab: 'vehicles' as const, label: t('Véhicules'), icon: <Car className="w-5 h-5" /> },
+          { tab: 'clients' as const, label: t('Clients'), icon: <Users className="w-5 h-5" /> },
+          { tab: 'deposits' as const, label: t('Cautions'), icon: <CheckCircle2 className="w-5 h-5" /> },
+        ].map((item) => (
+          <button
+            key={item.tab}
+            type="button"
+            onClick={() => setActiveTab(item.tab)}
+            className="glass rounded-2xl py-3 flex flex-col items-center gap-1.5 text-amber-300 active:scale-95 transition-transform cursor-pointer"
+          >
+            {item.icon}
+            <span className="text-[11px] font-semibold text-slate-200">{item.label}</span>
+          </button>
+        ))}
+      </div>
+
       {/* 2. LES CHIFFRES CLÉS ESSENTIELS */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {/* Flotte */}
-        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4.5 flex items-center justify-between">
+        <div className="glass rounded-2xl p-4 flex items-center justify-between gap-2">
           <div>
             <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
               {isManager ? t('Ma Flotte en Location') : t('Véhicules en Location')}
@@ -142,13 +166,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCheckInModal, onOpen
                 : t('{n} disponible au parc', { n: availableVehiclesCount })}
             </p>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+          <div className="hidden min-[420px]:flex w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 items-center justify-center text-blue-400">
             <Car className="w-5 h-5" />
           </div>
         </div>
 
         {/* Contrats en cours */}
-        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4.5 flex items-center justify-between">
+        <div className="glass rounded-2xl p-4 flex items-center justify-between gap-2">
           <div>
             <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
               {isManager ? t('Mes Contrats Actifs') : t('Contrats Actifs')}
@@ -162,13 +186,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCheckInModal, onOpen
                 : t('Sur {n} contrat au total', { n: scopedContracts.length })}
             </p>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+          <div className="hidden min-[420px]:flex w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 items-center justify-center text-amber-400">
             <Clock className="w-5 h-5" />
           </div>
         </div>
 
         {/* Retours prévus */}
-        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4.5 flex items-center justify-between">
+        <div className="glass rounded-2xl p-4 flex items-center justify-between gap-2">
           <div>
             <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
               {t('Retours du Jour')}
@@ -184,7 +208,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCheckInModal, onOpen
               )}
             </p>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
+          <div className="hidden min-[420px]:flex w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 items-center justify-center text-purple-400">
             <CheckCircle2 className="w-5 h-5" />
           </div>
         </div>
@@ -192,7 +216,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCheckInModal, onOpen
         {/* Répertoire Clients */}
         <button
           onClick={() => setActiveTab('clients')}
-          className="bg-slate-900/80 hover:bg-slate-850 border border-slate-800 hover:border-slate-700 rounded-2xl p-4.5 flex items-center justify-between text-start transition-all cursor-pointer group"
+          className="glass hover:border-cyan-500/40 rounded-2xl p-4 flex items-center justify-between gap-2 text-start transition-all cursor-pointer group"
         >
           <div>
             <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
@@ -205,7 +229,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCheckInModal, onOpen
               {isManager ? t('Clients autorisés') : t('Clients enregistrés')} →
             </p>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 group-hover:scale-105 transition-transform">
+          <div className="hidden min-[420px]:flex w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 items-center justify-center text-cyan-400 group-hover:scale-105 transition-transform">
             <Users className="w-5 h-5" />
           </div>
         </button>
