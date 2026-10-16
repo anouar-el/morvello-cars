@@ -949,3 +949,55 @@ html[dir="rtl"] input[type="url"] {
 html[dir="rtl"] .no-scrollbar {
   scroll-padding-inline-start: 0;
 }
+/* ===== Style premium « verre » (glassmorphism) =====
+   Panneaux translucides à utiliser avec parcimonie (quelques-uns par écran) : le flou coûte cher sur
+   les téléphones modestes. Sans prise en charge du flou, ou si l'utilisateur réduit la transparence,
+   le panneau retombe sur un fond quasi opaque, toujours lisible. */
+.glass {
+  background: linear-gradient(135deg, rgb(15 23 42 / 0.72), rgb(2 6 23 / 0.6));
+  border: 1px solid rgb(255 255 255 / 0.09);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.35), inset 0 1px 0 rgb(255 255 255 / 0.07);
+}
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass {
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+    backdrop-filter: blur(14px) saturate(140%);
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .glass {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: rgb(15 23 42 / 0.96);
+  }
+}
+.glass-gold {
+  border-color: rgb(245 158 11 / 0.4);
+  box-shadow: 0 8px 24px rgb(245 158 11 / 0.12), inset 0 1px 0 rgb(255 255 255 / 0.1);
+}
+html.light .glass {
+  background: linear-gradient(135deg, rgb(255 255 255 / 0.9), rgb(248 250 252 / 0.8));
+  border-color: rgb(15 23 42 / 0.1);
+  box-shadow: 0 8px 24px rgb(15 23 42 / 0.1), inset 0 1px 0 rgb(255 255 255 / 0.9);
+}
+
+/* Texte à dégradé or (titres et monogrammes). */
+.gold-text {
+  background: linear-gradient(180deg, #fde68a 0%, #f59e0b 60%, #b45309 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Fond d'ambiance sombre : halo or en haut, halo bleu discret en bas. */
+.premium-backdrop {
+  background:
+    radial-gradient(900px 500px at 50% -10%, rgb(245 158 11 / 0.16), transparent 60%),
+    radial-gradient(700px 420px at 90% 110%, rgb(37 99 235 / 0.12), transparent 60%),
+    #020617;
+}
+html.light .premium-backdrop {
+  background:
+    radial-gradient(900px 500px at 50% -10%, rgb(245 158 11 / 0.14), transparent 60%),
+    #f8fafc;
+}

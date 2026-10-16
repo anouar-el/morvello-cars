@@ -425,7 +425,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
       {/* ========================================================================= */}
       <nav
         aria-label={t('Navigation mobile principale')}
-        className="md:hidden fixed bottom-0 start-0 end-0 z-40 bg-slate-950/95 backdrop-blur-md border-t border-slate-800 shadow-[0_-8px_24px_rgba(0,0,0,0.5)] px-2 pt-1 pb-safe no-print"
+        className="md:hidden fixed bottom-0 start-0 end-0 z-40 glass rounded-t-3xl border-b-0 shadow-[0_-8px_24px_rgba(0,0,0,0.5)] px-2 pt-1 pb-safe no-print"
       >
         <div className="max-w-md mx-auto grid grid-cols-5 items-center justify-items-center relative">
           {/* TAB 1: DASHBOARD */}

@@ -88,7 +88,7 @@ export const LoginView: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4 relative overflow-hidden selection:bg-amber-500 selection:text-slate-950">
+    <div className="min-h-screen premium-backdrop text-slate-100 flex items-center justify-center p-4 relative overflow-hidden selection:bg-amber-500 selection:text-slate-950">
       {/* Ambient luxury lighting */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[650px] h-[650px] bg-amber-500/10 blur-[160px] rounded-full pointer-events-none" />
       <div className="absolute bottom-10 end-10 w-[450px] h-[450px] bg-blue-600/10 blur-[130px] rounded-full pointer-events-none" />
@@ -103,7 +103,7 @@ export const LoginView: React.FC = () => {
           <div className="w-16 h-16 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto shadow-2xl shadow-amber-500/15">
             <Car className="w-8 h-8" />
           </div>
-          <h1 className="text-2xl font-black tracking-tight text-white uppercase font-mono">
+          <h1 className="text-2xl font-black tracking-tight gold-text uppercase font-mono">
             {companySettings.name}
           </h1>
           <p className="text-xs text-slate-400">
@@ -112,7 +112,7 @@ export const LoginView: React.FC = () => {
         </div>
 
         {/* Login Card */}
-        <div className="bg-slate-900/90 border border-slate-800/90 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-md space-y-5">
+        <div className="glass glass-gold rounded-3xl p-6 sm:p-8 space-y-5">
           <div className="space-y-1 border-b border-slate-800 pb-4">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-bold text-white flex items-center gap-2">
