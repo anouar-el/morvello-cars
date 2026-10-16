@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 
 import { useI18n } from '../../i18n/I18nContext';
+import { VehiclePhotoField } from './VehiclePhotoField';
 interface VehicleAddModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -53,6 +54,7 @@ export const VehicleAddModal: React.FC<VehicleAddModalProps> = ({
     nextOilChangeKm: 40000,
     assignedManagerId: isManager ? currentUser.id : '',
     insuranceCategory: '' as VehicleCategory | '',
+    photoUrl: null as string | null,
   });
 
   if (!isOpen) return null;
@@ -135,6 +137,7 @@ export const VehicleAddModal: React.FC<VehicleAddModalProps> = ({
         )}
 
         <form onSubmit={handleSubmit} className="space-y-3 text-xs">
+          <VehiclePhotoField value={form.photoUrl} onChange={(photoUrl) => setForm({ ...form, photoUrl })} />
           {/* ASSIGNMENT FIELD */}
           {isAdmin ? (
             <div className="bg-slate-950 border border-slate-800 p-3 rounded-xl">

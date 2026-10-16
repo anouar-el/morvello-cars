@@ -270,20 +270,20 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
 
     if (total === 0 || remaining <= 0) {
       return (
-        <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-1.5 py-0.5 rounded font-mono">
+        <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-1.5 py-0.5 rounded font-mono">
           {t('✓ Soldé')}
         </span>
       );
     }
     if (paid > 0) {
       return (
-        <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-amber-400 bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.5 rounded font-mono">
+        <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-amber-400 bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.5 rounded font-mono">
           {t('⚡ Acompte')}
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-rose-400 bg-rose-500/15 border border-rose-500/30 px-1.5 py-0.5 rounded font-mono">
+      <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-rose-400 bg-rose-500/15 border border-rose-500/30 px-1.5 py-0.5 rounded font-mono">
         {t('✕ Non payé')}
       </span>
     );
@@ -479,7 +479,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
               >
                 <span>{tab.label}</span>
                 <span
-                  className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                  className={`text-[11px] px-1.5 py-0.2 rounded-full font-mono ${
                     statusFilter === tab.id ? 'bg-slate-950 text-amber-400' : 'bg-slate-800 text-slate-400'
                   }`}
                 >
@@ -584,13 +584,13 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
         {/* TABLE WRAPPER - DESKTOP ONLY */}
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-start text-xs text-slate-300">
-            <thead className="bg-slate-950/70 text-slate-400 uppercase text-[10px] font-semibold border-b border-slate-800">
+            <thead className="bg-slate-950/70 text-slate-400 uppercase text-[11px] font-semibold border-b border-slate-800">
               <tr>
                 <th className="px-4 py-3.5">
                   <button
                     type="button"
                     onClick={() => setSortOrder((prev) => (prev === 'desc' ? 'asc' : 'desc'))}
-                    className="flex items-center gap-1.5 text-slate-300 hover:text-amber-400 uppercase text-[10px] font-bold tracking-wider transition-colors cursor-pointer group text-start"
+                    className="flex items-center gap-1.5 text-slate-300 hover:text-amber-400 uppercase text-[11px] font-bold tracking-wider transition-colors cursor-pointer group text-start"
                     title={t("Cliquer pour modifier l'ordre : actuellement {order}", {
                       order: sortOrder === 'desc' ? t('Décroissant (50 → 1)') : t('Croissant (1 → 50)'),
                     })}
@@ -598,7 +598,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                     <span>{t('Numéro & Créateur')}</span>
                     <span className="flex items-center gap-0.5 p-0.5 rounded bg-slate-800 group-hover:bg-amber-500/20 text-amber-400 transition-colors">
                       <ArrowUpDown className="w-3 h-3" />
-                      <span className="text-[9px] font-mono font-bold">
+                      <span className="text-[11px] font-mono font-bold">
                         {sortOrder === 'desc' ? '50→1' : '1→50'}
                       </span>
                     </span>
@@ -631,7 +631,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                         </span>
                         {duplicateNumberSet.has(cnt.contractNumber) && (
                           <span
-                            className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-300 bg-amber-500/20 border border-amber-500/40 px-1.5 py-0.5 rounded"
+                            className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-300 bg-amber-500/20 border border-amber-500/40 px-1.5 py-0.5 rounded"
                             title={t('Numéro en doublon partagé par plusieurs contrats')}
                           >
                             <AlertTriangle className="w-2.5 h-2.5 text-amber-400" />
@@ -640,14 +640,14 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                         )}
                       </div>
                       <div
-                        className="text-[10px] text-slate-500 mt-0.5"
+                        className="text-[11px] text-slate-500 mt-0.5"
                         title={t('Conditions V{termsVersion} • créé par {createdBy}', { termsVersion: cnt.termsVersion, createdBy: cnt.createdBy })}
                       >
                         {new Date(cnt.createdAt).toLocaleDateString('fr-FR')}
                         {showCreator ? ` • ${cnt.createdBy}` : ''}
                       </div>
                       <div className="mt-1 flex flex-wrap items-center gap-1">
-                        <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded border font-mono ${
+                        <span className={`text-[11px] font-bold px-1.5 py-0.2 rounded border font-mono ${
                           cnt.templateId === 'prestige'
                             ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
                             : cnt.templateId === 'corporate'
@@ -660,7 +660,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                         </span>
                         {cnt.clientSignature ? (
                           <span
-                            className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-1.5 py-0.2 rounded"
+                            className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-1.5 py-0.2 rounded"
                             title={t('Signé numériquement le {date}', { date: new Date(cnt.clientSignedAt || '').toLocaleDateString('fr-FR') })}
                           >
                             <ShieldCheck className="w-2.5 h-2.5 text-emerald-400" />
@@ -683,19 +683,19 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                       <div className="font-bold text-white uppercase">
                         {cnt.clientSnapshot.lastName} {cnt.clientSnapshot.firstName}
                       </div>
-                      <div className="text-[10px] text-slate-400">
+                      <div className="text-[11px] text-slate-400">
                         {cnt.clientSnapshot.docType} : <span className="font-mono text-slate-300">{cnt.clientSnapshot.docNumber}</span>
                       </div>
                       {cnt.clientSnapshot.phone ? (
-                        <div className="text-[10px] text-amber-400/90 font-medium">📞 {cnt.clientSnapshot.phone}</div>
+                        <div className="text-[11px] text-amber-400/90 font-medium">📞 {cnt.clientSnapshot.phone}</div>
                       ) : null}
                       {(cnt.clientSnapshot.licenseDocUrl || cnt.clientSnapshot.cinDocUrl) && (
-                        <div className="text-[9px] text-emerald-400 font-mono mt-0.5">
+                        <div className="text-[11px] text-emerald-400 font-mono mt-0.5">
                           {t('✓ Documents archivés')}
                         </div>
                       )}
                       {cnt.hasSecondDriver && (
-                        <div className="text-[9px] text-slate-400 italic">
+                        <div className="text-[11px] text-slate-400 italic">
                           {t('+ 2e Conducteur : {lastName} {firstName}', { lastName: cnt.secondDriverSnapshot?.lastName, firstName: cnt.secondDriverSnapshot?.firstName })}
                         </div>
                       )}
@@ -709,7 +709,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                       <div className="font-mono text-[11px] text-amber-400 font-bold">
                         {formatPlateFrench(cnt.vehicleSnapshot.plate)}
                       </div>
-                      <div className="text-[10px] text-slate-400">
+                      <div className="text-[11px] text-slate-400">
                         {t('Carburant : {fuelType}', { fuelType: cnt.vehicleSnapshot.fuelType })}
                       </div>
                       {(() => {
@@ -719,11 +719,11 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                         const officialName = cnt.assignedManagerName || v?.assignedManagerName;
                         const hasCustom = cnt.managerDisplayName && officialName && cnt.managerDisplayName !== officialName;
                         return (
-                          <div className="text-[10px] text-blue-300 font-mono mt-0.5 flex items-center gap-1" title={hasCustom ? t('Nom officiel : {officialName}', { officialName }) : undefined}>
+                          <div className="text-[11px] text-blue-300 font-mono mt-0.5 flex items-center gap-1" title={hasCustom ? t('Nom officiel : {officialName}', { officialName }) : undefined}>
                             <UserCheck className="w-3 h-3 text-blue-400 shrink-0" />
                             <span>{managerName}</span>
                             {hasCustom && (
-                              <span className="text-[9px] text-slate-400">({officialName})</span>
+                              <span className="text-[11px] text-slate-400">({officialName})</span>
                             )}
                           </div>
                         );
@@ -744,7 +744,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                           >
                             <strong>{fmt(cnt.startDate)}</strong> → <strong>{fmt(endDate)}</strong>
                             <span className="text-slate-500">/{new Date(endDate).getFullYear()}</span>
-                            <div className="text-[10px] text-amber-400 font-semibold mt-0.5">{cnt.totalDays} j</div>
+                            <div className="text-[11px] text-amber-400 font-semibold mt-0.5">{cnt.totalDays} j</div>
                           </div>
                         );
                       })()}
@@ -762,12 +762,12 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                       {cnt.returnKm ? (
                         <div className="text-emerald-400 mt-0.5">
                           {t('Retour :')} <span className="font-bold">{t('{returnKm} KM', { returnKm: cnt.returnKm.toLocaleString() })}</span>
-                          <span className="block text-[9px] text-slate-500">
+                          <span className="block text-[11px] text-slate-500">
                             {t('(+{returnKm} KM)', { returnKm: (cnt.returnKm - cnt.departureKm).toLocaleString() })}
                           </span>
                         </div>
                       ) : (
-                        <div className="text-slate-500 text-[10px] mt-0.5">{t('Retour : En cours')}</div>
+                        <div className="text-slate-500 text-[11px] mt-0.5">{t('Retour : En cours')}</div>
                       )}
                     </td>
 
@@ -803,19 +803,19 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                                 {t('{total} MAD', { total: total.toLocaleString('fr-FR') })}
                               </span>
                               {isZeroTotal ? (
-                                <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-1.5 py-0.5 rounded font-mono">
+                                <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-1.5 py-0.5 rounded font-mono">
                                   {t('✓ Soldé (0 MAD)')}
                                 </span>
                               ) : isFullyPaid ? (
-                                <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-1.5 py-0.5 rounded font-mono">
+                                <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-1.5 py-0.5 rounded font-mono">
                                   {t('✓ Soldé')}
                                 </span>
                               ) : isPartiallyPaid ? (
-                                <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-amber-400 bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.5 rounded font-mono">
+                                <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-amber-400 bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.5 rounded font-mono">
                                   {t('⚡ Acompte')}
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-rose-400 bg-rose-500/15 border border-rose-500/30 px-1.5 py-0.5 rounded font-mono">
+                                <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-rose-400 bg-rose-500/15 border border-rose-500/30 px-1.5 py-0.5 rounded font-mono">
                                   {t('✕ Non payé')}
                                 </span>
                               )}
@@ -823,7 +823,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
 
                             <div className="flex items-center gap-1.5">
                               {remaining > 0 && (
-                                <span className="text-[10px] font-mono text-rose-400 font-bold">
+                                <span className="text-[11px] font-mono text-rose-400 font-bold">
                                   {t('Reste {remaining}', { remaining: remaining.toLocaleString('fr-FR') })}
                                 </span>
                               )}
@@ -845,7 +845,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                                       t('Contrat {contractNumber} soldé avec succès (règlement du reliquat de {remaining} MAD enregistré).', { contractNumber: cnt.contractNumber, remaining: remaining.toLocaleString('fr-FR') })
                                     );
                                   }}
-                                  className="text-[9px] font-bold bg-emerald-500/20 hover:bg-emerald-500 text-emerald-300 hover:text-slate-950 border border-emerald-500/40 px-1.5 py-0.5 rounded transition-all cursor-pointer whitespace-nowrap"
+                                  className="text-[11px] font-bold bg-emerald-500/20 hover:bg-emerald-500 text-emerald-300 hover:text-slate-950 border border-emerald-500/40 px-1.5 py-0.5 rounded transition-all cursor-pointer whitespace-nowrap"
                                   title={t('Solder immédiatement le reliquat de {remaining} MAD', { remaining: remaining.toLocaleString('fr-FR') })}
                                 >
                                   {t('Solder')}
@@ -928,12 +928,12 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                           {cnt.contractNumber}
                         </span>
                         {duplicateNumberSet.has(cnt.contractNumber) && (
-                          <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-300 bg-amber-500/20 border border-amber-500/40 px-1 py-0.2 rounded">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-300 bg-amber-500/20 border border-amber-500/40 px-1 py-0.2 rounded">
                             <AlertTriangle className="w-2.5 h-2.5 text-amber-400" />
                             {t('Doublon')}
                           </span>
                         )}
-                        <span className={`text-[9px] px-1.5 py-0.2 rounded border font-semibold ${
+                        <span className={`text-[11px] px-1.5 py-0.2 rounded border font-semibold ${
                           cnt.templateId === 'prestige'
                             ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
                             : cnt.templateId === 'corporate'
@@ -945,7 +945,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                           {cnt.templateId === 'prestige' ? t('★ VIP') : cnt.templateId === 'corporate' ? '🏢 B2B' : cnt.templateId === 'signature' ? t('✒ Sign') : t('📄 Standard')}
                         </span>
                       </div>
-                      <div className="text-[10px] text-slate-500 mt-0.5">
+                      <div className="text-[11px] text-slate-500 mt-0.5">
                         {new Date(cnt.createdAt).toLocaleDateString('fr-FR')} • {cnt.createdBy}
                       </div>
                     </div>
@@ -953,7 +953,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                     <div className="flex flex-col items-end gap-1">
                       {getStatusBadge(cnt.status)}
                       {cnt.clientSignature ? (
-                        <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-1.5 py-0.2 rounded">
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-1.5 py-0.2 rounded">
                           <ShieldCheck className="w-2.5 h-2.5" />
                           {t('Signé')}
                         </span>
@@ -970,21 +970,21 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                   <div className="bg-slate-950/70 p-2.5 rounded-xl border border-slate-800 grid grid-cols-2 gap-2 text-xs">
                     {/* VÉHICULE */}
                     <div>
-                      <span className="text-[9.5px] text-slate-400 uppercase font-bold block">{t('Véhicule')}</span>
+                      <span className="text-[11px] text-slate-400 uppercase font-bold block">{t('Véhicule')}</span>
                       <div className="font-bold text-white uppercase text-xs truncate">
                         {cnt.vehicleSnapshot.brand} {cnt.vehicleSnapshot.model}
                       </div>
                       <div className="font-mono text-[10.5px] text-amber-400 font-bold mt-0.5">
                         {formatPlateFrench(cnt.vehicleSnapshot.plate)}
                       </div>
-                      <div className="text-[10px] text-slate-400 mt-0.5">
+                      <div className="text-[11px] text-slate-400 mt-0.5">
                         {t('{departureKm} KM • {departureFuel}', { departureKm: cnt.departureKm.toLocaleString('fr-FR'), departureFuel: cnt.departureFuel || '8/8' })}
                       </div>
                     </div>
 
                     {/* CLIENT */}
                     <div>
-                      <span className="text-[9.5px] text-slate-400 uppercase font-bold block">{t('Locataire')}</span>
+                      <span className="text-[11px] text-slate-400 uppercase font-bold block">{t('Locataire')}</span>
                       <div className="font-bold text-white uppercase text-xs truncate">
                         {cnt.clientSnapshot.lastName} {cnt.clientSnapshot.firstName}
                       </div>
@@ -996,10 +996,10 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                           📞 {cnt.clientSnapshot.phone}
                         </a>
                       ) : (
-                        <span className="text-[10px] text-slate-500 italic block mt-0.5">{t('Tél non renseigné')}</span>
+                        <span className="text-[11px] text-slate-500 italic block mt-0.5">{t('Tél non renseigné')}</span>
                       )}
                       {managerName && (
-                        <div className="text-[9.5px] text-blue-300 font-mono mt-0.5 truncate">
+                        <div className="text-[11px] text-blue-300 font-mono mt-0.5 truncate">
                           {t('Resp: {managerName}', { managerName })}
                         </div>
                       )}
@@ -1012,7 +1012,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                       <div>
                         {t('Du')} <strong className="text-white">{new Date(cnt.startDate).toLocaleDateString('fr-FR')}</strong> {t('au')} <strong className="text-white">{new Date(cnt.prolongation?.isActive ? cnt.prolongation.newEndDate : cnt.endDate).toLocaleDateString('fr-FR')}</strong>
                       </div>
-                      <div className="text-[10px] text-amber-400/90 font-medium mt-0.5">
+                      <div className="text-[11px] text-amber-400/90 font-medium mt-0.5">
                         {t('{totalDays} jour(s) • {pricePerDay} MAD/j', { totalDays: cnt.totalDays, pricePerDay: cnt.pricePerDay })}
                       </div>
                     </div>
@@ -1033,7 +1033,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                       (cnt.status === 'active' || cnt.status === 'draft') && hasPermission('canEditContracts');
                     const canCheckIn = cnt.status === 'active' && hasPermission('canValidateContracts');
                     const tile =
-                      'flex-1 min-w-0 flex flex-col items-center justify-center gap-0.5 p-2 rounded-xl border text-[10px] font-semibold transition-colors cursor-pointer';
+                      'flex-1 min-w-0 flex flex-col items-center justify-center gap-0.5 p-2 rounded-xl border text-[11px] font-semibold transition-colors cursor-pointer';
                     return (
                       <div className="flex gap-1.5 pt-1">
                         <button

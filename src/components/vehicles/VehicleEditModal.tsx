@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 
 import { useI18n } from '../../i18n/I18nContext';
+import { VehiclePhotoField } from './VehiclePhotoField';
 interface VehicleEditModalProps {
   vehicle: Vehicle | null;
   activeContract?: Contract | null;
@@ -64,6 +65,7 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
     nextOilChangeKm?: number;
     assignedManagerId: string;
     insuranceCategory: VehicleCategory | '';
+    photoUrl: string | null;
   }>({
     brand: '',
     model: '',
@@ -83,6 +85,7 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
     nextOilChangeKm: undefined,
     assignedManagerId: '',
     insuranceCategory: '',
+    photoUrl: null,
   });
 
   useEffect(() => {
@@ -107,6 +110,7 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
         nextOilChangeKm: vehicle.nextOilChangeKm,
         assignedManagerId: vehicle.assignedManagerId || '',
         insuranceCategory: vehicle.insuranceCategory || '',
+        photoUrl: vehicle.photoUrl || null,
       });
     }
     // Le formulaire n'est (ré)initialisé que lorsqu'on ouvre un AUTRE véhicule, ou quand son statut
@@ -140,6 +144,8 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
       nextOilChangeKm: form.nextOilChangeKm,
       // null (et non undefined) pour effacer une gamme forcée lors de la fusion JSON côté Supabase
       insuranceCategory: form.insuranceCategory || null,
+      // null (et non undefined) pour retirer la photo lors de la fusion JSON côté Supabase
+      photoUrl: form.photoUrl || null,
       assignedManagerId: form.assignedManagerId || undefined,
       assignedManagerName: assignedUser ? assignedUser.name : form.assignedManagerId ? undefined : undefined,
     }, { propagate: propagateScope });
@@ -177,6 +183,7 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-3.5 text-xs">
+          <VehiclePhotoField value={form.photoUrl} onChange={(photoUrl) => setForm({ ...form, photoUrl })} />
           {/* RESPONSABLE ATTITRÉ FIELD */}
           <div className="bg-slate-950 border border-slate-800 p-3 rounded-xl">
             <label className="flex items-center justify-between font-semibold text-slate-300 mb-1.5">

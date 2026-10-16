@@ -151,7 +151,7 @@ export const LoginView: React.FC = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder={t('anouar@morvellocars.com')}
-                  className="w-full bg-slate-950 border border-slate-750 focus:border-amber-500 rounded-xl ps-9 pe-3 py-2.5 text-xs text-white placeholder:text-slate-600 focus:outline-none transition-colors"
+                  className="w-full bg-slate-950 border border-slate-750 focus:border-amber-500 rounded-xl ps-9 pe-3 py-3 text-xs text-white placeholder:text-slate-600 focus:outline-none transition-colors"
                   required
                   autoFocus
                 />
@@ -170,7 +170,7 @@ export const LoginView: React.FC = () => {
                     setResetEmail(email);
                     setShowForgotModal(true);
                   }}
-                  className="text-[11px] text-amber-400 hover:text-amber-300 transition-colors cursor-pointer"
+                  className="text-xs text-amber-400 hover:text-amber-300 transition-colors cursor-pointer py-3 -my-3"
                 >
                   {t('Mot de passe oublié ?')}
                 </button>
@@ -185,13 +185,13 @@ export const LoginView: React.FC = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full bg-slate-950 border border-slate-750 focus:border-amber-500 rounded-xl ps-9 pe-10 py-2.5 text-xs text-white placeholder:text-slate-600 focus:outline-none transition-colors"
+                  className="w-full bg-slate-950 border border-slate-750 focus:border-amber-500 rounded-xl ps-9 pe-10 py-3 text-xs text-white placeholder:text-slate-600 focus:outline-none transition-colors"
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 end-0 pe-3 flex items-center text-slate-500 hover:text-slate-300 cursor-pointer"
+                  className="absolute inset-y-0 end-0 px-3 flex items-center text-slate-400 hover:text-slate-200 cursor-pointer"
                   tabIndex={-1}
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -203,7 +203,7 @@ export const LoginView: React.FC = () => {
             <button
               type="submit"
               disabled={loading || !email.trim() || !password.trim()}
-              className="w-full bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-bold text-xs py-3 rounded-xl shadow-lg shadow-amber-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 cursor-pointer mt-2"
+              className="w-full bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-bold text-sm py-3.5 rounded-xl shadow-lg shadow-amber-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 cursor-pointer mt-2"
             >
               <span>{loading ? t('Connexion en cours...') : t('Se connecter')}</span>
               <ArrowRight className="w-4 h-4" />
@@ -211,13 +211,13 @@ export const LoginView: React.FC = () => {
           </form>
 
           {/* Notice */}
-          <div className="pt-2 text-center text-[11px] text-slate-500 border-t border-slate-850">
+          <div className="pt-2 text-center text-xs text-slate-400 border-t border-slate-850">
             <span>{t('Accès sécurisé réservé au personnel Morvello Cars')}</span>
           </div>
         </div>
 
         {/* Footer info */}
-        <p className="text-center text-[10px] text-slate-400">
+        <p className="text-center text-[11px] text-slate-400">
           {t('Système certifié Morvello Cars • Chiffrement sécurisé & Cloud PostgreSQL (Supabase)')}
         </p>
       </div>

@@ -206,6 +206,9 @@ export const WizardStep2Vehicle: React.FC<WizardStep2VehicleProps> = ({
                     : 'bg-slate-950/30 border-slate-900 opacity-60 cursor-not-allowed'
                 }`}
               >
+                {veh.photoUrl && (
+                  <img src={veh.photoUrl} alt="" loading="lazy" className="w-full h-28 object-cover rounded-lg mb-2.5 border border-white/10" />
+                )}
                 <div className="flex items-start justify-between">
                   <div>
                     <div className="flex items-center gap-2">

@@ -298,7 +298,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCheckInModal, onOpen
                         {cnt.clientSnapshot.lastName} {cnt.clientSnapshot.firstName}
                       </span>
                       {isDue && (
-                        <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded font-semibold">
+                        <span className="text-[11px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded font-semibold">
                           {t("Retour aujourd'hui")}
                         </span>
                       )}

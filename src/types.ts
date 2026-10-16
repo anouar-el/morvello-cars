@@ -141,6 +141,8 @@ export interface Driver {
 
 export interface Vehicle {
   id: string;
+  /** Photo compressée (data URL JPEG), stockée dans le JSON `data` du véhicule. */
+  photoUrl?: string | null;
   brand: string;
   model: string;
   plate: string;

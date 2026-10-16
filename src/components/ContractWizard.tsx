@@ -800,7 +800,7 @@ export const ContractWizard: React.FC = () => {
                 >
                   {isCompleted ? '✓' : s.id}
                 </div>
-                <span className="text-[10px] sm:text-[11px] font-semibold sm:hidden truncate max-w-full">{s.shortLabel}</span>
+                <span className="text-[11px] font-semibold sm:hidden truncate max-w-full">{s.shortLabel}</span>
                 <span className="text-[11px] font-semibold hidden sm:inline">{s.label}</span>
               </div>
             );
@@ -948,7 +948,7 @@ export const ContractWizard: React.FC = () => {
                 type="button"
                 onClick={() => setCurrentStep((prev) => prev - 1)}
                 disabled={isSubmitting}
-                className="flex items-center gap-1 sm:gap-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 hover:text-white text-xs font-semibold px-3 sm:px-4 py-2 rounded-lg transition-colors cursor-pointer"
+                className="flex items-center gap-1 sm:gap-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 hover:text-white text-xs font-semibold px-3 sm:px-4 min-h-11 rounded-lg transition-colors cursor-pointer"
               >
                 <ChevronLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4 rtl:rotate-180" />
                 <span className="hidden sm:inline">{t('Précédent')}</span>
@@ -962,7 +962,7 @@ export const ContractWizard: React.FC = () => {
                   setActiveTab(isEditMode ? 'contracts' : 'dashboard');
                 }}
                 disabled={isSubmitting}
-                className="text-xs text-slate-500 hover:text-slate-300 font-medium px-2 py-1 cursor-pointer"
+                className="text-xs text-slate-400 hover:text-slate-200 font-medium px-3 min-h-11 cursor-pointer"
               >
                 {isEditMode ? t('Annuler modif.') : t('Annuler')}
               </button>
@@ -979,7 +979,7 @@ export const ContractWizard: React.FC = () => {
                   (currentStep === 2 && !isStep2Valid()) ||
                   (currentStep === 3 && !isStep3Valid())
                 }
-                className="flex items-center gap-1.5 sm:gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 disabled:opacity-40 disabled:pointer-events-none text-slate-950 font-bold text-xs px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-lg shadow-md shadow-amber-500/20 transition-all cursor-pointer"
+                className="flex items-center gap-1.5 sm:gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 disabled:opacity-40 disabled:pointer-events-none text-slate-950 font-bold text-xs px-3.5 sm:px-5 min-h-11 rounded-lg shadow-md shadow-amber-500/20 transition-all cursor-pointer"
               >
                 <span>{t('Suivant')}</span>
                 <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 rtl:rotate-180" />
