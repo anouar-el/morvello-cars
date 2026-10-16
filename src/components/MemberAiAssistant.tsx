@@ -821,14 +821,14 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
 
   return (
     <div
-      className={`flex flex-col bg-slate-950 text-slate-100 overflow-hidden select-text relative ${
+      className={`flex flex-col premium-backdrop text-slate-100 overflow-hidden select-text relative ${
         isDrawer
           ? 'h-full w-full'
           : 'h-[calc(100dvh-8.5rem)] min-h-[620px] max-w-5xl mx-auto rounded-2xl border border-slate-800 shadow-2xl'
       }`}
     >
       {/* 1. HEADER EXÉCUTIF COMPACT & PRESTIGE */}
-      <header className="px-4 sm:px-6 py-3 border-b border-slate-800/90 bg-slate-900/90 backdrop-blur-md flex items-center justify-between shrink-0 z-20">
+      <header className="px-4 sm:px-6 py-3 glass rounded-none border-x-0 border-t-0 flex items-center justify-between shrink-0 z-20">
         <div className="flex items-center gap-3 min-w-0">
           <div className="relative flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500/20 via-slate-900 to-amber-900/30 border border-amber-500/30 text-amber-400 shadow-xs shrink-0">
             <Bot className="w-5 h-5 text-amber-400" />
@@ -1050,7 +1050,7 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
                         type="button"
                         disabled={loading}
                         onClick={() => sendMessage(card.prompt)}
-                        className="flex flex-col p-4 rounded-xl border border-slate-800/90 bg-slate-900/60 hover:bg-slate-850/80 hover:border-amber-500/40 transition-all group cursor-pointer disabled:opacity-50 text-start shadow-xs"
+                        className="glass flex flex-col p-4 rounded-2xl hover:border-amber-500/40 transition-all group cursor-pointer disabled:opacity-50 text-start shadow-xs"
                       >
                         <div className="flex items-center justify-between mb-1.5">
                           <div className="flex items-center gap-2">
@@ -1333,13 +1333,13 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
       </div>
 
       {/* 6. COMPOSITEUR DE COMMANDE EXÉCUTIF */}
-      <div className="px-3 sm:px-6 pb-3 pt-1 border-t border-slate-800/80 bg-slate-950 shrink-0">
+      <div className="px-3 sm:px-6 pb-3 pt-1 shrink-0">
         <form
           onSubmit={(e) => {
             e.preventDefault();
             sendMessage(input);
           }}
-          className="border border-slate-800 bg-slate-900/90 focus-within:border-amber-500/50 focus-within:ring-2 focus-within:ring-amber-500/10 rounded-2xl p-2.5 transition-all shadow-lg"
+          className="glass focus-within:border-amber-500/50 focus-within:ring-2 focus-within:ring-amber-500/10 rounded-2xl p-2.5 transition-all shadow-lg"
         >
           <textarea
             ref={inputRef}

@@ -580,7 +580,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
       )}
 
       {/* CONTRACTS TABLE */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl shadow-md overflow-hidden">
+      <div className="md:bg-slate-900 md:border md:border-slate-800 md:rounded-xl md:shadow-md md:overflow-hidden">
         {/* TABLE WRAPPER - DESKTOP ONLY */}
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-start text-xs text-slate-300">
@@ -908,9 +908,9 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
         {/* ========================================================================= */}
         {/* MOBILE CARD VIEW (< md screens)                                           */}
         {/* ========================================================================= */}
-        <div className="md:hidden divide-y divide-slate-800">
+        <div className="md:hidden space-y-3">
           {sortedContracts.length === 0 ? (
-            <div className="text-center py-12 text-slate-500 text-xs">
+            <div className="glass rounded-3xl text-center py-12 text-slate-400 text-xs">
               {t('Aucun contrat ne correspond à vos critères de recherche.')}
             </div>
           ) : (
@@ -919,12 +919,12 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
               const managerName = cnt.managerDisplayName || cnt.assignedManagerName || matchingVehicle?.assignedManagerName;
 
               return (
-                <div key={cnt.id} className="p-3.5 space-y-3 bg-slate-900/60 hover:bg-slate-900 transition-colors">
+                <div key={cnt.id} className="glass rounded-3xl p-4 space-y-3 transition-colors">
                   {/* CARD HEADER: N° CONTRAT + STATUS + TEMPLATE BADGE */}
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="font-mono font-bold text-amber-400 text-sm">
+                        <span className="font-mono font-bold gold-text text-sm">
                           {cnt.contractNumber}
                         </span>
                         {duplicateNumberSet.has(cnt.contractNumber) && (
@@ -967,7 +967,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                   </div>
 
                   {/* VÉHICULE & CLIENT ROW */}
-                  <div className="bg-slate-950/70 p-2.5 rounded-xl border border-slate-800 grid grid-cols-2 gap-2 text-xs">
+                  <div className="bg-white/5 p-3 rounded-2xl border border-white/10 grid grid-cols-2 gap-3 text-xs">
                     {/* VÉHICULE */}
                     <div>
                       <span className="text-[11px] text-slate-400 uppercase font-bold block">{t('Véhicule')}</span>
@@ -1103,7 +1103,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
           const editable =
             (menuContract.status === 'active' || menuContract.status === 'draft') && hasPermission('canEditContracts');
           const isSheet = Boolean(rowMenu.sheet);
-          const itemClass = `w-full flex items-center gap-3 px-4 text-left text-slate-200 hover:bg-slate-800 transition-colors cursor-pointer ${
+          const itemClass = `w-full flex items-center gap-3 px-4 text-left text-slate-200 hover:bg-white/10 transition-colors cursor-pointer ${
             isSheet ? 'py-3.5 text-sm' : 'py-2 text-xs'
           }`;
           const run = (action: () => void) => () => {
@@ -1122,7 +1122,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                 style={isSheet ? undefined : { position: 'fixed', top: rowMenu.top, right: rowMenu.right }}
                 className={
                   isSheet
-                    ? 'fixed inset-x-0 bottom-0 z-[70] max-h-[80vh] overflow-y-auto bg-slate-900 border-t border-slate-700 rounded-t-2xl shadow-2xl pb-6 pt-2'
+                    ? 'fixed inset-x-0 bottom-0 z-[70] max-h-[80vh] overflow-y-auto glass rounded-t-3xl border-b-0 shadow-2xl pb-6 pt-2'
                     : 'z-50 w-60 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl py-1.5 overflow-hidden'
                 }
               >
