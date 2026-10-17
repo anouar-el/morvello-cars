@@ -24,12 +24,15 @@ export interface OperationalAlert {
   targetTab: 'contracts' | 'vehicles' | 'deposits';
   entityId: string;
   dateStr?: string;
+  /** Jours avant l'échéance (négatif = dépassée), pour classer les plus proches en premier. */
+  daysRemaining?: number;
   badgeText: string;
   contract?: Contract;
   vehicle?: Vehicle;
   deposit?: DepositRecord;
 }
 
+/** @deprecated figé au chargement de la page : passer getTodayDateString() au moment du calcul. */
 export const DEFAULT_REF_DATE = getTodayDateString();
 
 /**
@@ -40,7 +43,7 @@ export function computeOperationalAlerts(
   vehicles: Vehicle[],
   contracts: Contract[],
   deposits: DepositRecord[],
-  refDate: string = DEFAULT_REF_DATE
+  refDate: string = getTodayDateString()
 ): {
   alerts: OperationalAlert[];
   criticalCount: number;
@@ -81,6 +84,7 @@ export function computeOperationalAlerts(
         targetTab: 'contracts',
         entityId: contract.id,
         dateStr: effectiveEnd,
+        daysRemaining: diffDays,
         badgeText: `Retard ${Math.abs(diffDays)}j`,
         contract,
       });
@@ -95,6 +99,7 @@ export function computeOperationalAlerts(
         targetTab: 'contracts',
         entityId: contract.id,
         dateStr: effectiveEnd,
+        daysRemaining: diffDays,
         badgeText: "Aujourd'hui",
         contract,
       });
@@ -109,6 +114,7 @@ export function computeOperationalAlerts(
         targetTab: 'contracts',
         entityId: contract.id,
         dateStr: effectiveEnd,
+        daysRemaining: diffDays,
         badgeText: `Dans ${diffDays}j`,
         contract,
       });
@@ -121,7 +127,8 @@ export function computeOperationalAlerts(
     if (health.hasAlert) {
       health.alerts.forEach((alertItem, idx) => {
         const isCritical = alertItem.level === 'expired';
-        const sev: AlertSeverity = isCritical ? 'critical' : 'warning';
+        // Une échéance à 7 jours ou moins se traite comme une urgence, au même titre qu'une échéance dépassée
+        const sev: AlertSeverity = isCritical || alertItem.urgent ? 'critical' : 'warning';
         let category: AlertCategory = 'insurance_warning';
 
         if (alertItem.type === 'insurance') {
@@ -142,7 +149,8 @@ export function computeOperationalAlerts(
           description: alertItem.detail,
           targetTab: 'vehicles',
           entityId: vehicle.id,
-          badgeText: isCritical ? 'Expiré' : 'À planifier',
+          daysRemaining: alertItem.daysRemaining ?? undefined,
+          badgeText: isCritical ? 'Expiré' : alertItem.daysRemaining !== null ? `Dans ${alertItem.daysRemaining}j` : 'À planifier',
           vehicle,
         });
       });
@@ -192,7 +200,12 @@ export function computeOperationalAlerts(
 
   // Tri : Critical d'abord, puis Warning, puis Info
   const severityOrder: Record<AlertSeverity, number> = { critical: 0, warning: 1, info: 2 };
-  alerts.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
+  // À gravité égale, l'échéance la plus proche (ou la plus dépassée) passe en premier
+  alerts.sort(
+    (a, b) =>
+      severityOrder[a.severity] - severityOrder[b.severity] ||
+      (a.daysRemaining ?? 1e9) - (b.daysRemaining ?? 1e9)
+  );
 
   const criticalCount = alerts.filter((a) => a.severity === 'critical').length;
   const warningCount = alerts.filter((a) => a.severity === 'warning').length;
