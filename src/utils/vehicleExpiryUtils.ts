@@ -27,23 +27,26 @@ export interface VehicleHealthSummary {
     title: string;
     detail: string;
     level: 'warning' | 'expired';
+    /** Jours avant l'échéance (négatif si dépassée) ; null pour la vignette et la vidange. */
+    daysRemaining: number | null;
+    /** Échéance dans 7 jours ou moins : à traiter sans attendre. */
+    urgent: boolean;
   }>;
 }
 
-export function getTodayDateString(): string {
-  try {
-    return new Date().toISOString().split('T')[0];
-  } catch {
-    return '2026-09-22';
-  }
+/** Date du jour au format AAAA-MM-JJ, en heure locale (et non UTC : au Maroc, `toISOString` donne encore la veille juste après minuit). */
+export function getTodayDateString(now: Date = new Date()): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 }
 
-export const DEFAULT_REF_DATE = getTodayDateString();
+/** Seuil (en jours) sous lequel une échéance est urgente. */
+export const URGENT_DAYS = 7;
 
 /**
  * Calcule le nombre de jours restants avant une date d'échéance.
  */
-export function getDaysDiff(targetDateStr?: string, refDateStr: string = DEFAULT_REF_DATE): number | null {
+export function getDaysDiff(targetDateStr?: string, refDateStr: string = getTodayDateString()): number | null {
   if (!targetDateStr) return null;
   const target = new Date(targetDateStr);
   const ref = new Date(refDateStr);
@@ -59,7 +62,7 @@ export function getDaysDiff(targetDateStr?: string, refDateStr: string = DEFAULT
  * - Expire dans <= 30 j : À renouveler (Orange)
  * - > 30 j : Valide (Vert)
  */
-export function checkInsuranceStatus(vehicle: Vehicle, refDate: string = DEFAULT_REF_DATE): ExpiryCheckResult {
+export function checkInsuranceStatus(vehicle: Vehicle, refDate: string = getTodayDateString()): ExpiryCheckResult {
   if (!vehicle.insuranceExpiryDate) {
     return {
       status: 'missing',
@@ -116,7 +119,7 @@ export function checkInsuranceStatus(vehicle: Vehicle, refDate: string = DEFAULT
  * - Expire dans <= 30 j : À programmer (Orange)
  * - > 30 j : En règle (Vert)
  */
-export function checkTechnicalInspectionStatus(vehicle: Vehicle, refDate: string = DEFAULT_REF_DATE): ExpiryCheckResult {
+export function checkTechnicalInspectionStatus(vehicle: Vehicle, refDate: string = getTodayDateString()): ExpiryCheckResult {
   if (!vehicle.technicalInspectionExpiryDate) {
     return {
       status: 'missing',
@@ -171,7 +174,7 @@ export function checkTechnicalInspectionStatus(vehicle: Vehicle, refDate: string
  * Suivi de la taxe annuelle / Vignette fiscale
  * Au Maroc, la vignette est payée annuellement (généralement en janvier pour l'année courante).
  */
-export function checkVignetteStatus(vehicle: Vehicle, currentYear: number = 2026): ExpiryCheckResult {
+export function checkVignetteStatus(vehicle: Vehicle, currentYear: number = new Date().getFullYear()): ExpiryCheckResult {
   if (!vehicle.vignettePaidYear) {
     return {
       status: 'warning',
@@ -248,10 +251,10 @@ export function checkOilChangeStatus(vehicle: Vehicle): OilChangeCheckResult {
 /**
  * Synthèse globale de santé d'un véhicule
  */
-export function getVehicleHealthSummary(vehicle: Vehicle, refDate: string = DEFAULT_REF_DATE): VehicleHealthSummary {
+export function getVehicleHealthSummary(vehicle: Vehicle, refDate: string = getTodayDateString()): VehicleHealthSummary {
   const insurance = checkInsuranceStatus(vehicle, refDate);
   const inspection = checkTechnicalInspectionStatus(vehicle, refDate);
-  const vignette = checkVignetteStatus(vehicle, 2026);
+  const vignette = checkVignetteStatus(vehicle, Number(refDate.slice(0, 4)) || new Date().getFullYear());
   const oil = checkOilChangeStatus(vehicle);
 
   const alerts: VehicleHealthSummary['alerts'] = [];
@@ -262,6 +265,8 @@ export function getVehicleHealthSummary(vehicle: Vehicle, refDate: string = DEFA
       title: 'Assurance',
       detail: insurance.text,
       level: insurance.status,
+      daysRemaining: insurance.daysRemaining,
+      urgent: insurance.daysRemaining !== null && insurance.daysRemaining <= URGENT_DAYS,
     });
   }
 
@@ -271,6 +276,8 @@ export function getVehicleHealthSummary(vehicle: Vehicle, refDate: string = DEFA
       title: 'Visite Technique',
       detail: inspection.text,
       level: inspection.status,
+      daysRemaining: inspection.daysRemaining,
+      urgent: inspection.daysRemaining !== null && inspection.daysRemaining <= URGENT_DAYS,
     });
   }
 
@@ -280,6 +287,8 @@ export function getVehicleHealthSummary(vehicle: Vehicle, refDate: string = DEFA
       title: 'Vignette',
       detail: vignette.text,
       level: vignette.status,
+      daysRemaining: null,
+      urgent: false,
     });
   }
 
@@ -289,6 +298,8 @@ export function getVehicleHealthSummary(vehicle: Vehicle, refDate: string = DEFA
       title: 'Vidange',
       detail: oil.text,
       level: oil.status,
+      daysRemaining: null,
+      urgent: false,
     });
   }
 
