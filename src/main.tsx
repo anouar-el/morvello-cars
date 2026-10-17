@@ -5,6 +5,9 @@ import App from './App.tsx';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { I18nProvider } from './i18n/I18nContext';
 import './index.css';
+import { initPwaInstallCapture } from './lib/pwaInstall';
+
+initPwaInstallCapture();
 
 // Coque hors-ligne minimale : uniquement en production (le serveur de dev ne doit pas être mis en cache).
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
