@@ -24,6 +24,11 @@ import { WizardStep3Terms } from './wizard/WizardStep3Terms';
 import { WizardStep4Review } from './wizard/WizardStep4Review';
 import { getNextAvailableContractNumber } from '../utils/contractNumberUtils';
 import { isVehicleAvailableForPeriod } from '../utils/vehicleStatusUtils';
+import { getTodayDateString } from '../utils/vehicleExpiryUtils';
+import { takeReservationDraft } from '../lib/reservationHandoff';
+import type { ReservationDraft } from '../lib/reservations';
+import { canAccessObservations, needsAttention, summarizeObservations, OBSERVATION_TAGS } from '../lib/clientObservations';
+import { StandingBadge } from './clients/ClientObservationsPanel';
 
 import { useI18n } from '../i18n/I18nContext';
 export const ContractWizard: React.FC = () => {
@@ -65,6 +70,7 @@ export const ContractWizard: React.FC = () => {
     return true;
   });
 
+  const [reservationInfo, setReservationInfo] = useState<ReservationDraft | null>(null);
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [createdContractResult, setCreatedContractResult] = useState<Contract | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -121,8 +127,12 @@ export const ContractWizard: React.FC = () => {
   const [selectedVehicleId, setSelectedVehicleId] = useState<string>('');
 
   // Step 3: Duration & Kilometres & Pricing
-  const today = '2026-09-01';
-  const nextWeek = '2026-09-08';
+  const today = getTodayDateString();
+  const nextWeek = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 7);
+    return getTodayDateString(d);
+  })();
   const [startDate, setStartDate] = useState<string>(today);
   const [startTime, setStartTime] = useState<string>('10:00');
   const [endDate, setEndDate] = useState<string>(nextWeek);
@@ -241,6 +251,24 @@ export const ContractWizard: React.FC = () => {
       initializedEditContractIdRef.current = null;
     }
   }, [editingContractData, users]);
+
+  // Réservation transformée en contrat : le brouillon déposé par l'écran des réservations n'est lu qu'une fois
+  const reservationTakenRef = useRef(false);
+  useEffect(() => {
+    if (reservationTakenRef.current || editingContractData) return;
+    reservationTakenRef.current = true;
+    const draft = takeReservationDraft();
+    if (!draft) return;
+    setReservationInfo(draft);
+    setClientMode('existing');
+    setSelectedClientId(draft.clientId);
+    if (draft.vehicleId) setSelectedVehicleId(draft.vehicleId);
+    setStartDate(draft.startDate);
+    setStartTime(draft.startTime);
+    setEndDate(draft.endDate);
+    setEndTime(draft.endTime);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Handle duplicate data - only run once per duplicate
   useEffect(() => {
@@ -696,6 +724,7 @@ export const ContractWizard: React.FC = () => {
         insurance: contractInsurance,
         depositCollected,
         notes: contractNotes,
+        ...(reservationInfo ? { reservationId: reservationInfo.reservationId } : {}),
       });
 
       setCreatedContractResult(newContract);
@@ -807,6 +836,47 @@ export const ContractWizard: React.FC = () => {
           })}
         </div>
       </div>
+
+      {reservationInfo && !isEditMode && (
+        <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-4 text-xs text-emerald-200" role="status">
+          <div className="font-bold">{t('Contrat créé à partir d\'une réservation')}</div>
+          <div className="mt-0.5 text-emerald-300/90">
+            {t('Client, véhicule et dates sont préremplis : vérifiez-les avant de continuer.')}
+            {reservationInfo.deposit
+              ? ` ${t('Acompte de {amount} MAD déjà reçu.', { amount: reservationInfo.deposit.toLocaleString('fr-FR') })}`
+              : ''}
+          </div>
+        </div>
+      )}
+
+      {currentClient && !isEditMode && canAccessObservations(currentUser?.role) && (() => {
+        const summary = summarizeObservations(currentClient.behaviorLog);
+        if (!needsAttention(summary) || !summary.last) return null;
+        const last = summary.last;
+        return (
+          <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 space-y-2" role="alert">
+            <div className="flex items-center gap-2 flex-wrap">
+              <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+              <span className="text-xs font-bold text-amber-200">{t('Ce client demande votre attention')}</span>
+              <StandingBadge standing={summary.standing} average={summary.average} />
+            </div>
+            {summary.negativeTags.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {summary.negativeTags.map(({ tag, count }) => (
+                  <span key={tag} className="text-[11px] px-2 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/30 text-rose-300">
+                    {t(OBSERVATION_TAGS.find((x) => x.id === tag)?.label ?? tag)} ×{count}
+                  </span>
+                ))}
+              </div>
+            )}
+            {last.comment && (
+              <p className="text-xs text-amber-100/90">
+                « {last.comment} » <span className="text-amber-300/70">— {new Date(last.createdAt).toLocaleDateString('fr-FR')}</span>
+              </p>
+            )}
+          </div>
+        );
+      })()}
 
       {/* STEP CONTENT CONTAINER */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-6 shadow-xl min-h-[420px] flex flex-col justify-between">

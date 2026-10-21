@@ -23,6 +23,7 @@ import { getVehicleHealthSummary, getTodayDateString } from '../utils/vehicleExp
 import { DashboardAlertsBanner } from './DashboardAlertsBanner';
 import { RemindersPanel } from './RemindersPanel';
 import { InstallPrompt } from './InstallPrompt';
+import { ReservationsPanel } from './reservations/ReservationsPanel';
 import { useI18n } from '../i18n/I18nContext';
 import { getScopedDataForUser } from '../utils/managerScopeUtils';
 
@@ -243,6 +244,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCheckInModal, onOpen
         onOpenCheckInModal={onOpenCheckInModal}
         onOpenAllAlerts={onOpenAllAlerts}
       />
+
+      {/* 2.55 RÉSERVATIONS SANS CONTRAT */}
+      <ReservationsPanel />
 
       {/* 2.6 RELANCES CLIENTS (WhatsApp prêt à envoyer) */}
       {currentUser && <RemindersPanel contracts={scopedContracts} userId={currentUser.id} />}

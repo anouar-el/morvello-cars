@@ -21,6 +21,10 @@ import {
 import { formatPlateFrench } from '../utils/plateUtils';
 
 import { useI18n } from '../i18n/I18nContext';
+import { getTodayDateString } from '../utils/vehicleExpiryUtils';
+import { canAccessObservations, newObservationId } from '../lib/clientObservations';
+import type { Client, ClientObservation } from '../types';
+import { ClientObservationForm, EMPTY_OBSERVATION, type ObservationDraft } from './clients/ClientObservationForm';
 interface ReturnCheckInModalProps {
   contract: Contract | null;
   onClose: () => void;
@@ -52,14 +56,16 @@ export const ReturnCheckInModal: React.FC<ReturnCheckInModalProps> = ({
   onOpenDetailedInspection,
 }) => {
   const { t } = useI18n();
-  const { completeContract, updateContractInspection, deductDeposit, releaseDeposit, deposits, currentUser } = useApp();
+  const { completeContract, updateContractInspection, deductDeposit, releaseDeposit, deposits, currentUser, clients, updateClient } = useApp();
 
   if (!contract) return null;
 
-  const today = '2026-09-01';
-  const nowTime = '18:30';
+  const now = new Date();
+  const today = getTodayDateString(now);
+  const nowTime = `:`;
 
   // Étape 1 : Relevé compteur & Carburant
+  const [observation, setObservation] = useState<ObservationDraft>(EMPTY_OBSERVATION);
   const [returnKm, setReturnKm] = useState<number>(
     contract.returnKm || (contract.departureKm ? contract.departureKm + 350 : 15000)
   );
@@ -207,6 +213,25 @@ export const ReturnCheckInModal: React.FC<ReturnCheckInModalProps> = ({
     // 3. Clôturer le contrat et libérer le véhicule
     const closingSummary = `${returnNotes} | KM Restitution: ${returnKm} (${kmDriven >= 0 ? `+${kmDriven} km` : ''}) | Carburant: ${fuelLevel}`;
     completeContract(contract.id, returnKm, returnDate, returnTime, closingSummary);
+
+    // 3bis. Observation sur le client (facultative, réservée à la direction)
+    if (canAccessObservations(currentUser?.role) && observation.rating !== null) {
+      const clientRecord = clients.find((c) => c.id === contract.clientId);
+      if (clientRecord) {
+        const obs: ClientObservation = {
+          id: newObservationId(),
+          createdAt: new Date().toISOString(),
+          authorName: currentUser?.name || 'Direction',
+          authorId: currentUser?.id,
+          contractId: contract.id,
+          contractNumber: contract.contractNumber,
+          rating: observation.rating as ClientObservation['rating'],
+          tags: observation.tags,
+          comment: observation.comment.trim(),
+        };
+        updateClient(clientRecord.id, { behaviorLog: [...(clientRecord.behaviorLog ?? []), obs] } as Partial<Client>);
+      }
+    }
 
     onClose();
   };
@@ -711,6 +736,19 @@ export const ReturnCheckInModal: React.FC<ReturnCheckInModalProps> = ({
               className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white focus:border-amber-500 focus:outline-none"
             ></textarea>
           </div>
+
+          {/* OBSERVATIONS SUR LE CLIENT (direction uniquement) */}
+          {canAccessObservations(currentUser?.role) && (
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3.5 space-y-3">
+              <div>
+                <h3 className="text-xs font-bold text-white">{t('Comportement du client pendant cette location')}</h3>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  {t('Facultatif. Réservé à la direction : vous le retrouverez avant sa prochaine location.')}
+                </p>
+              </div>
+              <ClientObservationForm value={observation} onChange={setObservation} />
+            </div>
+          )}
 
           {/* AUTOMATIC VEHICLE RELEASE NOTE */}
           <div className="bg-emerald-500/10 border border-emerald-500/30 p-3 rounded-xl text-xs text-emerald-300 flex items-start gap-2.5">

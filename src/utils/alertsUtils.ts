@@ -1,4 +1,5 @@
-import { Vehicle, Contract, DepositRecord } from '../types';
+import { Vehicle, Contract, DepositRecord, Client } from '../types';
+import { activeReservations, reservationTiming } from '../lib/reservations';
 import { getVehicleHealthSummary, getTodayDateString } from './vehicleExpiryUtils';
 
 export type AlertSeverity = 'critical' | 'warning' | 'info';
@@ -13,7 +14,10 @@ export type AlertCategory =
   | 'inspection_warning' 
   | 'vignette_warning' 
   | 'oil_change_warning'
-  | 'deposit_held';
+  | 'deposit_held'
+  | 'reservation_overdue'
+  | 'reservation_today'
+  | 'reservation_soon';
 
 export interface OperationalAlert {
   id: string;
@@ -21,7 +25,7 @@ export interface OperationalAlert {
   severity: AlertSeverity;
   title: string;
   description: string;
-  targetTab: 'contracts' | 'vehicles' | 'deposits';
+  targetTab: 'contracts' | 'vehicles' | 'deposits' | 'dashboard';
   entityId: string;
   dateStr?: string;
   /** Jours avant l'échéance (négatif = dépassée), pour classer les plus proches en premier. */
@@ -43,7 +47,8 @@ export function computeOperationalAlerts(
   vehicles: Vehicle[],
   contracts: Contract[],
   deposits: DepositRecord[],
-  refDate: string = getTodayDateString()
+  refDate: string = getTodayDateString(),
+  clients: Client[] = []
 ): {
   alerts: OperationalAlert[];
   criticalCount: number;
@@ -195,6 +200,51 @@ export function computeOperationalAlerts(
           });
         }
       }
+    }
+  });
+
+  // 4. Réservations sans contrat : à transformer en contrat, ou à annuler si elles sont dépassées
+  activeReservations(clients, contracts).forEach(({ reservation, client }) => {
+    const { timing, daysUntil } = reservationTiming(reservation, refDate);
+    if (timing === 'upcoming') return;
+    const who = `${client.lastName || ''} ${client.firstName || ''}`.trim() || 'Client';
+    const veh = reservation.vehicleLabel ? ` (${reservation.vehicleLabel})` : '';
+    const base = {
+      targetTab: 'dashboard' as const,
+      entityId: reservation.id,
+      dateStr: reservation.startDate,
+      daysRemaining: daysUntil,
+    };
+    if (timing === 'overdue') {
+      alerts.push({
+        ...base,
+        id: `res-overdue-${reservation.id}`,
+        category: 'reservation_overdue',
+        severity: 'critical',
+        title: `Réservation dépassée : ${who}`,
+        description: `Réservation du ${reservation.startDate}${veh} jamais transformée en contrat : à confirmer ou à annuler.`,
+        badgeText: `Retard ${Math.abs(daysUntil)}j`,
+      });
+    } else if (timing === 'today') {
+      alerts.push({
+        ...base,
+        id: `res-today-${reservation.id}`,
+        category: 'reservation_today',
+        severity: 'warning',
+        title: `Réservation aujourd'hui : ${who}`,
+        description: `Départ prévu à ${reservation.startTime}${veh} : préparez le véhicule et le contrat.`,
+        badgeText: "Aujourd'hui",
+      });
+    } else {
+      alerts.push({
+        ...base,
+        id: `res-soon-${reservation.id}`,
+        category: 'reservation_soon',
+        severity: 'info',
+        title: `Réservation sous ${daysUntil}j : ${who}`,
+        description: `Départ prévu le ${reservation.startDate} à ${reservation.startTime}${veh}.`,
+        badgeText: `Dans ${daysUntil}j`,
+      });
     }
   });
 

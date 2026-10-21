@@ -90,8 +90,64 @@ export interface ClientDocument {
   uploadedAt: string;
 }
 
+/** Étiquettes de comportement d'un client, cochées à la fin d'une location. */
+export type ObservationTag =
+  | 'punctual'
+  | 'polite'
+  | 'clean_vehicle'
+  | 'careful_driver'
+  | 'late_return'
+  | 'dirty_vehicle'
+  | 'damage'
+  | 'fuel_issue'
+  | 'km_exceeded'
+  | 'payment_issue'
+  | 'dispute'
+  | 'no_show';
+
+/** Observation de l'agence sur un client (souvent à la fin d'une location). Réservée à la direction. */
+export interface ClientObservation {
+  id: string;
+  createdAt: string;
+  authorName: string;
+  authorId?: string;
+  /** Location concernée, si l'observation vient d'un contrat. */
+  contractId?: string;
+  contractNumber?: string;
+  /** Note de 1 (à éviter) à 5 (excellent client). */
+  rating: 1 | 2 | 3 | 4 | 5;
+  tags: ObservationTag[];
+  comment: string;
+}
+
+export type ReservationStatus = 'active' | 'converted' | 'cancelled';
+
+/** Réservation légère faite par un client, sans contrat (pas de PDF ni de signature). */
+export interface Reservation {
+  id: string;
+  createdAt: string;
+  createdBy: string;
+  startDate: string;
+  startTime: string;
+  endDate: string;
+  endTime: string;
+  vehicleId?: string;
+  /** Libellé figé du véhicule (marque, modèle, plaque), conservé si le véhicule disparaît du parc. */
+  vehicleLabel?: string;
+  /** Acompte reçu, en MAD. */
+  deposit?: number;
+  note?: string;
+  status: ReservationStatus;
+  contractId?: string;
+  cancelledReason?: string;
+}
+
 export interface Client {
   id: string;
+  /** Observations sur le comportement du client, de la plus ancienne à la plus récente. */
+  behaviorLog?: ClientObservation[];
+  /** Réservations du client, hors contrat. */
+  reservations?: Reservation[];
   firstName: string;
   lastName: string;
   birthDate: string;
@@ -385,6 +441,8 @@ export interface ContractInspection {
 
 export interface Contract {
   id: string;
+  /** Réservation d'origine : elle n'est plus à traiter dès qu'un contrat en est issu. */
+  reservationId?: string;
   contractNumber: string;
   status: ContractStatus;
   clientId: string;

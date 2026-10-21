@@ -1,6 +1,7 @@
 import { AR_LOT2 } from './ar.lot2';
 import { AR_LOT3 } from './ar.lot3';
 import { AR_LOT4 } from './ar.lot4';
+import { AR_LOT5 } from './ar.lot5';
 
 /*
  * Dictionnaire arabe (arabe standard simple). La clé est le texte français tel qu'il apparaît dans le code.
@@ -206,4 +207,4 @@ const AR_LOT1: Record<string, string> = {
 };
 
 /** Dictionnaire complet : un lot ultérieur peut surcharger une traduction d'un lot précédent. */
-export const AR: Record<string, string> = { ...AR_LOT1, ...AR_LOT2, ...AR_LOT3, ...AR_LOT4 };
+export const AR: Record<string, string> = { ...AR_LOT1, ...AR_LOT2, ...AR_LOT3, ...AR_LOT4, ...AR_LOT5 };
