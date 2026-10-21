@@ -22,6 +22,7 @@ import { formatPlateFrench } from '../utils/plateUtils';
 import { getVehicleHealthSummary, getTodayDateString } from '../utils/vehicleExpiryUtils';
 import { DashboardAlertsBanner } from './DashboardAlertsBanner';
 import { InstallPrompt } from './InstallPrompt';
+import { PushOptIn } from './PushOptIn';
 import { ReservationsPanel } from './reservations/ReservationsPanel';
 import { useI18n } from '../i18n/I18nContext';
 import { getScopedDataForUser } from '../utils/managerScopeUtils';
@@ -96,6 +97,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCheckInModal, onOpen
   return (
     <div className="max-w-5xl mx-auto space-y-6 pb-8">
       <InstallPrompt />
+      <PushOptIn />
 
       {/* 1. EN-TÊTE AVEC AGENCE DYNAMIQUE */}
       <div className="relative overflow-hidden glass glass-gold rounded-3xl p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">

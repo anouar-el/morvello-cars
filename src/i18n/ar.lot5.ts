@@ -3,6 +3,23 @@
  * Arabe standard simple ; le terme français est gardé entre parenthèses quand le mot arabe peut prêter à confusion.
  */
 export const AR_LOT5: Record<string, string> = {
+  // Notifications push
+  'Recevez le point du jour sur votre téléphone': 'توصّل بملخّص اليوم على هاتفك',
+  'Un résumé chaque matin (retards, retours, réservations) et une alerte immédiate en cas de retard.':
+    'ملخّص كل صباح (التأخرات، الإرجاعات، الحجوزات) وتنبيه فوري عند حدوث تأخر.',
+  'Activer les notifications': 'تفعيل الإشعارات',
+  'Notifications activées sur cet appareil': 'الإشعارات مفعّلة على هذا الجهاز',
+  'Envoyer un essai': 'إرسال إشعار تجريبي',
+  Désactiver: 'إيقاف',
+  "Impossible d'activer les notifications pour le moment. Réessayez.": 'تعذّر تفعيل الإشعارات حاليًا. أعد المحاولة.',
+  'Impossible de désactiver les notifications pour le moment.': 'تعذّر إيقاف الإشعارات حاليًا.',
+  'Notification envoyée : regardez votre téléphone.': 'تم إرسال الإشعار: انظر إلى هاتفك.',
+  "L'envoi d'essai a échoué.": 'فشل الإرسال التجريبي.',
+  "Sur iPhone, installez d'abord l'app sur l'écran d'accueil (Partager → Sur l'écran d'accueil) pour activer les notifications.":
+    'على iPhone، ثبّت التطبيق أولًا على الشاشة الرئيسية (مشاركة ← إضافة إلى الشاشة الرئيسية) لتفعيل الإشعارات.',
+  'Les notifications sont bloquées. Autorisez-les dans les réglages de votre navigateur pour cette application, puis revenez ici.':
+    'الإشعارات محظورة. اسمح بها في إعدادات المتصفح لهذا التطبيق ثم عُد إلى هنا.',
+
   // Observations : formulaire
   'Note globale du client': 'التقييم العام للزبون',
   'Choisissez une note pour enregistrer cette observation.': 'اختر تقييمًا لحفظ هذه الملاحظة.',
