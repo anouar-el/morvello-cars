@@ -21,7 +21,6 @@ import {
 import { formatPlateFrench } from '../utils/plateUtils';
 import { getVehicleHealthSummary, getTodayDateString } from '../utils/vehicleExpiryUtils';
 import { DashboardAlertsBanner } from './DashboardAlertsBanner';
-import { RemindersPanel } from './RemindersPanel';
 import { InstallPrompt } from './InstallPrompt';
 import { ReservationsPanel } from './reservations/ReservationsPanel';
 import { useI18n } from '../i18n/I18nContext';
@@ -247,9 +246,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCheckInModal, onOpen
 
       {/* 2.55 RÉSERVATIONS SANS CONTRAT */}
       <ReservationsPanel />
-
-      {/* 2.6 RELANCES CLIENTS (WhatsApp prêt à envoyer) */}
-      {currentUser && <RemindersPanel contracts={scopedContracts} userId={currentUser.id} />}
 
       {/* 3. CONTRATS EN COURS & RESTITUTIONS PRIORITAIRES */}
       <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-4">
