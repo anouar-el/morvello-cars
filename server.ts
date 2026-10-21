@@ -15,6 +15,7 @@ import { buildAssistantDataSection } from './src/lib/aiAssistantContext';
 import { ASSISTANT_TOOL_DECLARATIONS, executeAssistantTool, type AssistantSource } from './src/lib/assistantTools';
 import type { AssistantAction } from './src/lib/assistantActions';
 import { createUsageTracker } from './src/lib/assistantUsage';
+import { createPushService, readPushConfig, validateSubscription, type PushService } from './src/lib/pushServer';
 import {
   ASSISTANT_LIMITS,
   fetchAssistantData,
@@ -1133,6 +1134,130 @@ app.get('/api/assistant-usage', async (req, res) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// Notifications push : appareils du gérant et des managers (résumé du matin, retards, réservations)
+// ---------------------------------------------------------------------------
+let pushService: PushService | null | undefined;
+function getPushService(): PushService | null {
+  if (pushService !== undefined) return pushService;
+  const config = readPushConfig();
+  if (!config || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    pushService = null;
+    return null;
+  }
+  try {
+    pushService = createPushService(getSupabaseAdminServiceClient(), config);
+  } catch (err: any) {
+    console.error('[Push] Initialisation impossible :', err?.message || err);
+    pushService = null;
+  }
+  return pushService;
+}
+const checkPushRateLimit = createRateLimiter(60 * 1000, 20);
+
+/** Authentifie l'appelant et réserve les notifications au gérant et aux managers. */
+async function authenticatePushCaller(req: express.Request, res: express.Response) {
+  const authCheck = await authenticateCaller(req);
+  if (!authCheck.authenticated) {
+    res.status(authCheck.statusCode).json({ success: false, error: authCheck.error, code: authCheck.code });
+    return null;
+  }
+  if (authCheck.role !== 'admin' && authCheck.role !== 'manager') {
+    res.status(403).json({ success: false, error: 'Les notifications sont réservées au gérant et aux managers.' });
+    return null;
+  }
+  if (!checkPushRateLimit(res, authCheck.uid)) {
+    res.status(429).json({ success: false, error: 'Trop de requêtes. Veuillez patienter un instant.' });
+    return null;
+  }
+  return authCheck;
+}
+
+app.get('/api/push/config', async (req, res) => {
+  try {
+    const auth = await authenticatePushCaller(req, res);
+    if (!auth) return;
+    const svc = getPushService();
+    return res.json({ success: true, enabled: Boolean(svc), publicKey: svc?.publicKey ?? null });
+  } catch (error) {
+    console.error('Push config API error:', error);
+    return res.status(500).json({ success: false, error: 'Notifications indisponibles.' });
+  }
+});
+
+app.post('/api/push/subscribe', async (req, res) => {
+  try {
+    const auth = await authenticatePushCaller(req, res);
+    if (!auth) return;
+    const svc = getPushService();
+    if (!svc) return res.status(503).json({ success: false, error: 'Les notifications ne sont pas activées sur le serveur.' });
+    const subscription = validateSubscription(req.body);
+    if (!subscription) return res.status(400).json({ success: false, error: 'Abonnement invalide.' });
+    await svc.subscribe(auth.uid, subscription, req.get('user-agent') || undefined);
+    return res.json({ success: true });
+  } catch (error) {
+    console.error('Push subscribe API error:', error);
+    return res.status(500).json({ success: false, error: "Impossible d'activer les notifications." });
+  }
+});
+
+app.post('/api/push/unsubscribe', async (req, res) => {
+  try {
+    const auth = await authenticatePushCaller(req, res);
+    if (!auth) return;
+    const svc = getPushService();
+    const endpoint = req.body?.endpoint;
+    if (!svc || typeof endpoint !== 'string' || endpoint.length > 1000) {
+      return res.status(400).json({ success: false, error: 'Requête invalide.' });
+    }
+    await svc.unsubscribe(auth.uid, endpoint);
+    return res.json({ success: true });
+  } catch (error) {
+    console.error('Push unsubscribe API error:', error);
+    return res.status(500).json({ success: false, error: 'Impossible de désactiver les notifications.' });
+  }
+});
+
+app.post('/api/push/test', async (req, res) => {
+  try {
+    const auth = await authenticatePushCaller(req, res);
+    if (!auth) return;
+    const svc = getPushService();
+    if (!svc) return res.status(503).json({ success: false, error: 'Les notifications ne sont pas activées sur le serveur.' });
+    const reached = await svc.sendTest(auth.uid);
+    return res.json({ success: true, reached });
+  } catch (error) {
+    console.error('Push test API error:', error);
+    return res.status(500).json({ success: false, error: "Envoi d'essai impossible." });
+  }
+});
+
+/** Vérifie toutes les 15 minutes ; le résumé du matin et les alertes critiques en découlent. */
+const PUSH_CYCLE_MS = 15 * 60 * 1000;
+function startPushScheduler() {
+  const svc = getPushService();
+  if (!svc) {
+    console.log('[Push] Désactivées (VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT et SUPABASE_SERVICE_ROLE_KEY requis).');
+    return;
+  }
+  let running = false;
+  const tick = async () => {
+    if (running) return;
+    running = true;
+    try {
+      const r = await svc.runCycle();
+      if (r.sent || r.removed || r.failed) console.log(`[Push] cycle : ${r.sent} envoyée(s), ${r.removed} abonnement(s) retiré(s), ${r.failed} échec(s)`);
+    } catch (err: any) {
+      console.error('[Push] cycle en erreur :', err?.message || err);
+    } finally {
+      running = false;
+    }
+  };
+  setTimeout(tick, 30 * 1000).unref();
+  setInterval(tick, PUSH_CYCLE_MS).unref();
+  console.log('[Push] Planificateur démarré (cycle de 15 min).');
+}
+
 // AI Agent Chat Endpoint - strictly isolated per authenticated member
 app.post('/api/agent-chat', async (req, res) => {
   try {
@@ -1686,6 +1811,7 @@ export async function startServer() {
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`[SERVER_LISTENING] Morvello Cars Server running on http://0.0.0.0:${PORT} (mode: ${isProd ? 'production' : 'development'})`);
+    startPushScheduler();
   });
 }
 
