@@ -77,7 +77,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenNotifications }) => {
   const { alerts, criticalCount } = computeOperationalAlerts(
     managerScopedVehicles,
     managerScopedContracts,
-    managerScopedDeposits
+    managerScopedDeposits,
+    undefined,
+    managerScopedClients
   );
 
   const scopedVehicles = managerScopedVehicles.filter((v) => v.approvalStatus === 'approved');

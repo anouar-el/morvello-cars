@@ -29,7 +29,7 @@ export const DashboardAlertsBanner: React.FC<DashboardAlertsBannerProps> = ({
   const { vehicles, contracts, deposits, clients, users, currentUser, setActiveTab } = useApp();
   const { t } = useI18n();
 
-  const { scopedVehicles, scopedContracts, scopedDeposits } = getScopedDataForUser(
+  const { scopedVehicles, scopedContracts, scopedDeposits, scopedClients } = getScopedDataForUser(
     currentUser,
     vehicles,
     contracts,
@@ -41,7 +41,9 @@ export const DashboardAlertsBanner: React.FC<DashboardAlertsBannerProps> = ({
   const { alerts, criticalCount, warningCount } = computeOperationalAlerts(
     scopedVehicles,
     scopedContracts,
-    scopedDeposits
+    scopedDeposits,
+    undefined,
+    scopedClients
   );
 
   if (alerts.length === 0) {

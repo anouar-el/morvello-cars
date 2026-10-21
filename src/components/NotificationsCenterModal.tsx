@@ -39,7 +39,7 @@ export const NotificationsCenterModal: React.FC<NotificationsCenterModalProps> =
 
   if (!isOpen) return null;
 
-  const { scopedVehicles, scopedContracts, scopedDeposits } = getScopedDataForUser(
+  const { scopedVehicles, scopedContracts, scopedDeposits, scopedClients } = getScopedDataForUser(
     currentUser,
     vehicles,
     contracts,
@@ -49,7 +49,7 @@ export const NotificationsCenterModal: React.FC<NotificationsCenterModalProps> =
   );
 
   const { alerts, criticalCount, warningCount, infoCount, returnsCount, complianceCount } =
-    computeOperationalAlerts(scopedVehicles, scopedContracts, scopedDeposits);
+    computeOperationalAlerts(scopedVehicles, scopedContracts, scopedDeposits, undefined, scopedClients);
 
   const filteredAlerts = alerts.filter((alert) => {
     if (filterSeverity !== 'all' && alert.severity !== filterSeverity) return false;

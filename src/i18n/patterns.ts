@@ -23,6 +23,20 @@ export const AR_PATTERNS: Pattern[] = [
   [/^Contrat #(\S+) \((.*)\) - Fin prévue le (\S+)\.$/, (m) => `العقد #${m[1]} (${m[2]}) - النهاية المتوقعة يوم ${m[3]}.`],
   [/^Dans (\d+)j$/, (m) => `بعد ${m[1]} ${PLURAL(m[1])}`],
 
+  // Réservations sans contrat
+  [/^Réservation dépassée : (.+)$/, (m) => `حجز متجاوز: ${m[1]}`],
+  [
+    /^Réservation du (\S+)( \(.*\))? jamais transformée en contrat : à confirmer ou à annuler\.$/,
+    (m) => `حجز بتاريخ ${m[1]}${m[2] ?? ''} لم يُحوَّل إلى عقد: للتأكيد أو الإلغاء.`,
+  ],
+  [/^Réservation aujourd'hui : (.+)$/, (m) => `حجز اليوم: ${m[1]}`],
+  [
+    /^Départ prévu à (\S+)( \(.*\))? : préparez le véhicule et le contrat\.$/,
+    (m) => `الانطلاق المتوقع على الساعة ${m[1]}${m[2] ?? ''}: جهّز السيارة والعقد.`,
+  ],
+  [/^Réservation sous (\d+)j : (.+)$/, (m) => `حجز خلال ${m[1]} ${PLURAL(m[1])}: ${m[2]}`],
+  [/^Départ prévu le (\S+) à (\S+)( \(.*\))?\.$/, (m) => `الانطلاق المتوقع يوم ${m[1]} على الساعة ${m[2]}${m[3] ?? ''}.`],
+
   // Conformité des véhicules : « <véhicule> : <rubrique> »
   [/^(.+\(.*\)) : (Assurance|Visite Technique|Vignette|Vidange)$/, (m, tr) => `${m[1]} : ${tr(m[2])}`],
   [/^Non renseignée$/, () => 'غير مُدخلة'],

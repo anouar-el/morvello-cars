@@ -33,8 +33,11 @@ import {
   RefreshCw,
   ArrowUpDown,
   Sparkles,
+  Star,
 } from 'lucide-react';
 import { askAssistant } from '../lib/askAssistant';
+import { canAccessObservations } from '../lib/clientObservations';
+import { ClientObservationModal } from './clients/ClientObservationModal';
 import { takeEntityFocus } from '../lib/entityFocus';
 import { formatPlateFrench } from '../utils/plateUtils';
 import { sortContractsByNumber } from '../utils/contractNumberUtils';
@@ -80,6 +83,7 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
   const [paymentFilter, setPaymentFilter] = useState<string>('all');
   const [managerFilter, setManagerFilter] = useState<string>('all');
   const [inspectionContract, setInspectionContract] = useState<Contract | null>(null);
+  const [observationContract, setObservationContract] = useState<Contract | null>(null);
   const [paymentsModalContract, setPaymentsModalContract] = useState<Contract | null>(null);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
@@ -1162,6 +1166,12 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
                   <Printer className="w-4 h-4 text-slate-300" />
                   <span>{t('Imprimer le contrat')}</span>
                 </button>
+                {canAccessObservations(currentUser?.role) && (
+                  <button role="menuitem" className={itemClass} onClick={run(() => setObservationContract(menuContract))}>
+                    <Star className="w-4 h-4 text-amber-400" />
+                    <span>{t('Observation sur le client')}</span>
+                  </button>
+                )}
 
                 <button
                   role="menuitem"
@@ -1217,6 +1227,10 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
             </>
           );
         })()}
+
+      {observationContract && (
+        <ClientObservationModal contract={observationContract} onClose={() => setObservationContract(null)} />
+      )}
 
       {/* MODAL ÉTAT DES LIEUX & PHOTOS */}
       <InspectionManagerModal

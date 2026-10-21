@@ -4,6 +4,8 @@ import { useApp } from '../context/AppContext';
 import { Client, DocumentType } from '../types';
 import { takeEntityFocus } from '../lib/entityFocus';
 import { ClientDocumentUpload } from './ClientDocumentUpload';
+import { ClientObservationsPanel } from './clients/ClientObservationsPanel';
+import { ReservationModal } from './reservations/ReservationModal';
 import { isContractOwnedByManager, isClientOwnedByManager } from '../utils/managerScopeUtils';
 import { sortContractsByNumber } from '../utils/contractNumberUtils';
 import {
@@ -54,6 +56,7 @@ export const ClientsList: React.FC = () => {
   const [managerFilter, setManagerFilter] = useState<string>(currentUser.role === 'manager' ? 'mine' : 'all');
   const [selectedClientDetail, setSelectedClientDetail] = useState<Client | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
+  const [reservationForClient, setReservationForClient] = useState<string | null>(null);
   const [previewDocModal, setPreviewDocModal] = useState<{ title: string; url: string } | null>(null);
   const [isEditingDocsInDetail, setIsEditingDocsInDetail] = useState<boolean>(false);
 
@@ -754,6 +757,15 @@ export const ClientsList: React.FC = () => {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
+                  onClick={() => setReservationForClient(selectedClientDetail.id)}
+                  className="px-3 py-1.5 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/40 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer min-h-9"
+                  title={t('Réserver un véhicule pour ce client')}
+                >
+                  <Calendar className="w-3.5 h-3.5" />
+                  <span>{t('Réserver')}</span>
+                </button>
+                <button
+                  type="button"
                   onClick={() => handleOpenEdit(selectedClientDetail)}
                   className="px-3 py-1.5 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 hover:text-white border border-amber-500/40 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
                   title={t('Modifier les coordonnées de cette fiche')}
@@ -905,6 +917,9 @@ export const ClientsList: React.FC = () => {
                 </div>
               )}
             </div>
+
+            {/* COMPORTEMENT DU CLIENT (direction uniquement) */}
+            <ClientObservationsPanel clientId={selectedClientDetail.id} />
 
             {/* DOCUMENTS NUMÉRISÉS DU CLIENT (PERMIS & CIN/PASSEPORT) */}
             <div className="bg-slate-950/70 p-4 rounded-xl border border-slate-800 space-y-3">
@@ -1743,6 +1758,10 @@ export const ClientsList: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {reservationForClient && (
+        <ReservationModal clientId={reservationForClient} onClose={() => setReservationForClient(null)} />
       )}
     </div>
   );
