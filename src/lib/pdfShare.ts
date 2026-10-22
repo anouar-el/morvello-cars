@@ -60,6 +60,9 @@ export function describePdfError(err: unknown): string {
   if (/memory|canvas|too large|size|quota|allocation/.test(message)) {
     return "La mémoire de l'appareil est insuffisante pour générer le PDF. Fermez les autres onglets et applications, puis réessayez.";
   }
+  if (/pas fini de se charger/.test(message)) {
+    return "Le logo et le cachet n'ont pas fini de se charger. Vérifiez votre connexion, patientez quelques secondes, puis réessayez.";
+  }
   if (/localiser les pages|page 1|page 2/.test(message)) {
     return "Le contrat n'a pas fini de s'afficher. Patientez un instant, puis réessayez.";
   }

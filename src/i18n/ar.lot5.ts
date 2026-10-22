@@ -11,6 +11,8 @@ export const AR_LOT5: Record<string, string> = {
   'Astuce : « Enregistrer dans Fichiers » garde le contrat sur votre iPhone.': 'نصيحة: «حفظ في الملفات» يُبقي العقد على هاتفك.',
   "La mémoire de l'appareil est insuffisante pour générer le PDF. Fermez les autres onglets et applications, puis réessayez.":
     'ذاكرة الجهاز غير كافية لإنشاء ملف PDF. أغلق التبويبات والتطبيقات الأخرى ثم أعد المحاولة.',
+  "Le logo et le cachet n'ont pas fini de se charger. Vérifiez votre connexion, patientez quelques secondes, puis réessayez.":
+    'لم يكتمل تحميل الشعار والختم. تحقّق من اتصالك وانتظر بضع ثوانٍ ثم أعد المحاولة.',
   "Le contrat n'a pas fini de s'afficher. Patientez un instant, puis réessayez.": 'لم يكتمل عرض العقد بعد. انتظر لحظة ثم أعد المحاولة.',
   'La génération du PDF a échoué. Réessayez, ou utilisez « Imprimer (A4) ».': 'فشل إنشاء ملف PDF. أعد المحاولة أو استعمل «طباعة (A4)».',
   "Le partage n'est pas disponible ici : utilisez « Ouvrir le PDF » ci-dessous.": 'المشاركة غير متاحة هنا: استعمل «فتح ملف PDF» أدناه.',
