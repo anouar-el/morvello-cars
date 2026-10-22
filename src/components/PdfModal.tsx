@@ -7,8 +7,11 @@ import { CONTRACT_TEMPLATES, getContractTemplate } from '../data/contractTemplat
 import { ContractTemplateId } from '../types';
 import {
   downloadContractPdf,
+  generateContractPdf,
   openContractPdfInNewTab,
+  type GeneratedPdfResult,
 } from '../utils/contractPdfGenerator';
+import { describePdfError, isIosDevice, sharePdfFile } from '../lib/pdfShare';
 import {
   Printer,
   Download,
@@ -27,6 +30,8 @@ import {
   ExternalLink,
   Layers,
   Save,
+  Share2,
+  AlertTriangle,
 } from 'lucide-react';
 
 import { useI18n } from '../i18n/I18nContext';
@@ -69,12 +74,71 @@ export const PdfModal: React.FC = () => {
   const [generationStep, setGenerationStep] = useState<string>('');
   const [generationPercent, setGenerationPercent] = useState<number>(0);
   const [downloadSuccess, setDownloadSuccess] = useState<boolean>(false);
-  const [lastGeneratedBlobUrl, setLastGeneratedBlobUrl] = useState<string | null>(null);
   const [isSignatureModalOpen, setIsSignatureModalOpen] = useState<boolean>(false);
+  // iPhone : le PDF est d'abord préparé, puis un second appui (vrai geste) le partage ou l'ouvre
+  const isIos = React.useMemo(() => isIosDevice(), []);
+  const [readyPdf, setReadyPdf] = useState<GeneratedPdfResult | null>(null);
+  const [pdfError, setPdfError] = useState<string>('');
+  const [shareNote, setShareNote] = useState<string>('');
+
+  // Libère le fichier en mémoire à la fermeture, sauf hors iPhone : un onglet déjà ouvert sur ce PDF peut encore en avoir besoin
+  useEffect(() => {
+    if (!isPdfModalOpen) {
+      if (isIos && readyPdf) URL.revokeObjectURL(readyPdf.blobUrl);
+      setReadyPdf(null);
+      setPdfError('');
+      setShareNote('');
+    }
+  }, [isPdfModalOpen]);
 
   if (!isPdfModalOpen || !pdfModalContract) {
     return null;
   }
+
+  const preparePdf = async () => {
+    if (!pdfModalContract || isGeneratingPdf) return;
+    setPdfError('');
+    setShareNote('');
+    if (readyPdf) URL.revokeObjectURL(readyPdf.blobUrl);
+    setReadyPdf(null);
+    try {
+      setIsGeneratingPdf(true);
+      setGenerationStep('Démarrage de la génération PDF A4...');
+      setGenerationPercent(10);
+      addAuditLog(
+        'Préparation PDF',
+        'contract',
+        pdfModalContract.contractNumber,
+        `Génération du fichier Contrat_${pdfModalContract.contractNumber}.pdf pour partage`
+      );
+      const result = await generateContractPdf(
+        { ...pdfModalContract, templateId: selectedTemplateId },
+        {
+          idPrefix: 'export',
+          onProgress: (step, percent) => {
+            setGenerationStep(step);
+            if (percent !== undefined) setGenerationPercent(percent);
+          },
+        }
+      );
+      setReadyPdf(result);
+    } catch (error) {
+      console.error('Erreur de génération PDF:', error);
+      setPdfError(describePdfError(error));
+    } finally {
+      setIsGeneratingPdf(false);
+      setGenerationStep('');
+      setGenerationPercent(0);
+    }
+  };
+
+  const handleSharePdf = async () => {
+    if (!readyPdf) return;
+    const outcome = await sharePdfFile(readyPdf.blob, readyPdf.filename, `Contrat ${pdfModalContract.contractNumber}`);
+    if (outcome === 'unsupported') setShareNote("Le partage n'est pas disponible ici : utilisez « Ouvrir le PDF » ci-dessous.");
+    else if (outcome === 'failed') setShareNote("Le partage a échoué : utilisez « Ouvrir le PDF » ci-dessous.");
+    else setShareNote('');
+  };
 
   const handlePrint = () => {
     addAuditLog(
@@ -88,6 +152,8 @@ export const PdfModal: React.FC = () => {
 
   const handleDownloadPdf = async () => {
     if (!pdfModalContract || isGeneratingPdf) return;
+    if (isIos) return preparePdf();
+    setPdfError('');
 
     try {
       setIsGeneratingPdf(true);
@@ -110,15 +176,13 @@ export const PdfModal: React.FC = () => {
         },
       });
 
-      setLastGeneratedBlobUrl(result.blobUrl);
+      // Le fichier reste disponible pour le partager ensuite si le navigateur sait le faire
+      setReadyPdf(result);
       setDownloadSuccess(true);
       setTimeout(() => setDownloadSuccess(false), 6000);
     } catch (error) {
       console.error('Erreur de téléchargement PDF:', error);
-      // Option de repli vers l'impression papier
-      if (confirm(t("La génération directe du PDF a rencontré un obstacle dans votre navigateur. Souhaitez-vous lancer l'impression A4 intégrée ?"))) {
-        window.print();
-      }
+      setPdfError(describePdfError(error));
     } finally {
       setIsGeneratingPdf(false);
       setGenerationStep('');
@@ -128,6 +192,9 @@ export const PdfModal: React.FC = () => {
 
   const handleOpenPdfInNewTab = async () => {
     if (!pdfModalContract || isGeneratingPdf) return;
+    // Sur iPhone, une fenêtre ouverte après la génération est bloquée : on prépare d'abord le fichier
+    if (isIos) return preparePdf();
+    setPdfError('');
 
     try {
       setIsGeneratingPdf(true);
@@ -143,10 +210,10 @@ export const PdfModal: React.FC = () => {
         },
       });
 
-      setLastGeneratedBlobUrl(result.blobUrl);
+      setReadyPdf(result);
     } catch (error) {
       console.error('Erreur ouverture PDF:', error);
-      alert(t("Impossible d'ouvrir le PDF. Veuillez autoriser les fenêtres pop-up pour cette application."));
+      setPdfError(describePdfError(error));
     } finally {
       setIsGeneratingPdf(false);
       setGenerationStep('');
@@ -458,6 +525,77 @@ export const PdfModal: React.FC = () => {
           idPrefix="print"
         />
       </div>
+
+      {/* ERREUR DE GÉNÉRATION : message clair, réessai et repli vers l'impression */}
+      {pdfError && !readyPdf && (
+        <div className="fixed inset-x-0 bottom-0 z-[90] p-3 pb-safe" role="alert">
+          <div className="max-w-lg mx-auto rounded-2xl border border-rose-500/40 bg-slate-900 shadow-2xl p-4 space-y-3">
+            <div className="flex items-start gap-2.5 text-xs text-rose-200">
+              <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+              <p>{t(pdfError)}</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={handleDownloadPdf} className="min-h-11 px-4 rounded-xl bg-amber-500 text-slate-950 text-xs font-bold cursor-pointer">
+                {t('Réessayer')}
+              </button>
+              <button type="button" onClick={handlePrint} className="min-h-11 px-4 rounded-xl border border-slate-600 text-slate-200 text-xs font-semibold cursor-pointer">
+                {t('Imprimer (A4)')}
+              </button>
+              <button type="button" onClick={() => setPdfError('')} className="min-h-11 px-4 rounded-xl text-slate-400 text-xs cursor-pointer">
+                {t('Fermer')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* iPHONE : PDF PRÊT — le partage et l'ouverture exigent un vrai appui de l'utilisateur */}
+      {isIos && readyPdf && (
+        <div className="fixed inset-x-0 bottom-0 z-[90] p-3 pb-safe">
+          <div className="max-w-lg mx-auto rounded-3xl border border-emerald-500/40 bg-slate-900 shadow-2xl p-4 space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 text-sm font-bold text-white">
+                  <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                  {t('PDF prêt')}
+                </div>
+                <p className="text-[11px] text-slate-400 mt-0.5 truncate">{readyPdf.filename}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setReadyPdf(null)}
+                aria-label={t('Fermer')}
+                className="w-11 h-11 -m-2 flex items-center justify-center rounded-xl text-slate-400 hover:text-white cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={handleSharePdf}
+              className="w-full min-h-12 inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-400 text-slate-950 text-sm font-bold active:scale-95 transition-transform cursor-pointer"
+            >
+              <Share2 className="w-4 h-4" />
+              {t('Partager / Enregistrer')}
+            </button>
+            <a
+              href={readyPdf.blobUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full min-h-12 inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-600 text-slate-100 text-sm font-semibold"
+            >
+              <ExternalLink className="w-4 h-4 text-sky-400" />
+              {t('Ouvrir le PDF')}
+            </a>
+            {shareNote && (
+              <p className="text-[11px] text-amber-300" role="status">
+                {t(shareNote)}
+              </p>
+            )}
+            <p className="text-[11px] text-slate-500">{t('Astuce : « Enregistrer dans Fichiers » garde le contrat sur votre iPhone.')}</p>
+          </div>
+        </div>
+      )}
 
       {/* MODAL DE SIGNATURE NUMÉRIQUE INTERACTIVE */}
       <DigitalSignatureModal

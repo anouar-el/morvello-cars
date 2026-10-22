@@ -1,4 +1,5 @@
 import { Contract } from '../types';
+import { isIosDevice, pdfCaptureSettings } from '../lib/pdfShare';
 
 export interface GeneratePdfProgressCallback {
   (step: string, percent?: number): void;
@@ -62,7 +63,7 @@ export function getContractPdfFilename(contract: Contract): string {
 /**
  * Convertit un élément DOM en image canvas haute résolution
  */
-async function capturePageElement(element: HTMLElement, scale = 2.2): Promise<string> {
+async function capturePageElement(element: HTMLElement, scale = 2.2, quality = 0.95): Promise<string> {
   await waitForAssets(element);
 
   // Tentative 1 : html2canvas (moteur le plus stable pour canvas CSS moderne et SVG)
@@ -87,14 +88,18 @@ async function capturePageElement(element: HTMLElement, scale = 2.2): Promise<st
       },
     });
 
-    return canvas.toDataURL('image/jpeg', 0.95);
+    const dataUrl = canvas.toDataURL('image/jpeg', quality);
+    // Libère tout de suite la mémoire du canevas : Safari sur iPhone la rend mal et échoue à la deuxième page
+    canvas.width = 0;
+    canvas.height = 0;
+    return dataUrl;
   } catch (canvasErr) {
     console.warn('html2canvas a échoué, repli sur html-to-image:', canvasErr);
 
     // Tentative 2 : html-to-image
     const { toJpeg } = await import('html-to-image');
     return await toJpeg(element, {
-      quality: 0.95,
+      quality,
       pixelRatio: scale,
       backgroundColor: '#ffffff',
       cacheBust: true,
@@ -109,10 +114,12 @@ export async function generateContractPdf(
   contract: Contract,
   options: GeneratePdfOptions = {}
 ): Promise<GeneratedPdfResult> {
+  const defaults = pdfCaptureSettings(isIosDevice());
   const {
     idPrefix = 'print',
     onProgress,
-    scale = 2.2,
+    scale = defaults.scale,
+    quality = defaults.quality,
     filename: customFilename,
   } = options;
 
@@ -141,10 +148,10 @@ export async function generateContractPdf(
   }
 
   onProgress?.('Capture haute résolution Page 1 (Recto)...', 25);
-  const imgData1 = await capturePageElement(page1El, scale);
+  const imgData1 = await capturePageElement(page1El, scale, quality);
 
   onProgress?.('Capture haute résolution Page 2 (Verso)...', 60);
-  const imgData2 = await capturePageElement(page2El, scale);
+  const imgData2 = await capturePageElement(page2El, scale, quality);
 
   onProgress?.('Compilation du document PDF A4...', 85);
   const { default: jsPDF } = await import('jspdf');
