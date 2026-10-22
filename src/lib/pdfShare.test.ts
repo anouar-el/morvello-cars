@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { countPendingImages } from '../utils/contractPdfGenerator';
 import { canShareFile, describePdfError, isIosDevice, pdfCaptureSettings, sharePdfFile } from './pdfShare';
 
 const pdf = () => new Blob(['%PDF-1.4'], { type: 'application/pdf' });
@@ -53,6 +54,14 @@ describe('describePdfError', () => {
   it('explique un manque de mémoire, une page introuvable, ou une erreur générale', () => {
     expect(describePdfError(new Error('Canvas exceeds max size'))).toMatch(/mémoire/);
     expect(describePdfError(new Error('Impossible de localiser les pages A4 du contrat'))).toMatch(/fini de s'afficher/);
+    expect(describePdfError(new Error("Le logo ou le cachet du contrat n'a pas fini de se charger."))).toMatch(/cachet/);
     expect(describePdfError(new Error('???'))).toMatch(/Réessayez/);
+  });
+});
+
+describe('countPendingImages', () => {
+  it("compte les images dont le chargement n'est pas terminé (logo, cachet)", () => {
+    expect(countPendingImages([{ complete: true }, { complete: false }, { complete: false }])).toBe(2);
+    expect(countPendingImages([])).toBe(0);
   });
 });

@@ -20,35 +20,82 @@ export interface GeneratedPdfResult {
   totalPages: number;
 }
 
+/** Le logo et le cachet pèsent près de 2 Mo : sur une connexion lente, 0,8 s ne suffisait pas et le contrat partait sans cachet. */
+const IMAGE_WAIT_MS = 20000;
+const FONT_WAIT_MS = 8000;
+
+/** Polices du contrat ; l'échantillon contient de l'arabe pour déclencher aussi le sous-ensemble arabe de Cairo. */
+const CONTRACT_FONTS = [
+  '400 14px Cairo',
+  '700 14px Cairo',
+  '400 14px "Plus Jakarta Sans"',
+  '700 14px "Plus Jakarta Sans"',
+  '800 14px "Plus Jakarta Sans"',
+  '600 14px "JetBrains Mono"',
+  '700 14px "JetBrains Mono"',
+  '700 14px Cinzel',
+];
+const FONT_SAMPLE = 'Aa أب 0123';
+
+/** Images dont le chargement n'est pas terminé (ni réussi, ni définitivement en erreur). */
+export function countPendingImages(images: Array<{ complete: boolean }>): number {
+  return images.filter((img) => !img.complete).length;
+}
+
+const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+// requestAnimationFrame est suspendu quand l'onglet passe en arrière-plan : on ne l'attend jamais plus de 150 ms
+const nextFrame = () =>
+  new Promise<void>((resolve) => {
+    const timer = setTimeout(resolve, 150);
+    requestAnimationFrame(() => {
+      clearTimeout(timer);
+      resolve();
+    });
+  });
+
+function waitForImage(img: HTMLImageElement): Promise<void> {
+  const decoded = () => (img.complete && img.naturalWidth > 0 && typeof img.decode === 'function' ? img.decode().catch(() => {}) : Promise.resolve());
+  if (img.complete) return decoded();
+  return new Promise<void>((resolve) => {
+    const done = () => resolve();
+    img.addEventListener('load', done, { once: true });
+    img.addEventListener('error', done, { once: true });
+    setTimeout(done, IMAGE_WAIT_MS);
+  }).then(decoded);
+}
+
 /**
- * Assure le chargement complet des polices et images contenues dans l'élément avant capture
+ * Assure le chargement complet des polices et images contenues dans l'élément avant capture.
+ * Si une image n'a toujours pas fini de charger, on refuse de produire un contrat sans logo ni cachet.
  */
 async function waitForAssets(container: HTMLElement): Promise<void> {
-  // Attente polices
+  // Polices : `fonts.ready` ne suffit pas, il ne couvre que ce qui est déjà en cours de chargement
   if (typeof document !== 'undefined' && 'fonts' in document) {
     try {
+      await Promise.race([
+        Promise.allSettled(CONTRACT_FONTS.map((spec) => document.fonts.load(spec, FONT_SAMPLE))),
+        delay(FONT_WAIT_MS),
+      ]);
       await document.fonts.ready;
     } catch {
       // Ignorer si échec
     }
   }
 
-  // Attente images
+  // Images (cachet, logo)
   const images = Array.from(container.querySelectorAll('img'));
-  await Promise.all(
-    images.map((img) => {
-      if (img.complete) return Promise.resolve();
-      return new Promise<void>((resolve) => {
-        img.onload = () => resolve();
-        img.onerror = () => resolve();
-        // Timeout de sécurité pour éviter de bloquer
-        setTimeout(resolve, 800);
-      });
-    })
-  );
+  await Promise.all(images.map(waitForImage));
+  // Une image en erreur est remplacée par une version vectorielle : on laisse React la poser avant de vérifier
+  await nextFrame();
+  const pending = countPendingImages(Array.from(container.querySelectorAll('img')));
+  if (pending > 0) {
+    throw new Error('Le logo ou le cachet du contrat n\'a pas fini de se charger.');
+  }
 
-  // Petit répit pour le rendu géométrique final du navigateur
-  await new Promise((r) => setTimeout(r, 120));
+  // Mise en page finale après le chargement des polices
+  await nextFrame();
+  await nextFrame();
+  await delay(120);
 }
 
 /**
