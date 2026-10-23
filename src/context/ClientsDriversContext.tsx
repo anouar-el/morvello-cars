@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { safeSetJson } from '../lib/safeStorage';
 import { Client, Driver, User, Contract, Vehicle } from '../types';
 import { initialClients, initialDrivers } from '../data/mockData';
 import {
@@ -83,11 +84,11 @@ export const ClientsDriversProvider: React.FC<{
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.CLIENTS, JSON.stringify(clients));
+    safeSetJson(STORAGE_KEYS.CLIENTS, clients);
   }, [clients]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.DRIVERS, JSON.stringify(drivers));
+    safeSetJson(STORAGE_KEYS.DRIVERS, drivers);
   }, [drivers]);
 
   const logAction = (action: string, targetType: any, targetId: string, details: string) => {

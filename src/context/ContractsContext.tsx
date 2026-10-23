@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { safeSetJson } from '../lib/safeStorage';
 import {
   Contract,
   ContractInspection,
@@ -215,7 +216,7 @@ export const ContractsProvider: React.FC<{
   const [editingContractData, setEditingContractData] = useState<Contract | null>(null);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(contracts));
+    safeSetJson(STORAGE_KEY, contracts);
   }, [contracts]);
 
   const logAction = (action: string, targetType: any, targetId: string, details: string) => {

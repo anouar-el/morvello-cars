@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { safeSetJson } from '../lib/safeStorage';
 import {
   User,
   UserRole,
@@ -415,7 +416,7 @@ export const AuthProvider: React.FC<{
   useEffect(() => {
     if (currentUser) {
       const { password: _p, ...safe } = currentUser as any;
-      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(safe));
+      safeSetJson(STORAGE_KEYS.USER, safe, { lite: false });
     } else {
       localStorage.removeItem(STORAGE_KEYS.USER);
     }
