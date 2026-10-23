@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useLayoutEffect, useMemo } from 'react';
+import { safeSetJson } from '../lib/safeStorage';
 import { useApp } from '../context/AppContext';
 import { AgentChatMessage } from '../types';
 import { isAbortException } from '../initErrorHandling';
@@ -162,7 +163,7 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
 
   // Sauvegarde persistante de la conversation par collaborateur
   useEffect(() => {
-    localStorage.setItem(`morvello_ai_chat_${currentUser.id}`, JSON.stringify(messages));
+    safeSetJson(`morvello_ai_chat_${currentUser.id}`, messages, { lite: false });
   }, [messages, currentUser.id]);
 
   // Défilement intelligent : ne force pas le retour en bas si l'utilisateur consulte l'historique

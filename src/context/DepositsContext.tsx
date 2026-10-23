@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { safeSetJson } from '../lib/safeStorage';
 import { DepositRecord, DepositDeduction } from '../types';
 import { initialDeposits } from '../data/mockData';
 import {
@@ -37,7 +38,7 @@ export const DepositsProvider: React.FC<{
   });
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(deposits));
+    safeSetJson(STORAGE_KEY, deposits);
   }, [deposits]);
 
   const logAction = (action: string, targetType: any, targetId: string, details: string) => {

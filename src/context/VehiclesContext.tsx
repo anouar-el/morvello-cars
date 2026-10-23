@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { safeSetJson } from '../lib/safeStorage';
 import { Vehicle, User, VehicleExpense } from '../types';
 import { initialVehicles, initialUsers } from '../data/mockData';
 import { formatPlateFrench } from '../utils/plateUtils';
@@ -54,7 +55,7 @@ export const VehiclesProvider: React.FC<{
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(vehicles));
+    safeSetJson(STORAGE_KEY, vehicles);
   }, [vehicles]);
 
   const logAction = (action: string, targetType: any, targetId: string, details: string) => {

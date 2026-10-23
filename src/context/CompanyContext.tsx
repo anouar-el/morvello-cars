@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { safeSetJson } from '../lib/safeStorage';
 import {
   CompanySettings,
   AiAssistantSettings,
@@ -153,19 +154,19 @@ export const CompanyProvider: React.FC<{
   });
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(companySettings));
+    safeSetJson(STORAGE_KEYS.SETTINGS, companySettings);
   }, [companySettings]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.AI_SETTINGS, JSON.stringify(aiSettings));
+    safeSetJson(STORAGE_KEYS.AI_SETTINGS, aiSettings);
   }, [aiSettings]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.TERMS, JSON.stringify(termsVersion));
+    safeSetJson(STORAGE_KEYS.TERMS, termsVersion);
   }, [termsVersion]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.AUDIT, JSON.stringify(auditLogs));
+    safeSetJson(STORAGE_KEYS.AUDIT, auditLogs);
   }, [auditLogs]);
 
   const addAuditLog = useCallback(
