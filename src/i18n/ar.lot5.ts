@@ -4,6 +4,8 @@
  */
 export const AR_LOT5: Record<string, string> = {
   // Stockage des photos et scans
+  'Document archivé : aucun fichier numérisé.': 'مستند مؤرشف: لا يوجد ملف ممسوح.',
+  Archivé: 'مؤرشف',
   'Chargement du document…': 'جارٍ تحميل المستند…',
   'Document introuvable.': 'المستند غير موجود.',
   'Stockage des photos et scans': 'تخزين الصور والمستندات الممسوحة',

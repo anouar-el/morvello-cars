@@ -15,8 +15,7 @@ import {
 import { useI18n } from '../i18n/I18nContext';
 import { storeFile } from '../lib/storageClient';
 import { isPdfValue } from '../lib/storageFiles';
-import { StorageImg } from './StorageImg';
-import { StorageDocument, StorageDownloadLink } from './StorageDocument';
+import { DocThumb, StorageDocument, StorageDownloadLink } from './StorageDocument';
 export interface DocumentFile {
   dataUrl?: string;
   name?: string;
@@ -335,12 +334,7 @@ export const ClientDocumentUpload: React.FC<ClientDocumentUploadProps> = ({
               </div>
             ) : (
               <div className="w-10 h-10 rounded bg-slate-950 border border-slate-700 overflow-hidden shrink-0 flex items-center justify-center">
-                <StorageImg
-                  src={doc.dataUrl}
-                  alt={label}
-                  className="w-full h-full object-cover"
-                  referrerPolicy="no-referrer"
-                />
+                <DocThumb src={doc.dataUrl} alt={label} className="w-full h-full object-cover" />
               </div>
             )}
             <div className="min-w-0 flex-1">

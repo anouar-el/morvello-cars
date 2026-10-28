@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { StorageImg } from './StorageImg';
-import { StorageDocument, StorageDownloadLink } from './StorageDocument';
+import { DocThumb, StorageDocument, StorageDownloadLink } from './StorageDocument';
 import { PropagationScopeSelect, usePropagationScope } from './PropagationScopeSelect';
 import { useApp } from '../context/AppContext';
 import { Client, DocumentType } from '../types';
@@ -970,12 +969,10 @@ export const ClientsList: React.FC = () => {
                           }
                           className="flex items-center gap-2.5 p-2 bg-slate-950 rounded-lg border border-slate-800 hover:border-amber-500/40 cursor-pointer transition-colors"
                         >
-                          <StorageImg
+                          <DocThumb
                             src={selectedClientDetail.licenseDocUrl}
                             alt={t('Permis Recto')}
-                            className="w-10 h-10 object-cover rounded bg-slate-900 border border-slate-700 shrink-0"
-                            referrerPolicy="no-referrer"
-                          />
+                            className="w-10 h-10 object-cover rounded bg-slate-900 border border-slate-700 shrink-0" />
                           <div className="min-w-0 flex-1">
                             <p className="text-xs font-mono text-slate-200 truncate">
                               {selectedClientDetail.licenseDocName || t('Permis_Recto')}
@@ -994,12 +991,10 @@ export const ClientsList: React.FC = () => {
                             }
                             className="flex items-center gap-2.5 p-2 bg-slate-950 rounded-lg border border-slate-800 hover:border-amber-500/40 cursor-pointer transition-colors"
                           >
-                            <StorageImg
+                            <DocThumb
                               src={selectedClientDetail.licenseDocVersoUrl}
                               alt={t('Permis Verso')}
-                              className="w-10 h-10 object-cover rounded bg-slate-900 border border-slate-700 shrink-0"
-                              referrerPolicy="no-referrer"
-                            />
+                              className="w-10 h-10 object-cover rounded bg-slate-900 border border-slate-700 shrink-0" />
                             <div className="min-w-0 flex-1">
                               <p className="text-xs font-mono text-slate-200 truncate">
                                 {selectedClientDetail.licenseDocVersoName || t('Permis_Verso')}
@@ -1043,12 +1038,10 @@ export const ClientsList: React.FC = () => {
                           }
                           className="flex items-center gap-2.5 p-2 bg-slate-950 rounded-lg border border-slate-800 hover:border-blue-500/40 cursor-pointer transition-colors"
                         >
-                          <StorageImg
+                          <DocThumb
                             src={selectedClientDetail.cinDocUrl}
                             alt={t('Pièce Recto')}
-                            className="w-10 h-10 object-cover rounded bg-slate-900 border border-slate-700 shrink-0"
-                            referrerPolicy="no-referrer"
-                          />
+                            className="w-10 h-10 object-cover rounded bg-slate-900 border border-slate-700 shrink-0" />
                           <div className="min-w-0 flex-1">
                             <p className="text-xs font-mono text-slate-200 truncate">
                               {selectedClientDetail.cinDocName || t('{docType}_Recto', { docType: selectedClientDetail.docType })}
@@ -1067,12 +1060,10 @@ export const ClientsList: React.FC = () => {
                             }
                             className="flex items-center gap-2.5 p-2 bg-slate-950 rounded-lg border border-slate-800 hover:border-blue-500/40 cursor-pointer transition-colors"
                           >
-                            <StorageImg
+                            <DocThumb
                               src={selectedClientDetail.cinDocVersoUrl}
                               alt={t('Pièce Verso')}
-                              className="w-10 h-10 object-cover rounded bg-slate-900 border border-slate-700 shrink-0"
-                              referrerPolicy="no-referrer"
-                            />
+                              className="w-10 h-10 object-cover rounded bg-slate-900 border border-slate-700 shrink-0" />
                             <div className="min-w-0 flex-1">
                               <p className="text-xs font-mono text-slate-200 truncate">
                                 {selectedClientDetail.cinDocVersoName || t('{docType}_Verso', { docType: selectedClientDetail.docType })}
