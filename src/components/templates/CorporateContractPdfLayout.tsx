@@ -1,4 +1,5 @@
 import React from 'react';
+import { StorageImg } from '../StorageImg';
 import { Contract, CompanySettings, TermsVersion } from '../../types';
 import { Briefcase, Phone, Mail, MapPin, CheckCircle2, ShieldCheck, Building2, UserCheck, Car, FileSpreadsheet } from 'lucide-react';
 import { CompanyStamp } from '../CompanyStamp';
@@ -415,7 +416,7 @@ export const CorporateContractPdfLayout: React.FC<CorporateContractPdfLayoutProp
                     « Bon pour accord, mandat professionnel agréé »
                   </span>
                   <div className="my-0.5 max-h-[44px] flex items-center justify-center">
-                    <img
+                    <StorageImg
                       src={contract.clientSignature}
                       alt="Signature Entreprise"
                       className="max-h-[42px] max-w-[170px] object-contain"
@@ -453,7 +454,7 @@ export const CorporateContractPdfLayout: React.FC<CorporateContractPdfLayoutProp
               <div className="relative flex items-center justify-center py-1 z-0 flex-1">
                 <CompanyStamp size="xs" rotation={-1.5} />
                 {contract.agencySignature && (
-                  <img
+                  <StorageImg
                     src={contract.agencySignature}
                     alt="Signature Direction Flottes"
                     className="absolute max-h-[44px] max-w-[130px] object-contain z-10"
@@ -554,7 +555,7 @@ export const CorporateContractPdfLayout: React.FC<CorporateContractPdfLayoutProp
               <span className="text-[7.5px] font-bold text-blue-950 uppercase">Visa de l'Entreprise Locataire</span>
               {contract.clientSignature ? (
                 <div className="flex flex-col items-center justify-center flex-1 py-0.5">
-                  <img
+                  <StorageImg
                     src={contract.clientSignature}
                     alt="Paraphe Entreprise"
                     className="max-h-[30px] max-w-[120px] object-contain"

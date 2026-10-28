@@ -55,6 +55,7 @@ describe('describePdfError', () => {
     expect(describePdfError(new Error('Canvas exceeds max size'))).toMatch(/mémoire/);
     expect(describePdfError(new Error('Impossible de localiser les pages A4 du contrat'))).toMatch(/fini de s'afficher/);
     expect(describePdfError(new Error("Le logo ou le cachet du contrat n'a pas fini de se charger."))).toMatch(/cachet/);
+    expect(describePdfError(new Error('Un fichier du contrat (signature ou photo) est introuvable dans le stockage.'))).toMatch(/introuvable/);
     expect(describePdfError(new Error('???'))).toMatch(/Réessayez/);
   });
 });

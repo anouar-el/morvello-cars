@@ -48,7 +48,15 @@ export function parseRef(ref: string): { bucket: string; path: string } | null {
 
 /** Image ou PDF intégré (data:) assez gros pour mériter d'être déplacé dans Storage. */
 export function isEmbeddedFile(value: unknown, minLength = MIN_EMBED_LENGTH): value is string {
-  return typeof value === 'string' && value.length >= minLength && /^data:(image\/(jpeg|png|webp)|application\/pdf)[;,]/.test(value);
+  return typeof value === 'string' && value.length >= minLength && /^data:(image\/(jpeg|png|webp|svg\+xml)|application\/pdf)[;,]/.test(value);
+}
+
+/** Vrai pour un PDF, qu'il soit intégré (data:) ou rangé dans Storage (chemin en .pdf). */
+export function isPdfValue(value: unknown): boolean {
+  if (typeof value !== 'string') return false;
+  if (value.startsWith('data:application/pdf')) return true;
+  const parsed = parseRef(value);
+  return parsed ? parsed.path.toLowerCase().endsWith('.pdf') : false;
 }
 
 export function dataUrlToBytes(dataUrl: string): { bytes: Uint8Array; mime: string } | null {
@@ -70,7 +78,7 @@ export function dataUrlToBytes(dataUrl: string): { bytes: Uint8Array; mime: stri
   }
 }
 
-const EXT: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'application/pdf': 'pdf' };
+const EXT: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/svg+xml': 'svg', 'application/pdf': 'pdf' };
 
 export function extensionFor(mime: string): string | null {
   return EXT[mime] ?? null;

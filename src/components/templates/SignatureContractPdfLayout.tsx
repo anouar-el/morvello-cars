@@ -1,4 +1,5 @@
 import React from 'react';
+import { StorageImg } from '../StorageImg';
 import { Contract, CompanySettings, TermsVersion } from '../../types';
 import { CheckCircle2, XCircle, Calendar, Clock, Car, Shield, Phone, MapPin, User, Mail } from 'lucide-react';
 import { CompanyStamp } from '../CompanyStamp';
@@ -630,7 +631,7 @@ export const SignatureContractPdfLayout: React.FC<SignatureContractPdfLayoutProp
                 <div className="relative z-0 flex-1 flex items-center justify-center py-1">
                   <CompanyStamp size={secondDriver ? 'sm' : 'md'} rotation={-1.5} />
                   {contract.agencySignature && (
-                    <img src={contract.agencySignature} alt="Signature Agence" className="absolute z-10 max-h-[50px] max-w-[130px] object-contain" />
+                    <StorageImg src={contract.agencySignature} alt="Signature Agence" className="absolute z-10 max-h-[50px] max-w-[130px] object-contain" />
                   )}
                 </div>
                 <div className="relative z-10 text-center text-[8.5px] font-bold text-[#334155]">
@@ -648,7 +649,7 @@ export const SignatureContractPdfLayout: React.FC<SignatureContractPdfLayoutProp
                 </div>
                 <div className="flex-1 flex flex-col items-center justify-center py-1">
                   {contract.clientSignature ? (
-                    <img src={contract.clientSignature} alt="Signature locataire" className="max-h-[50px] max-w-[170px] object-contain" />
+                    <StorageImg src={contract.clientSignature} alt="Signature locataire" className="max-h-[50px] max-w-[170px] object-contain" />
                   ) : (
                     <>
                       <span className="text-[8.5px] italic text-[#64748b]">Mention manuscrite obligatoire :</span>
@@ -677,7 +678,7 @@ export const SignatureContractPdfLayout: React.FC<SignatureContractPdfLayoutProp
                   </div>
                   <div className="flex-1 flex flex-col items-center justify-center py-1">
                     {contract.secondDriverSignature ? (
-                      <img src={contract.secondDriverSignature} alt="Signature 2e conducteur" className="max-h-[50px] max-w-[170px] object-contain" />
+                      <StorageImg src={contract.secondDriverSignature} alt="Signature 2e conducteur" className="max-h-[50px] max-w-[170px] object-contain" />
                     ) : (
                       <span className="text-[9.5px] font-bold italic text-[#334155]">« Lu et approuvé »</span>
                     )}
@@ -844,7 +845,7 @@ export const SignatureContractPdfLayout: React.FC<SignatureContractPdfLayoutProp
               </div>
               <div className="flex-1 flex items-center justify-center py-0.5">
                 {contract.clientSignature ? (
-                  <img src={contract.clientSignature} alt="Paraphe électronique" className="max-h-[34px] max-w-[140px] object-contain" />
+                  <StorageImg src={contract.clientSignature} alt="Paraphe électronique" className="max-h-[34px] max-w-[140px] object-contain" />
                 ) : (
                   <span className="text-[8.5px] font-bold italic text-[#334155]">« Lu et approuvé, bon pour accord »</span>
                 )}

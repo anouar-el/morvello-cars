@@ -21,7 +21,7 @@ VALUES
   ('vehicle-photos', 'vehicle-photos', true, 2097152,
     ARRAY['image/jpeg', 'image/png', 'image/webp']),
   ('morvello-files', 'morvello-files', false, 8388608,
-    ARRAY['image/jpeg', 'image/png', 'image/webp', 'application/pdf'])
+    ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml', 'application/pdf'])
 ON CONFLICT (id) DO UPDATE
   SET public = EXCLUDED.public,
       file_size_limit = EXCLUDED.file_size_limit,

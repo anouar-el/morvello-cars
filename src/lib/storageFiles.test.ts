@@ -57,7 +57,8 @@ describe('isEmbeddedFile', () => {
   it('ne retient que les images et PDF intégrés assez gros', () => {
     expect(isEmbeddedFile(jpeg())).toBe(true);
     expect(isEmbeddedFile('data:image/png;base64,AAA')).toBe(false); // trop petit
-    expect(isEmbeddedFile('data:image/svg+xml;charset=utf-8,' + 'x'.repeat(5000))).toBe(false); // SVG exclu
+    expect(isEmbeddedFile('data:image/svg+xml;charset=utf-8,' + 'x'.repeat(5000))).toBe(true); // schémas d'état des lieux
+    expect(isEmbeddedFile('data:text/html;base64,' + 'x'.repeat(5000))).toBe(false);
     expect(isEmbeddedFile('https://x.ma/' + 'a'.repeat(5000))).toBe(false);
     expect(isEmbeddedFile(42)).toBe(false);
   });

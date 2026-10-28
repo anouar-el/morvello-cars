@@ -92,7 +92,16 @@ async function waitForAssets(container: HTMLElement): Promise<void> {
     throw new Error('Le logo ou le cachet du contrat n\'a pas fini de se charger.');
   }
 
-  // Mise en page finale après le chargement des polices
+  // Photos, scans et signatures rangés dans Storage : leur téléchargement peut encore être en cours
+  const storageDeadline = Date.now() + IMAGE_WAIT_MS;
+  while (container.querySelector('[data-storage-pending="true"]')) {
+    if (Date.now() > storageDeadline) throw new Error('Le logo, le cachet ou une signature du contrat n\'a pas fini de se charger.');
+    await delay(100);
+  }
+  // Un fichier introuvable (supprimé du stockage) ne doit pas disparaître en silence d'un contrat
+  if (container.querySelector('[data-storage-missing="true"]')) {
+    throw new Error('Un fichier du contrat (signature ou photo) est introuvable dans le stockage.');
+  }
   await nextFrame();
   await nextFrame();
   await delay(120);

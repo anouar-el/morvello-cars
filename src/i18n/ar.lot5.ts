@@ -3,6 +3,30 @@
  * Arabe standard simple ; le terme français est gardé entre parenthèses quand le mot arabe peut prêter à confusion.
  */
 export const AR_LOT5: Record<string, string> = {
+  // Stockage des photos et scans
+  'Chargement du document…': 'جارٍ تحميل المستند…',
+  'Document introuvable.': 'المستند غير موجود.',
+  'Stockage des photos et scans': 'تخزين الصور والمستندات الممسوحة',
+  "Les photos, scans d'identité et signatures sont rangés dans un espace sécurisé, hors des fiches, pour que l'application reste légère.":
+    'تُحفظ الصور ومسوحات الهوية والتوقيعات في فضاء آمن خارج الملفات حتى يبقى التطبيق خفيفًا.',
+  'Mémoire locale de cet appareil': 'الذاكرة المحلية لهذا الجهاز',
+  'Mémoire presque pleine : déplacez les photos et scans ci-dessous.': 'الذاكرة شبه ممتلئة: انقل الصور والمستندات الممسوحة أدناه.',
+  'Aucune photo ni aucun scan intégré dans les fiches : tout est déjà dans le stockage sécurisé.':
+    'لا توجد صور ولا مسوحات مدمجة في الملفات: كل شيء موجود في التخزين الآمن.',
+  '{count} fichier(s) encore intégré(s) dans les fiches ({size}) : clients {clients}, véhicules {vehicles}, contrats {contracts}.':
+    '{count} ملف (ملفات) لا تزال مدمجة في الملفات ({size}): الزبناء {clients}، السيارات {vehicles}، العقود {contracts}.',
+  'Déplacement… {done}/{total}': 'جارٍ النقل… {done}/{total}',
+  'Déplacer vers le stockage sécurisé': 'نقل إلى التخزين الآمن',
+  'Arrêter': 'إيقاف',
+  "Supabase n'est pas configuré sur cette version : déplacement indisponible.": 'Supabase غير مُهيّأ في هذه النسخة: النقل غير متاح.',
+  "Opération sans risque et relançable : un fichier n'est retiré d'une fiche qu'une fois bien enregistré dans le stockage.":
+    'عملية آمنة ويمكن إعادتها: لا يُزال ملف من الملف الشخصي إلا بعد حفظه جيدًا في التخزين.',
+  "Le stockage n'est pas prêt. Exécutez d'abord le script supabase_migration_storage_buckets.sql dans Supabase (SQL Editor), puis relancez.":
+    'التخزين غير جاهز. شغّل أولًا السكريبت supabase_migration_storage_buckets.sql في Supabase (SQL Editor) ثم أعد المحاولة.',
+  '{moved} fichier(s) déplacé(s) dans {records} fiche(s), {size} libérés.': 'تم نقل {moved} ملف (ملفات) في {records} ملف (ملفات)، وتحرير {size}.',
+  'Arrêté avant la fin : relancez pour continuer.': 'توقّف قبل النهاية: أعد التشغيل للمتابعة.',
+  '{n} élément(s) non déplacé(s) : relancez pour réessayer.': '{n} عنصر (عناصر) لم يُنقل: أعد التشغيل للمحاولة مجددًا.',
+
   // Contrat PDF sur iPhone
   Réessayer: 'إعادة المحاولة',
   'PDF prêt': 'ملف PDF جاهز',
@@ -11,8 +35,10 @@ export const AR_LOT5: Record<string, string> = {
   'Astuce : « Enregistrer dans Fichiers » garde le contrat sur votre iPhone.': 'نصيحة: «حفظ في الملفات» يُبقي العقد على هاتفك.',
   "La mémoire de l'appareil est insuffisante pour générer le PDF. Fermez les autres onglets et applications, puis réessayez.":
     'ذاكرة الجهاز غير كافية لإنشاء ملف PDF. أغلق التبويبات والتطبيقات الأخرى ثم أعد المحاولة.',
-  "Le logo et le cachet n'ont pas fini de se charger. Vérifiez votre connexion, patientez quelques secondes, puis réessayez.":
-    'لم يكتمل تحميل الشعار والختم. تحقّق من اتصالك وانتظر بضع ثوانٍ ثم أعد المحاولة.',
+  "Le logo, le cachet ou une signature n'ont pas fini de se charger. Vérifiez votre connexion, patientez quelques secondes, puis réessayez.":
+    'لم يكتمل تحميل الشعار أو الختم أو التوقيع. تحقّق من اتصالك وانتظر بضع ثوانٍ ثم أعد المحاولة.',
+  "Un fichier du contrat (signature ou photo) est introuvable dans le stockage. Rouvrez le contrat ou contactez l'administrateur.":
+    'ملف من العقد (توقيع أو صورة) غير موجود في التخزين. أعد فتح العقد أو اتصل بالمسؤول.',
   "Le contrat n'a pas fini de s'afficher. Patientez un instant, puis réessayez.": 'لم يكتمل عرض العقد بعد. انتظر لحظة ثم أعد المحاولة.',
   'La génération du PDF a échoué. Réessayez, ou utilisez « Imprimer (A4) ».': 'فشل إنشاء ملف PDF. أعد المحاولة أو استعمل «طباعة (A4)».',
   "Le partage n'est pas disponible ici : utilisez « Ouvrir le PDF » ci-dessous.": 'المشاركة غير متاحة هنا: استعمل «فتح ملف PDF» أدناه.',

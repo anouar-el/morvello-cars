@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { storeFile } from '../lib/storageClient';
 import { Contract } from '../types';
 import { DigitalSignaturePad } from './DigitalSignaturePad';
 import {
@@ -52,7 +53,9 @@ export const DigitalSignatureModal: React.FC<DigitalSignatureModalProps> = ({
     }
   };
 
-  const handleSaveSignature = (dataUrl: string) => {
+  const handleSaveSignature = async (rawDataUrl: string) => {
+    // Une signature assez lourde part dans Supabase Storage ; le contrat n'en garde que la référence
+    const dataUrl = await storeFile(rawDataUrl, 'signature');
     const nowIso = new Date().toISOString();
     const certId = `MORV-SIG-${contract.contractNumber}-${Date.now().toString(36).toUpperCase()}`;
 

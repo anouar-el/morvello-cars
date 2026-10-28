@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { storeFile } from '../lib/storageClient';
+import { StorageImg } from './StorageImg';
 import { useApp } from '../context/AppContext';
 import { Contract, InspectionPhoto } from '../types';
 import {
@@ -126,18 +128,20 @@ export const ReturnCheckInModal: React.FC<ReturnCheckInModalProps> = ({
     reader.readAsDataURL(file);
   };
 
-  const handleAddDamagePhoto = () => {
+  const handleAddDamagePhoto = async () => {
     if (!damagePhotoUrl) {
       alert(t('Veuillez sélectionner ou capturer une photo du dommage.'));
       return;
     }
+    // La photo part dans Supabase Storage ; le contrat ne garde qu'une référence (ou la photo elle-même si l'envoi est impossible)
+    const storedUrl = await storeFile(damagePhotoUrl, 'inspection');
 
     const zoneObj = VEHICLE_ZONES.find((z) => z.id === damageZone);
     const typeObj = DEFECT_TYPES.find((d) => d.id === damageType);
 
     const newPhoto: InspectionPhoto = {
       id: `ret-dmg-${Date.now()}`,
-      url: damagePhotoUrl,
+      url: storedUrl,
       stage: 'return',
       phase: 'return',
       zone: damageZone,
@@ -601,7 +605,7 @@ export const ReturnCheckInModal: React.FC<ReturnCheckInModalProps> = ({
                       className="bg-slate-950 border border-slate-800 rounded-xl p-2 flex items-center justify-between gap-2"
                     >
                       <div className="flex items-center gap-2.5 overflow-hidden">
-                        <img
+                        <StorageImg
                           src={photo.url}
                           alt={t('Dommage')}
                           className="w-10 h-10 rounded-lg object-cover border border-slate-700 shrink-0"

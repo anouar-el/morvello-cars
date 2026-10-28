@@ -61,7 +61,10 @@ export function describePdfError(err: unknown): string {
     return "La mémoire de l'appareil est insuffisante pour générer le PDF. Fermez les autres onglets et applications, puis réessayez.";
   }
   if (/pas fini de se charger/.test(message)) {
-    return "Le logo et le cachet n'ont pas fini de se charger. Vérifiez votre connexion, patientez quelques secondes, puis réessayez.";
+    return "Le logo, le cachet ou une signature n'ont pas fini de se charger. Vérifiez votre connexion, patientez quelques secondes, puis réessayez.";
+  }
+  if (/introuvable dans le stockage/.test(message)) {
+    return "Un fichier du contrat (signature ou photo) est introuvable dans le stockage. Rouvrez le contrat ou contactez l'administrateur.";
   }
   if (/localiser les pages|page 1|page 2/.test(message)) {
     return "Le contrat n'a pas fini de s'afficher. Patientez un instant, puis réessayez.";

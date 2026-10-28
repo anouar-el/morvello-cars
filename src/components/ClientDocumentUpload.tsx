@@ -13,6 +13,10 @@ import {
 } from 'lucide-react';
 
 import { useI18n } from '../i18n/I18nContext';
+import { storeFile } from '../lib/storageClient';
+import { isPdfValue } from '../lib/storageFiles';
+import { StorageImg } from './StorageImg';
+import { StorageDocument, StorageDownloadLink } from './StorageDocument';
 export interface DocumentFile {
   dataUrl?: string;
   name?: string;
@@ -92,6 +96,8 @@ export const ClientDocumentUpload: React.FC<ClientDocumentUploadProps> = ({
       if (file.type.startsWith('image/')) {
         dataUrl = await compressImage(dataUrl);
       }
+      // Le scan part dans Supabase Storage ; la fiche ne garde qu'une référence (ou le scan lui-même si l'envoi est impossible)
+      dataUrl = await storeFile(dataUrl, 'client-doc');
       const fileName = file.name;
 
       if (field === 'cinRecto') {
@@ -256,7 +262,7 @@ export const ClientDocumentUpload: React.FC<ClientDocumentUploadProps> = ({
   ) => {
     const isOver = dragActive === field;
     const hasDoc = !!doc?.dataUrl;
-    const isPdf = doc?.name?.toLowerCase().endsWith('.pdf') || doc?.dataUrl?.startsWith('data:application/pdf');
+    const isPdf = doc?.name?.toLowerCase().endsWith('.pdf') || isPdfValue(doc?.dataUrl);
 
     return (
       <div
@@ -329,7 +335,7 @@ export const ClientDocumentUpload: React.FC<ClientDocumentUploadProps> = ({
               </div>
             ) : (
               <div className="w-10 h-10 rounded bg-slate-950 border border-slate-700 overflow-hidden shrink-0 flex items-center justify-center">
-                <img
+                <StorageImg
                   src={doc.dataUrl}
                   alt={label}
                   className="w-full h-full object-cover"
@@ -459,30 +465,17 @@ export const ClientDocumentUpload: React.FC<ClientDocumentUploadProps> = ({
             </div>
 
             <div className="max-h-[70vh] overflow-auto flex items-center justify-center bg-slate-950 rounded-xl p-2 border border-slate-800">
-              {previewDoc.dataUrl.startsWith('data:application/pdf') ? (
-                <iframe
-                  src={previewDoc.dataUrl}
-                  title={t('PDF Preview')}
-                  className="w-full h-[500px] rounded"
-                />
-              ) : (
-                <img
-                  src={previewDoc.dataUrl}
-                  alt={previewDoc.title}
-                  className="max-w-full max-h-[60vh] object-contain rounded-lg shadow-lg"
-                  referrerPolicy="no-referrer"
-                />
-              )}
+              <StorageDocument src={previewDoc.dataUrl} title={previewDoc.title} />
             </div>
 
             <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
-              <a
-                href={previewDoc.dataUrl}
-                download="document_client"
+              <StorageDownloadLink
+                src={previewDoc.dataUrl}
+                filename="document_client"
                 className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl transition-colors"
               >
                 {t('Télécharger le document')}
-              </a>
+              </StorageDownloadLink>
               <button
                 type="button"
                 onClick={() => setPreviewDoc(null)}

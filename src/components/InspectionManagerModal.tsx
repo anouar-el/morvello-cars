@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { storeFile } from '../lib/storageClient';
+import { StorageImg } from './StorageImg';
 import { Contract, ContractInspection, InspectionPhoto } from '../types';
 import { useApp } from '../context/AppContext';
 import {
@@ -423,11 +425,13 @@ export const InspectionManagerModal: React.FC<InspectionManagerModalProps> = ({
     setPhotoDataUrl(dataUrl);
   };
 
-  const handleSavePhoto = () => {
+  const handleSavePhoto = async () => {
     if (!photoDataUrl) {
       alert(t('Veuillez importer une photo du défaut.'));
       return;
     }
+    // La photo part dans Supabase Storage ; le contrat ne garde qu'une référence (ou la photo elle-même si l'envoi est impossible)
+    const storedUrl = await storeFile(photoDataUrl, 'inspection');
 
     const now = new Date();
     const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
@@ -438,7 +442,7 @@ export const InspectionManagerModal: React.FC<InspectionManagerModalProps> = ({
       phase: activePhase,
       zone: photoZone,
       type: photoType,
-      url: photoDataUrl,
+      url: storedUrl,
       notes: photoNotes.trim() || `Défaut ${getTypeLabel(photoType)} relevé sur ${getZoneLabel(photoZone)}`,
       description: photoNotes.trim() || `Défaut ${getTypeLabel(photoType)} relevé sur ${getZoneLabel(photoZone)}`,
       timestamp: dateStr,
@@ -880,7 +884,7 @@ export const InspectionManagerModal: React.FC<InspectionManagerModalProps> = ({
                       className="relative h-48 bg-slate-950 cursor-pointer overflow-hidden flex items-center justify-center p-1 border-b border-slate-800"
                       onClick={() => setLightboxPhoto(photo)}
                     >
-                      <img
+                      <StorageImg
                         src={photo.url}
                         alt={photo.notes}
                         className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
@@ -985,7 +989,7 @@ export const InspectionManagerModal: React.FC<InspectionManagerModalProps> = ({
               </button>
             </div>
             <div className="max-h-[75vh] bg-slate-950 flex items-center justify-center p-2 overflow-hidden">
-              <img
+              <StorageImg
                 src={lightboxPhoto.url}
                 alt={lightboxPhoto.notes}
                 className="max-h-[75vh] w-auto object-contain rounded-lg"
