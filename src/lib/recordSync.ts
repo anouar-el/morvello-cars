@@ -1,4 +1,5 @@
 import { supabase, isSupabaseConfigured } from './supabase';
+import { toDbDepositStatus, toRpcDeposit } from './depositStatus';
 import {
   Vehicle,
   Contract,
@@ -845,7 +846,7 @@ export async function syncCreateContract(
           p_contract: contract,
           p_client: related?.client || contract.clientSnapshot || null,
           p_vehicle_id: contract.vehicleId || null,
-          p_deposit: related?.deposit || contract.depositRecord || null,
+          p_deposit: toRpcDeposit(related?.deposit || contract.depositRecord || null),
           p_payments: (related?.payments || contract.payments || []) as any,
           p_company_settings: related?.nextContractNumber ? { nextContractNumber: related.nextContractNumber } : null,
         }
@@ -1213,7 +1214,7 @@ export async function syncCreateDeposit(
       contract_id: deposit.contractId,
       client_name: deposit.clientName || 'Client',
       amount: deposit.amount,
-      status: deposit.status,
+      status: toDbDepositStatus(deposit.status),
       method: deposit.method,
       assigned_manager_id: deposit.assignedManagerId || authUid,
       created_by: authUid || 'Direction',
@@ -1251,7 +1252,7 @@ export async function syncUpdateDeposit(
     };
 
     if (patch.amount !== undefined) updateFields.amount = patch.amount;
-    if (patch.status !== undefined) updateFields.status = patch.status;
+    if (patch.status !== undefined) updateFields.status = toDbDepositStatus(patch.status);
     if (patch.method !== undefined) updateFields.method = patch.method;
 
     const outcome = await atomicMergeUpdate({
@@ -1261,7 +1262,8 @@ export async function syncUpdateDeposit(
       timestamp,
       buildFields: (current) => ({
         ...updateFields,
-        data: { ...current, ...patch, updatedAt: timestamp },
+        // Ligne créée par la fonction transactionnelle : appStatus doit suivre le nouveau statut
+        data: { ...current, ...patch, ...(patch.status !== undefined && current.appStatus !== undefined ? { appStatus: patch.status } : {}), updatedAt: timestamp },
       }),
     });
     if (!outcome.success) {
