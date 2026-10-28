@@ -1,4 +1,5 @@
 import { supabase, isSupabaseConfigured } from './supabase';
+import { toDbDepositStatus } from './depositStatus';
 import { isAbortException } from '../initErrorHandling';
 import { MorvelloCloudData } from './firestoreSync';
 import {
@@ -1390,7 +1391,7 @@ export async function saveDepositRecordToSupabase(
       contract_id: deposit.contractId,
       client_name: deposit.clientName,
       amount: deposit.amount,
-      status: deposit.status === 'held' ? 'pending' : deposit.status,
+      status: toDbDepositStatus(deposit.status),
       method: deposit.method,
       assigned_manager_id: assignedMgrId,
       created_by: createdBy,
@@ -2049,7 +2050,7 @@ export async function syncIndividualTables(payload: Partial<MorvelloCloudData>):
           contract_id: dep.contractId,
           client_name: dep.clientName,
           amount: dep.amount,
-          status: dep.status === 'held' ? 'pending' : dep.status,
+          status: toDbDepositStatus(dep.status),
           method: dep.method,
           assigned_manager_id: assignedMgrId,
           created_by: createdBy,

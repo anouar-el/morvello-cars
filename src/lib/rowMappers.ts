@@ -1,4 +1,5 @@
 import type { Vehicle, Client, Driver, Contract, DepositRecord } from '../types';
+import { resolveAppDepositStatus } from './depositStatus';
 
 // Convertisseurs ligne SQL -> entité applicative.
 // Module pur (aucune dépendance navigateur) : utilisé par le client (synchro, temps réel) ET par le serveur
@@ -89,7 +90,7 @@ export function mapDepositRow(row: any): DepositRecord {
     contractId: row.contract_id || d.contractId || '',
     clientName: row.client_name || d.clientName || '',
     amount: Number(row.amount ?? d.amount ?? 0),
-    status: row.status || d.status || 'pending',
+    status: resolveAppDepositStatus(row.status, d),
     assignedManagerId: row.assigned_manager_id || d.assignedManagerId,
     createdBy: row.created_by || d.createdBy,
     updatedAt: row.updated_at || d.updatedAt,
