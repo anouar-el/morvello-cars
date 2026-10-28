@@ -1,4 +1,5 @@
 import React from 'react';
+import { StorageImg } from '../StorageImg';
 import { Contract, CompanySettings, TermsVersion } from '../../types';
 import { Crown, Phone, Mail, MapPin, CheckCircle2, Star, Shield, ShieldCheck, Sparkles, User, Car } from 'lucide-react';
 import { CompanyStamp } from '../CompanyStamp';
@@ -440,7 +441,7 @@ export const PrestigeContractPdfLayout: React.FC<PrestigeContractPdfLayoutProps>
                     « Lu et approuvé, bon pour accord VIP »
                   </span>
                   <div className="my-0.5 max-h-[44px] flex items-center justify-center">
-                    <img
+                    <StorageImg
                       src={contract.clientSignature}
                       alt="Signature VIP"
                       className="max-h-[42px] max-w-[170px] object-contain"
@@ -478,7 +479,7 @@ export const PrestigeContractPdfLayout: React.FC<PrestigeContractPdfLayoutProps>
               <div className="relative flex items-center justify-center py-1 z-0 flex-1">
                 <CompanyStamp size="xs" rotation={-1.5} />
                 {contract.agencySignature && (
-                  <img
+                  <StorageImg
                     src={contract.agencySignature}
                     alt="Signature Agence"
                     className="absolute max-h-[44px] max-w-[130px] object-contain z-10"
@@ -579,7 +580,7 @@ export const PrestigeContractPdfLayout: React.FC<PrestigeContractPdfLayoutProps>
               <span className="text-[7.5px] font-bold text-amber-950 uppercase">Paraphe du Client VIP</span>
               {contract.clientSignature ? (
                 <div className="flex flex-col items-center justify-center flex-1 py-0.5">
-                  <img
+                  <StorageImg
                     src={contract.clientSignature}
                     alt="Paraphe VIP"
                     className="max-h-[30px] max-w-[120px] object-contain"

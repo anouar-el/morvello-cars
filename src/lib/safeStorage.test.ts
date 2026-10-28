@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { isQuotaError, safeSetItem, safeSetJson, stripDataUrls } from './safeStorage';
+import { isQuotaError, measureLocalStorage, safeSetItem, safeSetJson, stripDataUrls } from './safeStorage';
 
 /** Faux stockage plafonné en nombre de caractères, qui lève comme Safari quand c'est plein. */
 function fakeStorage(limit: number, initial: Record<string, string> = {}) {
@@ -84,6 +84,14 @@ describe('safeSetItem', () => {
     warn.mockRestore();
   });
 
+  it("garde l'ancienne copie des données qui n'existent que sur l'appareil (keepOnFail)", () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const s = fakeStorage(200, { morvello_audit_logs: 'journal' });
+    expect(safeSetItem('morvello_audit_logs', 'n'.repeat(1000), { storage: s, keepOnFail: true })).toBe(false);
+    expect(s.getItem('morvello_audit_logs')).toBe('journal');
+    warn.mockRestore();
+  });
+
   it('prévient une seule fois par clé', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const { onStorageFull } = await import('./safeStorage');
@@ -95,5 +103,28 @@ describe('safeSetItem', () => {
     off();
     expect(heard).toEqual(['une_cle_unique']);
     warn.mockRestore();
+  });
+});
+
+describe('budget par clé', () => {
+  it("utilise d'emblée la copie allégée quand la copie complète dépasse le budget", () => {
+    const s = fakeStorage(1_000_000);
+    const data = [{ id: 'v1', photoUrl: bigImage }];
+    safeSetJson('morvello_vehicles_v1', data, { storage: s, budget: 1000 });
+    expect(JSON.parse(s.getItem('morvello_vehicles_v1')!)).toEqual([{ id: 'v1', photoUrl: '' }]);
+  });
+
+  it('garde la copie complète quand elle est sous le budget', () => {
+    const s = fakeStorage(1_000_000);
+    const data = [{ id: 'v1', photoUrl: bigImage }];
+    safeSetJson('morvello_vehicles_v1', data, { storage: s, budget: 1_000_000 });
+    expect(JSON.parse(s.getItem('morvello_vehicles_v1')!)).toEqual(data);
+  });
+
+  it('mesure la place prise, clé par clé, de la plus lourde à la plus légère', () => {
+    const s = fakeStorage(1_000_000, { petit: 'a', gros: 'b'.repeat(500) });
+    const usage = measureLocalStorage(s);
+    expect(usage.keys.map((k) => k.key)).toEqual(['gros', 'petit']);
+    expect(usage.total).toBe(usage.keys[0].chars + usage.keys[1].chars);
   });
 });

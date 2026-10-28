@@ -154,19 +154,19 @@ export const CompanyProvider: React.FC<{
   });
 
   useEffect(() => {
-    safeSetJson(STORAGE_KEYS.SETTINGS, companySettings);
+    safeSetJson(STORAGE_KEYS.SETTINGS, companySettings, { keepOnFail: true });
   }, [companySettings]);
 
   useEffect(() => {
-    safeSetJson(STORAGE_KEYS.AI_SETTINGS, aiSettings);
+    safeSetJson(STORAGE_KEYS.AI_SETTINGS, aiSettings, { keepOnFail: true });
   }, [aiSettings]);
 
   useEffect(() => {
-    safeSetJson(STORAGE_KEYS.TERMS, termsVersion);
+    safeSetJson(STORAGE_KEYS.TERMS, termsVersion, { keepOnFail: true });
   }, [termsVersion]);
 
   useEffect(() => {
-    safeSetJson(STORAGE_KEYS.AUDIT, auditLogs);
+    safeSetJson(STORAGE_KEYS.AUDIT, auditLogs, { keepOnFail: true });
   }, [auditLogs]);
 
   const addAuditLog = useCallback(

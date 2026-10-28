@@ -1,4 +1,5 @@
 import React from 'react';
+import { StorageImg } from '../StorageImg';
 import { Vehicle, VehicleStatus, Contract } from '../../types';
 import { VehicleCompliancePanel } from './VehicleCompliancePanel';
 import {
@@ -73,7 +74,7 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
         <div className="relative -mx-5 -mt-5 mb-4 px-5 pt-5 pb-4 bg-gradient-to-br from-amber-500/15 via-slate-900/10 to-transparent border-b border-white/5 overflow-hidden">
           {vehicle.photoUrl && (
             <>
-              <img src={vehicle.photoUrl} alt="" loading="lazy" className="absolute inset-0 w-full h-full object-cover" />
+              <StorageImg src={vehicle.photoUrl} alt="" loading="lazy" className="absolute inset-0 w-full h-full object-cover" />
               <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-950/55 to-slate-950/20" />
             </>
           )}

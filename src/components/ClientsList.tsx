@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { StorageImg } from './StorageImg';
+import { StorageDocument, StorageDownloadLink } from './StorageDocument';
 import { PropagationScopeSelect, usePropagationScope } from './PropagationScopeSelect';
 import { useApp } from '../context/AppContext';
 import { Client, DocumentType } from '../types';
@@ -968,7 +970,7 @@ export const ClientsList: React.FC = () => {
                           }
                           className="flex items-center gap-2.5 p-2 bg-slate-950 rounded-lg border border-slate-800 hover:border-amber-500/40 cursor-pointer transition-colors"
                         >
-                          <img
+                          <StorageImg
                             src={selectedClientDetail.licenseDocUrl}
                             alt={t('Permis Recto')}
                             className="w-10 h-10 object-cover rounded bg-slate-900 border border-slate-700 shrink-0"
@@ -992,7 +994,7 @@ export const ClientsList: React.FC = () => {
                             }
                             className="flex items-center gap-2.5 p-2 bg-slate-950 rounded-lg border border-slate-800 hover:border-amber-500/40 cursor-pointer transition-colors"
                           >
-                            <img
+                            <StorageImg
                               src={selectedClientDetail.licenseDocVersoUrl}
                               alt={t('Permis Verso')}
                               className="w-10 h-10 object-cover rounded bg-slate-900 border border-slate-700 shrink-0"
@@ -1041,7 +1043,7 @@ export const ClientsList: React.FC = () => {
                           }
                           className="flex items-center gap-2.5 p-2 bg-slate-950 rounded-lg border border-slate-800 hover:border-blue-500/40 cursor-pointer transition-colors"
                         >
-                          <img
+                          <StorageImg
                             src={selectedClientDetail.cinDocUrl}
                             alt={t('Pièce Recto')}
                             className="w-10 h-10 object-cover rounded bg-slate-900 border border-slate-700 shrink-0"
@@ -1065,7 +1067,7 @@ export const ClientsList: React.FC = () => {
                             }
                             className="flex items-center gap-2.5 p-2 bg-slate-950 rounded-lg border border-slate-800 hover:border-blue-500/40 cursor-pointer transition-colors"
                           >
-                            <img
+                            <StorageImg
                               src={selectedClientDetail.cinDocVersoUrl}
                               alt={t('Pièce Verso')}
                               className="w-10 h-10 object-cover rounded bg-slate-900 border border-slate-700 shrink-0"
@@ -1398,30 +1400,17 @@ export const ClientsList: React.FC = () => {
             </div>
 
             <div className="max-h-[70vh] overflow-auto flex items-center justify-center bg-slate-950 rounded-xl p-2 border border-slate-800">
-              {previewDocModal.url.startsWith('data:application/pdf') ? (
-                <iframe
-                  src={previewDocModal.url}
-                  title={t('PDF Preview')}
-                  className="w-full h-[500px] rounded"
-                />
-              ) : (
-                <img
-                  src={previewDocModal.url}
-                  alt={previewDocModal.title}
-                  className="max-w-full max-h-[60vh] object-contain rounded-lg shadow-lg"
-                  referrerPolicy="no-referrer"
-                />
-              )}
+              <StorageDocument src={previewDocModal.url} title={previewDocModal.title} />
             </div>
 
             <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
-              <a
-                href={previewDocModal.url}
-                download="document_client"
+              <StorageDownloadLink
+                src={previewDocModal.url}
+                filename="document_client"
                 className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl transition-colors"
               >
                 {t('Télécharger le document')}
-              </a>
+              </StorageDownloadLink>
               <button
                 type="button"
                 onClick={() => setPreviewDocModal(null)}

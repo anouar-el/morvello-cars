@@ -1,4 +1,5 @@
 import React from 'react';
+import { StorageImg } from './StorageImg';
 import { Contract, CompanySettings, TermsVersion, ContractTemplateId } from '../types';
 import { CheckCircle2, Calendar, Clock, Gauge, Car, Shield, Phone, MapPin, User, Mail, Coins } from 'lucide-react';
 import { CompanyStamp } from './CompanyStamp';
@@ -723,7 +724,7 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
                 <div className="relative flex items-center justify-center py-1 z-0 flex-1">
                   <CompanyStamp size="sm" rotation={-1.5} />
                   {contract.agencySignature && (
-                    <img
+                    <StorageImg
                       src={contract.agencySignature}
                       alt="Signature Agence"
                       className="absolute max-h-[52px] max-w-[140px] object-contain z-10"
@@ -756,7 +757,7 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
                       « Lu et approuvé, bon pour accord »
                     </span>
                     <div className="relative my-0.5 max-h-[55px] flex items-center justify-center">
-                      <img
+                      <StorageImg
                         src={contract.clientSignature}
                         alt="Signature numérique locataire"
                         className="max-h-[52px] max-w-[180px] object-contain"
@@ -1046,7 +1047,7 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
               {contract.clientSignature ? (
                 <div className="flex flex-col items-center justify-center flex-1 py-0.5">
                   <div className="max-h-[36px] flex items-center justify-center">
-                    <img
+                    <StorageImg
                       src={contract.clientSignature}
                       alt="Paraphe électronique"
                       className="max-h-[34px] max-w-[140px] object-contain"

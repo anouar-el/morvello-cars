@@ -28,6 +28,7 @@ import {
 import { CompanyStamp } from './CompanyStamp';
 import { CompanyLogo } from './CompanyLogo';
 import { AiCharterSettings } from './AiCharterSettings';
+import { StorageMaintenancePanel } from './StorageMaintenancePanel';
 import { getNextAvailableContractNumber } from '../utils/contractNumberUtils';
 import { syncAllClientsToSupabase } from '../lib/supabaseSync';
 
@@ -265,6 +266,9 @@ CREATE POLICY "clients_delete" ON public.clients FOR DELETE TO authenticated USI
       {/* SECTION 3: CLOUD & THEME */}
       {activeSection === 'cloud_theme' && (
         <div className="space-y-6">
+          {/* STOCKAGE DES PHOTOS ET SCANS (gérant) */}
+          <StorageMaintenancePanel />
+
           {/* BASE DE DONNÉES CLOUD SUPABASE */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-start gap-3">

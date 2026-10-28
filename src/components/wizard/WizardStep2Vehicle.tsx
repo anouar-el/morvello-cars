@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { StorageImg } from '../StorageImg';
 import { Vehicle } from '../../types';
 import { formatPlateFrench } from '../../utils/plateUtils';
 import { Car, Search, UserCheck, X } from 'lucide-react';
@@ -207,7 +208,7 @@ export const WizardStep2Vehicle: React.FC<WizardStep2VehicleProps> = ({
                 }`}
               >
                 {veh.photoUrl && (
-                  <img src={veh.photoUrl} alt="" loading="lazy" className="w-full h-28 object-cover rounded-lg mb-2.5 border border-white/10" />
+                  <StorageImg src={veh.photoUrl} alt="" loading="lazy" className="w-full h-28 object-cover rounded-lg mb-2.5 border border-white/10" />
                 )}
                 <div className="flex items-start justify-between">
                   <div>

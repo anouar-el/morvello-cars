@@ -74,6 +74,11 @@ function freeDisposable(storage: StorageLike): number {
 export interface SafeSetOptions {
   /** Version allégée à tenter si la version complète ne rentre pas. */
   lite?: () => string;
+  /**
+   * Données qui n'existent QUE sur cet appareil (journal, réglages) : en dernier recours on garde l'ancienne copie
+   * au lieu de la supprimer. Faux pour un simple cache du serveur, où une copie périmée trompe plus qu'elle n'aide.
+   */
+  keepOnFail?: boolean;
   storage?: StorageLike;
 }
 
@@ -118,24 +123,70 @@ export function safeSetItem(key: string, value: string, options: SafeSetOptions 
     }
   }
 
-  // 3. Renoncer : une ancienne copie périmée est plus trompeuse qu'une absence de copie
-  try {
-    storage.removeItem(key);
-  } catch {
-    /* rien de plus à faire */
+  // 3. Renoncer : pour un cache, une ancienne copie périmée est plus trompeuse qu'une absence de copie
+  if (!options.keepOnFail) {
+    try {
+      storage.removeItem(key);
+    } catch {
+      /* rien de plus à faire */
+    }
   }
   report(key);
   return false;
 }
 
-/** Écrit une valeur JSON ; la version allégée retire les images et scans intégrés. */
-export function safeSetJson(key: string, data: unknown, options: Omit<SafeSetOptions, 'lite'> & { lite?: boolean } = {}): boolean {
+/**
+ * Budget d'une copie locale, en caractères. Safari sur iPhone offre environ 2,5 millions de caractères au total
+ * pour tout le site : une seule copie ne doit pas en prendre plus du quart.
+ */
+export const KEY_BUDGET_CHARS = 600_000;
+
+/**
+ * Écrit une valeur JSON ; la version allégée retire les images et scans intégrés.
+ * Au-delà du budget, la copie allégée est utilisée d'emblée : le serveur garde les originaux, la copie locale n'est qu'un cache.
+ */
+export function safeSetJson(
+  key: string,
+  data: unknown,
+  options: Omit<SafeSetOptions, 'lite'> & { lite?: boolean; budget?: number } = {}
+): boolean {
   let json: string;
   try {
     json = JSON.stringify(data);
   } catch {
     return false;
   }
-  const { lite = true, ...rest } = options;
-  return safeSetItem(key, json, { ...rest, lite: lite ? () => JSON.stringify(stripDataUrls(data)) : undefined });
+  const { lite = true, budget = KEY_BUDGET_CHARS, ...rest } = options;
+  const liteJson = () => JSON.stringify(stripDataUrls(data));
+  if (lite && json.length > budget) {
+    try {
+      const light = liteJson();
+      // Rien à retirer (pas d'images intégrées) : on garde la copie complète, c'est la plus fidèle
+      if (light.length < json.length) json = light;
+    } catch {
+      /* on tente la copie complète */
+    }
+  }
+  return safeSetItem(key, json, { ...rest, lite: lite ? liteJson : undefined });
+}
+
+export interface StorageUsage {
+  total: number;
+  /** Clés de l'app, de la plus lourde à la plus légère. */
+  keys: Array<{ key: string; chars: number }>;
+}
+
+/** Place prise par le stockage local, clé par clé (diagnostic). */
+export function measureLocalStorage(storage?: Pick<Storage, 'getItem' | 'key' | 'length'>): StorageUsage {
+  const s = storage ?? (typeof localStorage === 'undefined' ? undefined : localStorage);
+  const keys: Array<{ key: string; chars: number }> = [];
+  if (s) {
+    for (let i = 0; i < s.length; i++) {
+      const key = s.key(i);
+      if (!key) continue;
+      keys.push({ key, chars: key.length + (s.getItem(key)?.length ?? 0) });
+    }
+  }
+  keys.sort((a, b) => b.chars - a.chars);
+  return { total: keys.reduce((sum, k) => sum + k.chars, 0), keys };
 }
