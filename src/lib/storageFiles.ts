@@ -51,6 +51,11 @@ export function isEmbeddedFile(value: unknown, minLength = MIN_EMBED_LENGTH): va
   return typeof value === 'string' && value.length >= minLength && /^data:(image\/(jpeg|png|webp|svg\+xml)|application\/pdf)[;,]/.test(value);
 }
 
+/** Vrai pour une valeur qui désigne réellement un fichier : data:, adresse https, blob: ou référence Storage. */
+export function isDisplayableFile(value: unknown): value is string {
+  return typeof value === 'string' && /^(data:|https?:\/\/|blob:|sbs:\/\/)/i.test(value);
+}
+
 /** Vrai pour un PDF, qu'il soit intégré (data:) ou rangé dans Storage (chemin en .pdf). */
 export function isPdfValue(value: unknown): boolean {
   if (typeof value !== 'string') return false;
@@ -258,6 +263,8 @@ const SIGNED_URL_TTL_SECONDS = 120;
  */
 export function resolveSync(value: string | null | undefined, baseUrl: string): string | undefined {
   if (!value) return undefined;
+  // Un mot comme « archived » (ancien marqueur de document archivé sans fichier) n'est pas une adresse : fichier absent
+  if (!isDisplayableFile(value)) return '';
   if (!isStorageRef(value)) return value;
   const parsed = parseRef(value);
   if (!parsed) return undefined;

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   dataUrlToBytes,
+  isDisplayableFile,
   isEmbeddedFile,
   isStorageRef,
   kindForKey,
@@ -193,6 +194,12 @@ describe('measureEmbedded / migrateEmbeddedFiles', () => {
 });
 
 describe('affichage', () => {
+  it("un mot comme « archived » n'est pas une adresse : fichier absent, pas d'image cassée", () => {
+    expect(isDisplayableFile('archived')).toBe(false);
+    expect(resolveSync('archived', BASE)).toBe('');
+    for (const ok of ['data:image/png;base64,AAA', 'https://x.ma/a.jpg', 'blob:abc', 'sbs://morvello-files/ab/x.jpg']) expect(isDisplayableFile(ok)).toBe(true);
+  });
+
   it('laisse passer data:, https: et blob: tels quels', () => {
     expect(resolveSync('data:image/png;base64,AAA', BASE)).toBe('data:image/png;base64,AAA');
     expect(resolveSync('https://x.ma/a.jpg', BASE)).toBe('https://x.ma/a.jpg');
