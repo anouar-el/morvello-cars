@@ -2,6 +2,8 @@ import React, { useRef, useState } from 'react';
 import { Camera, Trash2 } from 'lucide-react';
 import { useI18n } from '../../i18n/I18nContext';
 import { fileToCompressedDataUrl } from '../../lib/imageResize';
+import { storeFile } from '../../lib/storageClient';
+import { StorageImg } from '../StorageImg';
 
 interface Props {
   value?: string | null;
@@ -22,7 +24,8 @@ export const VehiclePhotoField: React.FC<Props> = ({ value, onChange }) => {
     setBusy(true);
     setError('');
     try {
-      onChange(await fileToCompressedDataUrl(file));
+      // La photo part dans Supabase Storage ; la fiche ne garde qu'une référence (ou la photo elle-même si l'envoi est impossible)
+      onChange(await storeFile(await fileToCompressedDataUrl(file), 'vehicle-photo'));
     } catch {
       setError(t("Image illisible. Choisissez une photo JPG ou PNG."));
     } finally {
@@ -36,7 +39,7 @@ export const VehiclePhotoField: React.FC<Props> = ({ value, onChange }) => {
       <div className="flex items-center gap-3">
         <div className="w-28 h-20 shrink-0 rounded-xl overflow-hidden border border-slate-700 bg-slate-950 flex items-center justify-center">
           {value ? (
-            <img src={value} alt="" className="w-full h-full object-cover" />
+            <StorageImg src={value} alt="" className="w-full h-full object-cover" />
           ) : (
             <Camera className="w-6 h-6 text-slate-600" />
           )}
