@@ -13,6 +13,7 @@ describe('tabRoutes', () => {
       'vehicles',
       'planning',
       'cashbook',
+      'reports',
       'ai_assistant',
       'terms',
       'permissions',

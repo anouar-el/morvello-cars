@@ -10,6 +10,7 @@ const TAB_PATHS: Partial<Record<ActiveTab, string>> = {
   vehicles: '/vehicules',
   planning: '/planning',
   cashbook: '/caisse',
+  reports: '/rapports',
   ai_assistant: '/assistant',
   terms: '/conditions',
   permissions: '/equipe',

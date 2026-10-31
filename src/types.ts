@@ -552,6 +552,7 @@ export type ActiveTab =
   | 'vehicles'
   | 'planning'
   | 'cashbook'
+  | 'reports'
   | 'deposits'
   | 'ai_assistant'
   | 'terms'

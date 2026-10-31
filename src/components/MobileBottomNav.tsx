@@ -25,6 +25,7 @@ import {
   Sparkles,
   CalendarDays,
   Wallet,
+  BarChart3,
 } from 'lucide-react';
 import { useI18n } from '../i18n/I18nContext';
 import { LanguageToggle } from './LanguageToggle';
@@ -73,6 +74,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   const isMoreTabActive = [
     'planning',
     'cashbook',
+    'reports',
     'deposits',
     'clients',
     'ai_assistant',
@@ -253,6 +255,29 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                     <div className="text-start">
                       <div className="font-semibold text-white">{t('Caisse')}</div>
                       <div className="text-[11px] text-slate-400">{t('Encaissements, dépenses et solde')}</div>
+                    </div>
+                  </div>
+                </button>
+              )}
+
+              {/* Rapports : Gérant et Responsables */}
+              {currentUser.role !== 'agent' && (
+                <button
+                  type="button"
+                  onClick={() => handleSelectTab('reports')}
+                  className={`w-full flex items-center justify-between p-3 rounded-xl transition-colors ${
+                    activeTab === 'reports'
+                      ? 'bg-amber-500/15 text-amber-400 font-bold border border-amber-500/30'
+                      : 'text-slate-300 hover:bg-slate-800/70 hover:text-white'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/25 text-purple-400 flex items-center justify-center">
+                      <BarChart3 className="w-4 h-4" />
+                    </div>
+                    <div className="text-start">
+                      <div className="font-semibold text-white">{t('Rapports')}</div>
+                      <div className="text-[11px] text-slate-400">{t('Occupation, chiffre d\'affaires et rentabilité')}</div>
                     </div>
                   </div>
                 </button>
