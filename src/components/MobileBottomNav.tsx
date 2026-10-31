@@ -24,6 +24,7 @@ import {
   X,
   Sparkles,
   CalendarDays,
+  Wallet,
 } from 'lucide-react';
 import { useI18n } from '../i18n/I18nContext';
 import { LanguageToggle } from './LanguageToggle';
@@ -71,6 +72,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
 
   const isMoreTabActive = [
     'planning',
+    'cashbook',
     'deposits',
     'clients',
     'ai_assistant',
@@ -232,6 +234,29 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                   </div>
                 </div>
               </button>
+
+              {/* Caisse : Gérant et Responsables */}
+              {currentUser.role !== 'agent' && (
+                <button
+                  type="button"
+                  onClick={() => handleSelectTab('cashbook')}
+                  className={`w-full flex items-center justify-between p-3 rounded-xl transition-colors ${
+                    activeTab === 'cashbook'
+                      ? 'bg-amber-500/15 text-amber-400 font-bold border border-amber-500/30'
+                      : 'text-slate-300 hover:bg-slate-800/70 hover:text-white'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 flex items-center justify-center">
+                      <Wallet className="w-4 h-4" />
+                    </div>
+                    <div className="text-start">
+                      <div className="font-semibold text-white">{t('Caisse')}</div>
+                      <div className="text-[11px] text-slate-400">{t('Encaissements, dépenses et solde')}</div>
+                    </div>
+                  </div>
+                </button>
+              )}
 
               {/* Cautions & Dépôts de garantie */}
               <button

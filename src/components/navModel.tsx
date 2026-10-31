@@ -14,6 +14,7 @@ import {
   Bot,
   Layers,
   CalendarDays,
+  Wallet,
 } from 'lucide-react';
 import { getScopedDataForUser } from '../utils/managerScopeUtils';
 import { useI18n } from '../i18n/I18nContext';
@@ -60,6 +61,7 @@ export function useNavModel() {
   const heldDepositsCount = scopedDeposits.filter((d) => d.status === 'held').length;
   const scopedClientsCount = scopedClients.length;
   const isAdmin = currentUser.role === 'admin';
+  const isAgent = currentUser.role === 'agent';
 
   const items: Record<string, NavItem> = {
     dashboard: { id: 'dashboard', label: t('Dashboard'), icon: <LayoutDashboard className="w-4 h-4" /> },
@@ -71,6 +73,7 @@ export function useNavModel() {
       count: activeContractsCount,
     },
     planning: { id: 'planning', label: t('Planning'), icon: <CalendarDays className="w-4 h-4" /> },
+    cashbook: { id: 'cashbook', label: t('Caisse'), icon: <Wallet className="w-4 h-4" /> },
     deposits: {
       id: 'deposits',
       label: t('Cautions'),
@@ -126,6 +129,7 @@ export function useNavModel() {
     items.dashboard,
     items.contracts,
     items.planning,
+    ...(isAgent ? [] : [items.cashbook]),
     items.deposits,
     items.clients,
     items.vehicles,
@@ -137,7 +141,7 @@ export function useNavModel() {
   ];
 
   const groups: NavGroup[] = [
-    { id: 'main', label: t('Exploitation'), items: [items.dashboard, items.contracts, items.planning, items.deposits] },
+    { id: 'main', label: t('Exploitation'), items: [items.dashboard, items.contracts, items.planning, ...(isAgent ? [] : [items.cashbook]), items.deposits] },
     { id: 'fleet', label: t('Flotte & clients'), items: [items.vehicles, items.clients] },
     { id: 'tools', label: t('Outils'), items: [items.ai_assistant] },
     ...(isAdmin ? [{ id: 'admin', label: t('Administration'), items: [items.permissions, items.contract_templates, items.audit] }] : []),
