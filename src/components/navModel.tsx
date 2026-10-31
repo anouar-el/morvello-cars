@@ -13,6 +13,7 @@ import {
   KeyRound,
   Bot,
   Layers,
+  CalendarDays,
 } from 'lucide-react';
 import { getScopedDataForUser } from '../utils/managerScopeUtils';
 import { useI18n } from '../i18n/I18nContext';
@@ -69,6 +70,7 @@ export function useNavModel() {
       badge: activeContractsCount > 0 ? activeContractsCount : undefined,
       count: activeContractsCount,
     },
+    planning: { id: 'planning', label: t('Planning'), icon: <CalendarDays className="w-4 h-4" /> },
     deposits: {
       id: 'deposits',
       label: t('Cautions'),
@@ -123,6 +125,7 @@ export function useNavModel() {
   const flat: NavItem[] = [
     items.dashboard,
     items.contracts,
+    items.planning,
     items.deposits,
     items.clients,
     items.vehicles,
@@ -134,7 +137,7 @@ export function useNavModel() {
   ];
 
   const groups: NavGroup[] = [
-    { id: 'main', label: t('Exploitation'), items: [items.dashboard, items.contracts, items.deposits] },
+    { id: 'main', label: t('Exploitation'), items: [items.dashboard, items.contracts, items.planning, items.deposits] },
     { id: 'fleet', label: t('Flotte & clients'), items: [items.vehicles, items.clients] },
     { id: 'tools', label: t('Outils'), items: [items.ai_assistant] },
     ...(isAdmin ? [{ id: 'admin', label: t('Administration'), items: [items.permissions, items.contract_templates, items.audit] }] : []),
