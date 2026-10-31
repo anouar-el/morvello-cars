@@ -17,6 +17,8 @@ import {
   Wrench,
   Shield,
   Users,
+  AlertTriangle,
+  Banknote,
 } from 'lucide-react';
 import { formatPlateFrench } from '../utils/plateUtils';
 import { getVehicleHealthSummary, getTodayDateString } from '../utils/vehicleExpiryUtils';
@@ -26,6 +28,7 @@ import { PushOptIn } from './PushOptIn';
 import { ReservationsPanel } from './reservations/ReservationsPanel';
 import { useI18n } from '../i18n/I18nContext';
 import { getScopedDataForUser } from '../utils/managerScopeUtils';
+import { effectiveEndDate, summarizeToday } from '../lib/dashboardTodo';
 
 interface DashboardProps {
   onOpenCheckInModal?: (contract: Contract) => void;
@@ -84,10 +87,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCheckInModal, onOpen
 
   // Today reference
   const todayStr = getTodayDateString();
-  const returnsToday = activeContracts.filter((c) => {
-    const end = c.prolongation?.isActive ? c.prolongation.newEndDate : c.endDate;
-    return end <= todayStr;
-  });
+  const today = summarizeToday(scopedContracts, todayStr);
+  const returnsToday = [...today.overdue, ...today.dueToday];
+  const hasTodo = returnsToday.length > 0 || today.unpaid.count > 0;
+  const activeSorted = [...activeContracts].sort((x, y) => effectiveEndDate(x).localeCompare(effectiveEndDate(y)));
 
   const agencyDisplayName =
     currentUser?.agency ||
@@ -95,12 +98,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCheckInModal, onOpen
     (currentUser?.role === 'admin' ? t('Siège & Flotte Morvello') : t('Agence Morvello'));
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6 pb-8">
+    <div className="max-w-6xl mx-auto space-y-6 pb-8">
       <InstallPrompt />
       <PushOptIn />
 
       {/* 1. EN-TÊTE AVEC AGENCE DYNAMIQUE */}
-      <div className="relative overflow-hidden glass glass-gold rounded-3xl p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="relative overflow-hidden glass rounded-3xl p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div
           aria-hidden="true"
           className="pointer-events-none absolute -top-24 -end-16 w-72 h-72 rounded-full bg-amber-500/15 blur-3xl"
@@ -124,7 +127,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCheckInModal, onOpen
 
         <button
           onClick={() => setActiveTab('new_contract')}
-          className="relative flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-bold px-5 py-3 rounded-2xl shadow-lg shadow-amber-500/25 transition-all active:scale-95 text-sm cursor-pointer w-full sm:w-auto"
+          className="relative hidden sm:flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-bold px-5 py-3 rounded-2xl shadow-lg shadow-amber-500/25 transition-all active:scale-95 text-sm cursor-pointer sm:w-auto lg:hidden"
         >
           <FilePlus className="w-4 h-4" />
           <span>+ {t('Nouveau Contrat')}</span>
@@ -150,6 +153,72 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCheckInModal, onOpen
           </button>
         ))}
       </div>
+
+      {/* 1.5 À FAIRE AUJOURD'HUI */}
+      <section className="glass rounded-2xl p-4 sm:p-5 space-y-3" aria-label={t("À faire aujourd'hui")}>
+        <h2 className="text-sm font-bold text-white tracking-tight">{t("À faire aujourd'hui")}</h2>
+        {!hasTodo ? (
+          <p className="flex items-center gap-2 text-xs text-emerald-400 font-medium">
+            <CheckCircle2 className="w-4 h-4" />
+            {t("Rien d'urgent aujourd'hui.")}
+          </p>
+        ) : (
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {today.overdue.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setActiveTab('contracts')}
+                className="flex items-center gap-3 p-3 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-start transition-colors cursor-pointer"
+              >
+                <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0" />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-bold text-white">{t('{n} retour(s) en retard', { n: today.overdue.length })}</span>
+                  <span className="block text-[11px] text-rose-300 truncate">
+                    {today.overdue
+                      .slice(0, 2)
+                      .map((c) => `${c.clientSnapshot.lastName} ${c.clientSnapshot.firstName}`)
+                      .join(', ')}
+                  </span>
+                </span>
+                <ArrowRight className="w-4 h-4 text-slate-400 rtl:rotate-180 shrink-0" />
+              </button>
+            )}
+            {today.dueToday.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setActiveTab('contracts')}
+                className="flex items-center gap-3 p-3 rounded-xl border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-start transition-colors cursor-pointer"
+              >
+                <Clock className="w-5 h-5 text-amber-400 shrink-0" />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-bold text-white">{t("{n} retour(s) prévu(s) aujourd'hui", { n: today.dueToday.length })}</span>
+                  <span className="block text-[11px] text-amber-300 truncate">
+                    {today.dueToday
+                      .slice(0, 2)
+                      .map((c) => `${c.clientSnapshot.lastName} ${c.clientSnapshot.firstName}`)
+                      .join(', ')}
+                  </span>
+                </span>
+                <ArrowRight className="w-4 h-4 text-slate-400 rtl:rotate-180 shrink-0" />
+              </button>
+            )}
+            {today.unpaid.count > 0 && (
+              <button
+                type="button"
+                onClick={() => setActiveTab('contracts')}
+                className="flex items-center gap-3 p-3 rounded-xl border border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 text-start transition-colors cursor-pointer"
+              >
+                <Banknote className="w-5 h-5 text-blue-400 shrink-0" />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-bold text-white">{t('{n} contrat(s) avec un solde à encaisser', { n: today.unpaid.count })}</span>
+                  <span className="block text-[11px] text-blue-300 font-mono">{t('{total} MAD au total', { total: today.unpaid.total.toLocaleString() })}</span>
+                </span>
+                <ArrowRight className="w-4 h-4 text-slate-400 rtl:rotate-180 shrink-0" />
+              </button>
+            )}
+          </div>
+        )}
+      </section>
 
       {/* 2. LES CHIFFRES CLÉS ESSENTIELS */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -282,11 +351,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCheckInModal, onOpen
           </div>
         ) : (
           <div className="space-y-2.5">
-            {activeContracts.slice(0, 5).map((cnt) => {
+            {activeSorted.slice(0, 5).map((cnt) => {
               const effectiveEndDate = cnt.prolongation?.isActive
                 ? cnt.prolongation.newEndDate
                 : cnt.endDate;
 
+              const isOverdue = effectiveEndDate < todayStr;
               const isDue = effectiveEndDate <= todayStr;
 
               return (
@@ -303,8 +373,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCheckInModal, onOpen
                         {cnt.clientSnapshot.lastName} {cnt.clientSnapshot.firstName}
                       </span>
                       {isDue && (
-                        <span className="text-[11px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded font-semibold">
-                          {t("Retour aujourd'hui")}
+                        <span
+                          className={`text-[11px] px-2 py-0.5 rounded font-semibold ${
+                            isOverdue ? 'bg-rose-500/20 text-rose-300' : 'bg-amber-500/20 text-amber-300'
+                          }`}
+                        >
+                          {isOverdue ? t('En retard') : t("Retour aujourd'hui")}
                         </span>
                       )}
                     </div>
@@ -352,59 +426,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenCheckInModal, onOpen
         )}
       </div>
 
-      {/* 4. RACCOURCIS SIMPLES & PARC */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
-        <button
-          onClick={() => setActiveTab('vehicles')}
-          className="p-4 bg-slate-900/60 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-xl text-start transition-all flex items-center justify-between cursor-pointer group"
-        >
-          <div>
-            <p className="font-bold text-white text-xs">
-              {isManager
-                ? t('Ma Flotte Attribuée ({n})', { n: scopedVehicles.length })
-                : t('Parc Automobile ({n})', { n: vehicles.length })}
-            </p>
-            <p className="text-[11px] text-slate-400 mt-0.5">
-              {isManager ? t('Consulter les disponibilités de mes véhicules') : t('Consulter les disponibilités et fiches véhicules')}
-            </p>
-          </div>
-          <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-amber-400 transition-colors rtl:rotate-180" />
-        </button>
-
-        <button
-          onClick={() => setActiveTab('clients')}
-          className="p-4 bg-slate-900/60 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-xl text-start transition-all flex items-center justify-between cursor-pointer group"
-        >
-          <div>
-            <p className="font-bold text-white text-xs">
-              {isManager
-                ? t('Mes Clients ({n})', { n: scopedClients.length })
-                : t('Répertoire Clients ({n})', { n: clients.length })}
-            </p>
-            <p className="text-[11px] text-slate-400 mt-0.5">
-              {t("Fiches d'identité, permis, coordonnées et historique")}
-            </p>
-          </div>
-          <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-amber-400 transition-colors rtl:rotate-180" />
-        </button>
-
-        <button
-          onClick={() => setActiveTab('deposits')}
-          className="p-4 bg-slate-900/60 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-xl text-start transition-all flex items-center justify-between cursor-pointer group"
-        >
-          <div>
-            <p className="font-bold text-white text-xs">
-              {isManager
-                ? t('Mes Cautions & Dépôts ({n})', { n: scopedDeposits.length })
-                : t('Dépôts de Garantie & Cautions ({n})', { n: deposits.length })}
-            </p>
-            <p className="text-[11px] text-slate-400 mt-0.5">
-              {t('Suivi des empreintes bancaires et chèques de garantie')}
-            </p>
-          </div>
-          <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-amber-400 transition-colors rtl:rotate-180" />
-        </button>
-      </div>
     </div>
   );
 };
