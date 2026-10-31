@@ -139,6 +139,15 @@ export const AR_LOT5: Record<string, string> = {
   "Contrat créé à partir d'une réservation": 'عقد منشأ انطلاقًا من حجز',
   'Client, véhicule et dates sont préremplis : vérifiez-les avant de continuer.': 'الزبون والسيارة والتواريخ معبّأة مسبقًا: تحقّق منها قبل المتابعة.',
 
+  // Tableau de bord : à faire aujourd'hui
+  "À faire aujourd'hui": 'المطلوب اليوم',
+  "Rien d'urgent aujourd'hui.": 'لا شيء عاجل اليوم.',
+  '{n} retour(s) en retard': '{n} إرجاع (إرجاعات) متأخر',
+  "{n} retour(s) prévu(s) aujourd'hui": '{n} إرجاع (إرجاعات) مقرر اليوم',
+  '{n} contrat(s) avec un solde à encaisser': '{n} عقد (عقود) فيها مبلغ متبقٍ للتحصيل',
+  '{total} MAD au total': 'المجموع {total} درهم',
+  'En retard': 'متأخر',
+
   // Navigation et en-têtes de page
   'Nouveau client': 'زبون جديد',
   'Nouveau véhicule': 'سيارة جديدة',
