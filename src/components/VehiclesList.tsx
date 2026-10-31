@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { PageHeader } from './PageHeader';
 import { useApp } from '../context/AppContext';
 import { Vehicle, VehicleStatus } from '../types';
 import { takeEntityFocus } from '../lib/entityFocus';
@@ -307,14 +308,18 @@ export const VehiclesList: React.FC = () => {
       )}
 
       {/* HEADER */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-xl">
-        <div>
-          <div className="flex items-center gap-2 text-xs font-semibold text-emerald-400 uppercase tracking-widest font-mono">
-            <Car className="w-4 h-4" />
-            {t('Module Flotte & Parc Automobile • Section 9')}
-          </div>
-          <h1 className="text-xl font-bold text-white tracking-tight mt-1 flex items-center gap-2.5">
-            <span>{t('Parc Automobile & Flottes Assignées')}</span>
+      <PageHeader
+        icon={<Car className="w-5 h-5" />}
+        title={t('Parc Automobile & Flottes Assignées')}
+        subtitle={
+          isAdmin
+            ? t('Gestion centrale Gérant : affectation des véhicules aux responsables, approbation obligatoire de tous les ajouts et supervision de la flotte.')
+            : isManager
+            ? t("Accès Responsable : flotte assignée à votre agence. L'ajout de véhicules est ouvert mais soumis à l'approbation du Gérant.")
+            : t("Accès Collaborateur : consultation de la flotte. L'ajout de véhicules est ouvert à tous sous approbation du Gérant.")
+        }
+        badge={
+          <>
             {isManager && (
               <span className="text-xs font-medium bg-blue-500/20 text-blue-300 border border-blue-500/40 px-2.5 py-0.5 rounded-full font-mono">
                 {t('Vue Responsable : {assignedFleetName}', { assignedFleetName: currentUser.assignedFleetName || currentUser.name })}
@@ -330,61 +335,43 @@ export const VehiclesList: React.FC = () => {
                 {t('👑 Super Admin / Gérant')}
               </span>
             )}
-          </h1>
-          <p className="text-xs text-slate-400 mt-0.5">
-            {isAdmin
-              ? t('Gestion centrale Gérant : affectation des véhicules aux responsables, approbation obligatoire de tous les ajouts et supervision de la flotte.')
-              : isManager
-              ? t("Accès Responsable : flotte assignée à votre agence. L'ajout de véhicules est ouvert mais soumis à l'approbation du Gérant.")
-              : t("Accès Collaborateur : consultation de la flotte. L'ajout de véhicules est ouvert à tous sous approbation du Gérant.")}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2.5 flex-wrap">
-          <button
-            onClick={exportVehiclesToExcel}
-            className="flex items-center gap-1.5 bg-emerald-700/80 hover:bg-emerald-600 text-white px-3 py-2 rounded-xl text-xs font-semibold shadow-sm transition-colors cursor-pointer"
-            title={t('Télécharger toute la flotte au format Excel (.xlsx)')}
-          >
-            <FileSpreadsheet className="w-3.5 h-3.5" />
-            <span>{t('Export Excel')}</span>
-          </button>
-
-          <button
-            onClick={exportVehiclesToCSV}
-            className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 px-3 py-2 rounded-xl text-xs font-semibold shadow-sm transition-colors cursor-pointer"
-            title={t('Télécharger la flotte au format CSV')}
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>{t('Export CSV')}</span>
-          </button>
-
-          {/* SÉCURITÉ : bouton d'importation masqué pour les non-administrateurs (voir canImportVehicles) */}
-          {canImportVehicles && (
-            <button
-              onClick={() => setIsImportModalOpen(true)}
-              className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 px-3 py-2 rounded-xl text-xs font-semibold shadow-sm transition-colors cursor-pointer"
-              title={t('Importer la flotte réelle depuis un fichier Excel (.xlsx) ou CSV (Réservé Administrateur)')}
-            >
-              <Upload className="w-3.5 h-3.5 text-blue-400" />
-              <span>{t('Importer Parc Réel')}</span>
-            </button>
-          )}
-
-          <button
-            onClick={() => setIsAddModalOpen(true)}
-            className={`flex items-center gap-2 font-bold px-4 py-2 rounded-xl text-xs sm:text-sm shadow-md transition-all cursor-pointer ${
-              isAdmin
-                ? 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 shadow-amber-500/20'
-                : 'bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-400 hover:to-indigo-500 text-white shadow-blue-500/20'
-            }`}
-          >
-            <PlusCircle className="w-4 h-4" />
-            {isAdmin ? t('+ Nouveau Véhicule (Gérant)') : t('+ Proposer un Véhicule (Soumis au Gérant)')}
-          </button>
-        </div>
-      </div>
-
+          </>
+        }
+        primary={{
+          label: isAdmin ? t('+ Nouveau Véhicule (Gérant)') : t('+ Proposer un Véhicule (Soumis au Gérant)'),
+          shortLabel: isAdmin ? t('Nouveau véhicule') : t('Proposer un véhicule'),
+          icon: <PlusCircle className="w-4 h-4" />,
+          onClick: () => setIsAddModalOpen(true),
+          className: isAdmin
+            ? 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 shadow-amber-500/20'
+            : 'bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-400 hover:to-indigo-500 text-white shadow-blue-500/20',
+        }}
+        actions={[
+          {
+            label: t('Export Excel'),
+            title: t('Télécharger toute la flotte au format Excel (.xlsx)'),
+            icon: <FileSpreadsheet className="w-4 h-4 text-emerald-400" />,
+            onClick: exportVehiclesToExcel,
+          },
+          {
+            label: t('Export CSV'),
+            title: t('Télécharger la flotte au format CSV'),
+            icon: <Download className="w-4 h-4 text-slate-400" />,
+            onClick: exportVehiclesToCSV,
+          },
+          // SÉCURITÉ : importation réservée aux administrateurs (voir canImportVehicles)
+          ...(canImportVehicles
+            ? [
+                {
+                  label: t('Importer Parc Réel'),
+                  title: t('Importer la flotte réelle depuis un fichier Excel (.xlsx) ou CSV (Réservé Administrateur)'),
+                  icon: <Upload className="w-4 h-4 text-blue-400" />,
+                  onClick: () => setIsImportModalOpen(true),
+                },
+              ]
+            : []),
+        ]}
+      />
       {/* PENDING APPROVALS SECTION */}
       <PendingApprovalsBanner
         isAdmin={isAdmin}
