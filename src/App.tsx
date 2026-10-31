@@ -25,6 +25,7 @@ const ClientsList = lazyView(() => import('./components/ClientsList').then((m) =
 const VehiclesList = lazyView(() => import('./components/VehiclesList').then((m) => m.VehiclesList));
 const PlanningView = lazyView(() => import('./components/PlanningView').then((m) => m.PlanningView));
 const CashbookView = lazyView(() => import('./components/CashbookView').then((m) => m.CashbookView));
+const ReportsView = lazyView(() => import('./components/ReportsView').then((m) => m.ReportsView));
 const TermsManager = lazyView(() => import('./components/TermsManager').then((m) => m.TermsManager));
 const SettingsView = lazyView(() => import('./components/SettingsView').then((m) => m.SettingsView));
 const AuditView = lazyView(() => import('./components/AuditView').then((m) => m.AuditView));
@@ -58,6 +59,7 @@ const BACKGROUND_PRELOAD_ORDER = [
   VehiclesList,
   PlanningView,
   CashbookView,
+  ReportsView,
   ClientsList,
   DepositsManagement,
   MemberAiAssistant,
@@ -132,6 +134,8 @@ function MainAppContent() {
         return <PlanningView />;
       case 'cashbook':
         return <CashbookView />;
+      case 'reports':
+        return <ReportsView />;
       case 'ai_assistant':
         return <MemberAiAssistant initialPrompt={assistantPrompt} onInitialPromptHandled={() => setAssistantPrompt(null)} />;
       case 'terms':

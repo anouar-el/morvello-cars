@@ -15,6 +15,7 @@ import {
   Layers,
   CalendarDays,
   Wallet,
+  BarChart3,
 } from 'lucide-react';
 import { getScopedDataForUser } from '../utils/managerScopeUtils';
 import { useI18n } from '../i18n/I18nContext';
@@ -74,6 +75,7 @@ export function useNavModel() {
     },
     planning: { id: 'planning', label: t('Planning'), icon: <CalendarDays className="w-4 h-4" /> },
     cashbook: { id: 'cashbook', label: t('Caisse'), icon: <Wallet className="w-4 h-4" /> },
+    reports: { id: 'reports', label: t('Rapports'), icon: <BarChart3 className="w-4 h-4" /> },
     deposits: {
       id: 'deposits',
       label: t('Cautions'),
@@ -129,7 +131,7 @@ export function useNavModel() {
     items.dashboard,
     items.contracts,
     items.planning,
-    ...(isAgent ? [] : [items.cashbook]),
+    ...(isAgent ? [] : [items.cashbook, items.reports]),
     items.deposits,
     items.clients,
     items.vehicles,
@@ -141,7 +143,7 @@ export function useNavModel() {
   ];
 
   const groups: NavGroup[] = [
-    { id: 'main', label: t('Exploitation'), items: [items.dashboard, items.contracts, items.planning, ...(isAgent ? [] : [items.cashbook]), items.deposits] },
+    { id: 'main', label: t('Exploitation'), items: [items.dashboard, items.contracts, items.planning, ...(isAgent ? [] : [items.cashbook, items.reports]), items.deposits] },
     { id: 'fleet', label: t('Flotte & clients'), items: [items.vehicles, items.clients] },
     { id: 'tools', label: t('Outils'), items: [items.ai_assistant] },
     ...(isAdmin ? [{ id: 'admin', label: t('Administration'), items: [items.permissions, items.contract_templates, items.audit] }] : []),
