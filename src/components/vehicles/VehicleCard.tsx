@@ -4,6 +4,8 @@ import { Vehicle, VehicleStatus, Contract } from '../../types';
 import { VehicleCompliancePanel } from './VehicleCompliancePanel';
 import {
   Pencil,
+  Car,
+  Camera,
   UserCheck,
   Trash2,
   FileText,
@@ -67,44 +69,44 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
     }
   };
 
+  const subtitle = [vehicle.year, vehicle.color, vehicle.fuelType].filter(Boolean).join(' • ');
+
   return (
     <div className="glass rounded-3xl p-5 hover:border-amber-500/30 transition-all flex flex-col justify-between group overflow-hidden">
       <div>
-        {/* EN-TÊTE PREMIUM : monogramme, marque, statut, plaque */}
-        <div className="relative -mx-5 -mt-5 mb-4 px-5 pt-5 pb-4 bg-gradient-to-br from-amber-500/15 via-slate-900/10 to-transparent border-b border-white/5 overflow-hidden">
-          {vehicle.photoUrl && (
+        {/* PHOTO : statut, plaque et tarif en surimpression ; invitation à ajouter une photo si absente */}
+        <div className={`relative -mx-5 -mt-5 mb-4 overflow-hidden border-b border-white/5 ${vehicle.photoUrl ? 'aspect-[16/10]' : 'h-44'}`}>
+          {vehicle.photoUrl ? (
             <>
-              <StorageImg src={vehicle.photoUrl} alt="" loading="lazy" className="absolute inset-0 w-full h-full object-cover" />
-              <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-950/55 to-slate-950/20" />
+              <StorageImg src={vehicle.photoUrl} alt={`${vehicle.brand} ${vehicle.model}`} loading="lazy" className="absolute inset-0 w-full h-full object-cover" />
+              <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-transparent to-slate-950/40" />
             </>
-          )}
-          <div className={`relative flex items-start justify-between gap-3 ${vehicle.photoUrl ? 'pt-14' : ''}`}>
-            <div className="flex items-center gap-3 min-w-0">
-              <div
-                aria-hidden="true"
-                className="w-12 h-12 shrink-0 rounded-2xl glass glass-gold flex items-center justify-center gold-text font-black text-lg tracking-wider"
+          ) : (
+            <div className="absolute inset-0 bg-gradient-to-br from-amber-500/15 via-slate-900/30 to-transparent flex flex-col items-center justify-center gap-2 pt-6 pb-10">
+              <Car aria-hidden="true" className="w-10 h-10 text-amber-400/50" />
+              <button
+                type="button"
+                onClick={() => onEdit(vehicle)}
+                className="flex items-center gap-1.5 text-xs font-semibold text-amber-300 bg-slate-950/60 hover:bg-amber-500 hover:text-slate-950 border border-amber-500/30 px-3 py-1.5 rounded-lg cursor-pointer transition-colors"
               >
-                {(vehicle.brand || '?').slice(0, 2).toUpperCase()}
-              </div>
-              <div className="min-w-0">
-                <h3 className="text-base font-extrabold text-white uppercase leading-tight truncate">
-                  {vehicle.brand} <span className="text-slate-300 font-medium">{vehicle.model}</span>
-                </h3>
-                <div className="mt-1.5 flex items-center gap-2 flex-wrap">
-                  {getStatusBadge(effectiveStatus)}
-                  <span className="text-[11px] font-mono text-slate-400 font-semibold">{vehicle.fuelType}</span>
-                  {vehicle.approvalStatus === 'pending_approval' && (
-                    <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-full font-mono font-semibold">
-                      {t('⏳ En validation')}
-                    </span>
-                  )}
-                </div>
-              </div>
+                <Camera className="w-3.5 h-3.5" />
+                {t('Ajouter une photo')}
+              </button>
             </div>
+          )}
 
+          <div className="absolute top-3 inset-x-3 flex items-start justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+              <span className="rounded-full bg-slate-950/80 backdrop-blur-sm">{getStatusBadge(effectiveStatus)}</span>
+              {vehicle.approvalStatus === 'pending_approval' && (
+                <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-full font-mono font-semibold backdrop-blur-sm">
+                  {t('⏳ En validation')}
+                </span>
+              )}
+            </div>
             <button
               onClick={() => onEdit(vehicle)}
-              className="shrink-0 flex items-center gap-1.5 bg-white/5 hover:bg-amber-500 hover:text-slate-950 text-slate-200 text-xs px-3 py-2 rounded-xl border border-white/10 hover:border-amber-400 transition-all cursor-pointer font-semibold"
+              className="shrink-0 flex items-center justify-center gap-1.5 bg-slate-950/60 hover:bg-amber-500 hover:text-slate-950 text-slate-100 text-xs w-9 h-9 min-[380px]:w-auto min-[380px]:px-3 rounded-xl border border-white/10 hover:border-amber-400 backdrop-blur-sm transition-all cursor-pointer font-semibold"
               title={t('Modifier ce véhicule')}
             >
               <Pencil className="w-3.5 h-3.5" />
@@ -112,18 +114,40 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
             </button>
           </div>
 
-          <div className="relative mt-3 inline-block bg-slate-950/70 border border-amber-500/40 px-3 py-1 rounded-lg text-amber-400 font-mono font-bold text-sm tracking-wider shadow-inner">
-            {vehicle.plate}
+          <div className="absolute bottom-3 inset-x-3 flex items-end justify-between gap-2">
+            <div className="bg-slate-950/75 border border-amber-500/40 px-3 py-1 rounded-lg text-amber-400 font-mono font-bold text-sm tracking-wider backdrop-blur-sm">
+              {vehicle.plate}
+            </div>
+            {vehicle.dailyRate ? (
+              <div className="bg-slate-950/75 border border-white/10 px-3 py-1 rounded-lg text-amber-400 font-mono font-bold text-sm backdrop-blur-sm">
+                {t('{dailyRate} MAD / j', { dailyRate: vehicle.dailyRate })}
+              </div>
+            ) : (
+              <div
+                className="bg-slate-950/75 border border-rose-500/40 px-3 py-1 rounded-lg text-rose-400 font-mono font-bold text-xs backdrop-blur-sm"
+                title={t('Aucun tarif enregistré : à renseigner dans la fiche véhicule')}
+              >
+                {t('Non défini')}
+              </div>
+            )}
           </div>
         </div>
 
+        {/* NOM COMPLET : jamais tronqué */}
+        <div className="mb-3">
+          <h3 className="text-base font-extrabold text-white uppercase leading-tight break-words">
+            {vehicle.brand} <span className="text-slate-300 font-medium">{vehicle.model}</span>
+          </h3>
+          {subtitle && <p className="mt-1 text-xs text-slate-400">{subtitle}</p>}
+        </div>
+
         {/* RESPONSABLE ATTITRÉ ROW */}
-        <div className="mb-2.5 flex items-center justify-between text-xs bg-white/5 px-3 py-2 rounded-xl border border-white/10">
-          <div className="flex items-center gap-1.5 text-slate-400 text-xs">
+        <div className="mb-2.5 flex items-center justify-between gap-2 text-xs bg-white/5 px-3 py-2 rounded-xl border border-white/10">
+          <div className="flex items-center gap-1.5 text-slate-400 text-xs shrink-0">
             <UserCheck className="w-3.5 h-3.5 text-amber-400" />
             <span>{t('Responsable attitré :')}</span>
           </div>
-          <span className="font-semibold text-slate-200 text-xs truncate max-w-[150px]">
+          <span className="font-semibold text-slate-200 text-xs truncate">
             {vehicle.assignedManagerName || (vehicle.assignedManagerId ? t('Responsable') : t('Flotte centrale (Non affecté)'))}
           </span>
         </div>
@@ -135,25 +159,10 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
             <strong className="text-white font-mono">{t('{currentKm} KM', { currentKm: vehicle.currentKm.toLocaleString() })}</strong>
           </div>
           <div>
-            <span className="text-[11px] text-slate-400 block">{t('Tarif journalier :')}</span>
-            {vehicle.dailyRate ? (
-              <strong className="text-amber-400 font-mono">{t('{dailyRate} MAD / j', { dailyRate: vehicle.dailyRate })}</strong>
-            ) : (
-              <strong className="text-rose-400 font-mono" title={t('Aucun tarif enregistré : à renseigner dans la fiche véhicule')}>
-                {t('Non défini')}
-              </strong>
-            )}
-          </div>
-          <div>
-            <span className="text-[11px] text-slate-400 block">{t('Année & Couleur :')}</span>
-            <span className="text-slate-300">{vehicle.year || 2024} • {vehicle.color || t('Gris')}</span>
-          </div>
-          <div>
             <span className="text-[11px] text-slate-400 block">{t('Dernière Révision :')}</span>
             <span className="text-slate-300 font-mono">{vehicle.lastInspectionDate || t('À jour')}</span>
           </div>
         </div>
-
         {vehicle.notes && (
           <div className="mt-2 text-xs text-slate-400 italic bg-slate-950/40 px-2.5 py-1.5 rounded-lg border border-slate-800/60">
             « {vehicle.notes} »
