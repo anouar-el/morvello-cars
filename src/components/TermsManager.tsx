@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 
 import { useI18n } from '../i18n/I18nContext';
+import { PageHeader } from './PageHeader';
 interface ClausePreset {
   number?: string;
   title: string;
@@ -215,53 +216,39 @@ export const TermsManager: React.FC = () => {
       )}
 
       {/* HEADER PRINCIPAL */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-xl">
-        <div>
-          <div className="flex items-center gap-2 text-xs font-semibold text-purple-400 uppercase tracking-widest font-mono">
-            <ShieldCheck className="w-4 h-4 text-purple-400" />
-            {t('Module Conditions Générales • Section 25 & 28')}
-          </div>
-          <h1 className="text-xl font-extrabold text-white tracking-tight mt-1">
-            {t('Conditions Générales de Location — Morvello Cars')}
-          </h1>
-          <p className="text-xs text-slate-400 mt-0.5">
-            {t('Texte contractuel officiel reproduit au verso (Page 2) du contrat de location A4.')}
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2.5">
-          {/* BADGE RÔLE */}
-          {isGerant ? (
-            <span className="bg-amber-500/15 text-amber-400 border border-amber-500/30 text-xs font-bold px-3 py-1.5 rounded-xl flex items-center gap-1.5 font-mono">
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              {t("Gérant : Droit d'Édition Actif")}
+      <PageHeader
+        icon={<ShieldCheck className="w-5 h-5" />}
+        title={t('Conditions Générales de Location — Morvello Cars')}
+        subtitle={t('Texte contractuel officiel reproduit au verso (Page 2) du contrat de location A4.')}
+        badge={
+          <>
+            {isGerant ? (
+              <span className="bg-amber-500/15 text-amber-400 border border-amber-500/30 text-xs font-bold px-2.5 py-1 rounded-lg flex items-center gap-1.5 font-mono">
+                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                {t("Gérant : Droit d'Édition Actif")}
+              </span>
+            ) : (
+              <span className="bg-slate-800 text-slate-400 border border-slate-700 text-xs font-medium px-2.5 py-1 rounded-lg flex items-center gap-1.5">
+                <Lock className="w-3.5 h-3.5 text-slate-500" />
+                {t('Mode Consultation Seule')}
+              </span>
+            )}
+            <span className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-xs font-bold px-2.5 py-1 rounded-lg flex items-center gap-1.5 font-mono">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              {t('Version {version} (Active)', { version: termsVersion.version })}
             </span>
-          ) : (
-            <span className="bg-slate-800 text-slate-400 border border-slate-700 text-xs font-medium px-3 py-1.5 rounded-xl flex items-center gap-1.5">
-              <Lock className="w-3.5 h-3.5 text-slate-500" />
-              {t('Mode Consultation Seule')}
-            </span>
-          )}
-
-          {/* BADGE VERSION */}
-          <span className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-xs font-bold px-3 py-1.5 rounded-xl flex items-center gap-1.5 font-mono">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            {t('Version {version} (Active)', { version: termsVersion.version })}
-          </span>
-
-          {/* BOUTON AJOUT NOUVELLE CLAUSE (RÉSERVÉ GÉRANT) */}
-          {isGerant && (
-            <button
-              onClick={openAddModal}
-              className="px-3.5 py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-amber-500/20 flex items-center gap-1.5 transition-all cursor-pointer hover:scale-102"
-              title={t('Ajouter une nouvelle clause contractuelle aux conditions de location')}
-            >
-              <Plus className="w-4 h-4 stroke-[2.5]" />
-              <span>{t('+ Nouvelle Clause')}</span>
-            </button>
-          )}
-        </div>
-      </div>
+          </>
+        }
+        primary={
+          isGerant
+            ? {
+                label: t('+ Nouvelle Clause'),
+                icon: <Plus className="w-4 h-4 stroke-[2.5]" />,
+                onClick: openAddModal,
+              }
+            : undefined
+        }
+      />
 
       {/* COMPLIANCE & LEGAL NOTICE */}
       <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 text-xs text-amber-200 space-y-2">

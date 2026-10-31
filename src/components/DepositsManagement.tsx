@@ -39,6 +39,7 @@ import { formatPlateFrench } from '../utils/plateUtils';
 import { isDepositOwnedByManager } from '../utils/managerScopeUtils';
 
 import { useI18n } from '../i18n/I18nContext';
+import { PageHeader } from './PageHeader';
 export const DepositsManagement: React.FC = () => {
   const { t } = useI18n();
   const {
@@ -286,23 +287,11 @@ export const DepositsManagement: React.FC = () => {
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       {/* HEADER SECTION */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-800 pb-5">
-        <div>
-          <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
-              <ShieldAlert className="w-5 h-5" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-white tracking-wide">
-                {t('Gestion & Suivi des Cautions')}
-              </h1>
-              <p className="text-xs text-slate-400">
-                {t('Dépôts de garantie, empreintes TPE, chèques, restitutions & retenues contractuelles')}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        icon={<ShieldAlert className="w-5 h-5" />}
+        title={t('Gestion & Suivi des Cautions')}
+        subtitle={t('Dépôts de garantie, empreintes TPE, chèques, restitutions & retenues contractuelles')}
+      />
 
       {/* KPI METRICS OVERVIEW */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">

@@ -33,6 +33,7 @@ import { getNextAvailableContractNumber } from '../utils/contractNumberUtils';
 import { syncAllClientsToSupabase } from '../lib/supabaseSync';
 
 import { useI18n } from '../i18n/I18nContext';
+import { PageHeader } from './PageHeader';
 export const SettingsView: React.FC = () => {
   const { t } = useI18n();
   const {
@@ -175,27 +176,19 @@ CREATE POLICY "clients_delete" ON public.clients FOR DELETE TO authenticated USI
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       {/* HEADER */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-xl">
-        <div>
-          <div className="flex items-center gap-2 text-xs font-semibold text-amber-400 uppercase tracking-widest font-mono">
-            <Settings className="w-4 h-4" />
-            {t('Module Paramètres • Section 41')}
-          </div>
-          <h1 className="text-xl font-bold text-white tracking-tight mt-1">
-            {t('Paramètres Société & Numérotation des Contrats')}
-          </h1>
-          <p className="text-xs text-slate-400 mt-0.5">
-            {t('Mentions légales obligatoires figurant sur le document imprimé et format des contrats.')}
-          </p>
-        </div>
-
-        {isAgent && (
-          <span className="bg-amber-500/15 text-amber-400 border border-amber-500/30 text-xs font-semibold px-3 py-1.5 rounded-xl flex items-center gap-1.5">
-            <Lock className="w-3.5 h-3.5" />
-            {t('Lecture seule (Rôle Agent)')}
-          </span>
-        )}
-      </div>
+      <PageHeader
+        icon={<Settings className="w-5 h-5" />}
+        title={t('Paramètres Société & Numérotation des Contrats')}
+        subtitle={t('Mentions légales obligatoires figurant sur le document imprimé et format des contrats.')}
+        badge={
+          isAgent ? (
+            <span className="bg-amber-500/15 text-amber-400 border border-amber-500/30 text-xs font-semibold px-2.5 py-1 rounded-lg flex items-center gap-1.5">
+              <Lock className="w-3.5 h-3.5" />
+              {t('Lecture seule (Rôle Agent)')}
+            </span>
+          ) : undefined
+        }
+      />
 
       {savedSuccess && (
         <div className="bg-emerald-500/15 border border-emerald-500/40 text-emerald-400 p-3.5 rounded-xl text-xs flex items-center gap-2 animate-in fade-in">
