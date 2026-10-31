@@ -175,4 +175,8 @@ export const AR_LOT5: Record<string, string> = {
   'Terminée': 'منتهٍ',
   'Aucun véhicule à afficher.': 'لا توجد سيارات للعرض.',
   "{n} libre(s) aujourd'hui": '{n} شاغرة اليوم',
+
+  // Réservation depuis le planning
+  'Astuce : touchez une case libre pour réserver ce véhicule à cette date.': 'نصيحة: المس خانة شاغرة لحجز هذه السيارة في هذا التاريخ.',
+  'Réserver ce véhicule à cette date': 'حجز هذه السيارة في هذا التاريخ',
 };

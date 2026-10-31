@@ -21,6 +21,8 @@ interface Props {
   clientId?: string;
   /** Réservation à modifier. */
   editing?: ReservationEntry;
+  /** Valeurs de départ d'une nouvelle réservation (depuis une case du planning). */
+  preset?: { vehicleId?: string; startDate?: string };
   onClose: () => void;
 }
 
@@ -33,7 +35,7 @@ const addDays = (isoDate: string, days: number): string => {
 const inputCls =
   'w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white placeholder:text-slate-500 focus:border-amber-500 focus:outline-none';
 
-export const ReservationModal: React.FC<Props> = ({ clientId, editing, onClose }) => {
+export const ReservationModal: React.FC<Props> = ({ clientId, editing, preset, onClose }) => {
   const { t } = useI18n();
   const { clients, vehicles, contracts, deposits, users, currentUser, updateClient } = useApp();
 
@@ -44,10 +46,10 @@ export const ReservationModal: React.FC<Props> = ({ clientId, editing, onClose }
   const existing = editing?.reservation;
   const [pickedId, setPickedId] = useState<string>(editing?.client.id ?? clientId ?? '');
   const [query, setQuery] = useState('');
-  const [vehicleId, setVehicleId] = useState(existing?.vehicleId ?? '');
-  const [startDate, setStartDate] = useState(existing?.startDate ?? today);
+  const [vehicleId, setVehicleId] = useState(existing?.vehicleId ?? preset?.vehicleId ?? '');
+  const [startDate, setStartDate] = useState(existing?.startDate ?? preset?.startDate ?? today);
   const [startTime, setStartTime] = useState(existing?.startTime ?? '10:00');
-  const [endDate, setEndDate] = useState(existing?.endDate ?? addDays(today, 1));
+  const [endDate, setEndDate] = useState(existing?.endDate ?? addDays(preset?.startDate ?? today, 1));
   const [endTime, setEndTime] = useState(existing?.endTime ?? '18:00');
   const [deposit, setDeposit] = useState<string>(existing?.deposit ? String(existing.deposit) : '');
   const [note, setNote] = useState(existing?.note ?? '');
