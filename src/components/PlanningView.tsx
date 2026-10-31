@@ -7,6 +7,7 @@ import { getTodayDateString } from '../utils/vehicleExpiryUtils';
 import { requestEntityFocus } from '../lib/entityFocus';
 import { addDays, buildPlanning, isWeekend, PlanningBar, rangeDays } from '../lib/planning';
 import { PageHeader } from './PageHeader';
+import { ReservationModal } from './reservations/ReservationModal';
 
 const RANGES = [7, 14, 30] as const;
 const COLUMN_MIN_PX = 44;
@@ -26,6 +27,7 @@ export const PlanningView: React.FC = () => {
   const { t, lang } = useI18n();
   const today = getTodayDateString();
   const [startDate, setStartDate] = useState(() => addDays(today, -1));
+  const [slot, setSlot] = useState<{ vehicleId: string; date: string } | null>(null);
   const [days, setDays] = useState<number>(() => (typeof window !== 'undefined' && window.innerWidth < 640 ? 7 : 14));
 
   const scoped = useMemo(
@@ -133,6 +135,10 @@ export const PlanningView: React.FC = () => {
           {t('Aucun véhicule à afficher.')}
         </div>
       ) : (
+        <p className="text-[11px] text-slate-500">{t('Astuce : touchez une case libre pour réserver ce véhicule à cette date.')}</p>
+      )}
+
+      {rows.length > 0 && (
         <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-x-auto">
           <div style={{ minWidth: `${140 + days * COLUMN_MIN_PX}px` }}>
             {/* EN-TÊTE DES JOURS */}
@@ -167,18 +173,22 @@ export const PlanningView: React.FC = () => {
 
                 <div className="relative flex-1">
                   {/* fond : week-ends et aujourd'hui */}
-                  <div className="absolute inset-0 grid" style={gridCols} aria-hidden="true">
+                  <div className="absolute inset-0 grid" style={gridCols}>
                     {dates.map((d) => (
                       <div
                         key={d}
-                        className={`border-e border-slate-800/60 ${isWeekend(d) ? 'bg-slate-800/30' : ''} ${d === today ? 'bg-amber-500/10' : ''}`}
+                        onClick={d >= today ? () => setSlot({ vehicleId: row.vehicle.id, date: d }) : undefined}
+                        title={d >= today ? t('Réserver ce véhicule à cette date') : undefined}
+                        className={`border-e border-slate-800/60 ${isWeekend(d) ? 'bg-slate-800/30' : ''} ${d === today ? 'bg-amber-500/10' : ''} ${
+                          d >= today ? 'cursor-pointer hover:bg-amber-500/15' : ''
+                        }`}
                       />
                     ))}
                   </div>
 
                   {/* barres */}
                   <div
-                    className="relative grid items-center gap-y-0.5 p-0.5"
+                    className="relative grid items-center gap-y-0.5 p-0.5 pointer-events-none"
                     style={{ ...gridCols, gridAutoRows: `${LANE_PX}px`, minHeight: `${row.lanes * (LANE_PX + 2) + 4}px` }}
                   >
                     {row.bars.map((bar) => (
@@ -192,7 +202,7 @@ export const PlanningView: React.FC = () => {
                             : `${t('Réservation')} · ${bar.label} · ${bar.start} → ${bar.end}`
                         }
                         style={{ gridColumn: `${bar.column + 1} / span ${bar.span}`, gridRow: bar.lane + 1 }}
-                        className={`h-[28px] mx-px flex items-center px-2 text-[11px] font-semibold truncate cursor-pointer hover:brightness-125 transition-[filter] ${barStyle(bar)} ${
+                        className={`pointer-events-auto h-[28px] mx-px flex items-center px-2 text-[11px] font-semibold truncate cursor-pointer hover:brightness-125 transition-[filter] ${barStyle(bar)} ${
                           bar.clippedStart ? 'rounded-s-none' : 'rounded-s-lg'
                         } ${bar.clippedEnd ? 'rounded-e-none' : 'rounded-e-lg'}`}
                       >
@@ -206,6 +216,8 @@ export const PlanningView: React.FC = () => {
           </div>
         </div>
       )}
+
+      {slot && <ReservationModal preset={{ vehicleId: slot.vehicleId, startDate: slot.date }} onClose={() => setSlot(null)} />}
     </div>
   );
 };
