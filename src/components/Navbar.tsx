@@ -34,6 +34,8 @@ import { computeOperationalAlerts } from '../utils/alertsUtils';
 import { getScopedDataForUser } from '../utils/managerScopeUtils';
 import { useI18n } from '../i18n/I18nContext';
 import { LanguageToggle } from './LanguageToggle';
+import { useNavModel } from './navModel';
+import { GlobalSearch } from './GlobalSearch';
 
 interface NavbarProps {
   onOpenNotifications?: () => void;
@@ -60,6 +62,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenNotifications }) => {
 
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const { t } = useI18n();
+  const navModel = useNavModel();
 
   if (!currentUser) {
     return null;
@@ -92,64 +95,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenNotifications }) => {
   const heldDepositsCount = managerScopedDeposits.filter((d) => d.status === 'held').length;
   const scopedClientsCount = managerScopedClients.length;
 
-  const navItems: { id: ActiveTab; label: string; icon: React.ReactNode; badge?: number | string }[] = [
-    { id: 'dashboard', label: t('Dashboard'), icon: <LayoutDashboard className="w-4 h-4" /> },
-    {
-      id: 'contracts',
-      label: t('Contrats'),
-      icon: <FileText className="w-4 h-4" />,
-      badge: activeContractsCount > 0 ? activeContractsCount : undefined,
-    },
-    {
-      id: 'deposits',
-      label: t('Cautions'),
-      icon: <Banknote className="w-4 h-4" />,
-      badge: heldDepositsCount > 0 ? t('{n} actives', { n: heldDepositsCount }) : undefined,
-    },
-    {
-      id: 'clients',
-      label: t('Clients'),
-      icon: <Users className="w-4 h-4" />,
-      badge: currentUser.role === 'manager' ? t('{n} miens', { n: scopedClientsCount }) : (clients.length > 0 ? `${clients.length}` : undefined),
-    },
-    {
-      id: 'vehicles',
-      label: t('Véhicules'),
-      icon: <Car className="w-4 h-4" />,
-      badge: currentUser.role === 'admin'
-        ? (pendingApprovalsCount > 0
-            ? t('{n} ({m} à valider)', { n: availableVehiclesCount, m: pendingApprovalsCount })
-            : t('{n} dispo', { n: availableVehiclesCount }))
-        : (myPendingCount > 0
-            ? t('{n} ({m} en attente)', { n: availableVehiclesCount, m: myPendingCount })
-            : t('{n} dispo', { n: availableVehiclesCount })),
-    },
-    {
-      id: 'ai_assistant',
-      label: t('Assistant IA'),
-      icon: <Bot className="w-4 h-4 text-amber-400" />,
-      badge: currentUser.role === 'admin' ? '360°' : t('Privé'),
-    },
-    { id: 'terms', label: t('Conditions V1.0'), icon: <ShieldCheck className="w-4 h-4" /> },
-    ...(currentUser.role === 'admin'
-      ? [
-          {
-            id: 'permissions' as ActiveTab,
-            label: t('Équipe & Accès'),
-            icon: <KeyRound className="w-4 h-4" />,
-            badge: t('Sécurité'),
-          },
-          {
-            id: 'contract_templates' as ActiveTab,
-            label: t('Modèles de Contrat'),
-            icon: <Layers className="w-4 h-4 text-amber-400" />,
-            badge: t('3 Modèles'),
-          },
-        ]
-      : []),
-    { id: 'audit', label: t('Journal'), icon: <History className="w-4 h-4" /> },
-    { id: 'settings', label: t('Paramètres'), icon: <Settings className="w-4 h-4" /> },
-  ];
+  const navItems = navModel?.flat ?? [];
 
   return (
     <header className="no-print bg-slate-900 border-b border-slate-800 text-slate-100 sticky top-0 z-40 shadow-xl">
@@ -177,6 +123,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenNotifications }) => {
                 {t('Where luxury meets the road • Gestion des Contrats & PDF A4')}
               </p>
             </div>
+          </div>
+
+          {/* RECHERCHE GLOBALE (PC / tablette) */}
+          <div className="hidden md:flex flex-1 justify-center min-w-0 px-2">
+            <GlobalSearch />
           </div>
 
           {/* RIGHT TOOLS: PROFILE / ROLE TEST SWITCHER & ACTION CTA */}
@@ -404,6 +355,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenNotifications }) => {
           </div>
 
           <div className="flex items-center gap-1.5 shrink-0">
+            <span className="md:hidden">
+              <GlobalSearch compact />
+            </span>
             {currentUser.role === 'admin' && pendingApprovalsCount > 0 && (
               <button
                 onClick={() => setActiveTab('vehicles')}
@@ -417,7 +371,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenNotifications }) => {
       </div>
 
       {/* DESKTOP NAVIGATION TABS (HIDDEN ON MOBILE, HANDLED BY MOBILE BOTTOM NAV) */}
-      <nav className="hidden md:block bg-slate-950/70 border-t border-slate-800/80 px-4 sm:px-6 lg:px-8">
+      <nav className="hidden md:block lg:hidden bg-slate-950/70 border-t border-slate-800/80 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto flex items-center gap-1 overflow-x-auto py-1 text-sm no-scrollbar">
           {navItems.map((item) => {
             const isActive = activeTab === item.id;

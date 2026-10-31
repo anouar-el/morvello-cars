@@ -138,4 +138,18 @@ export const AR_LOT5: Record<string, string> = {
     'لا توجد حجوزات في الانتظار. سجّل هنا الزبناء الذين يحجزون بدون عقد حتى لا تنساهم.',
   "Contrat créé à partir d'une réservation": 'عقد منشأ انطلاقًا من حجز',
   'Client, véhicule et dates sont préremplis : vérifiez-les avant de continuer.': 'الزبون والسيارة والتواريخ معبّأة مسبقًا: تحقّق منها قبل المتابعة.',
+
+  // Navigation et en-têtes de page
+  'Nouveau client': 'زبون جديد',
+  'Nouveau véhicule': 'سيارة جديدة',
+  'Proposer un véhicule': 'اقتراح سيارة',
+  Exploitation: 'التشغيل',
+  'Flotte & clients': 'الأسطول والزبناء',
+  Administration: 'الإدارة',
+  'Navigation principale': 'التنقل الرئيسي',
+  'Rechercher un contrat, un client, un véhicule…': 'ابحث عن عقد أو زبون أو سيارة…',
+  'Recherche globale': 'بحث شامل',
+  'N° contrat, nom, téléphone, CIN, immatriculation…': 'رقم العقد، الاسم، الهاتف، رقم البطاقة، رقم اللوحة…',
+  'Tapez pour chercher dans vos contrats, clients et véhicules.': 'اكتب للبحث في العقود والزبناء والسيارات.',
+  'Aucun résultat.': 'لا توجد نتائج.',
 };

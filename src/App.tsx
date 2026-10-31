@@ -6,6 +6,7 @@
 import React, { Suspense, useEffect, useState } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { Navbar } from './components/Navbar';
+import { SideNav } from './components/SideNav';
 import { SyncErrorBanner } from './components/SyncErrorBanner';
 import { Dashboard } from './components/Dashboard';
 import { LoginView } from './components/LoginView';
@@ -185,11 +186,14 @@ function MainAppContent() {
       <SyncErrorBanner />
 
       {/* MAIN CONTAINER */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6 lg:p-8 pb-28 md:pb-8">
-        <ErrorBoundary key={activeTab} isolateView fallbackTitle="Erreur dans le module actif">
-          <Suspense fallback={<ViewLoadingFallback />}>{renderContent()}</Suspense>
-        </ErrorBoundary>
-      </main>
+      <div className="flex-1 flex w-full max-w-[1600px] mx-auto">
+        <SideNav />
+        <main className="flex-1 min-w-0 max-w-7xl mx-auto p-3 sm:p-6 lg:p-8 pb-28 md:pb-8">
+          <ErrorBoundary key={activeTab} isolateView fallbackTitle="Erreur dans le module actif">
+            <Suspense fallback={<ViewLoadingFallback />}>{renderContent()}</Suspense>
+          </ErrorBoundary>
+        </main>
+      </div>
 
       {/* FLOATING AI ASSISTANT TRIGGER BUTTON (BOTTOM-RIGHT) */}
       {activeTab !== 'ai_assistant' && (
