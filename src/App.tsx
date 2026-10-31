@@ -6,6 +6,7 @@
 import React, { Suspense, useEffect, useState } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { Navbar } from './components/Navbar';
+import { SideNav } from './components/SideNav';
 import { SyncErrorBanner } from './components/SyncErrorBanner';
 import { Dashboard } from './components/Dashboard';
 import { LoginView } from './components/LoginView';
@@ -22,6 +23,7 @@ const ContractWizard = lazyView(() => import('./components/ContractWizard').then
 const ContractsList = lazyView(() => import('./components/ContractsList').then((m) => m.ContractsList));
 const ClientsList = lazyView(() => import('./components/ClientsList').then((m) => m.ClientsList));
 const VehiclesList = lazyView(() => import('./components/VehiclesList').then((m) => m.VehiclesList));
+const PlanningView = lazyView(() => import('./components/PlanningView').then((m) => m.PlanningView));
 const TermsManager = lazyView(() => import('./components/TermsManager').then((m) => m.TermsManager));
 const SettingsView = lazyView(() => import('./components/SettingsView').then((m) => m.SettingsView));
 const AuditView = lazyView(() => import('./components/AuditView').then((m) => m.AuditView));
@@ -53,6 +55,7 @@ const BACKGROUND_PRELOAD_ORDER = [
   ContractsList,
   ContractWizard,
   VehiclesList,
+  PlanningView,
   ClientsList,
   DepositsManagement,
   MemberAiAssistant,
@@ -123,6 +126,8 @@ function MainAppContent() {
         return <ClientsList />;
       case 'vehicles':
         return <VehiclesList />;
+      case 'planning':
+        return <PlanningView />;
       case 'ai_assistant':
         return <MemberAiAssistant initialPrompt={assistantPrompt} onInitialPromptHandled={() => setAssistantPrompt(null)} />;
       case 'terms':
@@ -185,11 +190,14 @@ function MainAppContent() {
       <SyncErrorBanner />
 
       {/* MAIN CONTAINER */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6 lg:p-8 pb-28 md:pb-8">
-        <ErrorBoundary key={activeTab} isolateView fallbackTitle="Erreur dans le module actif">
-          <Suspense fallback={<ViewLoadingFallback />}>{renderContent()}</Suspense>
-        </ErrorBoundary>
-      </main>
+      <div className="flex-1 flex w-full max-w-[1600px] mx-auto">
+        <SideNav />
+        <main className="flex-1 min-w-0 max-w-7xl mx-auto p-3 sm:p-6 lg:p-8 pb-28 md:pb-8">
+          <ErrorBoundary key={activeTab} isolateView fallbackTitle="Erreur dans le module actif">
+            <Suspense fallback={<ViewLoadingFallback />}>{renderContent()}</Suspense>
+          </ErrorBoundary>
+        </main>
+      </div>
 
       {/* FLOATING AI ASSISTANT TRIGGER BUTTON (BOTTOM-RIGHT) */}
       {activeTab !== 'ai_assistant' && (

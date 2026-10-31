@@ -550,6 +550,7 @@ export type ActiveTab =
   | 'client_detail'
   | 'drivers'
   | 'vehicles'
+  | 'planning'
   | 'deposits'
   | 'ai_assistant'
   | 'terms'

@@ -23,6 +23,7 @@ import {
   Bell,
   X,
   Sparkles,
+  CalendarDays,
 } from 'lucide-react';
 import { useI18n } from '../i18n/I18nContext';
 import { LanguageToggle } from './LanguageToggle';
@@ -69,6 +70,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   };
 
   const isMoreTabActive = [
+    'planning',
     'deposits',
     'clients',
     'ai_assistant',
@@ -209,6 +211,27 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
               <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 px-2 pt-1 pb-0.5">
                 {t('Modules Opérationnels')}
               </div>
+
+              {/* Planning des véhicules */}
+              <button
+                type="button"
+                onClick={() => handleSelectTab('planning')}
+                className={`w-full flex items-center justify-between p-3 rounded-xl transition-colors ${
+                  activeTab === 'planning'
+                    ? 'bg-amber-500/15 text-amber-400 font-bold border border-amber-500/30'
+                    : 'text-slate-300 hover:bg-slate-800/70 hover:text-white'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/25 text-blue-400 flex items-center justify-center">
+                    <CalendarDays className="w-4 h-4" />
+                  </div>
+                  <div className="text-start">
+                    <div className="font-semibold text-white">{t('Planning des véhicules')}</div>
+                    <div className="text-[11px] text-slate-400">{t('Locations et réservations jour par jour')}</div>
+                  </div>
+                </div>
+              </button>
 
               {/* Cautions & Dépôts de garantie */}
               <button

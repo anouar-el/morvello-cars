@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { PageHeader } from './PageHeader';
 import { DocThumb, StorageDocument, StorageDownloadLink } from './StorageDocument';
 import { PropagationScopeSelect, usePropagationScope } from './PropagationScopeSelect';
 import { useApp } from '../context/AppContext';
@@ -295,29 +296,17 @@ export const ClientsList: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* HEADER */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-xl">
-        <div>
-          <div className="flex items-center gap-2 text-xs font-semibold text-blue-400 uppercase tracking-widest font-mono">
-            <Users className="w-4 h-4" />
-            {t('Module Clients • Répertoire & Fiches')}
-          </div>
-          <h1 className="text-xl font-bold text-white tracking-tight mt-1">
-            {t('Fichier Clients & Historique des Locations')}
-          </h1>
-          <p className="text-xs text-slate-400 mt-0.5">
-            {t('Répertoire centralisé des locataires, pièces d’identité, permis et suivi des contrats.')}
-          </p>
-        </div>
-
-        <button
-          onClick={() => setIsAddModalOpen(true)}
-          className="flex items-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold px-4 py-2 rounded-xl text-xs sm:text-sm shadow-md shadow-amber-500/20 transition-all cursor-pointer"
-        >
-          <UserPlus className="w-4 h-4" />
-          {t('+ Nouveau Client')}
-        </button>
-      </div>
-
+      <PageHeader
+        icon={<Users className="w-5 h-5" />}
+        title={t('Fichier Clients & Historique des Locations')}
+        subtitle={t('Répertoire centralisé des locataires, pièces d’identité, permis et suivi des contrats.')}
+        primary={{
+          label: t('+ Nouveau Client'),
+          shortLabel: t('Nouveau client'),
+          icon: <UserPlus className="w-4 h-4" />,
+          onClick: () => setIsAddModalOpen(true),
+        }}
+      />
       {/* SUCCESS NOTIFICATION */}
       {editSuccessMsg && (
         <div className="bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 px-4 py-2.5 rounded-xl text-xs flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-200">

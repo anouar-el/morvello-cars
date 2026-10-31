@@ -11,6 +11,7 @@ describe('tabRoutes', () => {
       'deposits',
       'clients',
       'vehicles',
+      'planning',
       'ai_assistant',
       'terms',
       'permissions',

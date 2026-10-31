@@ -147,4 +147,32 @@ export const AR_LOT5: Record<string, string> = {
   '{n} contrat(s) avec un solde à encaisser': '{n} عقد (عقود) فيها مبلغ متبقٍ للتحصيل',
   '{total} MAD au total': 'المجموع {total} درهم',
   'En retard': 'متأخر',
+
+  // Navigation et en-têtes de page
+  'Nouveau client': 'زبون جديد',
+  'Nouveau véhicule': 'سيارة جديدة',
+  'Proposer un véhicule': 'اقتراح سيارة',
+  Exploitation: 'التشغيل',
+  'Flotte & clients': 'الأسطول والزبناء',
+  Administration: 'الإدارة',
+  'Navigation principale': 'التنقل الرئيسي',
+  'Rechercher un contrat, un client, un véhicule…': 'ابحث عن عقد أو زبون أو سيارة…',
+  'Recherche globale': 'بحث شامل',
+  'N° contrat, nom, téléphone, CIN, immatriculation…': 'رقم العقد، الاسم، الهاتف، رقم البطاقة، رقم اللوحة…',
+  'Tapez pour chercher dans vos contrats, clients et véhicules.': 'اكتب للبحث في العقود والزبناء والسيارات.',
+  'Aucun résultat.': 'لا توجد نتائج.',
+
+  // Planning des véhicules
+  'Planning des véhicules': 'جدول السيارات',
+  Planning: 'الجدول الزمني',
+  'Locations et réservations jour par jour': 'الكراءات والحجوزات يومًا بيوم',
+  'Contrats et réservations jour par jour : repérez les véhicules libres avant de réserver.': 'العقود والحجوزات يومًا بيوم: اعرف السيارات الشاغرة قبل الحجز.',
+  'Période précédente': 'الفترة السابقة',
+  'Période suivante': 'الفترة التالية',
+  'Durée affichée': 'المدة المعروضة',
+  '{n} j': '{n} يوم',
+  'Location en cours': 'كراء جارٍ',
+  'Terminée': 'منتهٍ',
+  'Aucun véhicule à afficher.': 'لا توجد سيارات للعرض.',
+  "{n} libre(s) aujourd'hui": '{n} شاغرة اليوم',
 };

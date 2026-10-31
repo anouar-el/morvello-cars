@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { PageHeader } from './PageHeader';
 import { useApp } from '../context/AppContext';
 import { Contract, ContractStatus } from '../types';
 import {
@@ -337,23 +338,23 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
       )}
 
       {/* HEADER ROW */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-xl">
-        <div>
-          <div className="flex items-center gap-2 text-xs font-semibold text-amber-400 uppercase tracking-widest font-mono">
-            <Layers className="w-4 h-4" />
-            {t('Module Contrats • Morvello Cars')}
-          </div>
-          <h1 className="text-xl font-bold text-white tracking-tight mt-1">
-            {t('Gestion & Archivage des Contrats')}
-          </h1>
-          <p className="text-xs text-slate-400 mt-0.5">
-            {t('Historique complet, recherche multicritère, réimpression A4 et restitution de véhicule.')}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2.5">
-          <button
-            onClick={async () => {
+      <PageHeader
+        icon={<Layers className="w-5 h-5" />}
+        title={t('Gestion & Archivage des Contrats')}
+        subtitle={t('Historique complet, recherche multicritère, réimpression A4 et restitution de véhicule.')}
+        primary={{
+          label: t('+ Nouveau Contrat'),
+          shortLabel: t('Nouveau contrat'),
+          icon: <PlusCircle className="w-4 h-4" />,
+          onClick: () => setActiveTab('new_contract'),
+        }}
+        actions={[
+          {
+            label: t('Actualiser les contrats'),
+            title: t("Actualiser et recalculer l'ensemble des contrats en cours"),
+            icon: <RefreshCw className={`w-4 h-4 text-amber-400 ${isRefreshing ? 'animate-spin' : ''}`} />,
+            disabled: isRefreshing,
+            onClick: async () => {
               setIsRefreshing(true);
               try {
                 refreshActiveContracts();
@@ -366,25 +367,10 @@ export const ContractsList: React.FC<ContractsListProps> = ({ onOpenCheckInModal
               } finally {
                 setTimeout(() => setIsRefreshing(false), 500);
               }
-            }}
-            disabled={isRefreshing}
-            className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white border border-slate-700 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer disabled:opacity-50"
-            title={t("Actualiser et recalculer l'ensemble des contrats en cours")}
-          >
-            <RefreshCw className={`w-4 h-4 text-amber-400 ${isRefreshing ? 'animate-spin' : ''}`} />
-            <span>{t('Actualiser les contrats')}</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('new_contract')}
-            className="flex items-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold px-4 py-2 rounded-xl text-xs sm:text-sm shadow-md shadow-amber-500/20 transition-all cursor-pointer"
-          >
-            <PlusCircle className="w-4 h-4" />
-            {t('+ Nouveau Contrat')}
-          </button>
-        </div>
-      </div>
-
+            },
+          },
+        ]}
+      />
       {/* DUPLICATE CONTRACTS ALERT BANNER */}
       {duplicateContractReports.length > 0 && (
         <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-lg animate-in fade-in">
