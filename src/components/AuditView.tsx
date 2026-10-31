@@ -16,6 +16,7 @@ import {
 import { requestEntityFocus } from '../lib/entityFocus';
 
 import { useI18n } from '../i18n/I18nContext';
+import { PageHeader } from './PageHeader';
 const PAGE_SIZE = 50;
 
 const CATEGORY_STYLE: Record<AuditCategory, string> = {
@@ -90,39 +91,27 @@ export const AuditView: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* HEADER */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-xl">
-        <div>
-          <div className="flex items-center gap-2 text-xs font-semibold text-rose-400 uppercase tracking-widest font-mono">
-            <ShieldAlert className="w-4 h-4" />
-            {t('Traçabilité')}
-          </div>
-          <h1 className="text-xl font-bold text-white tracking-tight mt-1">{t('Journal des événements')}</h1>
-          <p className="text-xs text-slate-400 mt-0.5">
-            {t('Qui a fait quoi et quand : contrats, clients, véhicules, cautions et paramètres.')}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <div className="bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800 text-xs font-mono text-slate-300 flex items-center gap-2">
-            <History className="w-4 h-4 text-amber-400" />
-            <span>
-              {filtered.length === auditLogs.length
-                ? t('{auditLogsCount} événements', { auditLogsCount: auditLogs.length })
-                : t('{filteredCount} sur {auditLogsCount}', { filteredCount: filtered.length, auditLogsCount: auditLogs.length })}
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={exportCsv}
-            disabled={filtered.length === 0}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-700 text-slate-200 hover:bg-slate-800 text-xs font-medium cursor-pointer disabled:opacity-40"
-            title={t('Exporter la sélection en CSV')}
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>{t('Exporter')}</span>
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        icon={<History className="w-5 h-5" />}
+        title={t('Journal des événements')}
+        subtitle={t('Qui a fait quoi et quand : contrats, clients, véhicules, cautions et paramètres.')}
+        badge={
+          <span className="bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800 text-xs font-mono font-normal text-slate-300">
+            {filtered.length === auditLogs.length
+              ? t('{auditLogsCount} événements', { auditLogsCount: auditLogs.length })
+              : t('{filteredCount} sur {auditLogsCount}', { filteredCount: filtered.length, auditLogsCount: auditLogs.length })}
+          </span>
+        }
+        actions={[
+          {
+            label: t('Exporter'),
+            title: t('Exporter la sélection en CSV'),
+            icon: <Download className="w-3.5 h-3.5" />,
+            onClick: exportCsv,
+            disabled: filtered.length === 0,
+          },
+        ]}
+      />
 
       {/* RECHERCHE & FILTRES */}
       <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl shadow-md space-y-3">

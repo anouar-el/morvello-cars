@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 
 import { useI18n } from '../i18n/I18nContext';
+import { PageHeader } from './PageHeader';
 interface PermissionMeta {
   key: keyof UserPermissions;
   label: string;
@@ -495,35 +496,21 @@ export const PermissionsManager: React.FC = () => {
       )}
 
       {/* HEADER SECTION */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-xl">
-        <div>
-          <div className="flex items-center gap-2 text-xs font-semibold text-amber-400 uppercase tracking-widest font-mono">
-            <KeyRound className="w-4 h-4 text-amber-400" />
-            {t("Rubrique Spéciale Gérant • Contrôle d'Accès Granulaire")}
-          </div>
-          <h1 className="text-xl font-extrabold text-white tracking-tight mt-1">
-            {t("Gestion des Habilitations & Permissions d'Équipe")}
-          </h1>
-          <p className="text-xs text-slate-400 mt-0.5">
-            {t("Octroyez ou restreignez les droits d'accès des collaborateurs (contrats, cautions, validation véhicules, clauses).")}
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2.5">
-          <div className="bg-slate-950/80 border border-slate-800 px-3 py-1.5 rounded-xl text-xs flex items-center gap-2 font-mono">
-            <span className="text-slate-500">{t('Total Équipe :')}</span>
-            <span className="text-white font-bold">{t('{usersCount} collaborateurs', { usersCount: users.length })}</span>
-          </div>
-
-          <button
-            onClick={() => setIsAddUserModalOpen(true)}
-            className="px-3.5 py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-amber-500/20 flex items-center gap-1.5 transition-all cursor-pointer hover:scale-102"
-          >
-            <Plus className="w-4 h-4 stroke-[2.5]" />
-            <span>{t('Nouveau Collaborateur')}</span>
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        icon={<KeyRound className="w-5 h-5" />}
+        title={t("Gestion des Habilitations & Permissions d'Équipe")}
+        subtitle={t("Octroyez ou restreignez les droits d'accès des collaborateurs (contrats, cautions, validation véhicules, clauses).")}
+        badge={
+          <span className="bg-slate-950/80 border border-slate-800 px-2.5 py-1 rounded-lg text-xs font-mono font-normal text-white">
+            {t('{usersCount} collaborateurs', { usersCount: users.length })}
+          </span>
+        }
+        primary={{
+          label: t('Nouveau Collaborateur'),
+          icon: <Plus className="w-4 h-4 stroke-[2.5]" />,
+          onClick: () => setIsAddUserModalOpen(true),
+        }}
+      />
 
       {/* SOUS-NAVIGATION ONGLETS : IDENTIFIANTS VS HABILITATIONS */}
       <div className="flex flex-wrap items-center gap-2 border-b border-slate-800 pb-3">
