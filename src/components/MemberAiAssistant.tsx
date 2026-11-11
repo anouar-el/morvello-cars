@@ -13,6 +13,9 @@ import {
   type AssistantAction,
 } from '../lib/assistantActions';
 import { formatPlateFrench } from '../utils/plateUtils';
+import { compressImage, type CompressedImage } from '../lib/imageCompress';
+
+const MAX_ATTACHMENTS = 3;
 import { getActiveAuthToken, endTerminatedSession, SESSION_TERMINATED } from '../lib/authToken';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -42,6 +45,7 @@ import {
   ArrowDown,
   Bot,
   Zap,
+  Camera,
 } from 'lucide-react';
 
 import { useI18n } from '../i18n/I18nContext';
@@ -115,6 +119,9 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
   const [showScrollDown, setShowScrollDown] = useState(false);
   const [lastFailedPrompt, setLastFailedPrompt] = useState<string | null>(null);
   const startedActionsRef = useRef<Set<string>>(new Set());
+  const [attachments, setAttachments] = useState<CompressedImage[]>([]);
+  const [attachError, setAttachError] = useState<string | null>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   const [messages, setMessages] = useState<AgentChatMessage[]>(() => {
     const saved = localStorage.getItem(`morvello_ai_chat_${currentUser.id}`);
@@ -429,10 +436,30 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
     abortControllerRef.current?.abort();
   };
 
-  const sendMessage = async (userPrompt: string) => {
-    if (!userPrompt.trim() || loading) return;
+  /** Ajoute des photos de documents (réduites avant envoi) ; au plus MAX_ATTACHMENTS par message. */
+  const addPhotos = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setAttachError(null);
+    const room = MAX_ATTACHMENTS - attachments.length;
+    const picked = Array.from(files).slice(0, Math.max(0, room));
+    if (files.length > picked.length) setAttachError(t('3 photos au maximum par message.'));
+    const added: CompressedImage[] = [];
+    for (const file of picked) {
+      try {
+        added.push(await compressImage(file));
+      } catch {
+        setAttachError(t('Une photo n’a pas pu être lue : choisissez une image (JPG ou PNG).'));
+      }
+    }
+    if (added.length) setAttachments((prev) => [...prev, ...added].slice(0, MAX_ATTACHMENTS));
+  };
 
-    let finalPrompt = userPrompt.trim();
+  const sendMessage = async (userPrompt: string) => {
+    if ((!userPrompt.trim() && attachments.length === 0) || loading) return;
+
+    const sentImages = attachments;
+    const typed = userPrompt.trim() || t('Crée la fiche client à partir de ces photos de documents.');
+    let finalPrompt = typed;
     if (preferredLang === 'ar' && !finalPrompt.toLowerCase().includes('arabe') && !finalPrompt.includes('العربية')) {
       finalPrompt = `${finalPrompt} (Rédige la réponse en langue arabe professionnelle et soignée / باللغة العربية الفصحى المهنية).`;
     }
@@ -440,13 +467,16 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
     const userMsg: AgentChatMessage = {
       id: `user-${Date.now()}`,
       role: 'user',
-      content: userPrompt.trim(),
+      content: typed,
       timestamp: nowTime(),
       createdAt: new Date().toISOString(),
+      ...(sentImages.length ? { attachmentCount: sentImages.length } : {}),
     };
 
     setMessages((prev) => [...prev, userMsg]);
     setInput('');
+    setAttachments([]);
+    setAttachError(null);
     setLoading(true);
     setLastFailedPrompt(null);
 
@@ -487,6 +517,7 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
         memberAgency: currentUser.agency || currentUser.assignedFleetName,
         message: finalPrompt,
         history: historyPayload,
+        ...(sentImages.length ? { images: sentImages.map(({ mimeType, data }) => ({ mimeType, data })) } : {}),
         memberData: {
           vehicles: scopedVehicles,
           contracts: scopedContracts,
@@ -1198,6 +1229,12 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
                             <p dir="auto" className="text-[13.5px] sm:text-[14px] leading-relaxed whitespace-pre-wrap select-text font-normal">
                               {msg.content}
                             </p>
+                            {msg.attachmentCount ? (
+                              <p className="mt-1.5 inline-flex items-center gap-1 text-[11px] text-slate-400">
+                                <Camera className="w-3 h-3" />
+                                {t('{n} photo(s) jointe(s)', { n: msg.attachmentCount })}
+                              </p>
+                            ) : null}
                           </div>
                           <span className="text-[11px] text-slate-500 font-mono mt-1 me-1">
                             {msg.timestamp}
@@ -1473,6 +1510,33 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
           }}
           className="glass focus-within:border-amber-500/50 focus-within:ring-2 focus-within:ring-amber-500/10 rounded-2xl p-2.5 transition-all shadow-lg"
         >
+          {(attachments.length > 0 || attachError) && (
+            <div className="px-1 pb-2">
+              {attachments.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {attachments.map((photo, index) => (
+                    <div key={index} className="relative">
+                      <img
+                        src={photo.preview}
+                        alt={t('Photo {n}', { n: index + 1 })}
+                        className="h-14 w-20 rounded-lg object-cover border border-slate-700"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setAttachments((prev) => prev.filter((_, i) => i !== index))}
+                        aria-label={t('Retirer la photo')}
+                        title={t('Retirer la photo')}
+                        className="absolute -top-1.5 -end-1.5 w-5 h-5 rounded-full bg-slate-900 border border-slate-600 text-slate-300 hover:text-white flex items-center justify-center cursor-pointer"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {attachError && <p className="mt-1 text-[11px] text-amber-400">{attachError}</p>}
+            </div>
+          )}
           <textarea
             ref={inputRef}
             rows={1}
@@ -1508,6 +1572,28 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
             </span>
 
             <div className="flex items-center gap-2 ms-auto">
+              <input
+                ref={photoInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  void addPhotos(e.target.files);
+                  e.target.value = '';
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => photoInputRef.current?.click()}
+                disabled={loading || attachments.length >= MAX_ATTACHMENTS}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                title={t('Joindre une photo de CIN, passeport ou permis')}
+                aria-label={t('Joindre une photo de CIN, passeport ou permis')}
+              >
+                <Camera className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">{t('Photo CIN / permis')}</span>
+              </button>
               {loading ? (
                 <button
                   type="button"
@@ -1521,7 +1607,7 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
               ) : (
                 <button
                   type="submit"
-                  disabled={!input.trim()}
+                  disabled={!input.trim() && attachments.length === 0}
                   className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-xs transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
                   title={t('Envoyer la requête')}
                 >

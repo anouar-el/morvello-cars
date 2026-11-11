@@ -148,6 +148,16 @@ export const AR_LOT5: Record<string, string> = {
   '{total} MAD au total': 'المجموع {total} درهم',
   'En retard': 'متأخر',
 
+  // Assistant IA : photos de CIN / permis
+  '3 photos au maximum par message.': '3 صور كحد أقصى في كل رسالة.',
+  'Une photo n’a pas pu être lue : choisissez une image (JPG ou PNG).': 'تعذرت قراءة صورة: اختر صورة بصيغة JPG أو PNG.',
+  'Crée la fiche client à partir de ces photos de documents.': 'أنشئ بطاقة الزبون انطلاقًا من صور هذه الوثائق.',
+  'Photo {n}': 'الصورة {n}',
+  'Retirer la photo': 'حذف الصورة',
+  'Joindre une photo de CIN, passeport ou permis': 'إرفاق صورة البطاقة الوطنية أو جواز السفر أو رخصة السياقة',
+  'Photo CIN / permis': 'صورة البطاقة / الرخصة',
+  '{n} photo(s) jointe(s)': '{n} صورة (صور) مرفقة',
+
   // Assistant IA : création de clients et de contrats
   'Vous n’avez pas le droit de créer un client.': 'ليست لديك صلاحية إنشاء زبون.',
   'Client {name} créé.': 'تم إنشاء الزبون {name}.',

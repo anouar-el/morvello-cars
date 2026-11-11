@@ -87,6 +87,36 @@ export function sanitizeMessage(raw: unknown): string | null {
   return text || null;
 }
 
+export interface AssistantImage {
+  mimeType: 'image/jpeg' | 'image/png' | 'image/webp';
+  /** Base64 sans préfixe « data: ». */
+  data: string;
+}
+
+const IMAGE_MIME_TYPES: readonly string[] = ['image/jpeg', 'image/png', 'image/webp'];
+export const ASSISTANT_IMAGE_LIMITS = { count: 3, charsEach: 1_500_000, charsTotal: 3_500_000 } as const;
+
+/**
+ * Photos de documents envoyées par le navigateur : au plus 3, formats image courants, base64 valide et taille
+ * plafonnée (le navigateur les réduit avant envoi). Tout ce qui sort de ce cadre est écarté, jamais transmis au modèle.
+ */
+export function sanitizeImages(raw: unknown): AssistantImage[] {
+  if (!Array.isArray(raw)) return [];
+  const images: AssistantImage[] = [];
+  let total = 0;
+  for (const item of raw.slice(0, ASSISTANT_IMAGE_LIMITS.count)) {
+    const it = (item && typeof item === 'object' ? item : {}) as Record<string, unknown>;
+    const mimeType = typeof it.mimeType === 'string' ? it.mimeType.toLowerCase() : '';
+    const data = typeof it.data === 'string' ? it.data.trim() : '';
+    if (!IMAGE_MIME_TYPES.includes(mimeType)) continue;
+    if (!data || data.length > ASSISTANT_IMAGE_LIMITS.charsEach || !/^[A-Za-z0-9+/]+={0,2}$/.test(data)) continue;
+    if (total + data.length > ASSISTANT_IMAGE_LIMITS.charsTotal) break;
+    total += data.length;
+    images.push({ mimeType: mimeType as AssistantImage['mimeType'], data });
+  }
+  return images;
+}
+
 export interface ChatTurn {
   role: 'user' | 'model';
   content: string;
