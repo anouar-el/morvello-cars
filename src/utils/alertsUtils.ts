@@ -1,6 +1,7 @@
 import { Vehicle, Contract, DepositRecord, Client } from '../types';
 import { activeReservations, reservationTiming } from '../lib/reservations';
 import { getVehicleHealthSummary, getTodayDateString } from './vehicleExpiryUtils';
+import { findClientDocIssues } from '../lib/clientDocAlerts';
 
 export type AlertSeverity = 'critical' | 'warning' | 'info';
 
@@ -17,7 +18,9 @@ export type AlertCategory =
   | 'deposit_held'
   | 'reservation_overdue'
   | 'reservation_today'
-  | 'reservation_soon';
+  | 'reservation_soon'
+  | 'client_doc_expired'
+  | 'client_doc_warning';
 
 export interface OperationalAlert {
   id: string;
@@ -25,7 +28,7 @@ export interface OperationalAlert {
   severity: AlertSeverity;
   title: string;
   description: string;
-  targetTab: 'contracts' | 'vehicles' | 'deposits' | 'dashboard';
+  targetTab: 'contracts' | 'vehicles' | 'deposits' | 'dashboard' | 'clients';
   entityId: string;
   dateStr?: string;
   /** Jours avant l'échéance (négatif = dépassée), pour classer les plus proches en premier. */
@@ -34,6 +37,7 @@ export interface OperationalAlert {
   contract?: Contract;
   vehicle?: Vehicle;
   deposit?: DepositRecord;
+  client?: Client;
 }
 
 /** @deprecated figé au chargement de la page : passer getTodayDateString() au moment du calcul. */
@@ -246,6 +250,38 @@ export function computeOperationalAlerts(
         badgeText: `Dans ${daysUntil}j`,
       });
     }
+  });
+
+  // 5. Pièces des clients en location : CIN / passeport et permis périmés ou bientôt périmés
+  findClientDocIssues(clients, contracts, refDate).forEach(({ client, kind, status, expiryDate, daysRemaining, contract }) => {
+    const who = `${client.lastName || ''} ${client.firstName || ''}`.trim() || 'Client';
+    const doc = kind === 'license' ? 'Permis' : client.docType === 'Passeport' ? 'Passeport' : 'CIN';
+    const critical = status !== 'expiring_soon';
+    const base = `Contrat #${contract.contractNumber}`;
+    alerts.push({
+      id: `client-doc-${client.id}-${kind}`,
+      category: critical ? 'client_doc_expired' : 'client_doc_warning',
+      severity: critical ? 'critical' : 'warning',
+      title:
+        status === 'expired'
+          ? `${doc} expiré : ${who}`
+          : status === 'expires_during_rental'
+          ? `${doc} expire pendant la location : ${who}`
+          : `${doc} bientôt expiré : ${who}`,
+      description:
+        status === 'expired'
+          ? `${base} : ${doc.toLowerCase()} périmé depuis le ${expiryDate} (${Math.abs(daysRemaining)} j). Demandez une pièce valide.`
+          : status === 'expires_during_rental'
+          ? `${base} : ${doc.toLowerCase()} valable jusqu'au ${expiryDate}, soit avant la fin de la location.`
+          : `${base} : ${doc.toLowerCase()} valable jusqu'au ${expiryDate} (dans ${daysRemaining} j).`,
+      targetTab: 'clients',
+      entityId: client.id,
+      dateStr: expiryDate,
+      daysRemaining,
+      badgeText: status === 'expired' ? 'Expiré' : `Dans ${daysRemaining}j`,
+      contract,
+      client,
+    });
   });
 
   // Tri : Critical d'abord, puis Warning, puis Info

@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 
 import { useI18n } from '../i18n/I18nContext';
+import { requestEntityFocus } from '../lib/entityFocus';
 interface NotificationsCenterModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -65,6 +66,7 @@ export const NotificationsCenterModal: React.FC<NotificationsCenterModalProps> =
       onClose();
       return;
     }
+    if (alert.client) requestEntityFocus('client', alert.client.lastName || alert.client.firstName || '');
     setActiveTab(alert.targetTab);
     onClose();
   };

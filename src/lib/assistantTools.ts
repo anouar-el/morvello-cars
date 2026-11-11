@@ -35,6 +35,8 @@ export interface AssistantSource {
 export interface AssistantToolData {
   vehicles: Partial<Vehicle>[];
   contracts: Partial<Contract>[];
+  /** Nombre de photos jointes au message en cours (pour rattacher les bonnes photos à la fiche client). */
+  imageCount?: number;
 }
 
 export interface ToolOutcome {
@@ -120,6 +122,22 @@ export const ASSISTANT_TOOL_DECLARATIONS = [
         email: { type: 'STRING', description: 'Adresse e-mail.' },
         adresse: { type: 'STRING', description: 'Adresse.' },
         pays: { type: 'STRING', description: 'Pays ou nationalité.' },
+        expiration_document: { type: 'STRING', description: "Fin de validité de la CIN ou du passeport (« valable jusqu'au »), format AAAA-MM-JJ." },
+        expiration_permis: { type: 'STRING', description: 'Fin de validité du permis de conduire, format AAAA-MM-JJ.' },
+        photos: {
+          type: 'ARRAY',
+          description:
+            'Uniquement si des photos sont jointes : ce que montre chaque photo, pour la ranger sur la fiche. Une entrée par photo reconnue.',
+          items: {
+            type: 'OBJECT',
+            properties: {
+              numero: { type: 'INTEGER', description: 'Rang de la photo dans le message, en commençant à 1.' },
+              type: { type: 'STRING', description: "'cin' (CIN ou passeport) ou 'permis'." },
+              cote: { type: 'STRING', description: "'recto' ou 'verso'." },
+            },
+            required: ['numero', 'type', 'cote'],
+          },
+        },
       },
       required: ['prenom', 'nom', 'numero_document'],
     },
@@ -429,8 +447,8 @@ function proposition(action: AssistantAction): ToolOutcome {
   };
 }
 
-function creerClient(args: Record<string, unknown>): ToolOutcome {
-  const { draft, error } = normalizeClientDraft(args);
+function creerClient(args: Record<string, unknown>, data: AssistantToolData): ToolOutcome {
+  const { draft, error } = normalizeClientDraft(args, data.imageCount ?? 0);
   if (!draft) return { result: { erreur: error }, sources: [] };
   const action: AssistantAction = {
     kind: 'action',
@@ -502,7 +520,7 @@ export function executeAssistantTool(name: string, args: unknown, data: Assistan
       case 'proposer_action':
         return proposerAction(a, data);
       case 'creer_client':
-        return creerClient(a);
+        return creerClient(a, data);
       case 'creer_contrat':
         return creerContrat(a, data);
       default:

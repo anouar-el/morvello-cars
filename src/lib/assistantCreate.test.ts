@@ -77,6 +77,42 @@ describe('normalizeClientDraft', () => {
   });
 });
 
+describe('normalizeClientDraft: expiry dates and photos', () => {
+  it('keeps the validity dates and refuses a malformed one', () => {
+    const ok = normalizeClientDraft({ ...draftArgs, expiration_document: '2030-05-01', expiration_permis: '2028-01-31' });
+    expect(ok.draft).toMatchObject({ docExpiryDate: '2030-05-01', licenseExpiryDate: '2028-01-31' });
+    expect(normalizeClientDraft({ ...draftArgs, expiration_permis: '31/01/2028' }).error).toContain('AAAA-MM-JJ');
+    expect(normalizeClientDraft(draftArgs).draft).toMatchObject({ docExpiryDate: '', licenseExpiryDate: '' });
+  });
+
+  it('maps each photo to its slot and drops unknown or duplicate ones', () => {
+    const photos = [
+      { numero: 1, type: 'cin', cote: 'recto' },
+      { numero: 2, type: 'cin', cote: 'verso' },
+      { numero: 3, type: 'permis', cote: 'recto' },
+      { numero: 3, type: 'permis', cote: 'verso' }, // même photo : ignorée
+      { numero: 9, type: 'cin', cote: 'recto' }, // n'existe pas
+    ];
+    expect(normalizeClientDraft({ ...draftArgs, photos }, 3).draft?.photos).toEqual([
+      { index: 0, slot: 'cin' },
+      { index: 1, slot: 'cinVerso' },
+      { index: 2, slot: 'license' },
+    ]);
+  });
+
+  it('ignores photo references when no photo was attached', () => {
+    expect(normalizeClientDraft({ ...draftArgs, photos: [{ numero: 1, type: 'cin', cote: 'recto' }] }, 0).draft?.photos).toEqual([]);
+  });
+
+  it('the tool only keeps photo references that match the attached photos', () => {
+    const photos = [{ numero: 1, type: 'permis', cote: 'recto' }];
+    const withOne = executeAssistantTool('creer_client', { ...draftArgs, photos }, { vehicles: [], contracts: [], imageCount: 1 });
+    expect((withOne.sources[0] as AssistantAction).client?.photos).toEqual([{ index: 0, slot: 'license' }]);
+    const without = executeAssistantTool('creer_client', { ...draftArgs, photos }, { vehicles: [], contracts: [] });
+    expect((without.sources[0] as AssistantAction).client?.photos).toEqual([]);
+  });
+});
+
 describe('client lookup', () => {
   it('finds a client by name in any order or by phone in any format', () => {
     expect(findClientMatches([karim, sara], 'alaoui karim')).toEqual([karim]);
