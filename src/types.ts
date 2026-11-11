@@ -569,6 +569,8 @@ export interface AgentChatMessage {
   content: string;
   timestamp: string;
   createdAt?: string; // ISO date, used for day separators (absent on older saved messages)
+  /** Nombre de photos de documents jointes au message ; les images elles-mêmes ne sont jamais conservées. */
+  attachmentCount?: number;
   /** Éléments consultés par l'assistant pour répondre : liens vers le contrat, le véhicule ou le client. */
   sources?: { kind: 'contract' | 'vehicle' | 'client'; id: string; label: string; search: string }[];
   /** Actions proposées par l'assistant (cartes à confirmer) et leur issue, pour ne jamais les rejouer. */
