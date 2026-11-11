@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Client, Contract, User, Vehicle } from '../types';
 import { runPushCycle, type PushJobDeps, type PushSubscriptionRow, type Workspace } from './pushJob';
 import type { PushPayload } from './pushDigest';
+import { atMorocco } from './moroccoTestClock';
 
 const admin = { id: 'u-admin', name: 'Anouar', role: 'admin', email: 'a@x.ma' } as User;
 const manager = { id: 'u-mgr', name: 'Said', role: 'manager', email: 's@x.ma' } as User;
@@ -39,9 +40,9 @@ const sub = (over: Partial<PushSubscriptionRow> = {}): PushSubscriptionRow => ({
   ...over,
 });
 
-// 21 octobre 2026, 08:30 au Maroc (UTC+1)
-const MORNING = new Date('2026-10-21T07:30:00Z');
-const EARLY = new Date('2026-10-21T05:30:00Z'); // 06:30 au Maroc
+// 21 octobre 2026, à l'heure du Maroc (le décalage UTC varie : voir moroccoTestClock)
+const MORNING = atMorocco('2026-10-21 08:30');
+const EARLY = atMorocco('2026-10-21 06:30');
 
 function harness(subs: PushSubscriptionRow[], ws: Workspace, now: Date, sendError?: (p: PushPayload) => unknown) {
   const sent: PushPayload[] = [];

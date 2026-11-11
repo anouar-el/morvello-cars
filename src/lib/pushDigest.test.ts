@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { OperationalAlert } from '../utils/alertsUtils';
+import { atMorocco } from './moroccoTestClock';
 import {
   buildCriticalPayload,
   buildMorningDigest,
@@ -83,10 +84,10 @@ describe('alertes critiques', () => {
 
 describe('heure du Maroc et résumé du matin', () => {
   it("lit la date et l'heure à Casablanca, pas celles du serveur", () => {
-    // 22:30 UTC le 20 octobre = 23:30 au Maroc (UTC+1) : toujours le 20
-    expect(moroccoNow(new Date('2026-10-20T22:30:00Z'))).toEqual({ date: '2026-10-20', hour: 23 });
-    // 23:30 UTC le 20 = 00:30 le 21 au Maroc
-    expect(moroccoNow(new Date('2026-10-20T23:30:00Z'))).toEqual({ date: '2026-10-21', hour: 0 });
+    // 23:30 au Maroc le 20 octobre : toujours le 20
+    expect(moroccoNow(atMorocco('2026-10-20 23:30'))).toEqual({ date: '2026-10-20', hour: 23 });
+    // une heure plus tard : 00:30 le 21, quel que soit le décalage UTC en vigueur
+    expect(moroccoNow(atMorocco('2026-10-21 00:30'))).toEqual({ date: '2026-10-21', hour: 0 });
   });
 
   it('envoie le résumé une fois par jour, à partir de 8 h', () => {
