@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildAssistantDataSection, buildAssistantDigest, effectiveReturn, todayInMorocco } from './aiAssistantContext';
+import { atMorocco } from './moroccoTestClock';
 
 // 28/09/2026 à 10h, heure du Maroc
 const NOW = new Date('2026-09-28T09:00:00Z');
@@ -22,7 +23,8 @@ const contract = (over: Record<string, any>) => ({
 describe('AI assistant context', () => {
   it('uses the Moroccan calendar date', () => {
     expect(todayInMorocco(NOW)).toBe('2026-09-28');
-    expect(todayInMorocco(new Date('2026-09-28T23:30:00Z'))).toBe('2026-09-29');
+    expect(todayInMorocco(atMorocco('2026-09-28 23:30'))).toBe('2026-09-28');
+    expect(todayInMorocco(atMorocco('2026-09-29 00:30'))).toBe('2026-09-29');
   });
 
   it('classifies departures, returns, tomorrow and overdue contracts', () => {
