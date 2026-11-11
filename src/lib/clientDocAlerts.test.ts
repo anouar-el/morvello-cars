@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Client, Contract } from '../types';
-import { findClientDocIssues } from './clientDocAlerts';
+import { classifyClientDoc, findClientDocIssues } from './clientDocAlerts';
 import { computeOperationalAlerts } from '../utils/alertsUtils';
 
 const TODAY = '2026-11-11';
@@ -58,6 +58,22 @@ describe('findClientDocIssues', () => {
       TODAY
     );
     expect(issues.map((i) => i.kind)).toEqual(['license', 'identity']);
+  });
+});
+
+describe('classifyClientDoc', () => {
+  it('classifies one date without needing a contract', () => {
+    expect(classifyClientDoc('2026-10-01', TODAY)).toMatchObject({ status: 'expired', daysRemaining: -41 });
+    expect(classifyClientDoc('2026-12-01', TODAY)).toMatchObject({ status: 'expiring_soon', daysRemaining: 20 });
+    expect(classifyClientDoc('2027-06-01', TODAY)).toBeNull();
+    expect(classifyClientDoc('', TODAY)).toBeNull();
+    expect(classifyClientDoc(undefined, TODAY)).toBeNull();
+  });
+
+  it('flags a document that expires before the planned end, but only when an end is given', () => {
+    expect(classifyClientDoc('2027-01-15', TODAY, '2027-02-01')).toMatchObject({ status: 'expires_during_rental' });
+    expect(classifyClientDoc('2027-01-15', TODAY)).toBeNull();
+    expect(classifyClientDoc('2027-01-15', TODAY, '2026-12-01')).toBeNull();
   });
 });
 

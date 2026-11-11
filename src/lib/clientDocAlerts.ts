@@ -38,6 +38,23 @@ function effectiveEnd(contract: Contract): string {
   return String(end || '').slice(0, 10);
 }
 
+/** État d'une pièce à une date donnée ; `rentalEnd` (fin de la location) permet de repérer une pièce qui périme en cours de route. */
+export function classifyClientDoc(
+  rawExpiry: string | undefined,
+  today: string,
+  rentalEnd?: string
+): { status: ClientDocStatus; expiryDate: string; daysRemaining: number } | null {
+  const expiryDate = String(rawExpiry || '').trim();
+  if (!ISO_DAY.test(expiryDate)) return null;
+  const daysRemaining = getDaysDiff(expiryDate, today);
+  if (daysRemaining === null) return null;
+
+  if (daysRemaining < 0) return { status: 'expired', expiryDate, daysRemaining };
+  if (rentalEnd && ISO_DAY.test(rentalEnd) && expiryDate < rentalEnd) return { status: 'expires_during_rental', expiryDate, daysRemaining };
+  if (daysRemaining <= CLIENT_DOC_WARNING_DAYS) return { status: 'expiring_soon', expiryDate, daysRemaining };
+  return null;
+}
+
 /** Pièces périmées, qui périment pendant la location ou dans les 30 jours, les plus urgentes d'abord. */
 export function findClientDocIssues(clients: Client[], contracts: Contract[], today: string): ClientDocIssue[] {
   const openByClient = new Map<string, Contract>();
@@ -58,16 +75,8 @@ export function findClientDocIssues(clients: Client[], contracts: Contract[], to
       ['license', client.licenseExpiryDate],
     ];
     for (const [kind, raw] of docs) {
-      const expiryDate = String(raw || '').trim();
-      if (!ISO_DAY.test(expiryDate)) continue;
-      const daysRemaining = getDaysDiff(expiryDate, today);
-      if (daysRemaining === null) continue;
-
-      let status: ClientDocStatus | null = null;
-      if (daysRemaining < 0) status = 'expired';
-      else if (ISO_DAY.test(rentalEnd) && expiryDate < rentalEnd) status = 'expires_during_rental';
-      else if (daysRemaining <= CLIENT_DOC_WARNING_DAYS) status = 'expiring_soon';
-      if (status) issues.push({ client, kind, status, expiryDate, daysRemaining, contract });
+      const found = classifyClientDoc(raw, today, rentalEnd);
+      if (found) issues.push({ client, kind, contract, ...found });
     }
   }
 
