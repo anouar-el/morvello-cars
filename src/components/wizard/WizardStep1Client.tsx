@@ -1,6 +1,7 @@
 import React from 'react';
 import { Client, Driver, DocumentType } from '../../types';
 import { ClientDocumentUpload } from '../ClientDocumentUpload';
+import { ClientDocWarning } from './ClientDocWarning';
 import { User, Search, Users, UserCheck } from 'lucide-react';
 
 import { useI18n } from '../../i18n/I18nContext';
@@ -133,6 +134,18 @@ export const WizardStep1Client: React.FC<WizardStep1ClientProps> = ({
           </button>
         </div>
       </div>
+
+      {(() => {
+        // Pièce du locataire choisi (ou saisi) : avertissement immédiat, avant d'aller plus loin.
+        const picked = clientMode === 'existing' ? clients.find((c) => c.id === selectedClientId) : newClientForm;
+        return picked ? (
+          <ClientDocWarning
+            docType={picked.docType}
+            docExpiryDate={picked.docExpiryDate}
+            licenseExpiryDate={picked.licenseExpiryDate}
+          />
+        ) : null;
+      })()}
 
       {/* OPTION A: CLIENT EXISTANT */}
       {clientMode === 'existing' ? (

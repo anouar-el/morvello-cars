@@ -148,6 +148,12 @@ export const AR_LOT5: Record<string, string> = {
   '{total} MAD au total': 'المجموع {total} درهم',
   'En retard': 'متأخر',
 
+  // Contrat : avertissement sur une pièce du locataire périmée
+  CIN: 'البطاقة الوطنية',
+  '{doc} périmé depuis le {date} : demandez une pièce valide avant de louer.': '{doc} منتهي الصلاحية منذ {date}: اطلب وثيقة سارية قبل الكراء.',
+  '{doc} valable jusqu’au {date}, soit avant la fin de la location.': '{doc} صالح إلى غاية {date}، أي قبل نهاية الكراء.',
+  '{doc} valable jusqu’au {date} (dans {days} j).': '{doc} صالح إلى غاية {date} (بعد {days} يوم).',
+
   // Pièces d'identité : fin de validité et photos sur la fiche
   'Fin de validité du document': 'تاريخ انتهاء صلاحية الوثيقة',
   'Fin de validité du permis': 'تاريخ انتهاء صلاحية رخصة السياقة',

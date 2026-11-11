@@ -12,6 +12,7 @@ import {
 import { CONTRACT_TEMPLATES } from '../../data/contractTemplates';
 import { formatFranchise } from '../../data/insurancePacks';
 import { NewClientFormData, NewSecondDriverFormData } from './WizardStep1Client';
+import { ClientDocWarning } from './ClientDocWarning';
 import {
   CheckCircle2,
   Phone,
@@ -106,6 +107,18 @@ export const WizardStep4Review: React.FC<WizardStep4ReviewProps> = ({
           {t('Conditions V{version}', { version: termsVersion.version })}
         </span>
       </div>
+
+      {(() => {
+        const renter = clientMode === 'existing' ? currentClient : newClientForm;
+        return renter ? (
+          <ClientDocWarning
+            docType={renter.docType}
+            docExpiryDate={renter.docExpiryDate}
+            licenseExpiryDate={renter.licenseExpiryDate}
+            rentalEnd={endDate}
+          />
+        ) : null;
+      })()}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
         {/* LOCATAIRE & CONDUCTEURS SUMMARY */}
