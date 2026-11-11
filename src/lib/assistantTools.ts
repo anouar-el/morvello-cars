@@ -5,6 +5,8 @@ import { effectiveReturn, todayInMorocco } from './aiAssistantContext';
 import {
   MAX_WHATSAPP_CHARS,
   PAYMENT_METHODS,
+  billedDays,
+  normalizeClientDraft,
   remainingOf,
   toWhatsAppNumber,
   validateAction,
@@ -99,6 +101,45 @@ export const ASSISTANT_TOOL_DECLARATIONS = [
         mode: { type: 'STRING', description: "payment : 'cash', 'tpe_card', 'virement', 'cheque' ou 'autre'." },
       },
       required: ['type', 'contrat'],
+    },
+  },
+  {
+    name: 'creer_client',
+    description:
+      "Prépare la création d'une fiche client à partir des informations données par l'utilisateur ; il la confirmera d'un clic, rien n'est créé par toi. À appeler quand l'utilisateur demande d'ajouter ou d'enregistrer un client. Le nom, le prénom et le numéro de CIN (ou passeport) sont obligatoires : s'ils manquent, demande-les au lieu d'inventer.",
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        prenom: { type: 'STRING', description: 'Prénom.' },
+        nom: { type: 'STRING', description: 'Nom de famille.' },
+        numero_document: { type: 'STRING', description: 'Numéro de CIN, de passeport ou de carte de séjour.' },
+        type_document: { type: 'STRING', description: "'CIN' (par défaut), 'Passeport' ou 'Carte de Séjour'." },
+        telephone: { type: 'STRING', description: 'Téléphone, tel que donné.' },
+        permis: { type: 'STRING', description: 'Numéro de permis de conduire.' },
+        date_naissance: { type: 'STRING', description: 'Format AAAA-MM-JJ.' },
+        email: { type: 'STRING', description: 'Adresse e-mail.' },
+        adresse: { type: 'STRING', description: 'Adresse.' },
+        pays: { type: 'STRING', description: 'Pays ou nationalité.' },
+      },
+      required: ['prenom', 'nom', 'numero_document'],
+    },
+  },
+  {
+    name: 'creer_contrat',
+    description:
+      "Prépare un contrat de location en BROUILLON pour un client déjà enregistré, que l'utilisateur confirmera d'un clic ; rien n'est créé par toi. Vérifie la disponibilité du véhicule et calcule le total. Si le client n'existe pas encore, propose d'abord de le créer avec creer_client. Ne devine jamais le véhicule, les dates ou le tarif : demande-les s'ils manquent.",
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        client: { type: 'STRING', description: 'Nom complet ou téléphone du client.' },
+        plaque: { type: 'STRING', description: 'Plaque du véhicule (voir vehicules_disponibles).' },
+        date_debut: { type: 'STRING', description: 'Départ, format AAAA-MM-JJ.' },
+        date_fin: { type: 'STRING', description: 'Retour, format AAAA-MM-JJ.' },
+        tarif_journalier: { type: 'NUMBER', description: 'MAD par jour ; par défaut le tarif de la fiche véhicule.' },
+        caution: { type: 'NUMBER', description: 'Montant de la caution en MAD, 0 si aucune.' },
+        notes: { type: 'STRING', description: 'Remarque libre à ajouter au contrat.' },
+      },
+      required: ['client', 'plaque', 'date_debut', 'date_fin'],
     },
   },
 ] as const;
@@ -373,6 +414,80 @@ function proposerAction(args: Record<string, unknown>, data: AssistantToolData):
   };
 }
 
+function newActionId(): string {
+  return `act-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+function proposition(action: AssistantAction): ToolOutcome {
+  return {
+    result: {
+      statut: 'proposition_affichee_a_utilisateur',
+      note: "La carte est affichée ; l'utilisateur doit la confirmer. Ne dis jamais que c'est fait.",
+      action: action.title,
+    },
+    sources: [action],
+  };
+}
+
+function creerClient(args: Record<string, unknown>): ToolOutcome {
+  const { draft, error } = normalizeClientDraft(args);
+  if (!draft) return { result: { erreur: error }, sources: [] };
+  const action: AssistantAction = {
+    kind: 'action',
+    id: newActionId(),
+    type: 'create_client',
+    contractId: '',
+    contractNumber: '',
+    title: `Créer le client ${draft.firstName} ${draft.lastName.toUpperCase()}`,
+    client: draft,
+  };
+  // Les doublons sont contrôlés par le navigateur au moment de confirmer, sur la liste complète des clients.
+  return proposition(action);
+}
+
+function creerContrat(args: Record<string, unknown>, data: AssistantToolData): ToolOutcome {
+  const fail = (erreur: string): ToolOutcome => ({ result: { erreur }, sources: [] });
+  const clientRef = str(args.client).trim();
+  const plate = compact(args.plaque);
+  const startDate = str(args.date_debut).trim();
+  const endDate = str(args.date_fin).trim();
+  if (!clientRef) return fail('Client manquant.');
+  if (!ISO_DATE.test(startDate) || !ISO_DATE.test(endDate)) return fail('Dates invalides : utiliser le format AAAA-MM-JJ.');
+
+  const vehicle = plate ? data.vehicles.find((v) => compact(v.plate) === plate) : undefined;
+  if (!vehicle) return fail('Véhicule introuvable : donne la plaque exacte (voir vehicules_disponibles).');
+
+  const pricePerDay = Math.round((Number(args.tarif_journalier) || Number(vehicle.dailyRate) || 0) * 100) / 100;
+  if (!(pricePerDay > 0)) return fail("Aucun tarif journalier : demande-le à l'utilisateur.");
+  const totalDays = billedDays(startDate, endDate);
+
+  const action: AssistantAction = {
+    kind: 'action',
+    id: newActionId(),
+    type: 'create_contract',
+    contractId: '',
+    contractNumber: '',
+    title: `Créer un contrat brouillon (${vehicle.brand} ${vehicle.model}, ${startDate} → ${endDate})`,
+    contract: {
+      clientRef,
+      vehicleId: String(vehicle.id || ''),
+      vehicleLabel: `${vehicle.brand} ${vehicle.model} · ${vehicle.plate}`,
+      startDate,
+      endDate,
+      totalDays,
+      pricePerDay,
+      totalAmount: Math.round(totalDays * pricePerDay * 100) / 100,
+      depositAmount: Math.max(0, Math.round(Number(args.caution) || 0)),
+      notes: str(args.notes).trim().slice(0, 300),
+    },
+  };
+
+  // Disponibilité du véhicule vérifiée ici ; le client est résolu par le navigateur, qui a la liste complète.
+  const check = validateAction(action, undefined, { vehicles: data.vehicles, contracts: data.contracts });
+  if (!check.ok) return fail(check.error || 'Contrat impossible.');
+  return proposition(action);
+}
+
 /** Exécute un outil demandé par le modèle. Un outil inconnu ou en échec renvoie une erreur lisible, jamais une exception. */
 export function executeAssistantTool(name: string, args: unknown, data: AssistantToolData): ToolOutcome {
   const a = (args && typeof args === 'object' ? args : {}) as Record<string, unknown>;
@@ -386,6 +501,10 @@ export function executeAssistantTool(name: string, args: unknown, data: Assistan
         return soldeClient(a, data);
       case 'proposer_action':
         return proposerAction(a, data);
+      case 'creer_client':
+        return creerClient(a);
+      case 'creer_contrat':
+        return creerContrat(a, data);
       default:
         return { result: { erreur: `Outil inconnu : ${name}` }, sources: [] };
     }
