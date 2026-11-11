@@ -1,5 +1,6 @@
-import type { Contract, PaymentMethod } from '../types';
+import type { Client, Contract, DocumentType, PaymentMethod, Vehicle } from '../types';
 import { getDepositCollectionStatus } from '../utils/depositUtils';
+import { isVehicleAvailableForPeriod } from '../utils/vehicleStatusUtils';
 
 /*
  * Actions que l'assistant PROPOSE. Il n'exécute jamais rien lui-même : la proposition devient une carte
@@ -8,7 +9,36 @@ import { getDepositCollectionStatus } from '../utils/depositUtils';
  * l'exécution (navigateur, sur les données du moment).
  */
 
-export type AssistantActionType = 'whatsapp' | 'deposit_collected' | 'payment';
+export type AssistantActionType = 'whatsapp' | 'deposit_collected' | 'payment' | 'create_client' | 'create_contract';
+
+/** Fiche client telle que l'assistant l'a comprise ; créée seulement après confirmation. */
+export interface ClientDraft {
+  firstName: string;
+  lastName: string;
+  docType: DocumentType;
+  docNumber: string;
+  drivingLicense: string;
+  birthDate: string;
+  phone: string;
+  email: string;
+  address: string;
+  country: string;
+}
+
+/** Contrat proposé : toujours créé en brouillon, sans signature ni photos. */
+export interface ContractDraft {
+  /** Nom ou téléphone du client, résolu sur les fiches existantes au moment de confirmer. */
+  clientRef: string;
+  vehicleId: string;
+  vehicleLabel: string;
+  startDate: string;
+  endDate: string;
+  totalDays: number;
+  pricePerDay: number;
+  totalAmount: number;
+  depositAmount: number;
+  notes: string;
+}
 
 export interface AssistantAction {
   kind: 'action';
@@ -16,6 +46,10 @@ export interface AssistantAction {
   type: AssistantActionType;
   contractId: string;
   contractNumber: string;
+  /** create_client */
+  client?: ClientDraft;
+  /** create_contract */
+  contract?: ContractDraft;
   /** Texte court affiché sur la carte. */
   title: string;
   /** whatsapp : numéro international sans « + », message prérempli. */
@@ -57,8 +91,168 @@ export interface Validation {
   error?: string;
 }
 
-/** Vérifie qu'une action est encore applicable au contrat tel qu'il est maintenant. */
-export function validateAction(action: AssistantAction, contract: Partial<Contract> | undefined): Validation {
+/** Données du moment, nécessaires pour valider une création (clients existants, disponibilité du véhicule). */
+export interface ActionContext {
+  clients?: Partial<Client>[];
+  vehicles?: Partial<Vehicle>[];
+  contracts?: Partial<Contract>[];
+}
+
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+function plain(value: unknown): string {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+function digitsKey(value: unknown): string {
+  let d = String(value ?? '').replace(/\D/g, '');
+  if (d.startsWith('00')) d = d.slice(2);
+  if (d.startsWith('212')) d = d.slice(3);
+  return d.replace(/^0+/, '');
+}
+
+function isoDay(value: unknown): string {
+  const s = String(value ?? '').trim();
+  return ISO_DAY.test(s) ? s : '';
+}
+
+function parseDocType(value: unknown): DocumentType {
+  const v = plain(value);
+  if (v.startsWith('pass')) return 'Passeport';
+  if (v.includes('sejour')) return 'Carte de Séjour';
+  return 'CIN';
+}
+
+/** Nombre de jours facturés : écart entre départ et retour, au minimum 1 (même règle que l'assistant de contrat). */
+export function billedDays(startDate: string, endDate: string): number {
+  const diff = Date.parse(`${endDate}T00:00:00Z`) - Date.parse(`${startDate}T00:00:00Z`);
+  return Math.max(1, Math.ceil(diff / 86_400_000) || 1);
+}
+
+/** Nettoie ce que le modèle a extrait d'un message ; renvoie une erreur lisible plutôt qu'une fiche douteuse. */
+export function normalizeClientDraft(raw: Record<string, unknown>): { draft?: ClientDraft; error?: string } {
+  const text = (v: unknown, max = 120) => String(v ?? '').trim().slice(0, max);
+  const firstName = text(raw.prenom);
+  const lastName = text(raw.nom);
+  if (!firstName || !lastName) return { error: 'Le nom et le prénom du client sont obligatoires.' };
+
+  const docNumber = text(raw.numero_document, 40).toUpperCase();
+  if (!docNumber) return { error: "Le numéro de CIN ou de passeport est obligatoire : demande-le à l'utilisateur." };
+
+  const phone = text(raw.telephone, 30);
+  if (phone && !toWhatsAppNumber(phone)) return { error: 'Le numéro de téléphone est invalide.' };
+
+  const birthRaw = text(raw.date_naissance, 10);
+  if (birthRaw && !isoDay(birthRaw)) return { error: 'La date de naissance doit être au format AAAA-MM-JJ.' };
+
+  const email = text(raw.email, 120);
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: "L'adresse e-mail est invalide." };
+
+  return {
+    draft: {
+      firstName,
+      lastName,
+      docType: parseDocType(raw.type_document),
+      docNumber,
+      drivingLicense: text(raw.permis, 40),
+      birthDate: birthRaw,
+      phone,
+      email,
+      address: text(raw.adresse, 200),
+      country: text(raw.pays, 60),
+    },
+  };
+}
+
+/** Clients dont le nom (mots dans n'importe quel ordre) ou le téléphone correspond à la saisie. */
+export function findClientMatches(clients: Partial<Client>[], query: string): Partial<Client>[] {
+  const q = plain(query);
+  if (!q) return [];
+  const wanted = digitsKey(query);
+  const words = q.split(/\s+/).filter(Boolean);
+  return clients.filter((c) => {
+    if (wanted.length >= 6 && digitsKey(c.phone).includes(wanted)) return true;
+    const hay = `${plain(c.firstName)} ${plain(c.lastName)}`;
+    return words.every((w) => hay.includes(w));
+  });
+}
+
+/** Un client déjà enregistré avec le même document ou le même téléphone : on ne crée pas de doublon. */
+export function findDuplicateClient(clients: Partial<Client>[], draft: ClientDraft): Partial<Client> | undefined {
+  const doc = plain(draft.docNumber).replace(/\s+/g, '');
+  const phone = digitsKey(draft.phone);
+  return clients.find(
+    (c) =>
+      (doc && plain(c.docNumber).replace(/\s+/g, '') === doc) ||
+      (phone.length >= 6 && digitsKey(c.phone) === phone)
+  );
+}
+
+function clientName(c: Partial<Client>): string {
+  return `${c.firstName || ''} ${c.lastName || ''}`.trim();
+}
+
+/** Résout le client d'un contrat : un seul candidat, sinon une erreur qui dit quoi faire. */
+export function resolveContractClient(
+  clients: Partial<Client>[],
+  clientRef: string
+): { client?: Partial<Client>; error?: string } {
+  const matches = findClientMatches(clients, clientRef);
+  if (matches.length === 1) return { client: matches[0] };
+  if (matches.length === 0) {
+    return { error: `Aucun client « ${clientRef} » : créez d’abord sa fiche (donnez-moi son nom, son CIN et son téléphone).` };
+  }
+  return {
+    error: `Plusieurs clients correspondent à « ${clientRef} » (${matches.slice(0, 4).map(clientName).join(', ')}) : précisez le nom complet ou le téléphone.`,
+  };
+}
+
+function validateCreation(action: AssistantAction, ctx: ActionContext | undefined): Validation {
+  if (action.type === 'create_client') {
+    const draft = action.client;
+    if (!draft?.firstName || !draft.lastName || !draft.docNumber) return { ok: false, error: 'Fiche client incomplète.' };
+    const duplicate = ctx?.clients ? findDuplicateClient(ctx.clients, draft) : undefined;
+    return duplicate
+      ? { ok: false, error: `Ce client existe déjà : ${clientName(duplicate)} (même CIN ou même téléphone).` }
+      : { ok: true };
+  }
+
+  const draft = action.contract;
+  if (!draft) return { ok: false, error: 'Contrat incomplet.' };
+  if (!isoDay(draft.startDate) || !isoDay(draft.endDate)) return { ok: false, error: 'Dates invalides.' };
+  if (draft.endDate < draft.startDate) return { ok: false, error: 'Le retour précède le départ.' };
+  if (!(draft.pricePerDay > 0)) return { ok: false, error: 'Le tarif journalier est manquant.' };
+
+  if (ctx?.clients) {
+    const resolved = resolveContractClient(ctx.clients, draft.clientRef);
+    if (resolved.error) return { ok: false, error: resolved.error };
+  }
+  if (ctx?.vehicles) {
+    const vehicle = ctx.vehicles.find((v) => v.id === draft.vehicleId);
+    if (!vehicle) return { ok: false, error: 'Véhicule introuvable.' };
+    const availability = isVehicleAvailableForPeriod(
+      draft.vehicleId,
+      draft.startDate,
+      draft.endDate,
+      (ctx.contracts || []) as Contract[],
+      vehicle as Vehicle
+    );
+    if (!availability.available) return { ok: false, error: availability.conflictReason || 'Véhicule indisponible.' };
+  }
+  return { ok: true };
+}
+
+/** Vérifie qu'une action est encore applicable aux données telles qu'elles sont maintenant. */
+export function validateAction(
+  action: AssistantAction,
+  contract: Partial<Contract> | undefined,
+  ctx?: ActionContext
+): Validation {
+  if (action.type === 'create_client' || action.type === 'create_contract') return validateCreation(action, ctx);
   if (!contract) return { ok: false, error: 'Contrat introuvable.' };
   if (contract.status === 'cancelled') return { ok: false, error: 'Ce contrat est annulé.' };
 

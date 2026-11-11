@@ -6,7 +6,13 @@ import { isAbortException } from '../initErrorHandling';
 import { getScopedDataForUser } from '../utils/managerScopeUtils';
 import { buildAssistantDigest } from '../lib/aiAssistantContext';
 import { requestEntityFocus } from '../lib/entityFocus';
-import { validateAction, PAYMENT_METHOD_LABELS, type AssistantAction } from '../lib/assistantActions';
+import {
+  validateAction,
+  resolveContractClient,
+  PAYMENT_METHOD_LABELS,
+  type AssistantAction,
+} from '../lib/assistantActions';
+import { formatPlateFrench } from '../utils/plateUtils';
 import { getActiveAuthToken, endTerminatedSession, SESSION_TERMINATED } from '../lib/authToken';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -93,6 +99,8 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
     setActiveTab,
     addPaymentToContract,
     updateContractFinancials,
+    addClient,
+    createContract,
     hasPermission,
   } = useApp();
 
@@ -106,6 +114,7 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showScrollDown, setShowScrollDown] = useState(false);
   const [lastFailedPrompt, setLastFailedPrompt] = useState<string | null>(null);
+  const startedActionsRef = useRef<Set<string>>(new Set());
 
   const [messages, setMessages] = useState<AgentChatMessage[]>(() => {
     const saved = localStorage.getItem(`morvello_ai_chat_${currentUser.id}`);
@@ -293,6 +302,77 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
     .sort((a, b) => Number(b.chip.count > 0) - Number(a.chip.count > 0) || a.order - b.order)
     .map(({ chip }) => chip);
 
+  /** Création d'un client ou d'un contrat (brouillon) après clic explicite, avec les mêmes fonctions que les formulaires. */
+  const runCreation = async (action: AssistantAction, setResult: (ok: boolean, text: string) => void) => {
+    // Un double clic ne doit pas créer deux fois la même fiche.
+    if (startedActionsRef.current.has(action.id)) return;
+    startedActionsRef.current.add(action.id);
+
+    const check = validateAction(action, undefined, { clients, vehicles, contracts });
+    if (!check.ok) return setResult(false, check.error || 'Action impossible.');
+
+    try {
+      if (action.type === 'create_client' && action.client) {
+        if (!hasPermission('canCreateClients')) return setResult(false, t('Vous n’avez pas le droit de créer un client.'));
+        const created = addClient({ ...action.client, notes: 'Créé depuis l’assistant IA', documents: [] });
+        return setResult(true, t('Client {name} créé.', { name: `${created.firstName} ${created.lastName}` }));
+      }
+
+      const draft = action.contract;
+      if (action.type !== 'create_contract' || !draft) return setResult(false, 'Action impossible.');
+      if (!hasPermission('canCreateContracts')) return setResult(false, t('Vous n’avez pas le droit de créer un contrat.'));
+
+      const client = resolveContractClient(clients, draft.clientRef).client;
+      const vehicle = vehicles.find((v) => v.id === draft.vehicleId);
+      if (!client?.id || !vehicle) return setResult(false, t('Client ou véhicule introuvable.'));
+
+      const created = await createContract({
+        status: 'draft',
+        clientId: client.id,
+        clientSnapshot: {
+          id: client.id,
+          firstName: client.firstName || '',
+          lastName: client.lastName || '',
+          birthDate: client.birthDate || '',
+          drivingLicense: client.drivingLicense || '',
+          docType: client.docType || 'CIN',
+          docNumber: client.docNumber || '',
+          phone: client.phone,
+          email: client.email,
+          address: client.address,
+          country: client.country,
+          documents: client.documents || [],
+        },
+        hasSecondDriver: false,
+        vehicleId: vehicle.id,
+        vehicleSnapshot: {
+          id: vehicle.id,
+          brand: vehicle.brand,
+          model: vehicle.model,
+          plate: formatPlateFrench(vehicle.plate),
+          fuelType: vehicle.fuelType,
+        },
+        startDate: draft.startDate,
+        startTime: '10:00',
+        endDate: draft.endDate,
+        endTime: '10:00',
+        departureKm: vehicle.currentKm || 0,
+        departureFuel: '8/8',
+        prolongation: { isActive: false, newEndDate: '', newEndTime: '' },
+        termsVersion: '',
+        totalDays: draft.totalDays,
+        pricePerDay: draft.pricePerDay,
+        totalAmount: draft.totalAmount,
+        depositAmount: draft.depositAmount,
+        ...(draft.depositAmount > 0 ? { depositCollected: false } : {}),
+        notes: draft.notes || 'Créé depuis l’assistant IA',
+      });
+      return setResult(true, t('Contrat {number} créé en brouillon : complétez-le depuis la liste des contrats.', { number: created.contractNumber }));
+    } catch (err: any) {
+      return setResult(false, err?.message || t('L’action a échoué. Réessayez depuis le contrat.'));
+    }
+  };
+
   /** Exécute une action proposée, après clic explicite. Revalide sur les données du moment ; le résultat est mémorisé. */
   const runAction = (messageId: string, action: AssistantAction) => {
     const setResult = (ok: boolean, text: string) =>
@@ -301,6 +381,10 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
           m.id === messageId ? { ...m, actionResults: { ...(m.actionResults || {}), [action.id]: { ok, text } } } : m
         )
       );
+
+    if (action.type === 'create_client' || action.type === 'create_contract') {
+      return void runCreation(action, setResult);
+    }
 
     const contract = contracts.find((c) => c.id === action.contractId);
     const check = validateAction(action, contract);
@@ -1195,7 +1279,48 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
                                           className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 text-xs"
                                         >
                                           <div className="font-semibold text-amber-300">{a.title}</div>
-                                          <div className="mt-0.5 text-slate-400 font-mono">{t('Contrat {contractNumber}', { contractNumber: a.contractNumber })}</div>
+                                          {a.contractNumber && (
+                                            <div className="mt-0.5 text-slate-400 font-mono">{t('Contrat {contractNumber}', { contractNumber: a.contractNumber })}</div>
+                                          )}
+                                          {a.type === 'create_client' && a.client && (
+                                            <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-slate-300">
+                                              {[
+                                                [t('Nom'), `${a.client.firstName} ${a.client.lastName}`],
+                                                [a.client.docType, a.client.docNumber],
+                                                [t('Téléphone'), a.client.phone],
+                                                [t('Permis'), a.client.drivingLicense],
+                                                [t('Naissance'), a.client.birthDate],
+                                                [t('E-mail'), a.client.email],
+                                                [t('Adresse'), a.client.address],
+                                              ]
+                                                .filter(([, value]) => value)
+                                                .map(([label, value]) => (
+                                                  <React.Fragment key={label}>
+                                                    <dt className="text-slate-500">{label}</dt>
+                                                    <dd className="break-words" dir="auto">{value}</dd>
+                                                  </React.Fragment>
+                                                ))}
+                                            </dl>
+                                          )}
+                                          {a.type === 'create_contract' && a.contract && (
+                                            <div className="mt-2 space-y-0.5 text-slate-300">
+                                              <div>{t('Client :')} <span dir="auto" className="text-white">{a.contract.clientRef}</span></div>
+                                              <div>{a.contract.vehicleLabel}</div>
+                                              <div>
+                                                {a.contract.startDate} → {a.contract.endDate} · {t('{days} jours', { days: a.contract.totalDays })}
+                                              </div>
+                                              <div>
+                                                {t('{price} MAD/jour', { price: a.contract.pricePerDay })} · <span className="font-bold text-amber-300">{t('Total {amount} MAD', { amount: a.contract.totalAmount })}</span>
+                                              </div>
+                                              {a.contract.depositAmount > 0 && (
+                                                <div>{t('Caution convenue : {amount} MAD (non encore prise)', { amount: a.contract.depositAmount })}</div>
+                                              )}
+                                              {!result && (() => {
+                                                const problem = resolveContractClient(clients, a.contract.clientRef).error;
+                                                return problem ? <div className="text-amber-400">{problem}</div> : null;
+                                              })()}
+                                            </div>
+                                          )}
                                           {a.type === 'whatsapp' && a.message && (
                                             <div className="mt-2 whitespace-pre-wrap rounded-lg bg-slate-950/70 border border-slate-800 p-2 text-slate-200">
                                               {a.message}
@@ -1217,7 +1342,13 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
                                               onClick={() => runAction(msg.id, a)}
                                               className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs cursor-pointer"
                                             >
-                                              {a.type === 'whatsapp' ? t('Ouvrir WhatsApp') : t('Confirmer')}
+                                              {a.type === 'whatsapp'
+                                                ? t('Ouvrir WhatsApp')
+                                                : a.type === 'create_client'
+                                                ? t('Créer le client')
+                                                : a.type === 'create_contract'
+                                                ? t('Créer le contrat (brouillon)')
+                                                : t('Confirmer')}
                                             </button>
                                           )}
                                         </div>

@@ -148,6 +148,24 @@ export const AR_LOT5: Record<string, string> = {
   '{total} MAD au total': 'المجموع {total} درهم',
   'En retard': 'متأخر',
 
+  // Assistant IA : création de clients et de contrats
+  'Vous n’avez pas le droit de créer un client.': 'ليست لديك صلاحية إنشاء زبون.',
+  'Client {name} créé.': 'تم إنشاء الزبون {name}.',
+  'Vous n’avez pas le droit de créer un contrat.': 'ليست لديك صلاحية إنشاء عقد.',
+  'Client ou véhicule introuvable.': 'الزبون أو السيارة غير موجودة.',
+  'Contrat {number} créé en brouillon : complétez-le depuis la liste des contrats.': 'تم إنشاء العقد {number} كمسودة (brouillon): أكمله من لائحة العقود.',
+  Nom: 'الاسم',
+  Téléphone: 'الهاتف',
+  Permis: 'رخصة السياقة',
+  Naissance: 'تاريخ الازدياد',
+  'E-mail': 'البريد الإلكتروني',
+  '{days} jours': '{days} أيام',
+  '{price} MAD/jour': '{price} درهم لليوم',
+  'Total {amount} MAD': 'المجموع {amount} درهم',
+  'Caution convenue : {amount} MAD (non encore prise)': 'الضمان (caution) المتفق عليه: {amount} درهم (لم يُستلم بعد)',
+  'Créer le client': 'إنشاء الزبون',
+  'Créer le contrat (brouillon)': 'إنشاء العقد (مسودة)',
+
   // Navigation et en-têtes de page
   'Nouveau client': 'زبون جديد',
   'Nouveau véhicule': 'سيارة جديدة',
