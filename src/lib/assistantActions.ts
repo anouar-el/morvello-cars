@@ -11,14 +11,29 @@ import { isVehicleAvailableForPeriod } from '../utils/vehicleStatusUtils';
 
 export type AssistantActionType = 'whatsapp' | 'deposit_collected' | 'payment' | 'create_client' | 'create_contract';
 
+/** Emplacement d'une photo sur la fiche client : CIN ou permis, recto ou verso. */
+export type ClientPhotoSlot = 'cin' | 'cinVerso' | 'license' | 'licenseVerso';
+
+/** Photo jointe au message (0 = première) et ce qu'elle montre. */
+export interface ClientPhotoRef {
+  index: number;
+  slot: ClientPhotoSlot;
+}
+
 /** Fiche client telle que l'assistant l'a comprise ; créée seulement après confirmation. */
 export interface ClientDraft {
   firstName: string;
   lastName: string;
   docType: DocumentType;
   docNumber: string;
+  /** Fin de validité de la CIN / du passeport (AAAA-MM-JJ), vide si non lue. */
+  docExpiryDate: string;
   drivingLicense: string;
+  /** Fin de validité du permis (AAAA-MM-JJ), vide si non lue. */
+  licenseExpiryDate: string;
   birthDate: string;
+  /** Photos du message à ranger sur la fiche. */
+  photos: ClientPhotoRef[];
   phone: string;
   email: string;
   address: string;
@@ -133,8 +148,29 @@ export function billedDays(startDate: string, endDate: string): number {
   return Math.max(1, Math.ceil(diff / 86_400_000) || 1);
 }
 
+/** « photo 1 = CIN recto, photo 2 = permis… » : au plus un emplacement par photo et une photo par emplacement. */
+function parsePhotoRefs(raw: unknown, photoCount: number): ClientPhotoRef[] {
+  if (!Array.isArray(raw) || photoCount <= 0) return [];
+  const refs: ClientPhotoRef[] = [];
+  for (const item of raw.slice(0, 4)) {
+    const it = (item && typeof item === 'object' ? item : {}) as Record<string, unknown>;
+    const index = Math.round(Number(it.numero)) - 1;
+    if (!Number.isInteger(index) || index < 0 || index >= photoCount) continue;
+    const license = plain(it.type).startsWith('perm');
+    const verso = plain(it.cote).startsWith('verso');
+    const slot: ClientPhotoSlot = license ? (verso ? 'licenseVerso' : 'license') : verso ? 'cinVerso' : 'cin';
+    if (refs.some((r) => r.index === index || r.slot === slot)) continue;
+    refs.push({ index, slot });
+  }
+  return refs;
+}
+
 /** Nettoie ce que le modèle a extrait d'un message ; renvoie une erreur lisible plutôt qu'une fiche douteuse. */
-export function normalizeClientDraft(raw: Record<string, unknown>): { draft?: ClientDraft; error?: string } {
+export function normalizeClientDraft(
+  raw: Record<string, unknown>,
+  /** Nombre de photos jointes au message : les références à une photo inexistante sont écartées. */
+  photoCount = 0
+): { draft?: ClientDraft; error?: string } {
   const text = (v: unknown, max = 120) => String(v ?? '').trim().slice(0, max);
   const firstName = text(raw.prenom);
   const lastName = text(raw.nom);
@@ -152,13 +188,22 @@ export function normalizeClientDraft(raw: Record<string, unknown>): { draft?: Cl
   const email = text(raw.email, 120);
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: "L'adresse e-mail est invalide." };
 
+  const docExpiryDate = text(raw.expiration_document, 10);
+  const licenseExpiryDate = text(raw.expiration_permis, 10);
+  if ((docExpiryDate && !isoDay(docExpiryDate)) || (licenseExpiryDate && !isoDay(licenseExpiryDate))) {
+    return { error: "Les dates de fin de validité doivent être au format AAAA-MM-JJ." };
+  }
+
   return {
     draft: {
       firstName,
       lastName,
       docType: parseDocType(raw.type_document),
       docNumber,
+      docExpiryDate,
       drivingLicense: text(raw.permis, 40),
+      licenseExpiryDate,
+      photos: parsePhotoRefs(raw.photos, photoCount),
       birthDate: birthRaw,
       phone,
       email,

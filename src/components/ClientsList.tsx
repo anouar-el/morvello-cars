@@ -36,6 +36,7 @@ import {
 } from 'lucide-react';
 
 import { useI18n } from '../i18n/I18nContext';
+import { getTodayDateString } from '../utils/vehicleExpiryUtils';
 export const ClientsList: React.FC = () => {
   const { t } = useI18n();
   const {
@@ -101,6 +102,8 @@ export const ClientsList: React.FC = () => {
     drivingLicense: string;
     docType: DocumentType;
     docNumber: string;
+    docExpiryDate: string;
+    licenseExpiryDate: string;
     phone: string;
     email: string;
     country: string;
@@ -113,6 +116,8 @@ export const ClientsList: React.FC = () => {
     drivingLicense: '',
     docType: 'CIN',
     docNumber: '',
+    docExpiryDate: '',
+    licenseExpiryDate: '',
     phone: '',
     email: '',
     country: 'Maroc',
@@ -136,6 +141,8 @@ export const ClientsList: React.FC = () => {
       drivingLicense: client.drivingLicense || '',
       docType: client.docType || 'CIN',
       docNumber: client.docNumber || '',
+      docExpiryDate: client.docExpiryDate || '',
+      licenseExpiryDate: client.licenseExpiryDate || '',
       phone: client.phone || '',
       email: client.email || '',
       country: client.country || 'Maroc',
@@ -160,6 +167,8 @@ export const ClientsList: React.FC = () => {
       drivingLicense: editClientForm.drivingLicense.trim(),
       docType: editClientForm.docType,
       docNumber: editClientForm.docNumber.trim(),
+      docExpiryDate: editClientForm.docExpiryDate,
+      licenseExpiryDate: editClientForm.licenseExpiryDate,
       phone: editClientForm.phone.trim(),
       email: editClientForm.email.trim(),
       country: editClientForm.country.trim(),
@@ -191,6 +200,8 @@ export const ClientsList: React.FC = () => {
     drivingLicense: '',
     docType: 'CIN' as DocumentType,
     docNumber: '',
+    docExpiryDate: '',
+    licenseExpiryDate: '',
     phone: '',
     email: '',
     country: 'Maroc',
@@ -263,6 +274,8 @@ export const ClientsList: React.FC = () => {
       drivingLicense: '',
       docType: 'CIN',
       docNumber: '',
+      docExpiryDate: '',
+      licenseExpiryDate: '',
       phone: '',
       email: '',
       country: 'Maroc',
@@ -882,6 +895,17 @@ export const ClientsList: React.FC = () => {
                 <span className="text-slate-500 block">{t('Permis de Conduire :')}</span>
                 <strong className="text-white font-mono">{selectedClientDetail.drivingLicense}</strong>
               </div>
+              {[
+                [t('Fin de validité du document'), selectedClientDetail.docExpiryDate],
+                [t('Fin de validité du permis'), selectedClientDetail.licenseExpiryDate],
+              ].map(([label, date]) =>
+                date ? (
+                  <div key={label}>
+                    <span className="text-slate-500 block">{label}</span>
+                    <strong className={`font-mono ${date < getTodayDateString() ? 'text-rose-400' : 'text-white'}`}>{date}</strong>
+                  </div>
+                ) : null
+              )}
               <div>
                 <span className="text-slate-500 block">{t('Téléphone / GSM :')}</span>
                 <strong className="text-amber-400 font-mono">
@@ -1296,6 +1320,31 @@ export const ClientsList: React.FC = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-slate-400 mb-1">
+                    {t('Fin de validité du document')} <span className="text-slate-500 font-normal">{t('(Facultatif)')}</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={newClientForm.docExpiryDate}
+                    onChange={(e) => setNewClientForm({ ...newClientForm, docExpiryDate: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono focus:border-amber-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-400 mb-1">
+                    {t('Fin de validité du permis')} <span className="text-slate-500 font-normal">{t('(Facultatif)')}</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={newClientForm.licenseExpiryDate}
+                    onChange={(e) => setNewClientForm({ ...newClientForm, licenseExpiryDate: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono focus:border-amber-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-400 mb-1">
                     {t('Téléphone / GSM')} <span className="text-slate-500 font-normal">{t('(Facultatif)')}</span>
                   </label>
                   <input
@@ -1501,6 +1550,27 @@ export const ClientsList: React.FC = () => {
                     value={editClientForm.drivingLicense}
                     onChange={(e) => setEditClientForm({ ...editClientForm, drivingLicense: e.target.value.toUpperCase() })}
                     className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono uppercase font-bold focus:border-amber-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-400 mb-1 font-medium">{t('Fin de validité du document')}</label>
+                  <input
+                    type="date"
+                    value={editClientForm.docExpiryDate}
+                    onChange={(e) => setEditClientForm({ ...editClientForm, docExpiryDate: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono focus:border-amber-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-400 mb-1 font-medium">{t('Fin de validité du permis')}</label>
+                  <input
+                    type="date"
+                    value={editClientForm.licenseExpiryDate}
+                    onChange={(e) => setEditClientForm({ ...editClientForm, licenseExpiryDate: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono focus:border-amber-500 focus:outline-none"
                   />
                 </div>
               </div>

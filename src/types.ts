@@ -154,6 +154,10 @@ export interface Client {
   drivingLicense: string;
   docType: DocumentType;
   docNumber: string;
+  /** Fin de validité de la CIN / du passeport (AAAA-MM-JJ) : sert aux alertes de renouvellement. */
+  docExpiryDate?: string;
+  /** Fin de validité du permis de conduire (AAAA-MM-JJ). */
+  licenseExpiryDate?: string;
   phone?: string;
   email?: string;
   country?: string;

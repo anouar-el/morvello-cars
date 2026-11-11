@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useLayoutEffect, useMemo } from 'react';
 import { safeSetJson } from '../lib/safeStorage';
 import { useApp } from '../context/AppContext';
-import { AgentChatMessage } from '../types';
+import { AgentChatMessage, type Client } from '../types';
 import { isAbortException } from '../initErrorHandling';
 import { getScopedDataForUser } from '../utils/managerScopeUtils';
 import { buildAssistantDigest } from '../lib/aiAssistantContext';
@@ -14,6 +14,7 @@ import {
 } from '../lib/assistantActions';
 import { formatPlateFrench } from '../utils/plateUtils';
 import { compressImage, type CompressedImage } from '../lib/imageCompress';
+import { storeFile } from '../lib/storageClient';
 
 const MAX_ATTACHMENTS = 3;
 import { getActiveAuthToken, endTerminatedSession, SESSION_TERMINATED } from '../lib/authToken';
@@ -122,6 +123,7 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
   const [attachments, setAttachments] = useState<CompressedImage[]>([]);
   const [attachError, setAttachError] = useState<string | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
+  const photosByActionRef = useRef<Map<string, CompressedImage[]>>(new Map());
 
   const [messages, setMessages] = useState<AgentChatMessage[]>(() => {
     const saved = localStorage.getItem(`morvello_ai_chat_${currentUser.id}`);
@@ -321,8 +323,28 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
     try {
       if (action.type === 'create_client' && action.client) {
         if (!hasPermission('canCreateClients')) return setResult(false, t('Vous n’avez pas le droit de créer un client.'));
-        const created = addClient({ ...action.client, notes: 'Créé depuis l’assistant IA', documents: [] });
-        return setResult(true, t('Client {name} créé.', { name: `${created.firstName} ${created.lastName}` }));
+        const { photos: photoRefs, ...fields } = action.client;
+        const kept = photosByActionRef.current.get(action.id);
+        const scans: Partial<Client> = {};
+        let attached = 0;
+        for (const ref of photoRefs || []) {
+          const img = kept?.[ref.index];
+          if (!img) continue;
+          // Même chemin que le téléversement manuel : le scan part dans Storage, la fiche garde la référence.
+          const stored = await storeFile(`data:${img.mimeType};base64,${img.data}`, 'client-doc');
+          const side = ref.slot.endsWith('Verso') ? 'verso' : 'recto';
+          const name = `${ref.slot.startsWith('license') ? 'permis' : 'cin'}-${side}.jpg`;
+          if (ref.slot === 'cin') Object.assign(scans, { cinDocUrl: stored, cinDocName: name });
+          else if (ref.slot === 'cinVerso') Object.assign(scans, { cinDocVersoUrl: stored, cinDocVersoName: name });
+          else if (ref.slot === 'license') Object.assign(scans, { licenseDocUrl: stored, licenseDocName: name });
+          else Object.assign(scans, { licenseDocVersoUrl: stored, licenseDocVersoName: name });
+          attached += 1;
+        }
+        const created = addClient({ ...fields, ...scans, notes: 'Créé depuis l’assistant IA', documents: [] });
+        const name = `${created.firstName} ${created.lastName}`;
+        if (attached > 0) return setResult(true, t('Client {name} créé, {n} photo(s) enregistrée(s) sur sa fiche.', { name, n: attached }));
+        if (photoRefs?.length) return setResult(true, t('Client {name} créé. Les photos ne sont plus disponibles : ajoutez-les depuis sa fiche.', { name }));
+        return setResult(true, t('Client {name} créé.', { name }));
       }
 
       const draft = action.contract;
@@ -483,6 +505,14 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
+    // Les photos restent en mémoire le temps de la session, pour être rattachées à la fiche si la carte est confirmée.
+    const rememberPhotos = (actions: AssistantAction[]) => {
+      if (!sentImages.length) return;
+      for (const a of actions) {
+        if (a?.type === 'create_client' && a.client?.photos?.length) photosByActionRef.current.set(a.id, sentImages);
+      }
+    };
+
     try {
       const historyPayload = messages
         .filter(
@@ -613,6 +643,7 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
             setMessages((prev) => prev.map((m) => (m.id === streamId ? { ...m, sources: items } : m)));
           } else if (evt.type === 'actions' && Array.isArray(evt.items)) {
             const items = evt.items.filter((a: any) => a && a.kind === 'action' && typeof a.id === 'string');
+            rememberPhotos(items);
             setMessages((prev) => prev.map((m) => (m.id === streamId ? { ...m, actions: items } : m)));
           } else if (evt.type === 'error') {
             streamError = typeof evt.error === 'string' ? evt.error : t('Réponse indisponible.');
@@ -668,6 +699,7 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
 
       if (data?.quota) setQuota(data.quota);
       if (data?.success && data.reply) {
+        if (Array.isArray(data.actions)) rememberPhotos(data.actions);
         const assistantMsg: AgentChatMessage = {
           id: `model-${Date.now()}`,
           role: 'model',
@@ -1327,6 +1359,9 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
                                                 [t('Téléphone'), a.client.phone],
                                                 [t('Permis'), a.client.drivingLicense],
                                                 [t('Naissance'), a.client.birthDate],
+                                                [t('Fin de validité du document'), a.client.docExpiryDate],
+                                                [t('Fin de validité du permis'), a.client.licenseExpiryDate],
+                                                [t('Photos'), a.client.photos?.length ? t('{n} photo(s) seront jointes à la fiche', { n: a.client.photos.length }) : ''],
                                                 [t('E-mail'), a.client.email],
                                                 [t('Adresse'), a.client.address],
                                               ]

@@ -11,6 +11,8 @@ export interface NewClientFormData {
   drivingLicense: string;
   docType: DocumentType;
   docNumber: string;
+  docExpiryDate?: string;
+  licenseExpiryDate?: string;
   phone: string;
   email: string;
   country: string;
@@ -253,6 +255,28 @@ export const WizardStep1Client: React.FC<WizardStep1ClientProps> = ({
               value={newClientForm.drivingLicense}
               onChange={(e) => setNewClientForm({ ...newClientForm, drivingLicense: e.target.value })}
               placeholder={t('Ex: B-492019/14')}
+              className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono focus:border-amber-500 focus:outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-slate-400 mb-1 font-medium">
+              {t('Fin de validité du document')} <span className="text-slate-500 font-normal">{t('(Facultatif)')}</span>
+            </label>
+            <input
+              type="date"
+              value={newClientForm.docExpiryDate || ''}
+              onChange={(e) => setNewClientForm({ ...newClientForm, docExpiryDate: e.target.value })}
+              className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono focus:border-amber-500 focus:outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-slate-400 mb-1 font-medium">
+              {t('Fin de validité du permis')} <span className="text-slate-500 font-normal">{t('(Facultatif)')}</span>
+            </label>
+            <input
+              type="date"
+              value={newClientForm.licenseExpiryDate || ''}
+              onChange={(e) => setNewClientForm({ ...newClientForm, licenseExpiryDate: e.target.value })}
               className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono focus:border-amber-500 focus:outline-none"
             />
           </div>

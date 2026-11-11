@@ -148,6 +148,14 @@ export const AR_LOT5: Record<string, string> = {
   '{total} MAD au total': 'المجموع {total} درهم',
   'En retard': 'متأخر',
 
+  // Pièces d'identité : fin de validité et photos sur la fiche
+  'Fin de validité du document': 'تاريخ انتهاء صلاحية الوثيقة',
+  'Fin de validité du permis': 'تاريخ انتهاء صلاحية رخصة السياقة',
+  Photos: 'الصور',
+  '{n} photo(s) seront jointes à la fiche': '{n} صورة (صور) ستُرفق ببطاقة الزبون',
+  'Client {name} créé, {n} photo(s) enregistrée(s) sur sa fiche.': 'تم إنشاء الزبون {name} وحُفظت {n} صورة (صور) في بطاقته.',
+  'Client {name} créé. Les photos ne sont plus disponibles : ajoutez-les depuis sa fiche.': 'تم إنشاء الزبون {name}. الصور لم تعد متوفرة: أضفها من بطاقته.',
+
   // Assistant IA : photos de CIN / permis
   '3 photos au maximum par message.': '3 صور كحد أقصى في كل رسالة.',
   'Une photo n’a pas pu être lue : choisissez une image (JPG ou PNG).': 'تعذرت قراءة صورة: اختر صورة بصيغة JPG أو PNG.',
