@@ -148,6 +148,17 @@ export const AR_LOT5: Record<string, string> = {
   '{total} MAD au total': 'المجموع {total} درهم',
   'En retard': 'متأخر',
 
+  // Assistant IA : véhicule encore en location
+  'Vous n’avez pas le droit de clôturer un contrat.': 'ليست لديك صلاحية إغلاق عقد.',
+  'Contrat {number} clôturé, mais le nouveau n’a pas pu être créé : relancez la demande.': 'تم إغلاق العقد {number} لكن تعذر إنشاء العقد الجديد: أعد الطلب.',
+  'Contrat {closed} clôturé, véhicule libéré. Contrat {number} créé en brouillon : complétez-le depuis la liste des contrats.': 'تم إغلاق العقد {closed} وتحرير السيارة. وتم إنشاء العقد {number} كمسودة (brouillon): أكمله من لائحة العقود.',
+  'Libère d’abord le véhicule : clôture du contrat {number} ({client})': 'تحرير السيارة أولًا: إغلاق العقد {number} ({client})',
+  'Retour prévu le {date}, dépassé : le véhicule est probablement rentré.': 'الإرجاع المقرر في {date} قد فات: على الأرجح عادت السيارة.',
+  'Retour prévu le {date}, pas encore échu : vérifiez que le véhicule est bien rentré.': 'الإرجاع المقرر في {date} لم يحن بعد: تأكد أن السيارة عادت فعلًا.',
+  'Retour enregistré aujourd’hui à {km} km.': 'سيُسجَّل الإرجاع اليوم عند {km} كلم.',
+  'Non traité par la clôture : reste à encaisser {unpaid} MAD, caution détenue {deposit} MAD.': 'لا يعالجه الإغلاق: المتبقي للتحصيل {unpaid} درهم، والضمان (caution) المحتفظ به {deposit} درهم.',
+  'Clôturer et créer le contrat': 'إغلاق العقد وإنشاء العقد الجديد',
+
   // Contrat : avertissement sur une pièce du locataire périmée
   CIN: 'البطاقة الوطنية',
   '{doc} périmé depuis le {date} : demandez une pièce valide avant de louer.': '{doc} منتهي الصلاحية منذ {date}: اطلب وثيقة سارية قبل الكراء.',

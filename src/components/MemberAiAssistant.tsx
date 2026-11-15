@@ -15,6 +15,7 @@ import {
 import { formatPlateFrench } from '../utils/plateUtils';
 import { compressImage, type CompressedImage } from '../lib/imageCompress';
 import { storeFile } from '../lib/storageClient';
+import { getTodayDateString } from '../utils/vehicleExpiryUtils';
 
 const MAX_ATTACHMENTS = 3;
 import { getActiveAuthToken, endTerminatedSession, SESSION_TERMINATED } from '../lib/authToken';
@@ -106,8 +107,14 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
     updateContractFinancials,
     addClient,
     createContract,
+    completeContract,
     hasPermission,
   } = useApp();
+
+  // Dernier état de l'application : après une clôture, la création du contrat doit voir la liste à jour (et non celle
+  // capturée au clic), sans quoi l'ancien contrat réapparaîtrait comme « en cours ».
+  const appRef = useRef({ contracts, createContract });
+  appRef.current = { contracts, createContract };
 
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -355,7 +362,33 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
       const vehicle = vehicles.find((v) => v.id === draft.vehicleId);
       if (!client?.id || !vehicle) return setResult(false, t('Client ou véhicule introuvable.'));
 
-      const created = await createContract({
+      // Véhicule bloqué par un contrat dont le retour n'a jamais été saisi : on le clôture d'abord (ce qui libère le
+      // véhicule), puis on attend que l'application ait pris en compte la clôture avant de créer le nouveau contrat.
+      let closedNumber: string | null = null;
+      const release = draft.release;
+      const blocking = release ? contracts.find((c) => c.id === release.contractId) : undefined;
+      if (release && blocking?.status === 'active') {
+        if (!hasPermission('canEditContracts')) return setResult(false, t('Vous n’avez pas le droit de clôturer un contrat.'));
+        const now = new Date();
+        const pad = (n: number) => String(n).padStart(2, '0');
+        completeContract(
+          blocking.id,
+          Math.max(release.returnKm, Number(blocking.departureKm) || 0),
+          getTodayDateString(now),
+          `${pad(now.getHours())}:${pad(now.getMinutes())}`,
+          'Clôturé depuis l’assistant IA pour un nouveau contrat'
+        );
+        closedNumber = blocking.contractNumber;
+        const deadline = Date.now() + 4000;
+        while (appRef.current.contracts.find((c) => c.id === blocking.id)?.status === 'active') {
+          if (Date.now() > deadline) {
+            return setResult(false, t('Contrat {number} clôturé, mais le nouveau n’a pas pu être créé : relancez la demande.', { number: closedNumber }));
+          }
+          await new Promise((resolve) => setTimeout(resolve, 60));
+        }
+      }
+
+      const created = await appRef.current.createContract({
         status: 'draft',
         clientId: client.id,
         clientSnapshot: {
@@ -396,7 +429,12 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
         ...(draft.depositAmount > 0 ? { depositCollected: false } : {}),
         notes: draft.notes || 'Créé depuis l’assistant IA',
       });
-      return setResult(true, t('Contrat {number} créé en brouillon : complétez-le depuis la liste des contrats.', { number: created.contractNumber }));
+      return setResult(
+        true,
+        closedNumber
+          ? t('Contrat {closed} clôturé, véhicule libéré. Contrat {number} créé en brouillon : complétez-le depuis la liste des contrats.', { closed: closedNumber, number: created.contractNumber })
+          : t('Contrat {number} créé en brouillon : complétez-le depuis la liste des contrats.', { number: created.contractNumber })
+      );
     } catch (err: any) {
       return setResult(false, err?.message || t('L’action a échoué. Réessayez depuis le contrat.'));
     }
@@ -548,6 +586,8 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
         message: finalPrompt,
         history: historyPayload,
         ...(sentImages.length ? { images: sentImages.map(({ mimeType, data }) => ({ mimeType, data })) } : {}),
+        // Photos sans texte : le serveur sait qu'il s'agit de créer la fiche client, sans bavardage.
+        ...(sentImages.length && !userPrompt.trim() ? { intent: 'photo_client' } : {}),
         memberData: {
           vehicles: scopedVehicles,
           contracts: scopedContracts,
@@ -1387,6 +1427,30 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
                                               {a.contract.depositAmount > 0 && (
                                                 <div>{t('Caution convenue : {amount} MAD (non encore prise)', { amount: a.contract.depositAmount })}</div>
                                               )}
+                                              {a.contract.release && (
+                                                <div className="mt-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 p-2 text-amber-200 space-y-0.5">
+                                                  <div className="font-semibold">
+                                                    {t('Libère d’abord le véhicule : clôture du contrat {number} ({client})', {
+                                                      number: a.contract.release.contractNumber,
+                                                      client: a.contract.release.clientName,
+                                                    })}
+                                                  </div>
+                                                  <div>
+                                                    {a.contract.release.overdue
+                                                      ? t('Retour prévu le {date}, dépassé : le véhicule est probablement rentré.', { date: a.contract.release.plannedEnd })
+                                                      : t('Retour prévu le {date}, pas encore échu : vérifiez que le véhicule est bien rentré.', { date: a.contract.release.plannedEnd })}
+                                                  </div>
+                                                  <div>{t('Retour enregistré aujourd’hui à {km} km.', { km: a.contract.release.returnKm })}</div>
+                                                  {(a.contract.release.unpaid > 0 || a.contract.release.depositHeld > 0) && (
+                                                    <div>
+                                                      {t('Non traité par la clôture : reste à encaisser {unpaid} MAD, caution détenue {deposit} MAD.', {
+                                                        unpaid: a.contract.release.unpaid,
+                                                        deposit: a.contract.release.depositHeld,
+                                                      })}
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              )}
                                               {!result && (() => {
                                                 const problem = resolveContractClient(clients, a.contract.clientRef).error;
                                                 return problem ? <div className="text-amber-400">{problem}</div> : null;
@@ -1419,7 +1483,9 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
                                                 : a.type === 'create_client'
                                                 ? t('Créer le client')
                                                 : a.type === 'create_contract'
-                                                ? t('Créer le contrat (brouillon)')
+                                                ? a.contract?.release
+                                                  ? t('Clôturer et créer le contrat')
+                                                  : t('Créer le contrat (brouillon)')
                                                 : t('Confirmer')}
                                             </button>
                                           )}

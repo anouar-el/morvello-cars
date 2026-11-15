@@ -145,7 +145,7 @@ export const ASSISTANT_TOOL_DECLARATIONS = [
   {
     name: 'creer_contrat',
     description:
-      "Prépare un contrat de location en BROUILLON pour un client déjà enregistré, que l'utilisateur confirmera d'un clic ; rien n'est créé par toi. Vérifie la disponibilité du véhicule et calcule le total. Si le client n'existe pas encore, propose d'abord de le créer avec creer_client. Ne devine jamais le véhicule, les dates ou le tarif : demande-les s'ils manquent.",
+      "Prépare un contrat de location en BROUILLON pour un client déjà enregistré, que l'utilisateur confirmera d'un clic ; rien n'est créé par toi. Vérifie la disponibilité du véhicule et calcule le total. Si le véhicule apparaît encore en location à cause d'un contrat dépassé ou qui chevauche, l'outil prépare lui-même la clôture de ce contrat (retour aujourd'hui) dans la même carte : ne demande rien de plus et n'appelle pas d'autre outil pour cela. Si le client n'existe pas encore, propose d'abord de le créer avec creer_client. Ne devine jamais le véhicule, les dates ou le tarif : demande-les s'ils manquent.",
     parameters: {
       type: 'OBJECT',
       properties: {
@@ -442,6 +442,9 @@ function proposition(action: AssistantAction): ToolOutcome {
       statut: 'proposition_affichee_a_utilisateur',
       note: "La carte est affichée ; l'utilisateur doit la confirmer. Ne dis jamais que c'est fait.",
       action: action.title,
+      ...(action.contract?.release
+        ? { cloture_prevue: `${action.contract.release.contractNumber} (${action.contract.release.clientName}), fin prévue ${action.contract.release.plannedEnd}` }
+        : {}),
     },
     sources: [action],
   };
@@ -499,6 +502,32 @@ function creerContrat(args: Record<string, unknown>, data: AssistantToolData): T
       notes: str(args.notes).trim().slice(0, 300),
     },
   };
+
+  // Véhicule encore « en location » : si c'est un contrat dépassé (retour jamais saisi) ou qui chevauche la période,
+  // on propose de le clôturer d'abord, ce qui libère le véhicule. Un brouillon, lui, n'est jamais clôturé à la place de l'utilisateur.
+  const blocking = data.contracts.find(
+    (c) =>
+      c.status === 'active' &&
+      ((c.vehicleId && c.vehicleId === vehicle.id) || (plate && compact(c.vehicleSnapshot?.plate) === plate))
+  );
+  if (blocking && action.contract) {
+    const plannedEnd = (effectiveReturn(blocking).date || blocking.endDate || '').slice(0, 10);
+    const overdue = Boolean(plannedEnd) && plannedEnd < todayInMorocco();
+    const clashes = Boolean(plannedEnd) && overlaps(String(blocking.startDate || '').slice(0, 10), plannedEnd, startDate, endDate);
+    if (overdue || clashes) {
+      action.contract.release = {
+        contractId: String(blocking.id || ''),
+        contractNumber: String(blocking.contractNumber || ''),
+        clientName: clientLabel(blocking),
+        plannedEnd,
+        overdue,
+        returnKm: Math.max(Number(vehicle.currentKm) || 0, Number(blocking.departureKm) || 0),
+        unpaid: Math.round(remainingOf(blocking)),
+        depositHeld: getDepositCollectionStatus(blocking as Contract) === 'collected' ? Math.round(Number(blocking.depositAmount) || 0) : 0,
+      };
+      action.title = `Clôturer ${action.contract.release.contractNumber} puis créer le contrat (${vehicle.brand} ${vehicle.model}, ${startDate} → ${endDate})`;
+    }
+  }
 
   // Disponibilité du véhicule vérifiée ici ; le client est résolu par le navigateur, qui a la liste complète.
   const check = validateAction(action, undefined, { vehicles: data.vehicles, contracts: data.contracts });
