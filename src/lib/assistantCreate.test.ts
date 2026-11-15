@@ -11,6 +11,8 @@ import {
   type ClientDraft,
 } from './assistantActions';
 import { executeAssistantTool } from './assistantTools';
+import { todayInMorocco } from './aiAssistantContext';
+import { addDays } from './planning';
 
 const karim: Partial<Client> = {
   id: 'cli-1',
@@ -30,13 +32,16 @@ const clio: Partial<Vehicle> = {
   dailyRate: 300,
 };
 
+/** Jour relatif à aujourd'hui (heure du Maroc), pour que les tests ne vieillissent pas. */
+const day = (offset: number) => addDays(todayInMorocco(), offset);
+
 const busyContract = {
   id: 'cnt-1',
   contractNumber: 'MC-2026-0001',
   status: 'active',
   vehicleId: 'veh-1',
-  startDate: '2026-11-18',
-  endDate: '2026-11-22',
+  startDate: day(3),
+  endDate: day(7),
 } as Partial<Contract>;
 
 const draftArgs = {
@@ -151,14 +156,67 @@ describe('validateAction for creations', () => {
     expect(validateAction(clientAction(draft), undefined, { clients: [sara] }).ok).toBe(true);
   });
 
-  it('refuses a contract when the vehicle is busy on those dates', () => {
+  it('refuses a contract when a draft or another booking blocks the vehicle', () => {
+    const draftBooking = { ...busyContract, status: 'draft' } as Partial<Contract>;
     const out = executeAssistantTool(
       'creer_contrat',
-      { client: 'Karim', plaque: '12345-A-1', date_debut: '2026-11-20', date_fin: '2026-11-25' },
-      { vehicles: [clio], contracts: [busyContract] }
+      { client: 'Karim', plaque: '12345-A-1', date_debut: day(5), date_fin: day(9) },
+      { vehicles: [clio], contracts: [draftBooking] }
     );
     expect(out.sources).toHaveLength(0);
     expect(String(out.result.erreur)).toContain('MC-2026-0001');
+  });
+});
+
+describe('creer_contrat on a vehicle still shown as rented', () => {
+  const ask = (contracts: Partial<Contract>[], from: number, to: number) =>
+    executeAssistantTool(
+      'creer_contrat',
+      { client: 'Karim', plaque: '12345-A-1', date_debut: day(from), date_fin: day(to) },
+      { vehicles: [{ ...clio, currentKm: 41_000 }], contracts }
+    );
+  const release = (out: ReturnType<typeof ask>) => (out.sources[0] as AssistantAction | undefined)?.contract?.release;
+
+  it('offers to close an overdue contract whose return was never recorded', () => {
+    const overdue = {
+      ...busyContract,
+      startDate: day(-10),
+      endDate: day(-2),
+      departureKm: 40_000,
+      totalAmount: 2000,
+      paidAmount: 1500,
+      clientSnapshot: { firstName: 'Omar', lastName: 'Idrissi' },
+    } as unknown as Partial<Contract>;
+    const out = ask([overdue], 0, 3);
+    expect(out.result.erreur).toBeUndefined();
+    expect(release(out)).toMatchObject({
+      contractId: 'cnt-1',
+      overdue: true,
+      returnKm: 41_000,
+      unpaid: 500,
+      clientName: 'IDRISSI Omar',
+    });
+  });
+
+  it('offers it too when the running contract overlaps, flagging that the return is not due yet', () => {
+    const running = { ...busyContract, startDate: day(-3), endDate: day(4) } as Partial<Contract>;
+    expect(release(ask([running], 1, 5))).toMatchObject({ contractNumber: 'MC-2026-0001', overdue: false });
+  });
+
+  it('does not touch a contract that ends before the new one starts', () => {
+    const later = { ...busyContract, startDate: day(-1), endDate: day(3) } as Partial<Contract>;
+    const out = ask([later], 6, 9);
+    expect(out.result.erreur).toBeUndefined();
+    expect(release(out)).toBeUndefined();
+  });
+
+  it('validation ignores the contract being closed, and still refuses a second blocker', () => {
+    const running = { ...busyContract, startDate: day(-3), endDate: day(4) } as Partial<Contract>;
+    const action = ask([running], 1, 5).sources[0] as AssistantAction;
+    const ctx = { vehicles: [clio], contracts: [running] };
+    expect(validateAction(action, undefined, ctx).ok).toBe(true);
+    const other = { ...busyContract, id: 'cnt-2', contractNumber: 'MC-2026-0002', status: 'draft', startDate: day(2), endDate: day(3) } as Partial<Contract>;
+    expect(validateAction(action, undefined, { ...ctx, contracts: [running, other] }).ok).toBe(false);
   });
 });
 
@@ -168,7 +226,7 @@ describe('creer_contrat / creer_client tools', () => {
   it('prepares a draft contract with the vehicle rate and computed total', () => {
     const out = executeAssistantTool(
       'creer_contrat',
-      { client: 'Karim Alaoui', plaque: '12345 a 1', date_debut: '2026-11-25', date_fin: '2026-11-30', caution: 3000 },
+      { client: 'Karim Alaoui', plaque: '12345 a 1', date_debut: day(20), date_fin: day(25), caution: 3000 },
       data
     );
     const action = out.sources[0] as AssistantAction;

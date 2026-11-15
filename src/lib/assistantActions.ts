@@ -40,8 +40,30 @@ export interface ClientDraft {
   country: string;
 }
 
+/**
+ * Contrat en cours qui bloque le véhicule (retour jamais enregistré, ou chevauchement) : la carte propose de le
+ * clôturer avec un retour aujourd'hui, ce qui libère le véhicule, avant de créer le nouveau contrat.
+ */
+export interface ContractRelease {
+  contractId: string;
+  contractNumber: string;
+  clientName: string;
+  /** Fin prévue du contrat bloquant (AAAA-MM-JJ). */
+  plannedEnd: string;
+  /** Fin prévue déjà dépassée : le véhicule est très probablement revenu sans que le retour soit saisi. */
+  overdue: boolean;
+  /** Kilométrage de retour proposé (dernier connu), modifiable depuis le contrat si besoin. */
+  returnKm: number;
+  /** Reste à encaisser sur ce contrat, en MAD : la clôture ne le règle pas. */
+  unpaid: number;
+  /** Caution encore détenue : la clôture ne la libère pas. */
+  depositHeld: number;
+}
+
 /** Contrat proposé : toujours créé en brouillon, sans signature ni photos. */
 export interface ContractDraft {
+  /** Contrat à clôturer d'abord pour libérer le véhicule. */
+  release?: ContractRelease;
   /** Nom ou téléphone du client, résolu sur les fiches existantes au moment de confirmer. */
   clientRef: string;
   vehicleId: string;
@@ -279,11 +301,13 @@ function validateCreation(action: AssistantAction, ctx: ActionContext | undefine
   if (ctx?.vehicles) {
     const vehicle = ctx.vehicles.find((v) => v.id === draft.vehicleId);
     if (!vehicle) return { ok: false, error: 'Véhicule introuvable.' };
+    // Le contrat qu'on propose de clôturer ne compte plus comme un obstacle.
+    const releasing = draft.release?.contractId;
     const availability = isVehicleAvailableForPeriod(
       draft.vehicleId,
       draft.startDate,
       draft.endDate,
-      (ctx.contracts || []) as Contract[],
+      ((ctx.contracts || []) as Contract[]).filter((c) => !releasing || c.id !== releasing),
       vehicle as Vehicle
     );
     if (!availability.available) return { ok: false, error: availability.conflictReason || 'Véhicule indisponible.' };
