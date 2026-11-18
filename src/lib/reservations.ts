@@ -18,7 +18,8 @@ export const SOON_DAYS = 2;
 
 /** Prérempli du contrat à partir d'une réservation. */
 export interface ReservationDraft {
-  reservationId: string;
+  /** Absent quand le préremplissage ne vient pas d'une réservation (ex. contrat proposé par l'assistant). */
+  reservationId?: string;
   clientId: string;
   vehicleId?: string;
   startDate: string;

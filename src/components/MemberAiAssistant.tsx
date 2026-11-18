@@ -9,9 +9,16 @@ import { requestEntityFocus } from '../lib/entityFocus';
 import {
   validateAction,
   resolveContractClient,
+  recomputeContractDraft,
+  DEFAULT_START_TIME,
+  DEFAULT_END_TIME,
   PAYMENT_METHOD_LABELS,
   type AssistantAction,
+  type ContractEdits,
 } from '../lib/assistantActions';
+import { buildContractInsurance, getVehicleCategory, INSURANCE_PACKS } from '../data/insurancePacks';
+import { setReservationDraft } from '../lib/reservationHandoff';
+import { ContractActionFields } from './assistant/ContractActionFields';
 import { formatPlateFrench } from '../utils/plateUtils';
 import { compressImage, type CompressedImage } from '../lib/imageCompress';
 import { storeFile } from '../lib/storageClient';
@@ -318,6 +325,38 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
     .sort((a, b) => Number(b.chip.count > 0) - Number(a.chip.count > 0) || a.order - b.order)
     .map(({ chip }) => chip);
 
+  // Corrections faites sur les cartes de contrat avant de confirmer (dates, heures, tarif, caution, pack), par carte.
+  const [contractEdits, setContractEdits] = useState<Record<string, ContractEdits>>({});
+
+  /** La carte telle que l'utilisateur l'a corrigée : jours et total recalculés. */
+  const editedContractAction = (a: AssistantAction): AssistantAction =>
+    a.contract ? { ...a, contract: recomputeContractDraft(a.contract, contractEdits[a.id]) } : a;
+
+  /** Pourquoi la carte ne peut pas être confirmée telle quelle (client absent, véhicule pris…), ou null. */
+  const contractProblem = (a: AssistantAction): string | null => {
+    const check = validateAction(a, undefined, { clients, vehicles, contracts });
+    return check.ok ? null : check.error || 'Action impossible.';
+  };
+
+  /** Même contrat, mais à finir à la main dans l'assistant de contrat (signature, état des lieux, second conducteur). */
+  const openContractInWizard = (a: AssistantAction) => {
+    const draft = a.contract;
+    if (!draft) return;
+    const client =
+      (draft.clientId ? clients.find((c) => c.id === draft.clientId) : undefined) ?? resolveContractClient(clients, draft.clientRef).client;
+    if (!client?.id) return;
+    setReservationDraft({
+      clientId: client.id,
+      vehicleId: draft.vehicleId,
+      startDate: draft.startDate,
+      startTime: draft.startTime || DEFAULT_START_TIME,
+      endDate: draft.endDate,
+      endTime: draft.endTime || DEFAULT_END_TIME,
+    });
+    setActiveTab('new_contract');
+    if (isDrawer) onClose?.();
+  };
+
   /** Création d'un client ou d'un contrat (brouillon) après clic explicite, avec les mêmes fonctions que les formulaires. */
   const runCreation = async (action: AssistantAction, setResult: (ok: boolean, text: string) => void) => {
     // Un double clic ne doit pas créer deux fois la même fiche.
@@ -358,7 +397,7 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
       if (action.type !== 'create_contract' || !draft) return setResult(false, 'Action impossible.');
       if (!hasPermission('canCreateContracts')) return setResult(false, t('Vous n’avez pas le droit de créer un contrat.'));
 
-      const client = resolveContractClient(clients, draft.clientRef).client;
+      const client = (draft.clientId ? clients.find((c) => c.id === draft.clientId) : undefined) ?? resolveContractClient(clients, draft.clientRef).client;
       const vehicle = vehicles.find((v) => v.id === draft.vehicleId);
       if (!client?.id || !vehicle) return setResult(false, t('Client ou véhicule introuvable.'));
 
@@ -415,13 +454,17 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
           fuelType: vehicle.fuelType,
         },
         startDate: draft.startDate,
-        startTime: '10:00',
+        startTime: draft.startTime || DEFAULT_START_TIME,
         endDate: draft.endDate,
-        endTime: '10:00',
+        endTime: draft.endTime || DEFAULT_END_TIME,
         departureKm: vehicle.currentKm || 0,
-        departureFuel: '8/8',
+        departureFuel: '8/8 (Plein)',
         prolongation: { isActive: false, newEndDate: '', newEndTime: '' },
         termsVersion: '',
+        // Pack d'assurance figé sur le contrat, comme dans l'assistant de contrat (base par défaut)
+        insurance: buildContractInsurance(draft.category || getVehicleCategory(vehicle), draft.packId || 'base'),
+        assignedManagerId: vehicle.assignedManagerId,
+        assignedManagerName: vehicle.assignedManagerName,
         totalDays: draft.totalDays,
         pricePerDay: draft.pricePerDay,
         totalAmount: draft.totalAmount,
@@ -570,7 +613,7 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
         }));
 
       // Cloisonnement strict des données transmises à l'IA selon le rôle
-      const { scopedVehicles, scopedContracts, scopedDeposits } = getScopedDataForUser(
+      const { scopedVehicles, scopedContracts, scopedDeposits, scopedClients } = getScopedDataForUser(
         currentUser,
         vehicles,
         contracts,
@@ -592,6 +635,8 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
           vehicles: scopedVehicles,
           contracts: scopedContracts,
           deposits: scopedDeposits,
+          // Sert seulement de repli si le serveur ne peut pas lire les clients lui-même.
+          clients: scopedClients.map(({ id, firstName, lastName, phone, docNumber }) => ({ id, firstName, lastName, phone, docNumber })),
         },
         aiSettings,
         stream: true,
@@ -1414,49 +1459,18 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
                                                 ))}
                                             </dl>
                                           )}
-                                          {a.type === 'create_contract' && a.contract && (
-                                            <div className="mt-2 space-y-0.5 text-slate-300">
-                                              <div>{t('Client :')} <span dir="auto" className="text-white">{a.contract.clientRef}</span></div>
-                                              <div>{a.contract.vehicleLabel}</div>
-                                              <div>
-                                                {a.contract.startDate} → {a.contract.endDate} · {t('{days} jours', { days: a.contract.totalDays })}
-                                              </div>
-                                              <div>
-                                                {t('{price} MAD/jour', { price: a.contract.pricePerDay })} · <span className="font-bold text-amber-300">{t('Total {amount} MAD', { amount: a.contract.totalAmount })}</span>
-                                              </div>
-                                              {a.contract.depositAmount > 0 && (
-                                                <div>{t('Caution convenue : {amount} MAD (non encore prise)', { amount: a.contract.depositAmount })}</div>
-                                              )}
-                                              {a.contract.release && (
-                                                <div className="mt-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 p-2 text-amber-200 space-y-0.5">
-                                                  <div className="font-semibold">
-                                                    {t('Libère d’abord le véhicule : clôture du contrat {number} ({client})', {
-                                                      number: a.contract.release.contractNumber,
-                                                      client: a.contract.release.clientName,
-                                                    })}
-                                                  </div>
-                                                  <div>
-                                                    {a.contract.release.overdue
-                                                      ? t('Retour prévu le {date}, dépassé : le véhicule est probablement rentré.', { date: a.contract.release.plannedEnd })
-                                                      : t('Retour prévu le {date}, pas encore échu : vérifiez que le véhicule est bien rentré.', { date: a.contract.release.plannedEnd })}
-                                                  </div>
-                                                  <div>{t('Retour enregistré aujourd’hui à {km} km.', { km: a.contract.release.returnKm })}</div>
-                                                  {(a.contract.release.unpaid > 0 || a.contract.release.depositHeld > 0) && (
-                                                    <div>
-                                                      {t('Non traité par la clôture : reste à encaisser {unpaid} MAD, caution détenue {deposit} MAD.', {
-                                                        unpaid: a.contract.release.unpaid,
-                                                        deposit: a.contract.release.depositHeld,
-                                                      })}
-                                                    </div>
-                                                  )}
-                                                </div>
-                                              )}
-                                              {!result && (() => {
-                                                const problem = resolveContractClient(clients, a.contract.clientRef).error;
-                                                return problem ? <div className="text-amber-400">{problem}</div> : null;
-                                              })()}
-                                            </div>
-                                          )}
+                                          {a.type === 'create_contract' && a.contract && (() => {
+                                            const edited = editedContractAction(a);
+                                            return (
+                                              <ContractActionFields
+                                                draft={edited.contract!}
+                                                clientName={edited.contract!.clientLabel || edited.contract!.clientRef}
+                                                problem={contractProblem(edited)}
+                                                locked={Boolean(result)}
+                                                onEdit={(patch) => setContractEdits((prev) => ({ ...prev, [a.id]: { ...prev[a.id], ...patch } }))}
+                                              />
+                                            );
+                                          })()}
                                           {a.type === 'whatsapp' && a.message && (
                                             <div className="mt-2 whitespace-pre-wrap rounded-lg bg-slate-950/70 border border-slate-800 p-2 text-slate-200">
                                               {a.message}
@@ -1473,10 +1487,12 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
                                               {result.text}
                                             </div>
                                           ) : (
+                                            <div className="mt-2 flex flex-wrap items-center gap-2">
                                             <button
                                               type="button"
-                                              onClick={() => runAction(msg.id, a)}
-                                              className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs cursor-pointer"
+                                              onClick={() => runAction(msg.id, a.type === 'create_contract' ? editedContractAction(a) : a)}
+                                              disabled={a.type === 'create_contract' && contractProblem(editedContractAction(a)) !== null}
+                                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                                             >
                                               {a.type === 'whatsapp'
                                                 ? t('Ouvrir WhatsApp')
@@ -1488,6 +1504,16 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
                                                   : t('Créer le contrat (brouillon)')
                                                 : t('Confirmer')}
                                             </button>
+                                            {a.type === 'create_contract' && (
+                                              <button
+                                                type="button"
+                                                onClick={() => openContractInWizard(editedContractAction(a))}
+                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium cursor-pointer"
+                                              >
+                                                {t('Ouvrir dans l’assistant de contrat')}
+                                              </button>
+                                            )}
+                                            </div>
                                           )}
                                         </div>
                                       );

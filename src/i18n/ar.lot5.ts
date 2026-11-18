@@ -148,6 +148,13 @@ export const AR_LOT5: Record<string, string> = {
   '{total} MAD au total': 'المجموع {total} درهم',
   'En retard': 'متأخر',
 
+  // Assistant IA : carte de contrat modifiable
+  'Heure de départ': 'ساعة الانطلاق',
+  'Tarif par jour (MAD)': 'الثمن لليوم (درهم)',
+  'Caution (MAD)': 'الضمان (caution) بالدرهم',
+  'Pack d’assurance': 'باقة التأمين',
+  'Ouvrir dans l’assistant de contrat': 'فتح في معالج العقد',
+
   // Assistant IA : véhicule encore en location
   'Vous n’avez pas le droit de clôturer un contrat.': 'ليست لديك صلاحية إغلاق عقد.',
   'Contrat {number} clôturé, mais le nouveau n’a pas pu être créé : relancez la demande.': 'تم إغلاق العقد {number} لكن تعذر إنشاء العقد الجديد: أعد الطلب.',

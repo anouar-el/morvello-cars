@@ -724,7 +724,7 @@ export const ContractWizard: React.FC = () => {
         insurance: contractInsurance,
         depositCollected,
         notes: contractNotes,
-        ...(reservationInfo ? { reservationId: reservationInfo.reservationId } : {}),
+        ...(reservationInfo?.reservationId ? { reservationId: reservationInfo.reservationId } : {}),
       });
 
       setCreatedContractResult(newContract);
@@ -837,7 +837,7 @@ export const ContractWizard: React.FC = () => {
         </div>
       </div>
 
-      {reservationInfo && !isEditMode && (
+      {reservationInfo?.reservationId && !isEditMode && (
         <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-4 text-xs text-emerald-200" role="status">
           <div className="font-bold">{t('Contrat créé à partir d\'une réservation')}</div>
           <div className="mt-0.5 text-emerald-300/90">
