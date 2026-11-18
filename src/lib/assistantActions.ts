@@ -1,4 +1,5 @@
-import type { Client, Contract, DocumentType, PaymentMethod, Vehicle } from '../types';
+import type { Client, Contract, DocumentType, InsurancePackId, PaymentMethod, Vehicle, VehicleCategory } from '../types';
+import { getPackTerms } from '../data/insurancePacks';
 import { getDepositCollectionStatus } from '../utils/depositUtils';
 import { isVehicleAvailableForPeriod } from '../utils/vehicleStatusUtils';
 
@@ -66,15 +67,109 @@ export interface ContractDraft {
   release?: ContractRelease;
   /** Nom ou téléphone du client, résolu sur les fiches existantes au moment de confirmer. */
   clientRef: string;
+  /** Client déjà identifié par l'assistant (fiche trouvée) : évite toute ambiguïté au moment de confirmer. */
+  clientId?: string;
+  clientLabel?: string;
   vehicleId: string;
   vehicleLabel: string;
   startDate: string;
+  /** Mêmes heures par défaut que l'assistant de contrat : 10:00 au départ, 18:00 au retour. */
+  startTime?: string;
   endDate: string;
+  endTime?: string;
   totalDays: number;
   pricePerDay: number;
+  /** Jours × (tarif + supplément du pack). */
   totalAmount: number;
+  /** Pack d'assurance (base par défaut) et gamme du véhicule : servent au supplément et à la caution par défaut. */
+  packId?: InsurancePackId;
+  category?: VehicleCategory;
   depositAmount: number;
   notes: string;
+}
+
+export const DEFAULT_START_TIME = '10:00';
+export const DEFAULT_END_TIME = '18:00';
+
+/** Champs que l'utilisateur peut corriger sur la carte avant de confirmer. */
+export interface ContractEdits {
+  startDate?: string;
+  endDate?: string;
+  startTime?: string;
+  endTime?: string;
+  pricePerDay?: number;
+  depositAmount?: number;
+  packId?: InsurancePackId;
+}
+
+/**
+ * Applique les corrections de la carte et recalcule jours et total, avec la même règle que l'assistant de contrat :
+ * jours × (tarif + supplément du pack). Changer de pack remet la caution par défaut du pack, sauf si elle est corrigée.
+ */
+export function recomputeContractDraft(draft: ContractDraft, edits: ContractEdits = {}): ContractDraft {
+  const startDate = edits.startDate ?? draft.startDate;
+  const endDate = edits.endDate ?? draft.endDate;
+  const packId = edits.packId ?? draft.packId ?? 'base';
+  const pricePerDay = edits.pricePerDay ?? draft.pricePerDay;
+  const terms = draft.category ? getPackTerms(draft.category, packId) : null;
+
+  const packChanged = edits.packId !== undefined && edits.packId !== (draft.packId ?? 'base');
+  const depositAmount = edits.depositAmount ?? (terms && packChanged ? terms.depositMad : draft.depositAmount);
+
+  const datesOk = ISO_DAY.test(startDate) && ISO_DAY.test(endDate) && endDate >= startDate;
+  const totalDays = datesOk ? billedDays(startDate, endDate) : draft.totalDays;
+  const supplement = terms?.dailySupplementMad ?? 0;
+
+  return {
+    ...draft,
+    startDate,
+    endDate,
+    startTime: edits.startTime ?? draft.startTime,
+    endTime: edits.endTime ?? draft.endTime,
+    pricePerDay,
+    depositAmount: Math.max(0, Math.round(Number(depositAmount) || 0)),
+    packId,
+    totalDays,
+    totalAmount: Math.round(totalDays * ((Number(pricePerDay) || 0) + supplement) * 100) / 100,
+  };
+}
+
+const WEEKDAYS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+
+/**
+ * Jour exprimé en langage courant → AAAA-MM-JJ : date ISO, « aujourd'hui », « demain », « après-demain »,
+ * « dans 3 jours », « lundi » (prochain lundi, jamais aujourd'hui). Null si la formule n'est pas comprise.
+ */
+export function parseRelativeDay(value: unknown, today: string): string | null {
+  const raw = String(value ?? '').trim();
+  if (ISO_DAY.test(raw)) return raw;
+  const v = plain(raw).replace(/[’']/g, ' ').replace(/\s+/g, ' ');
+  if (!v) return null;
+  if (/^(aujourd ?hui|today|ajourd)/.test(v)) return today;
+  if (/^apres ?-? ?demain/.test(v)) return shiftDay(today, 2);
+  if (/^(demain|tomorrow)/.test(v)) return shiftDay(today, 1);
+  const inDays = v.match(/^dans (\d{1,3}) jours?$/);
+  if (inDays) return shiftDay(today, Number(inDays[1]));
+  const weekday = WEEKDAYS.findIndex((d) => v === d || v === `${d} prochain`);
+  if (weekday >= 0) {
+    const current = new Date(`${today}T00:00:00Z`).getUTCDay();
+    return shiftDay(today, ((weekday - current + 6) % 7) + 1);
+  }
+  return null;
+}
+
+function shiftDay(day: string, n: number): string {
+  return new Date(Date.parse(`${day}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+}
+
+/** « 9h », « 09:30 », « 14h30 » → « HH:MM » ; null si illisible. */
+export function parseClockTime(value: unknown): string | null {
+  const m = String(value ?? '').trim().toLowerCase().match(/^(\d{1,2})\s*(?:h|:)\s*(\d{2})?$/);
+  if (!m) return null;
+  const h = Number(m[1]);
+  const min = Number(m[2] ?? 0);
+  if (h > 23 || min > 59) return null;
+  return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
 }
 
 export interface AssistantAction {
@@ -295,8 +390,10 @@ function validateCreation(action: AssistantAction, ctx: ActionContext | undefine
   if (!(draft.pricePerDay > 0)) return { ok: false, error: 'Le tarif journalier est manquant.' };
 
   if (ctx?.clients) {
-    const resolved = resolveContractClient(ctx.clients, draft.clientRef);
-    if (resolved.error) return { ok: false, error: resolved.error };
+    // Client déjà identifié par l'assistant : on le retrouve par son identifiant, sans réinterpréter le nom.
+    const known = draft.clientId ? ctx.clients.find((c) => c.id === draft.clientId) : undefined;
+    const resolved = known ? { client: known } : resolveContractClient(ctx.clients, draft.clientRef);
+    if ('error' in resolved && resolved.error) return { ok: false, error: resolved.error };
   }
   if (ctx?.vehicles) {
     const vehicle = ctx.vehicles.find((v) => v.id === draft.vehicleId);

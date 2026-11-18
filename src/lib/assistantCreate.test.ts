@@ -5,6 +5,9 @@ import {
   findClientMatches,
   findDuplicateClient,
   normalizeClientDraft,
+  parseClockTime,
+  parseRelativeDay,
+  recomputeContractDraft,
   resolveContractClient,
   validateAction,
   type AssistantAction,
@@ -13,6 +16,7 @@ import {
 import { executeAssistantTool } from './assistantTools';
 import { todayInMorocco } from './aiAssistantContext';
 import { addDays } from './planning';
+import { getPackTerms } from '../data/insurancePacks';
 
 const karim: Partial<Client> = {
   id: 'cli-1',
@@ -168,6 +172,113 @@ describe('validateAction for creations', () => {
   });
 });
 
+describe('creer_contrat: understanding what the user said', () => {
+  const dacia: Partial<Vehicle> = { id: 'veh-2', brand: 'Dacia', model: 'Logan', plate: '67890-B-6', color: 'blanche', status: 'available', dailyRate: 250 };
+  const clioWhite: Partial<Vehicle> = { ...clio, color: 'blanche' };
+  const clioBlack: Partial<Vehicle> = { ...clio, id: 'veh-3', plate: '11111-C-1', color: 'noire' };
+  const fleet = [clioWhite, clioBlack, dacia];
+  const contractOf = (out: ReturnType<typeof executeAssistantTool>) => (out.sources[0] as AssistantAction | undefined)?.contract;
+
+  it('finds the vehicle from a plain description and the client from the list', () => {
+    const out = executeAssistantTool(
+      'creer_contrat',
+      { client: 'karim alaoui', vehicule: 'la logan blanche', date_debut: 'demain', duree_jours: 3 },
+      { vehicles: fleet, contracts: [], clients: [karim, sara] }
+    );
+    const draft = contractOf(out);
+    expect(out.result.erreur).toBeUndefined();
+    expect(draft).toMatchObject({ vehicleId: 'veh-2', clientId: 'cli-1', startDate: day(1), endDate: day(4), totalDays: 3 });
+  });
+
+  it('applies the contract wizard defaults: 10h to 18h, base pack, pack deposit and supplement in the total', () => {
+    const draft = contractOf(
+      executeAssistantTool('creer_contrat', { client: 'Karim', vehicule: '12345-A-1', date_debut: day(5), duree_jours: 2 }, { vehicles: [clioWhite], contracts: [], clients: [karim] })
+    );
+    const terms = getPackTerms('citadine', 'base');
+    expect(draft).toMatchObject({ startTime: '10:00', endTime: '18:00', packId: 'base', depositAmount: terms.depositMad });
+    expect(draft?.totalAmount).toBe(2 * (300 + terms.dailySupplementMad));
+  });
+
+  it('honours an explicit pack, deposit of zero and hours', () => {
+    const draft = contractOf(
+      executeAssistantTool(
+        'creer_contrat',
+        { client: 'Karim', vehicule: 'clio', date_debut: day(5), duree_jours: 1, pack: 'amélioré', caution: 0, heure_depart: '9h30' },
+        { vehicles: [clioWhite], contracts: [], clients: [karim] }
+      )
+    );
+    expect(draft).toMatchObject({ packId: 'ameliore', depositAmount: 0, startTime: '09:30' });
+  });
+
+  it('tells the model to create the client first, or to be precise when several match', () => {
+    const base = { vehicule: 'clio', date_debut: day(5), duree_jours: 1 };
+    const data = { vehicles: [clioWhite], contracts: [], clients: [karim, sara] };
+    expect(String(executeAssistantTool('creer_contrat', { ...base, client: 'Omar' }, data).result.erreur)).toContain('créez d’abord');
+    expect(String(executeAssistantTool('creer_contrat', { ...base, client: 'Alaoui' }, data).result.erreur)).toContain('Plusieurs clients');
+  });
+
+  it('picks the only free vehicle among several matches, otherwise lists the choices', () => {
+    const busy = { ...busyContract, vehicleId: 'veh-1', startDate: day(4), endDate: day(8), status: 'draft' } as Partial<Contract>;
+    const args = { client: 'Karim', vehicule: 'clio', date_debut: day(5), duree_jours: 2 };
+    const picked = executeAssistantTool('creer_contrat', args, { vehicles: [clioWhite, clioBlack], contracts: [busy], clients: [karim] });
+    expect(contractOf(picked)?.vehicleId).toBe('veh-3');
+    expect(picked.result.vehicule_choisi_automatiquement).toBeDefined();
+
+    const ambiguous = executeAssistantTool('creer_contrat', args, { vehicles: [clioWhite, clioBlack], contracts: [], clients: [karim] });
+    expect(ambiguous.sources).toHaveLength(0);
+    expect(ambiguous.result.choix).toHaveLength(2);
+  });
+});
+
+describe('parseRelativeDay / parseClockTime', () => {
+  const today = '2026-11-18'; // mercredi
+
+  it('understands everyday wording', () => {
+    expect(parseRelativeDay('2026-12-01', today)).toBe('2026-12-01');
+    expect(parseRelativeDay("aujourd'hui", today)).toBe('2026-11-18');
+    expect(parseRelativeDay('Demain', today)).toBe('2026-11-19');
+    expect(parseRelativeDay('après-demain', today)).toBe('2026-11-20');
+    expect(parseRelativeDay('dans 5 jours', today)).toBe('2026-11-23');
+    expect(parseRelativeDay('vendredi', today)).toBe('2026-11-20');
+    expect(parseRelativeDay('lundi prochain', today)).toBe('2026-11-23');
+    expect(parseRelativeDay('mercredi', today)).toBe('2026-11-25'); // jamais aujourd'hui
+    expect(parseRelativeDay('bientôt', today)).toBeNull();
+    expect(parseRelativeDay('', today)).toBeNull();
+  });
+
+  it('reads clock times', () => {
+    expect(parseClockTime('9h')).toBe('09:00');
+    expect(parseClockTime('14h30')).toBe('14:30');
+    expect(parseClockTime('08:15')).toBe('08:15');
+    expect(parseClockTime('25h')).toBeNull();
+    expect(parseClockTime('midi')).toBeNull();
+  });
+});
+
+describe('recomputeContractDraft', () => {
+  const draft = {
+    clientRef: 'Karim', vehicleId: 'veh-1', vehicleLabel: 'Clio', startDate: '2026-12-01', endDate: '2026-12-04', totalDays: 3,
+    pricePerDay: 300, totalAmount: 900, depositAmount: 1000, packId: 'base' as const, category: 'citadine' as const, notes: '',
+  };
+
+  it('recalculates days and total from the edited dates and price', () => {
+    const out = recomputeContractDraft(draft, { endDate: '2026-12-06', pricePerDay: 350 });
+    const supplement = getPackTerms('citadine', 'base').dailySupplementMad;
+    expect(out).toMatchObject({ totalDays: 5, totalAmount: 5 * (350 + supplement) });
+  });
+
+  it('switching pack resets the deposit to the pack default unless it was edited too', () => {
+    const terms = getPackTerms('citadine', 'confort');
+    expect(recomputeContractDraft(draft, { packId: 'confort' }).depositAmount).toBe(terms.depositMad);
+    expect(recomputeContractDraft(draft, { packId: 'confort', depositAmount: 777 }).depositAmount).toBe(777);
+    expect(recomputeContractDraft(draft, { startTime: '08:00' }).depositAmount).toBe(1000);
+  });
+
+  it('keeps the previous day count when the edited dates are invalid', () => {
+    expect(recomputeContractDraft(draft, { endDate: '2026-11-01' }).totalDays).toBe(3);
+  });
+});
+
 describe('creer_contrat on a vehicle still shown as rented', () => {
   const ask = (contracts: Partial<Contract>[], from: number, to: number) =>
     executeAssistantTool(
@@ -240,12 +351,13 @@ describe('creer_contrat / creer_client tools', () => {
     });
   });
 
-  it('refuses without a price, with bad dates or an unknown plate', () => {
+  it('refuses without a price, with unreadable dates or an unknown vehicle', () => {
     const noRate = { vehicles: [{ ...clio, dailyRate: 0 }], contracts: [] };
     const base = { client: 'Karim', plaque: '12345-A-1', date_debut: '2026-12-01', date_fin: '2026-12-03' };
     expect(executeAssistantTool('creer_contrat', base, noRate).result.erreur).toContain('tarif');
-    expect(executeAssistantTool('creer_contrat', { ...base, date_debut: 'demain' }, data).result.erreur).toContain('Dates');
-    expect(executeAssistantTool('creer_contrat', { ...base, plaque: '999' }, data).result.erreur).toContain('introuvable');
+    expect(executeAssistantTool('creer_contrat', { ...base, date_debut: 'bientôt' }, data).result.erreur).toContain('non comprise');
+    expect(executeAssistantTool('creer_contrat', { ...base, plaque: '999' }, data).result.erreur).toContain('Aucun véhicule');
+    expect(executeAssistantTool('creer_contrat', { ...base, date_fin: undefined }, data).result.erreur).toContain('Retour manquant');
   });
 
   it('prepares a client card only when the required fields are present', () => {

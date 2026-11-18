@@ -1,13 +1,20 @@
-import type { Contract, Vehicle } from '../types';
-import { VEHICLE_CATEGORIES, getVehicleCategory } from '../data/insurancePacks';
+import type { Client, Contract, InsurancePackId, Vehicle } from '../types';
+import { VEHICLE_CATEGORIES, getPackTerms, getVehicleCategory } from '../data/insurancePacks';
+import { isVehicleAvailableForPeriod } from '../utils/vehicleStatusUtils';
+import { addDays } from './planning';
 import { getDepositCollectionStatus } from '../utils/depositUtils';
 import { effectiveReturn, todayInMorocco } from './aiAssistantContext';
 import {
+  DEFAULT_END_TIME,
+  DEFAULT_START_TIME,
   MAX_WHATSAPP_CHARS,
   PAYMENT_METHODS,
-  billedDays,
   normalizeClientDraft,
+  parseClockTime,
+  parseRelativeDay,
+  recomputeContractDraft,
   remainingOf,
+  resolveContractClient,
   toWhatsAppNumber,
   validateAction,
   type AssistantAction,
@@ -37,6 +44,8 @@ export interface AssistantToolData {
   contracts: Partial<Contract>[];
   /** Nombre de photos jointes au message en cours (pour rattacher les bonnes photos à la fiche client). */
   imageCount?: number;
+  /** Fiches clients du périmètre de l'utilisateur, pour retrouver le client d'un contrat. Absent si illisibles. */
+  clients?: Partial<Client>[];
 }
 
 export interface ToolOutcome {
@@ -149,15 +158,22 @@ export const ASSISTANT_TOOL_DECLARATIONS = [
     parameters: {
       type: 'OBJECT',
       properties: {
-        client: { type: 'STRING', description: 'Nom complet ou téléphone du client.' },
-        plaque: { type: 'STRING', description: 'Plaque du véhicule (voir vehicules_disponibles).' },
-        date_debut: { type: 'STRING', description: 'Départ, format AAAA-MM-JJ.' },
-        date_fin: { type: 'STRING', description: 'Retour, format AAAA-MM-JJ.' },
+        client: { type: 'STRING', description: 'Nom complet ou téléphone du client, tel que dit par l\'utilisateur.' },
+        vehicule: {
+          type: 'STRING',
+          description: "Plaque (même partielle) ou description libre : « clio blanche », « la Dacia ». Si plusieurs correspondent, l'outil choisit celui qui est libre ou liste les choix.",
+        },
+        date_debut: { type: 'STRING', description: "Départ : AAAA-MM-JJ, « aujourd'hui », « demain », « lundi »… Par défaut aujourd'hui." },
+        date_fin: { type: 'STRING', description: 'Retour : AAAA-MM-JJ, « demain », « vendredi »… Inutile si duree_jours est donnée.' },
+        duree_jours: { type: 'INTEGER', description: 'Nombre de jours de location (« pour 5 jours »), à la place de date_fin.' },
+        heure_depart: { type: 'STRING', description: 'Ex. 09:00 ; par défaut 10:00.' },
+        heure_retour: { type: 'STRING', description: 'Ex. 18:00 ; par défaut 18:00.' },
         tarif_journalier: { type: 'NUMBER', description: 'MAD par jour ; par défaut le tarif de la fiche véhicule.' },
-        caution: { type: 'NUMBER', description: 'Montant de la caution en MAD, 0 si aucune.' },
+        caution: { type: 'NUMBER', description: "Montant de la caution en MAD, 0 si aucune ; par défaut celle du pack d'assurance." },
+        pack: { type: 'STRING', description: "Pack d'assurance : 'base' (défaut), 'ameliore' ou 'confort'." },
         notes: { type: 'STRING', description: 'Remarque libre à ajouter au contrat.' },
       },
-      required: ['client', 'plaque', 'date_debut', 'date_fin'],
+      required: ['client', 'vehicule'],
     },
   },
 ] as const;
@@ -436,9 +452,10 @@ function newActionId(): string {
   return `act-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
-function proposition(action: AssistantAction): ToolOutcome {
+function proposition(action: AssistantAction, extra: Record<string, unknown> = {}): ToolOutcome {
   return {
     result: {
+      ...extra,
       statut: 'proposition_affichee_a_utilisateur',
       note: "La carte est affichée ; l'utilisateur doit la confirmer. Ne dis jamais que c'est fait.",
       action: action.title,
@@ -466,21 +483,90 @@ function creerClient(args: Record<string, unknown>, data: AssistantToolData): To
   return proposition(action);
 }
 
-function creerContrat(args: Record<string, unknown>, data: AssistantToolData): ToolOutcome {
-  const fail = (erreur: string): ToolOutcome => ({ result: { erreur }, sources: [] });
-  const clientRef = str(args.client).trim();
-  const plate = compact(args.plaque);
-  const startDate = str(args.date_debut).trim();
-  const endDate = str(args.date_fin).trim();
-  if (!clientRef) return fail('Client manquant.');
-  if (!ISO_DATE.test(startDate) || !ISO_DATE.test(endDate)) return fail('Dates invalides : utiliser le format AAAA-MM-JJ.');
+const VEHICLE_QUERY_FILLER = new Set(['la', 'le', 'les', 'une', 'un', 'de', 'du', 'des', 'voiture', 'vehicule', 'auto', 'car', 'cette', 'ce']);
 
-  const vehicle = plate ? data.vehicles.find((v) => compact(v.plate) === plate) : undefined;
-  if (!vehicle) return fail('Véhicule introuvable : donne la plaque exacte (voir vehicules_disponibles).');
+/** Véhicules désignés en langage courant : plaque exacte ou partielle, sinon mots du modèle, de la couleur, de l'année… */
+function findVehicleCandidates(vehicles: Partial<Vehicle>[], query: string): Partial<Vehicle>[] {
+  const q = compact(query);
+  if (!q) return [];
+  const exact = vehicles.filter((v) => compact(v.plate) === q);
+  if (exact.length) return exact;
+  const partial = q.length >= 3 ? vehicles.filter((v) => compact(v.plate).includes(q)) : [];
+  if (partial.length) return partial;
+  const words = norm(query)
+    .split(/\s+/)
+    .filter((w) => w.length > 1 && !VEHICLE_QUERY_FILLER.has(w));
+  if (!words.length) return [];
+  return vehicles.filter((v) => {
+    const hay = norm(`${v.brand} ${v.model} ${v.color || ''} ${v.year || ''} ${v.fuelType || ''}`);
+    return words.every((w) => hay.includes(w));
+  });
+}
+
+function describeVehicle(v: Partial<Vehicle>): string {
+  return `${v.brand} ${v.model}${v.color ? ` ${v.color}` : ''} (${v.plate})`;
+}
+
+function parsePack(value: unknown): InsurancePackId {
+  const v = norm(value);
+  if (v.startsWith('ame')) return 'ameliore';
+  if (v.startsWith('conf')) return 'confort';
+  return 'base';
+}
+
+function creerContrat(args: Record<string, unknown>, data: AssistantToolData): ToolOutcome {
+  const fail = (erreur: string, extra: Record<string, unknown> = {}): ToolOutcome => ({ result: { erreur, ...extra }, sources: [] });
+  const today = todayInMorocco();
+  const clientRef = str(args.client).trim();
+  const vehicleQuery = str(args.vehicule || args.plaque).trim();
+  if (!clientRef) return fail('Client manquant.');
+  if (!vehicleQuery) return fail('Véhicule manquant : demande lequel, ou propose ceux de vehicules_disponibles.');
+
+  // Dates : départ = aujourd'hui par défaut ; retour = date donnée ou départ + durée.
+  const startDate = args.date_debut ? parseRelativeDay(args.date_debut, today) : today;
+  if (!startDate) return fail('Date de départ non comprise : la donner au format AAAA-MM-JJ.');
+  const duration = Math.round(Number(args.duree_jours) || 0);
+  const endDate = args.date_fin ? parseRelativeDay(args.date_fin, today) : duration > 0 ? addDays(startDate, duration) : null;
+  if (!endDate) return fail('Retour manquant : demande la date de retour ou la durée de location.');
+  if (endDate < startDate) return fail('Le retour précède le départ.');
+
+  // Client : retrouvé dans la liste complète quand elle est disponible (un seul candidat, sinon l'erreur dit quoi faire).
+  let client: Partial<Client> | undefined;
+  if (data.clients) {
+    const resolved = resolveContractClient(data.clients, clientRef);
+    if (!resolved.client) return fail(resolved.error || 'Client introuvable.');
+    client = resolved.client;
+  }
+
+  // Véhicule : plusieurs candidats → celui qui est libre sur la période s'il est seul, sinon on liste les choix.
+  const candidates = findVehicleCandidates(data.vehicles, vehicleQuery);
+  if (!candidates.length) {
+    return fail(`Aucun véhicule ne correspond à « ${vehicleQuery} ».`, { piste: 'Appelle vehicules_disponibles pour proposer des choix.' });
+  }
+  let vehicle = candidates[0];
+  let autoPicked = false;
+  if (candidates.length > 1) {
+    const free = candidates.filter(
+      (v) => isVehicleAvailableForPeriod(String(v.id), startDate, endDate, data.contracts as Contract[], v as Vehicle).available
+    );
+    if (free.length !== 1) {
+      return fail('Plusieurs véhicules correspondent : demande lequel.', {
+        choix: (free.length ? free : candidates).slice(0, 6).map(describeVehicle),
+        libres_sur_la_periode: free.length,
+      });
+    }
+    vehicle = free[0];
+    autoPicked = true;
+  }
+  const plate = compact(vehicle.plate);
 
   const pricePerDay = Math.round((Number(args.tarif_journalier) || Number(vehicle.dailyRate) || 0) * 100) / 100;
   if (!(pricePerDay > 0)) return fail("Aucun tarif journalier : demande-le à l'utilisateur.");
-  const totalDays = billedDays(startDate, endDate);
+
+  // Mêmes valeurs par défaut que l'assistant de contrat : pack de base, caution du pack, 10 h → 18 h.
+  const packId = parsePack(args.pack);
+  const category = getVehicleCategory(vehicle as Vehicle);
+  const cautionGiven = args.caution !== undefined && args.caution !== null && args.caution !== '';
 
   const action: AssistantAction = {
     kind: 'action',
@@ -489,18 +575,23 @@ function creerContrat(args: Record<string, unknown>, data: AssistantToolData): T
     contractId: '',
     contractNumber: '',
     title: `Créer un contrat brouillon (${vehicle.brand} ${vehicle.model}, ${startDate} → ${endDate})`,
-    contract: {
+    contract: recomputeContractDraft({
       clientRef,
+      ...(client?.id ? { clientId: client.id, clientLabel: `${client.firstName || ''} ${client.lastName || ''}`.trim() } : {}),
       vehicleId: String(vehicle.id || ''),
       vehicleLabel: `${vehicle.brand} ${vehicle.model} · ${vehicle.plate}`,
       startDate,
+      startTime: parseClockTime(args.heure_depart) ?? DEFAULT_START_TIME,
       endDate,
-      totalDays,
+      endTime: parseClockTime(args.heure_retour) ?? DEFAULT_END_TIME,
+      totalDays: 1,
       pricePerDay,
-      totalAmount: Math.round(totalDays * pricePerDay * 100) / 100,
-      depositAmount: Math.max(0, Math.round(Number(args.caution) || 0)),
+      totalAmount: 0,
+      packId,
+      category,
+      depositAmount: cautionGiven ? Math.max(0, Math.round(Number(args.caution) || 0)) : getPackTerms(category, packId).depositMad,
       notes: str(args.notes).trim().slice(0, 300),
-    },
+    }),
   };
 
   // Véhicule encore « en location » : si c'est un contrat dépassé (retour jamais saisi) ou qui chevauche la période,
@@ -529,10 +620,14 @@ function creerContrat(args: Record<string, unknown>, data: AssistantToolData): T
     }
   }
 
-  // Disponibilité du véhicule vérifiée ici ; le client est résolu par le navigateur, qui a la liste complète.
-  const check = validateAction(action, undefined, { vehicles: data.vehicles, contracts: data.contracts });
+  // Disponibilité du véhicule vérifiée ici (et revérifiée au clic) ; le client l'est aussi quand la liste est connue.
+  const check = validateAction(action, undefined, { vehicles: data.vehicles, contracts: data.contracts, clients: data.clients });
   if (!check.ok) return fail(check.error || 'Contrat impossible.');
-  return proposition(action);
+  return proposition(action, {
+    ...(autoPicked ? { vehicule_choisi_automatiquement: `${describeVehicle(vehicle)}, seul libre sur la période` } : {}),
+    total_mad: action.contract?.totalAmount,
+    caution_mad: action.contract?.depositAmount,
+  });
 }
 
 /** Exécute un outil demandé par le modèle. Un outil inconnu ou en échec renvoie une erreur lisible, jamais une exception. */

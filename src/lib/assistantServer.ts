@@ -1,5 +1,5 @@
-import { mapVehicleRow, mapContractRow, mapDepositRow } from './rowMappers';
-import type { Vehicle, Contract, DepositRecord } from '../types';
+import { mapVehicleRow, mapContractRow, mapDepositRow, mapClientRow } from './rowMappers';
+import type { Vehicle, Contract, DepositRecord, Client } from '../types';
 
 /*
  * Briques côté serveur de l'assistant IA. Module pur (sans Express ni SDK) pour rester testable :
@@ -301,6 +301,8 @@ export interface AssistantDataset {
   vehicles: Vehicle[];
   contracts: Contract[];
   deposits: DepositRecord[];
+  /** Fiches clients du périmètre de l'utilisateur (sous RLS) ; absentes si leur lecture a échoué. */
+  clients?: Client[];
 }
 
 /** Sous-ensemble du client Supabase dont on a besoin (facilite les tests). */
@@ -321,11 +323,18 @@ export async function fetchAssistantData(client: AssistantQueryClient): Promise<
   };
 
   try {
-    const [vehicles, contracts, deposits] = await Promise.all([read('vehicles'), read('contracts'), read('deposits')]);
+    const [vehicles, contracts, deposits, clients] = await Promise.all([
+      read('vehicles'),
+      read('contracts'),
+      read('deposits'),
+      // Les clients ne servent qu'à retrouver le client d'un contrat : leur absence ne doit pas casser le reste.
+      read('clients').catch(() => null),
+    ]);
     return {
       vehicles: vehicles.map(mapVehicleRow),
       contracts: contracts.map(mapContractRow),
       deposits: deposits.map(mapDepositRow),
+      ...(clients ? { clients: clients.map(mapClientRow) } : {}),
     };
   } catch {
     return null;
