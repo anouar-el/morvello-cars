@@ -230,6 +230,29 @@ describe('creer_contrat: understanding what the user said', () => {
   });
 });
 
+describe('activating a draft contract', () => {
+  const draft = { ...busyContract, status: 'draft', startDate: day(1), endDate: day(4) } as Partial<Contract>;
+  const propose = (contracts: Partial<Contract>[], contrat = 'MC-2026-0001') =>
+    executeAssistantTool('proposer_action', { type: 'activate_contract', contrat }, { vehicles: [clio], contracts });
+
+  it('proposes a card for a draft', () => {
+    const out = propose([draft]);
+    expect(out.result.erreur).toBeUndefined();
+    expect(out.sources[0]).toMatchObject({ type: 'activate_contract', contractId: 'cnt-1' });
+  });
+
+  it('refuses a contract that is not a draft', () => {
+    expect(String(propose([{ ...draft, status: 'active' }]).result.erreur)).toContain('brouillon');
+  });
+
+  it('refuses when another booking now holds the vehicle on those dates', () => {
+    const other = { ...draft, id: 'cnt-2', contractNumber: 'MC-2026-0002', status: 'active' } as Partial<Contract>;
+    const out = propose([draft, other]);
+    expect(out.sources).toHaveLength(0);
+    expect(String(out.result.erreur)).toContain('MC-2026-0002');
+  });
+});
+
 describe('parseRelativeDay / parseClockTime', () => {
   const today = '2026-11-18'; // mercredi
 

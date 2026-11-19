@@ -101,11 +101,11 @@ export const ASSISTANT_TOOL_DECLARATIONS = [
   {
     name: 'proposer_action',
     description:
-      "Propose une action à l'utilisateur, qui devra la confirmer lui-même : rien n'est exécuté par toi. Types : 'whatsapp' (message prêt à envoyer au client du contrat), 'deposit_collected' (marquer la caution comme prise), 'payment' (enregistrer un règlement reçu). N'appelle cet outil que si l'utilisateur le demande ou accepte ta proposition.",
+      "Propose une action à l'utilisateur, qui devra la confirmer lui-même : rien n'est exécuté par toi. Types : 'whatsapp' (message prêt à envoyer au client du contrat), 'deposit_collected' (marquer la caution comme prise), 'payment' (enregistrer un règlement reçu), 'activate_contract' (passer un contrat en brouillon à « actif »). N'appelle cet outil que si l'utilisateur le demande ou accepte ta proposition.",
     parameters: {
       type: 'OBJECT',
       properties: {
-        type: { type: 'STRING', description: "'whatsapp', 'deposit_collected' ou 'payment'." },
+        type: { type: 'STRING', description: "'whatsapp', 'deposit_collected', 'payment' ou 'activate_contract'." },
         contrat: { type: 'STRING', description: 'Numéro du contrat concerné (ex. MC-2026-0044).' },
         message: { type: 'STRING', description: 'whatsapp : texte du message, prêt à envoyer.' },
         montant: { type: 'NUMBER', description: 'payment : montant en MAD.' },
@@ -154,7 +154,7 @@ export const ASSISTANT_TOOL_DECLARATIONS = [
   {
     name: 'creer_contrat',
     description:
-      "Prépare un contrat de location en BROUILLON pour un client déjà enregistré, que l'utilisateur confirmera d'un clic ; rien n'est créé par toi. Vérifie la disponibilité du véhicule et calcule le total. Si le véhicule apparaît encore en location à cause d'un contrat dépassé ou qui chevauche, l'outil prépare lui-même la clôture de ce contrat (retour aujourd'hui) dans la même carte : ne demande rien de plus et n'appelle pas d'autre outil pour cela. Si le client n'existe pas encore, propose d'abord de le créer avec creer_client. Ne devine jamais le véhicule, les dates ou le tarif : demande-les s'ils manquent.",
+      "Prépare un contrat de location, créé directement ACTIF, pour un client déjà enregistré, que l'utilisateur confirmera d'un clic ; rien n'est créé par toi. Vérifie la disponibilité du véhicule et calcule le total. Si le véhicule apparaît encore en location à cause d'un contrat dépassé ou qui chevauche, l'outil prépare lui-même la clôture de ce contrat (retour aujourd'hui) dans la même carte : ne demande rien de plus et n'appelle pas d'autre outil pour cela. Si le client n'existe pas encore, propose d'abord de le créer avec creer_client. Ne devine jamais le véhicule, les dates ou le tarif : demande-les s'ils manquent.",
     parameters: {
       type: 'OBJECT',
       properties: {
@@ -401,7 +401,7 @@ function proposerAction(args: Record<string, unknown>, data: AssistantToolData):
   const number = compact(args.contrat);
   const fail = (erreur: string): ToolOutcome => ({ result: { erreur }, sources: [] });
 
-  if (!['whatsapp', 'deposit_collected', 'payment'].includes(type)) return fail("Type d'action inconnu.");
+  if (!['whatsapp', 'deposit_collected', 'payment', 'activate_contract'].includes(type)) return fail("Type d'action inconnu.");
   const matches = data.contracts.filter((c) => compact(c.contractNumber) === number);
   if (matches.length !== 1) return fail(matches.length ? 'Plusieurs contrats portent ce numéro.' : 'Contrat introuvable.');
   const contract = matches[0];
@@ -423,6 +423,8 @@ function proposerAction(args: Record<string, unknown>, data: AssistantToolData):
     action.phone = phone;
     action.message = message;
     action.title = `Envoyer un WhatsApp à ${clientLabel(contract)}`;
+  } else if (type === 'activate_contract') {
+    action.title = `Activer le contrat ${action.contractNumber} (${clientLabel(contract)}, ${vehicleText(contract)})`;
   } else if (type === 'deposit_collected') {
     action.title = `Marquer la caution prise (${Math.round(Number(contract.depositAmount) || 0)} MAD)`;
   } else {
@@ -434,7 +436,7 @@ function proposerAction(args: Record<string, unknown>, data: AssistantToolData):
     action.title = `Enregistrer un règlement de ${amount} MAD`;
   }
 
-  const check = validateAction(action, contract);
+  const check = validateAction(action, contract, { vehicles: data.vehicles, contracts: data.contracts });
   if (!check.ok) return fail(check.error);
 
   return {
@@ -574,7 +576,7 @@ function creerContrat(args: Record<string, unknown>, data: AssistantToolData): T
     type: 'create_contract',
     contractId: '',
     contractNumber: '',
-    title: `Créer un contrat brouillon (${vehicle.brand} ${vehicle.model}, ${startDate} → ${endDate})`,
+    title: `Créer le contrat (${vehicle.brand} ${vehicle.model}, ${startDate} → ${endDate})`,
     contract: recomputeContractDraft({
       clientRef,
       ...(client?.id ? { clientId: client.id, clientLabel: `${client.firstName || ''} ${client.lastName || ''}`.trim() } : {}),
