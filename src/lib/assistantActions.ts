@@ -10,7 +10,13 @@ import { isVehicleAvailableForPeriod } from '../utils/vehicleStatusUtils';
  * l'exécution (navigateur, sur les données du moment).
  */
 
-export type AssistantActionType = 'whatsapp' | 'deposit_collected' | 'payment' | 'create_client' | 'create_contract';
+export type AssistantActionType =
+  | 'whatsapp'
+  | 'deposit_collected'
+  | 'payment'
+  | 'create_client'
+  | 'create_contract'
+  | 'activate_contract';
 
 /** Emplacement d'une photo sur la fiche client : CIN ou permis, recto ou verso. */
 export type ClientPhotoSlot = 'cin' | 'cinVerso' | 'license' | 'licenseVerso';
@@ -61,7 +67,7 @@ export interface ContractRelease {
   depositHeld: number;
 }
 
-/** Contrat proposé : toujours créé en brouillon, sans signature ni photos. */
+/** Contrat proposé : créé actif, comme dans l'assistant de contrat (signature et état des lieux se font ensuite sur sa fiche). */
 export interface ContractDraft {
   /** Contrat à clôturer d'abord pour libérer le véhicule. */
   release?: ContractRelease;
@@ -427,6 +433,21 @@ export function validateAction(
       return action.phone && action.message?.trim()
         ? { ok: true }
         : { ok: false, error: 'Numéro ou message manquant.' };
+
+    case 'activate_contract': {
+      if (contract.status !== 'draft') return { ok: false, error: 'Ce contrat n’est pas un brouillon.' };
+      if (!ctx?.vehicles) return { ok: true };
+      const vehicle = ctx.vehicles.find((v) => v.id === contract.vehicleId);
+      if (!vehicle) return { ok: false, error: 'Véhicule introuvable.' };
+      const availability = isVehicleAvailableForPeriod(
+        String(contract.vehicleId),
+        String(contract.startDate),
+        String(contract.endDate),
+        ((ctx.contracts || []) as Contract[]).filter((c) => c.id !== contract.id),
+        vehicle as Vehicle
+      );
+      return availability.available ? { ok: true } : { ok: false, error: availability.conflictReason || 'Véhicule indisponible.' };
+    }
 
     case 'deposit_collected':
       if (getDepositCollectionStatus(contract as Contract) !== 'not_collected') {

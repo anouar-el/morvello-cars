@@ -115,6 +115,8 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
     addClient,
     createContract,
     completeContract,
+    updateContract,
+    updateVehicle,
     hasPermission,
   } = useApp();
 
@@ -428,7 +430,7 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
       }
 
       const created = await appRef.current.createContract({
-        status: 'draft',
+        status: 'active',
         clientId: client.id,
         clientSnapshot: {
           id: client.id,
@@ -475,8 +477,8 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
       return setResult(
         true,
         closedNumber
-          ? t('Contrat {closed} clôturé, véhicule libéré. Contrat {number} créé en brouillon : complétez-le depuis la liste des contrats.', { closed: closedNumber, number: created.contractNumber })
-          : t('Contrat {number} créé en brouillon : complétez-le depuis la liste des contrats.', { number: created.contractNumber })
+          ? t('Contrat {closed} clôturé, véhicule libéré. Contrat {number} créé et actif.', { closed: closedNumber, number: created.contractNumber })
+          : t('Contrat {number} créé et actif.', { number: created.contractNumber })
       );
     } catch (err: any) {
       return setResult(false, err?.message || t('L’action a échoué. Réessayez depuis le contrat.'));
@@ -497,10 +499,18 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
     }
 
     const contract = contracts.find((c) => c.id === action.contractId);
-    const check = validateAction(action, contract);
+    const check = validateAction(action, contract, { vehicles, contracts });
     if (!check.ok) return setResult(false, check.error || 'Action impossible.');
 
     try {
+      if (action.type === 'activate_contract') {
+        if (!hasPermission('canValidateContracts')) return setResult(false, t('Vous n’avez pas le droit de valider un contrat.'));
+        const activated = updateContract(action.contractId, { status: 'active' });
+        if (!activated) return setResult(false, t('Le contrat n’a pas pu être activé.'));
+        // Le véhicule devient « en location » tout de suite, sans attendre le recalcul automatique.
+        if (activated.vehicleId) updateVehicle(activated.vehicleId, { status: 'rented' });
+        return setResult(true, t('Contrat {number} activé.', { number: action.contractNumber }));
+      }
       if (action.type === 'whatsapp') {
         window.open(`https://wa.me/${action.phone}?text=${encodeURIComponent(action.message || '')}`, '_blank', 'noopener');
         return setResult(true, t('WhatsApp ouvert : relisez puis envoyez.'));
@@ -1501,7 +1511,9 @@ export const MemberAiAssistant: React.FC<MemberAiAssistantProps> = ({
                                                 : a.type === 'create_contract'
                                                 ? a.contract?.release
                                                   ? t('Clôturer et créer le contrat')
-                                                  : t('Créer le contrat (brouillon)')
+                                                  : t('Créer le contrat')
+                                                : a.type === 'activate_contract'
+                                                ? t('Activer le contrat')
                                                 : t('Confirmer')}
                                             </button>
                                             {a.type === 'create_contract' && (

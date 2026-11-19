@@ -148,6 +148,14 @@ export const AR_LOT5: Record<string, string> = {
   '{total} MAD au total': 'المجموع {total} درهم',
   'En retard': 'متأخر',
 
+  // Assistant IA : contrats créés directement actifs
+  'Contrat {closed} clôturé, véhicule libéré. Contrat {number} créé et actif.': 'تم إغلاق العقد {closed} وتحرير السيارة. وتم إنشاء العقد {number} وهو ساري.',
+  'Contrat {number} créé et actif.': 'تم إنشاء العقد {number} وهو ساري.',
+  'Activer le contrat': 'تفعيل العقد',
+  'Contrat {number} activé.': 'تم تفعيل العقد {number}.',
+  'Vous n’avez pas le droit de valider un contrat.': 'ليست لديك صلاحية المصادقة على عقد.',
+  'Le contrat n’a pas pu être activé.': 'تعذر تفعيل العقد.',
+
   // Assistant IA : carte de contrat modifiable
   'Heure de départ': 'ساعة الانطلاق',
   'Tarif par jour (MAD)': 'الثمن لليوم (درهم)',
