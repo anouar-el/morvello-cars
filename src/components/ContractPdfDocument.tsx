@@ -527,7 +527,7 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
                     {contract.vehicleSnapshot.fuelType}
                   </span>
                   <span className="bg-slate-100 text-slate-800 border border-slate-200 px-1.5 py-0.2 rounded font-semibold text-[8px]">
-                    Tourisme / Prestige
+                    {insurance.categoryLabel}
                   </span>
                 </div>
               </div>
