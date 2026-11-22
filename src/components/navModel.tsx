@@ -16,6 +16,7 @@ import {
   CalendarDays,
   Wallet,
   BarChart3,
+  Handshake,
 } from 'lucide-react';
 import { getScopedDataForUser } from '../utils/managerScopeUtils';
 import { useI18n } from '../i18n/I18nContext';
@@ -122,6 +123,12 @@ export function useNavModel() {
       icon: <Layers className="w-4 h-4 text-amber-400" />,
       badge: t('3 Modèles'),
     },
+    partner_contracts: {
+      id: 'partner_contracts',
+      label: t('Contrats autres agences'),
+      icon: <Handshake className="w-4 h-4 text-sky-400" />,
+      badge: t('PDF sans enregistrement'),
+    },
     audit: { id: 'audit', label: t('Journal'), icon: <History className="w-4 h-4" /> },
     settings: { id: 'settings', label: t('Paramètres'), icon: <Settings className="w-4 h-4" /> },
   };
@@ -137,7 +144,7 @@ export function useNavModel() {
     items.vehicles,
     items.ai_assistant,
     items.terms,
-    ...(isAdmin ? [items.permissions, items.contract_templates] : []),
+    ...(isAdmin ? [items.permissions, items.contract_templates, items.partner_contracts] : []),
     items.audit,
     items.settings,
   ];
@@ -146,7 +153,7 @@ export function useNavModel() {
     { id: 'main', label: t('Exploitation'), items: [items.dashboard, items.contracts, items.planning, ...(isAgent ? [] : [items.cashbook, items.reports]), items.deposits] },
     { id: 'fleet', label: t('Flotte & clients'), items: [items.vehicles, items.clients] },
     { id: 'tools', label: t('Outils'), items: [items.ai_assistant] },
-    ...(isAdmin ? [{ id: 'admin', label: t('Administration'), items: [items.permissions, items.contract_templates, items.audit] }] : []),
+    ...(isAdmin ? [{ id: 'admin', label: t('Administration'), items: [items.permissions, items.contract_templates, items.partner_contracts, items.audit] }] : []),
     {
       id: 'config',
       label: t('Configuration'),

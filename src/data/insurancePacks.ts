@@ -108,6 +108,8 @@ export function computeFranchise(insurance: Pick<ContractInsurance, 'franchiseMa
 /** Libellé imprimé : « 5 % des dégâts, min. 8 000 MAD ». */
 export function formatFranchise(insurance: Pick<ContractInsurance, 'franchiseMad' | 'franchiseRatePercent'>): string {
   const rate = insurance.franchiseRatePercent ?? FRANCHISE_DAMAGE_RATE_PERCENT;
+  // Contrat d'une autre agence sans minimum renseigné : pas de « min. 0 MAD »
+  if (!(insurance.franchiseMad > 0)) return `${rate} % des dégâts`;
   return `${rate} % des dégâts, min. ${insurance.franchiseMad.toLocaleString('fr-FR')} MAD`;
 }
 

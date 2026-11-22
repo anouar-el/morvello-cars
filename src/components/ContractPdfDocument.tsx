@@ -11,6 +11,7 @@ import { PrestigeContractPdfLayout } from './templates/PrestigeContractPdfLayout
 import { CorporateContractPdfLayout } from './templates/CorporateContractPdfLayout';
 import { SignatureContractPdfLayout } from './templates/SignatureContractPdfLayout';
 import { formatFranchise, resolveContractInsurance } from '../data/insurancePacks';
+import { useBrand } from '../context/PartnerAgencyContext';
 
 interface ContractPdfDocumentProps {
   contract: Contract;
@@ -37,6 +38,7 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
 }) => {
   const page1Id = `${idPrefix}-contract-pdf-page-1`;
   const page2Id = `${idPrefix}-contract-pdf-page-2`;
+  const brand = useBrand();
 
   // Récupération du contexte pour identifier le manager responsable
   let appUsers: any[] = [];
@@ -230,11 +232,13 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
                   <div className="h-10 w-[1px] bg-slate-200 shrink-0" />
                   <div className="flex flex-col justify-center">
                     <span className="text-[7.2px] font-sans font-black uppercase tracking-wider text-amber-950 leading-tight">
-                      Location de Voitures de Luxe
+                      {brand.isPartner ? 'Location de Voitures' : 'Location de Voitures de Luxe'}
                     </span>
-                    <span className="text-[6px] font-sans font-semibold text-slate-500 uppercase tracking-widest mt-0.5">
-                      Prestige &amp; VIP
-                    </span>
+                    {(!brand.isPartner || brand.city) && (
+                      <span className="text-[6px] font-sans font-semibold text-slate-500 uppercase tracking-widest mt-0.5">
+                        {brand.isPartner ? brand.city : 'Prestige & VIP'}
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -303,7 +307,7 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
               <div className="mt-2 pt-1.5 border-t border-slate-200/90 flex items-center justify-between text-[7px] font-mono text-slate-700 bg-slate-50/80 rounded px-2.5 py-1">
                 <div className="flex items-center gap-1.5">
                   <span className="font-extrabold text-slate-950 uppercase">{companySettings.name}</span>
-                  <span className="text-slate-400">• SARL au Capital de 100 000 MAD</span>
+                  {brand.legalLine && <span className="text-slate-400">• {brand.legalLine}</span>}
                 </div>
                 <div className="flex items-center gap-2.5 text-slate-800">
                   <span>IF : <strong className="font-bold text-slate-950">{companySettings.taxId}</strong></span>
@@ -385,7 +389,7 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
                         2ème Conducteur Agréé / السائق الإضافي
                       </span>
                       <span className="text-[7.5px] bg-purple-50 text-purple-900 border border-purple-200 px-1.5 py-0.2 rounded font-bold uppercase">
-                        Agréé Morvello
+                        Agréé {brand.shortName}
                       </span>
                     </div>
                     <p className="font-black text-slate-950 uppercase text-xs tracking-wide">
@@ -610,7 +614,7 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
                 <div className="text-slate-700 font-mono text-[9px] mt-0.5 flex items-center gap-1">
                   <Clock className="w-2.5 h-2.5 text-emerald-600" /> Heure : <strong className="text-slate-950">{contract.startTime}</strong>
                 </div>
-                <div className="text-[8px] text-slate-500 mt-0.5">Lieu : Nouaceur / Casablanca</div>
+                {brand.place && <div className="text-[8px] text-slate-500 mt-0.5">Lieu : {brand.place}</div>}
               </div>
 
               {/* Restitution */}
@@ -627,7 +631,7 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
                 <div className="text-slate-700 font-mono text-[9px] mt-0.5 flex items-center gap-1">
                   <Clock className="w-2.5 h-2.5 text-amber-600" /> Heure : <strong className="text-slate-950">{contract.endTime}</strong>
                 </div>
-                <div className="text-[8px] text-slate-500 mt-0.5">Lieu : Nouaceur / Casablanca</div>
+                {brand.place && <div className="text-[8px] text-slate-500 mt-0.5">Lieu : {brand.place}</div>}
               </div>
 
               {/* Prolongation */}
@@ -719,7 +723,7 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
               {/* 1. MORVELLO CARS & CACHET OFFICIEL */}
               <div className="border-2 border-amber-500/60 rounded-xl p-2 flex flex-col justify-between min-h-[124px] bg-gradient-to-b from-amber-50/30 to-white shadow-2xs relative">
                 <div className="text-[9px] font-black uppercase text-amber-950 bg-amber-100/80 border border-amber-300/80 px-2 py-0.5 rounded-md text-center z-10 relative">
-                  Pour Sté MORVELLO CARS • خاتم وتوقيع الوكالة
+                  Pour Sté {brand.name} • خاتم وتوقيع الوكالة
                 </div>
                 <div className="relative flex items-center justify-center py-1 z-0 flex-1">
                   <CompanyStamp size="sm" rotation={-1.5} />
@@ -808,7 +812,7 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
         {/* LEGAL FOOTER PAGE 1 */}
         <div className="border-t-2 border-slate-900 pt-1.5 mt-1.5 text-center text-[8px] text-slate-700 leading-tight">
           <div className="font-extrabold text-slate-950 uppercase tracking-wider">
-            {companySettings.name} • SARL au Capital de 100 000 MAD
+            {companySettings.name}{brand.legalLine ? ` • ${brand.legalLine}` : ''}
           </div>
           <div className="mt-0.5">
             Identifiant Fiscal (IF) : <strong className="text-slate-900">{companySettings.taxId}</strong> • RC : <strong className="text-slate-900">{companySettings.rc}</strong> • ICE : <strong className="text-slate-900">{companySettings.ice}</strong>
@@ -1026,7 +1030,7 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
               <div>
                 <strong className="text-emerald-950 uppercase tracking-tight">Attestation formelle d'adhésion sans réserve :</strong>
                 <p className="text-slate-700 mt-0.2">
-                  Le locataire et conducteurs agréés attestent avoir pris connaissance des {termsVersion.clauses.length} articles des CGV de la Sté MORVELLO CARS (contrat n° <strong className="text-slate-950 font-mono">{contract.contractNumber}</strong>), en approuver toutes les clauses sans réserve et confirmer l'exactitude des déclarations du recto.
+                  Le locataire et conducteurs agréés attestent avoir pris connaissance des {termsVersion.clauses.length} articles des CGV de la Sté {brand.name} (contrat n° <strong className="text-slate-950 font-mono">{contract.contractNumber}</strong>), en approuver toutes les clauses sans réserve et confirmer l'exactitude des déclarations du recto.
                 </p>
               </div>
             </div>
@@ -1079,7 +1083,7 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
             <div className="border-2 border-amber-500/40 rounded p-1.5 bg-amber-50/20 flex flex-col justify-between min-h-[72px] relative overflow-hidden shadow-2xs">
               <div className="flex justify-between items-center border-b border-amber-200/80 pb-0.5 z-10 relative">
                 <span className="text-[7.5px] font-black uppercase text-amber-950">
-                  Pour Sté MORVELLO CARS
+                  Pour Sté {brand.name}
                 </span>
                 <span className="text-[7px] font-bold text-amber-900 font-arabic">
                   خاتم وتأشيرة الوكالة
@@ -1089,7 +1093,7 @@ export const ContractPdfDocument: React.FC<ContractPdfDocumentProps> = ({
                 <CompanyStamp size="xs" rotation={-1.5} />
               </div>
               <div className="text-[6px] text-slate-500 text-center z-10 font-medium border-t border-slate-200 pt-0.5">
-                Visa légal agence • Fait à Casablanca, le {formattedStartDate}
+                Visa légal agence • Fait {brand.city ? `à ${brand.city}, ` : ''}le {formattedStartDate}
               </div>
             </div>
           </div>

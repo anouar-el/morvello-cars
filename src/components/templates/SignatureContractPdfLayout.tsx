@@ -4,6 +4,7 @@ import { Contract, CompanySettings, TermsVersion } from '../../types';
 import { CheckCircle2, XCircle, Calendar, Clock, Car, Shield, Phone, MapPin, User, Mail } from 'lucide-react';
 import { CompanyStamp } from '../CompanyStamp';
 import { CompanyLogo } from '../CompanyLogo';
+import { useBrand } from '../../context/PartnerAgencyContext';
 import { DepositStatusTag } from '../DepositStatusTag';
 import { formatPlateFrench } from '../../utils/plateUtils';
 import { formatFranchise, resolveContractInsurance } from '../../data/insurancePacks';
@@ -260,6 +261,7 @@ export const SignatureContractPdfLayout: React.FC<SignatureContractPdfLayoutProp
   formattedEndDate,
   formattedCreatedAt,
 }) => {
+  const brand = useBrand();
   const { columns: clauseColumns, fontSize: termsFontSize } = layoutClauses(termsVersion.clauses);
 
   const client = contract.clientSnapshot;
@@ -335,10 +337,18 @@ export const SignatureContractPdfLayout: React.FC<SignatureContractPdfLayoutProp
                 <div className="border-l border-[#dbe2ea] pl-2.5">
                   <div className="text-[8.5px] font-black uppercase tracking-[0.1em] leading-[1.25] text-[#78350f]">
                     Location de voitures
-                    <br />
-                    de luxe
+                    {!brand.isPartner && (
+                      <>
+                        <br />
+                        de luxe
+                      </>
+                    )}
                   </div>
-                  <div className="text-[7.5px] font-bold uppercase tracking-[0.2em] text-[#64748b] mt-1">Prestige &amp; VIP</div>
+                  {(!brand.isPartner || brand.city) && (
+                    <div className="text-[7.5px] font-bold uppercase tracking-[0.2em] text-[#64748b] mt-1">
+                      {brand.isPartner ? brand.city : 'Prestige & VIP'}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -552,7 +562,7 @@ export const SignatureContractPdfLayout: React.FC<SignatureContractPdfLayoutProp
                     <Clock className="w-2.5 h-2.5 shrink-0" style={{ color }} />
                     <span>
                       Heure : <strong className="font-mono font-black text-[#0b1220]">{time}</strong>
-                      <span className="text-[#64748b]"> · Nouaceur / Casablanca</span>
+                      {brand.place && <span className="text-[#64748b]"> · {brand.place}</span>}
                     </span>
                   </div>
                 </div>
@@ -695,7 +705,7 @@ export const SignatureContractPdfLayout: React.FC<SignatureContractPdfLayoutProp
         {/* PIED DE PAGE 1 */}
         <div className="mt-1.5 pt-1.5 border-t-2 border-[#0b1220] text-center text-[8.5px] leading-tight text-[#334155]">
           <div>
-            <strong className="font-black uppercase tracking-wider text-[#0b1220]">{companySettings.name}</strong> • SARL au Capital de 100 000 MAD
+            <strong className="font-black uppercase tracking-wider text-[#0b1220]">{companySettings.name}</strong>{brand.legalLine ? ` • ${brand.legalLine}` : ''}
             {legalIds.map(([label, value]) => (
               <span key={label}>
                 {' '}
@@ -862,7 +872,7 @@ export const SignatureContractPdfLayout: React.FC<SignatureContractPdfLayoutProp
                 <CompanyStamp size="xs" rotation={-1.5} />
               </div>
               <div className="relative z-10 border-t border-[#ecd08a] pt-0.5 text-center text-[8px] font-bold text-[#334155]">
-                Visa légal agence • Fait à Casablanca, le {formattedStartDate}
+                Visa légal agence • Fait {brand.city ? `à ${brand.city}, ` : ''}le {formattedStartDate}
               </div>
             </div>
           </div>

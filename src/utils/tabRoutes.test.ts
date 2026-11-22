@@ -18,6 +18,7 @@ describe('tabRoutes', () => {
       'terms',
       'permissions',
       'contract_templates',
+      'partner_contracts',
       'audit',
       'settings',
     ];

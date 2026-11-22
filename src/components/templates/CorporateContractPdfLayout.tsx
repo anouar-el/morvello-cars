@@ -7,6 +7,7 @@ import { CompanyLogo } from '../CompanyLogo';
 import { DepositStatusTag } from '../DepositStatusTag';
 import { formatPlateFrench } from '../../utils/plateUtils';
 import { formatFranchise, resolveContractInsurance } from '../../data/insurancePacks';
+import { useBrand } from '../../context/PartnerAgencyContext';
 
 export interface CorporateContractPdfLayoutProps {
   contract: Contract;
@@ -39,6 +40,7 @@ export const CorporateContractPdfLayout: React.FC<CorporateContractPdfLayoutProp
   const col1Clauses = termsVersion.clauses.slice(0, halfClauses);
   const col2Clauses = termsVersion.clauses.slice(halfClauses);
   const insurance = resolveContractInsurance(contract);
+  const brand = useBrand();
 
   return (
     <div
@@ -73,7 +75,7 @@ export const CorporateContractPdfLayout: React.FC<CorporateContractPdfLayoutProp
                     <div className="flex items-center gap-1">
                       <Briefcase className="w-3 h-3 text-blue-700" />
                       <span className="text-[7.5px] font-sans font-black uppercase tracking-wider text-blue-950 leading-tight">
-                        MORVELLO CORPORATE
+                        {brand.shortName.toUpperCase()} CORPORATE
                       </span>
                     </div>
                     <span className="text-[6.2px] font-sans font-extrabold text-blue-700 uppercase tracking-widest mt-0.5">
@@ -378,7 +380,7 @@ export const CorporateContractPdfLayout: React.FC<CorporateContractPdfLayoutProp
             <div className="grid grid-cols-4 gap-2 text-[8px] text-slate-800 text-center">
               <div className="bg-slate-50 p-1 rounded border border-slate-200">
                 <span className="block font-bold text-slate-950">Entretien &amp; Vidange</span>
-                <span className="text-emerald-700 font-semibold">100% à charge Morvello</span>
+                <span className="text-emerald-700 font-semibold">100% à charge {brand.shortName}</span>
               </div>
               <div className="bg-slate-50 p-1 rounded border border-slate-200">
                 <span className="block font-bold text-slate-950">Km Excédentaire</span>
@@ -445,7 +447,7 @@ export const CorporateContractPdfLayout: React.FC<CorporateContractPdfLayoutProp
               <div className="flex justify-between items-center border-b border-slate-200 pb-1 z-10 relative">
                 <span className="text-[8.5px] font-black uppercase text-slate-950 flex items-center gap-1">
                   <Briefcase className="w-3 h-3 text-blue-700" />
-                  Pour Sté MORVELLO CARS • Division Flottes
+                  Pour Sté {brand.name} • Division Flottes
                 </span>
                 <span className="text-[7.5px] font-bold text-slate-700 font-arabic">
                   تأشيرة إدارة الأساطيل
@@ -462,7 +464,7 @@ export const CorporateContractPdfLayout: React.FC<CorporateContractPdfLayoutProp
                 )}
               </div>
               <div className="text-[6.5px] text-slate-600 text-center z-10 font-bold border-t border-slate-200 pt-0.5">
-                {contract.agencySignedBy ? `Signé par ${contract.agencySignedBy}` : displayManagerName ? `Responsable : ${displayManagerName}` : 'Comptes Entreprises'} • Fait à Casablanca, le {formattedStartDate}
+                {contract.agencySignedBy ? `Signé par ${contract.agencySignedBy}` : displayManagerName ? `Responsable : ${displayManagerName}` : 'Comptes Entreprises'} • Fait {brand.city ? `à ${brand.city}, ` : ''}le {formattedStartDate}
               </div>
             </div>
           </div>
@@ -543,7 +545,7 @@ export const CorporateContractPdfLayout: React.FC<CorporateContractPdfLayoutProp
             <div className="flex items-center gap-1.5">
               <Briefcase className="w-3 h-3 text-blue-700 shrink-0" />
               <span>
-                La société locataire atteste de la conformité de l'usage professionnel et de l'habilitation de ses préposés selon les conditions B2B Morvello Cars.
+                La société locataire atteste de la conformité de l'usage professionnel et de l'habilitation de ses préposés selon les conditions B2B {brand.isPartner ? brand.shortName : 'Morvello Cars'}.
               </span>
             </div>
             <span className="font-mono font-bold text-slate-950">{contract.contractNumber}</span>
@@ -570,18 +572,18 @@ export const CorporateContractPdfLayout: React.FC<CorporateContractPdfLayoutProp
               )}
             </div>
             <div className="border border-blue-300 rounded p-1 bg-white text-center min-h-[60px] flex flex-col justify-between relative overflow-hidden">
-              <span className="text-[7.5px] font-bold text-blue-950 uppercase z-10">Pour Sté MORVELLO CARS Flottes</span>
+              <span className="text-[7.5px] font-bold text-blue-950 uppercase z-10">Pour Sté {brand.name} Flottes</span>
               <div className="relative flex items-center justify-center py-0.5 z-0 flex-1">
                 <CompanyStamp size="xs" rotation={-1.5} />
               </div>
-              <span className="text-[6px] text-slate-500 z-10">Casablanca, le {formattedStartDate}</span>
+              <span className="text-[6px] text-slate-500 z-10">{brand.city ? `${brand.city}, ` : ''}le {formattedStartDate}</span>
             </div>
           </div>
 
           {/* FOOTER VERSO */}
           <div className="flex justify-between items-center text-[7px] text-blue-900 font-mono border-t border-blue-300 pt-1 mt-1">
             <span>Réf. Contrat B2B : <strong className="text-slate-950">{contract.contractNumber}</strong></span>
-            <span>Conditions Générales Professionnelles B2B Morvello Cars</span>
+            <span>Conditions Générales Professionnelles B2B {brand.isPartner ? brand.shortName : 'Morvello Cars'}</span>
             <span className="font-bold text-slate-950 bg-blue-100 px-2 py-0.2 rounded border border-blue-300">
               Page 2 / 2 (Verso B2B)
             </span>

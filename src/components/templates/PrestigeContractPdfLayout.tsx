@@ -7,6 +7,7 @@ import { CompanyLogo } from '../CompanyLogo';
 import { DepositStatusTag } from '../DepositStatusTag';
 import { formatPlateFrench } from '../../utils/plateUtils';
 import { formatFranchise, resolveContractInsurance } from '../../data/insurancePacks';
+import { useBrand } from '../../context/PartnerAgencyContext';
 
 export interface PrestigeContractPdfLayoutProps {
   contract: Contract;
@@ -39,6 +40,7 @@ export const PrestigeContractPdfLayout: React.FC<PrestigeContractPdfLayoutProps>
   const col1Clauses = termsVersion.clauses.slice(0, halfClauses);
   const col2Clauses = termsVersion.clauses.slice(halfClauses);
   const insurance = resolveContractInsurance(contract);
+  const brand = useBrand();
 
   return (
     <div
@@ -470,7 +472,7 @@ export const PrestigeContractPdfLayout: React.FC<PrestigeContractPdfLayoutProps>
               <div className="flex justify-between items-center border-b border-slate-200 pb-1 z-10 relative">
                 <span className="text-[8.5px] font-black uppercase text-slate-950 flex items-center gap-1">
                   <Crown className="w-3 h-3 text-amber-600 fill-amber-500" />
-                  Pour Sté MORVELLO CARS • Prestige
+                  Pour Sté {brand.name} • Prestige
                 </span>
                 <span className="text-[7.5px] font-bold text-slate-700 font-arabic">
                   خاتم وتأشيرة الوكالة
@@ -487,7 +489,7 @@ export const PrestigeContractPdfLayout: React.FC<PrestigeContractPdfLayoutProps>
                 )}
               </div>
               <div className="text-[6.5px] text-slate-600 text-center z-10 font-bold border-t border-slate-200 pt-0.5">
-                {contract.agencySignedBy ? `Signé par ${contract.agencySignedBy}` : displayManagerName ? `Responsable : ${displayManagerName}` : 'Division Conciergerie'} • Fait à Casablanca, le {formattedStartDate}
+                {contract.agencySignedBy ? `Signé par ${contract.agencySignedBy}` : displayManagerName ? `Responsable : ${displayManagerName}` : 'Division Conciergerie'} • Fait {brand.city ? `à ${brand.city}, ` : ''}le {formattedStartDate}
               </div>
             </div>
           </div>
@@ -568,7 +570,7 @@ export const PrestigeContractPdfLayout: React.FC<PrestigeContractPdfLayoutProps>
             <div className="flex items-center gap-1.5">
               <Crown className="w-3 h-3 text-amber-600 fill-amber-400 shrink-0" />
               <span>
-                Le locataire VIP atteste avoir pris pleine connaissance des clauses de conciergerie de la Sté MORVELLO CARS et en accepter l'application.
+                Le locataire VIP atteste avoir pris pleine connaissance des clauses de conciergerie de la Sté {brand.name} et en accepter l'application.
               </span>
             </div>
             <span className="font-mono font-bold text-slate-950">{contract.contractNumber}</span>
@@ -595,18 +597,18 @@ export const PrestigeContractPdfLayout: React.FC<PrestigeContractPdfLayoutProps>
               )}
             </div>
             <div className="border border-amber-300 rounded p-1 bg-white text-center min-h-[60px] flex flex-col justify-between relative overflow-hidden">
-              <span className="text-[7.5px] font-bold text-amber-950 uppercase z-10">Pour Sté MORVELLO CARS Prestige</span>
+              <span className="text-[7.5px] font-bold text-amber-950 uppercase z-10">Pour Sté {brand.name} Prestige</span>
               <div className="relative flex items-center justify-center py-0.5 z-0 flex-1">
                 <CompanyStamp size="xs" rotation={-1.5} />
               </div>
-              <span className="text-[6px] text-slate-500 z-10">Casablanca, le {formattedStartDate}</span>
+              <span className="text-[6px] text-slate-500 z-10">{brand.city ? `${brand.city}, ` : ''}le {formattedStartDate}</span>
             </div>
           </div>
 
           {/* FOOTER VERSO */}
           <div className="flex justify-between items-center text-[7px] text-amber-900 font-mono border-t border-amber-300 pt-1 mt-1">
             <span>Réf. Contrat VIP : <strong className="text-slate-950">{contract.contractNumber}</strong></span>
-            <span>Charte Officielle de Conciergerie Morvello Prestige</span>
+            <span>Charte Officielle de Conciergerie {brand.shortName} Prestige</span>
             <span className="font-bold text-slate-950 bg-amber-200 px-2 py-0.2 rounded border border-amber-300">
               Page 2 / 2 (Verso VIP)
             </span>

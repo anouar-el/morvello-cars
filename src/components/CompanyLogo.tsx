@@ -5,6 +5,7 @@ import newLogoFull from '../assets/images/morvello_nouveau_logo_1788650487314.jp
 import rectLogoLegacy from '../assets/images/morvello_rect_logo_1788313603329.jpg';
 
 import { useI18n } from '../i18n/I18nContext';
+import { usePartnerAgency } from '../context/PartnerAgencyContext';
 export interface CompanyLogoProps {
   className?: string;
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
@@ -26,6 +27,7 @@ export const CompanyLogo: React.FC<CompanyLogoProps> = ({
 }) => {
   const { t } = useI18n();
   const [imageError, setImageError] = useState(false);
+  const partner = usePartnerAgency();
 
   // Dimensions map adapted for maximum legibility and visual prestige
   const dimensions = {
@@ -85,6 +87,33 @@ export const CompanyLogo: React.FC<CompanyLogoProps> = ({
       subSize: 'text-[12px]',
     },
   }[size];
+
+  // 0. CONTRAT D'UNE AUTRE AGENCE : son logo, ou à défaut son nom, à la place de l'identité Morvello
+  if (partner && (variant === 'raw-image' || variant === 'full' || variant === 'vector')) {
+    const height = customHeight || dimensions.height;
+    return (
+      <div
+        className={`inline-flex items-center justify-center select-none shrink-0 bg-transparent ${className}`}
+        style={{ height }}
+      >
+        {partner.logo ? (
+          <img
+            src={partner.logo}
+            alt={partner.name}
+            className="h-full w-auto max-h-full object-contain"
+            style={{ maxHeight: height }}
+          />
+        ) : (
+          <span
+            className="font-sans font-black uppercase tracking-wide text-slate-950 leading-tight text-center"
+            style={{ fontSize: Math.max(11, Math.round(height * 0.26)), maxWidth: 150 }}
+          >
+            {partner.name}
+          </span>
+        )}
+      </div>
+    );
+  }
 
   // 1. EMBLEM ONLY / JUSTE LA PARTIE LOGO (100% transparent background)
   if (variant === 'emblem' || variant === 'icon-only') {
