@@ -2,6 +2,9 @@ import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from 'r
 import { flushSync } from 'react-dom';
 import {
   Building2,
+  Cloud,
+  CloudOff,
+  Save,
   CheckCircle,
   Download,
   ExternalLink,
@@ -22,12 +25,13 @@ import { CONTRACT_TEMPLATES } from '../data/contractTemplates';
 import { VEHICLE_CATEGORIES, buildContractInsurance } from '../data/insurancePacks';
 import { downloadContractPdf, generateContractPdf, type GeneratedPdfResult } from '../utils/contractPdfGenerator';
 import { describePdfError, isIosDevice, sharePdfFile } from '../lib/pdfShare';
+import { deletePartnerAgency, fetchPartnerAgencies, savePartnerAgency } from '../lib/partnerAgencies';
 import type { CompanySettings, Contract, ContractTemplateId, DocumentType, FuelType, VehicleCategory } from '../types';
 
 /**
  * Contrats pour d'AUTRES agences : on garde nos modèles, on change l'identité de l'agence et on laisse le cachet vide.
  * Rien n'est enregistré dans l'application (ni contrat, ni client, ni véhicule) : on télécharge le PDF.
- * Seules les identités des agences (Alaylichi Car, etc.) sont gardées dans ce navigateur pour ne pas les retaper.
+ * Seules les identités des agences (Alaylichi Car, etc.) sont enregistrées, sur le serveur avec une copie locale de secours.
  */
 
 const AGENCY_STORAGE_KEY = 'morvello_partner_agencies_v2';
@@ -143,15 +147,18 @@ function freshContract(templateId: ContractTemplateId = 'standard'): ContractFor
   };
 }
 
-/** Première agence enregistrée : Alaylichi Car. IF, RC, ICE, patente et logo restent à compléter. */
+/** Première agence enregistrée : Alaylichi Car (IF, ICE et forme juridique tirés de son formulaire Infraction-Pro). RC, patente et logo restent à compléter. */
 const DEFAULT_AGENCY: AgencyForm = {
   ...EMPTY_AGENCY,
   name: 'Alaylichi Car',
   city: 'Casablanca',
-  address: 'Ennakhil 76, Magasin N° 92, Immeuble 2 FB 2, Nouaceur, Casablanca',
+  legalLine: 'Société à Responsabilité Limitée',
+  address: 'Hay Annakhil 76, Magasin N° 92, Immeuble 2 FB 2, Nouaceur, Casablanca 20000',
   phone1: '06 45 12 44 65',
   phone2: '06 49 51 66 97',
   email: 'Alaylichicar@gmail.com',
+  taxId: '53723240',
+  ice: '003271854000073',
 };
 
 type SavedAgency = AgencyForm & { id: string };
@@ -169,7 +176,16 @@ function loadAgencies(): AgencyStore {
     const raw = localStorage.getItem(AGENCY_STORAGE_KEY);
     if (!raw) return seed;
     const parsed = JSON.parse(raw) as Partial<AgencyStore>;
-    const list = (parsed.list || []).map((a) => ({ ...EMPTY_AGENCY, ...a })) as SavedAgency[];
+    const list = (parsed.list || []).map((a) => {
+      const merged = { ...EMPTY_AGENCY, ...a } as SavedAgency;
+      if (merged.id !== 'alaylichi') return merged;
+      // Alaylichi déjà gardée avant l'ajout de ses infos légales : on complète seulement les champs restés vides
+      const filled = { ...merged };
+      (Object.keys(DEFAULT_AGENCY) as (keyof AgencyForm)[]).forEach((key) => {
+        if (!filled[key]) filled[key] = DEFAULT_AGENCY[key];
+      });
+      return filled;
+    }) as SavedAgency[];
     if (list.length === 0) return seed;
     return { list, activeId: list.some((a) => a.id === parsed.activeId) ? (parsed.activeId as string) : list[0].id };
   } catch {
@@ -423,12 +439,82 @@ export const PartnerContractsView: React.FC = () => {
   const [shareNote, setShareNote] = useState('');
   const isIos = useMemo(() => isIosDevice(), []);
 
+  // --- Enregistrement des agences : base de données (réservée à l'admin) + copie locale de secours -------------------
+  type SyncState = 'loading' | 'saved' | 'pending' | 'saving' | 'error';
+  const [sync, setSync] = useState<{ state: SyncState; message?: string }>({ state: 'loading' });
+  const storeRef = useRef(store);
+  const dirtyRef = useRef<Set<string>>(new Set());
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  storeRef.current = store;
+
   useEffect(() => {
     saveAgencies(store);
   }, [store]);
 
-  const setAgencyField = (patch: Partial<AgencyForm>) =>
+  const flushSave = async () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = null;
+    const ids = [...dirtyRef.current];
+    if (ids.length === 0) return;
+    setSync({ state: 'saving' });
+    for (const id of ids) {
+      const agency = storeRef.current.list.find((a) => a.id === id);
+      if (!agency) {
+        dirtyRef.current.delete(id);
+        continue;
+      }
+      const result = await savePartnerAgency(agency);
+      if (!result.ok) {
+        setSync({ state: 'error', message: result.error });
+        return;
+      }
+      // Modifiée pendant l'envoi : elle reste en attente pour un nouvel envoi
+      if (storeRef.current.list.find((a) => a.id === id) === agency) dirtyRef.current.delete(id);
+    }
+    setSync(dirtyRef.current.size === 0 ? { state: 'saved' } : { state: 'pending' });
+    if (dirtyRef.current.size > 0) timerRef.current = setTimeout(() => void flushSave(), 800);
+  };
+
+  const markDirty = (id: string) => {
+    dirtyRef.current.add(id);
+    setSync({ state: 'pending' });
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => void flushSave(), 1000);
+  };
+
+  // Au chargement : on reprend les agences du serveur ; s'il n'y en a pas encore, on y envoie celles de cet appareil
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const result = await fetchPartnerAgencies({ ...EMPTY_AGENCY, id: '' });
+      if (cancelled) return;
+      if (!result.ok) {
+        setSync({ state: 'error', message: result.error });
+        return;
+      }
+      const remote = result.value || [];
+      if (remote.length === 0) {
+        storeRef.current.list.forEach((a) => dirtyRef.current.add(a.id));
+        await flushSave();
+        return;
+      }
+      setStore((prev) => ({
+        list: remote as SavedAgency[],
+        activeId: remote.some((a) => a.id === prev.activeId) ? prev.activeId : remote[0].id,
+      }));
+      setSync({ state: 'saved' });
+    })();
+    return () => {
+      cancelled = true;
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const setAgencyField = (patch: Partial<AgencyForm>) => {
     setStore((prev) => ({ ...prev, list: prev.list.map((a) => (a.id === prev.activeId ? { ...a, ...patch } : a)) }));
+    markDirty(store.activeId);
+  };
   const selectAgency = (id: string) => {
     setStore((prev) => ({ ...prev, activeId: id }));
     setLogoError('');
@@ -549,16 +635,15 @@ export const PartnerContractsView: React.FC = () => {
     setReadyPdf(null);
   };
 
-  const deleteAgency = () => {
-    setStore((prev) => {
-      const rest = prev.list.filter((a) => a.id !== prev.activeId);
-      if (rest.length === 0) {
-        const blank: SavedAgency = { ...EMPTY_AGENCY, id: newAgencyId() };
-        return { list: [blank], activeId: blank.id };
-      }
-      return { list: rest, activeId: rest[0].id };
-    });
+  const deleteAgency = async () => {
+    const removedId = store.activeId;
+    dirtyRef.current.delete(removedId);
+    const rest = store.list.filter((a) => a.id !== removedId);
+    const blank: SavedAgency = { ...EMPTY_AGENCY, id: newAgencyId() };
+    setStore(rest.length === 0 ? { list: [blank], activeId: blank.id } : { list: rest, activeId: rest[0].id });
     setLogoError('');
+    const result = await deletePartnerAgency(removedId);
+    if (!result.ok) setSync({ state: 'error', message: result.error });
   };
 
   const exportData = exporting ? buildAll(agency, form) : null;
@@ -667,16 +752,43 @@ export const PartnerContractsView: React.FC = () => {
             title="L’agence"
             icon={<Building2 className="w-4 h-4 text-sky-400" />}
             aside={
-              <button
-                type="button"
-                onClick={() => {
-                  if (window.confirm(`Supprimer l’agence « ${agency.name.trim() || 'sans nom'} » ?`)) deleteAgency();
-                }}
-                className="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-rose-300 cursor-pointer"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                Supprimer
-              </button>
+              <div className="flex items-center gap-3">
+                <span
+                  role="status"
+                  className={`inline-flex items-center gap-1 text-[11px] ${
+                    sync.state === 'error' ? 'text-amber-300' : sync.state === 'saved' ? 'text-emerald-400' : 'text-slate-400'
+                  }`}
+                >
+                  {sync.state === 'error' ? <CloudOff className="w-3.5 h-3.5" /> : <Cloud className="w-3.5 h-3.5" />}
+                  {sync.state === 'loading' && 'Chargement…'}
+                  {sync.state === 'pending' && 'Modifications en attente…'}
+                  {sync.state === 'saving' && 'Enregistrement…'}
+                  {sync.state === 'saved' && 'Enregistré ✓'}
+                  {sync.state === 'error' && 'Non enregistré sur le serveur'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    dirtyRef.current.add(store.activeId);
+                    void flushSave();
+                  }}
+                  disabled={sync.state === 'saving' || sync.state === 'loading'}
+                  className="inline-flex items-center gap-1 min-h-8 px-2.5 rounded-lg border border-sky-500/50 text-sky-200 hover:bg-sky-500/10 text-[11px] font-semibold disabled:opacity-50 cursor-pointer"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  Enregistrer
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (window.confirm(`Supprimer l’agence « ${agency.name.trim() || 'sans nom'} » ?`)) void deleteAgency();
+                  }}
+                  className="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-rose-300 cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  Supprimer
+                </button>
+              </div>
             }
           >
             <div className="flex flex-wrap gap-2" role="tablist" aria-label="Agences enregistrées">
@@ -792,8 +904,13 @@ export const PartnerContractsView: React.FC = () => {
                 <TextInput value={agency.patente} onChange={(v) => setAgencyField({ patente: v })} autoComplete="off" />
               </Field>
             </div>
+            {sync.state === 'error' && (
+              <p className="text-[11px] text-amber-300">
+                {sync.message} Vos modifications sont gardées sur cet appareil ; cliquez sur « Enregistrer » pour réessayer.
+              </p>
+            )}
             <p className="text-[10px] text-slate-500">
-              Les agences sont gardées dans ce navigateur (aucun contrat ni client n’est enregistré). L’emplacement du cachet reste vide.
+              Les agences sont enregistrées automatiquement (aucun contrat ni client n’est enregistré). L’emplacement du cachet reste vide.
             </p>
           </Card>
 
