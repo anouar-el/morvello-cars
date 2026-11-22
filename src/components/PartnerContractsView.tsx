@@ -26,6 +26,7 @@ import { VEHICLE_CATEGORIES, buildContractInsurance } from '../data/insurancePac
 import { downloadContractPdf, generateContractPdf, type GeneratedPdfResult } from '../utils/contractPdfGenerator';
 import { describePdfError, isIosDevice, sharePdfFile } from '../lib/pdfShare';
 import { deletePartnerAgency, fetchPartnerAgencies, savePartnerAgency } from '../lib/partnerAgencies';
+import { deletePartnerContract, fetchPartnerContracts, savePartnerContract, type PartnerContractRecord } from '../lib/partnerContracts';
 import type { CompanySettings, Contract, ContractTemplateId, DocumentType, FuelType, VehicleCategory } from '../types';
 
 /**
@@ -120,12 +121,33 @@ function toDateInput(d: Date): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
+/** Numéro de contrat aléatoire, ex. « 2026-482917 » (année + 6 chiffres). */
+function randomContractNumber(): string {
+  const digits = String(Math.floor(Math.random() * 900000) + 100000);
+  return `${new Date().getFullYear()}-${digits}`;
+}
+
+function newContractId(): string {
+  try {
+    return `ct_${crypto.randomUUID()}`;
+  } catch {
+    return `ct_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+  }
+}
+
+/** Un contrat n'est enregistré automatiquement que s'il contient autre chose que les valeurs par défaut. */
+function hasContractContent(f: ContractForm): boolean {
+  return Boolean(
+    f.client.lastName.trim() || f.client.firstName.trim() || f.vehicle.plate.trim() || f.vehicle.brand.trim() || f.vehicle.model.trim()
+  );
+}
+
 function freshContract(templateId: ContractTemplateId = 'standard'): ContractForm {
   const today = new Date();
   const tomorrow = new Date(today.getTime() + 24 * 3600 * 1000);
   return {
     templateId,
-    contractNumber: '',
+    contractNumber: randomContractNumber(),
     client: { ...EMPTY_PERSON, nationality: '', email: '', address: '' },
     hasSecondDriver: false,
     second: { ...EMPTY_PERSON },
@@ -518,13 +540,79 @@ export const PartnerContractsView: React.FC = () => {
   const selectAgency = (id: string) => {
     setStore((prev) => ({ ...prev, activeId: id }));
     setLogoError('');
+    const next = storeRef.current.list.find((a) => a.id === id);
+    if (next) {
+      agencyRef.current = next;
+      scheduleContractSave();
+    }
   };
   const addAgency = () => {
     const created: SavedAgency = { ...EMPTY_AGENCY, id: newAgencyId() };
     setStore((prev) => ({ list: [...prev.list, created], activeId: created.id }));
     setLogoError('');
   };
-  const setFormField = (patch: Partial<ContractForm>) => setForm((prev) => ({ ...prev, ...patch }));
+  // --- Contrats enregistrés (base de données) : enregistrement automatique, ouverture et modification -----------------
+  const [contractId, setContractId] = useState<string>(newContractId);
+  const [contracts, setContracts] = useState<PartnerContractRecord<ContractForm>[]>([]);
+  const [cSync, setCSync] = useState<{ state: 'idle' | 'pending' | 'saving' | 'saved' | 'error'; message?: string }>({ state: 'idle' });
+  const formRef = useRef(form);
+  const contractIdRef = useRef(contractId);
+  const agencyRef = useRef(agency);
+  const cTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  formRef.current = form;
+  contractIdRef.current = contractId;
+  agencyRef.current = agency;
+
+  const saveContract = async () => {
+    if (cTimerRef.current) clearTimeout(cTimerRef.current);
+    cTimerRef.current = null;
+    const record: PartnerContractRecord<ContractForm> = {
+      id: contractIdRef.current,
+      partnerAgencyId: agencyRef.current.id,
+      partnerAgencyName: agencyRef.current.name.trim(),
+      form: formRef.current,
+    };
+    setCSync({ state: 'saving' });
+    const result = await savePartnerContract(record);
+    if (!result.ok) {
+      setCSync({ state: 'error', message: result.error });
+      return;
+    }
+    const stamped = { ...record, updatedAt: new Date().toISOString() };
+    setContracts((prev) => [stamped, ...prev.filter((c) => c.id !== record.id)]);
+    // Modifié pendant l'envoi : un nouvel envoi est déjà programmé
+    setCSync((prev) => (prev.state === 'pending' ? prev : { state: 'saved' }));
+  };
+
+  const scheduleContractSave = () => {
+    if (!hasContractContent(formRef.current)) return;
+    setCSync({ state: 'pending' });
+    if (cTimerRef.current) clearTimeout(cTimerRef.current);
+    cTimerRef.current = setTimeout(() => void saveContract(), 1500);
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const result = await fetchPartnerContracts<ContractForm>();
+      if (cancelled) return;
+      if (!result.ok) {
+        setCSync({ state: 'error', message: result.error });
+        return;
+      }
+      setContracts(result.value || []);
+    })();
+    return () => {
+      cancelled = true;
+      if (cTimerRef.current) clearTimeout(cTimerRef.current);
+    };
+  }, []);
+
+  const setFormField = (patch: Partial<ContractForm>) => {
+    formRef.current = { ...formRef.current, ...patch };
+    setForm(formRef.current);
+    scheduleContractSave();
+  };
 
   // L'aperçu suit la frappe sans la ralentir
   const deferredAgency = useDeferredValue(agency);
@@ -582,6 +670,7 @@ export const PartnerContractsView: React.FC = () => {
     if (readyPdf) URL.revokeObjectURL(readyPdf.blobUrl);
     setReadyPdf(null);
 
+    if (hasContractContent(form)) void saveContract();
     const { contract } = buildAll(agency, form);
     const filename = `Contrat_${safeFilePart(agency.name, 'agence')}_${safeFilePart(
       `${form.client.lastName}_${form.client.firstName}`,
@@ -627,8 +716,50 @@ export const PartnerContractsView: React.FC = () => {
     else setShareNote('');
   };
 
-  const newContract = () => {
-    setForm((prev) => freshContract(prev.templateId));
+  const openContract = (record: PartnerContractRecord<ContractForm>) => {
+    if (cTimerRef.current) void saveContract();
+    const base = freshContract(record.form?.templateId || 'standard');
+    const loaded: ContractForm = {
+      ...base,
+      ...record.form,
+      client: { ...base.client, ...(record.form?.client || {}) },
+      second: { ...base.second, ...(record.form?.second || {}) },
+      vehicle: { ...base.vehicle, ...(record.form?.vehicle || {}) },
+    };
+    formRef.current = loaded;
+    setForm(loaded);
+    setContractId(record.id);
+    contractIdRef.current = record.id;
+    const owner = storeRef.current.list.find((a) => a.id === record.partnerAgencyId);
+    if (owner) setStore((prev) => ({ ...prev, activeId: owner.id }));
+    setCSync({ state: 'saved' });
+    setDone(false);
+    setError('');
+    if (readyPdf) URL.revokeObjectURL(readyPdf.blobUrl);
+    setReadyPdf(null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const removeContract = async (id: string) => {
+    if (id === contractIdRef.current) {
+      if (cTimerRef.current) clearTimeout(cTimerRef.current);
+      cTimerRef.current = null;
+      newContract(false);
+    }
+    setContracts((prev) => prev.filter((c) => c.id !== id));
+    const result = await deletePartnerContract(id);
+    if (!result.ok) setCSync({ state: 'error', message: result.error });
+  };
+
+  const newContract = (flush = true) => {
+    if (flush && cTimerRef.current) void saveContract();
+    const fresh = freshContract(form.templateId);
+    formRef.current = fresh;
+    const id = newContractId();
+    contractIdRef.current = id;
+    setContractId(id);
+    setCSync({ state: 'idle' });
+    setForm(fresh);
     setDone(false);
     setError('');
     if (readyPdf) URL.revokeObjectURL(readyPdf.blobUrl);
@@ -660,14 +791,14 @@ export const PartnerContractsView: React.FC = () => {
           <div className="min-w-0">
             <h1 className="text-lg sm:text-xl font-bold text-white">Contrats pour d’autres agences</h1>
             <p className="text-xs text-slate-400">
-              Nos modèles aux couleurs d’une autre agence, cachet laissé vide. Rien n’est enregistré : vous téléchargez le PDF.
+              Nos modèles aux couleurs d’une autre agence, cachet laissé vide. Chaque contrat est enregistré automatiquement et reste modifiable.
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"
-            onClick={newContract}
+            onClick={() => newContract()}
             className="min-h-10 inline-flex items-center gap-2 px-3 rounded-xl border border-slate-700 text-slate-200 hover:bg-slate-800 text-xs font-semibold cursor-pointer"
           >
             <RotateCcw className="w-4 h-4" />
@@ -748,6 +879,89 @@ export const PartnerContractsView: React.FC = () => {
       <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-5 items-start">
         {/* ------------------------------------------------------------------ FORMULAIRE */}
         <div className="space-y-4 min-w-0">
+          <Card
+            title={`Contrats enregistrés (${contracts.length})`}
+            icon={<FileText className="w-4 h-4 text-amber-400" />}
+            aside={
+              <div className="flex items-center gap-2">
+                <span
+                  role="status"
+                  className={`inline-flex items-center gap-1 text-[11px] ${
+                    cSync.state === 'error' ? 'text-amber-300' : cSync.state === 'saved' ? 'text-emerald-400' : 'text-slate-400'
+                  }`}
+                >
+                  {cSync.state === 'error' ? <CloudOff className="w-3.5 h-3.5" /> : <Cloud className="w-3.5 h-3.5" />}
+                  {cSync.state === 'idle' && 'Contrat non enregistré'}
+                  {cSync.state === 'pending' && 'Modifications en attente…'}
+                  {cSync.state === 'saving' && 'Enregistrement…'}
+                  {cSync.state === 'saved' && 'Contrat enregistré ✓'}
+                  {cSync.state === 'error' && 'Non enregistré'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => void saveContract()}
+                  disabled={cSync.state === 'saving'}
+                  className="inline-flex items-center gap-1 min-h-8 px-2.5 rounded-lg border border-sky-500/50 text-sky-200 hover:bg-sky-500/10 text-[11px] font-semibold disabled:opacity-50 cursor-pointer"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  Enregistrer
+                </button>
+              </div>
+            }
+          >
+            {cSync.state === 'error' && <p className="text-[11px] text-amber-300">{cSync.message}</p>}
+            {contracts.length === 0 ? (
+              <p className="text-[11px] text-slate-500">
+                Aucun contrat enregistré. Le contrat en cours s’enregistre dès que vous saisissez le client ou le véhicule.
+              </p>
+            ) : (
+              <ul className="space-y-1.5 max-h-64 overflow-y-auto">
+                {contracts.map((c) => {
+                  const f = c.form;
+                  const client = [f?.client?.firstName, f?.client?.lastName].filter(Boolean).join(' ') || 'Client non renseigné';
+                  const car = [f?.vehicle?.brand, f?.vehicle?.model, f?.vehicle?.plate].filter(Boolean).join(' ');
+                  const current = c.id === contractId;
+                  return (
+                    <li
+                      key={c.id}
+                      className={`flex items-center gap-2 rounded-xl border px-3 py-2 ${
+                        current ? 'border-amber-500/60 bg-amber-500/5' : 'border-slate-800 bg-slate-950/40'
+                      }`}
+                    >
+                      <button type="button" onClick={() => openContract(c)} className="flex-1 min-w-0 text-left cursor-pointer">
+                        <span className="block text-xs font-semibold text-slate-100 truncate">
+                          {f?.contractNumber || '—'} · {client}
+                        </span>
+                        <span className="block text-[10px] text-slate-500 truncate">
+                          {c.partnerAgencyName || 'Agence'}
+                          {car ? ` · ${car}` : ''}
+                          {f?.startDate ? ` · ${f.startDate}` : ''}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openContract(c)}
+                        className="text-[11px] font-semibold text-sky-300 hover:text-sky-200 cursor-pointer"
+                      >
+                        {current ? 'En cours' : 'Modifier'}
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="Supprimer ce contrat"
+                        onClick={() => {
+                          if (window.confirm(`Supprimer le contrat ${f?.contractNumber || ''} ?`)) void removeContract(c.id);
+                        }}
+                        className="text-slate-500 hover:text-rose-300 cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </Card>
+
           <Card
             title="L’agence"
             icon={<Building2 className="w-4 h-4 text-sky-400" />}
@@ -910,7 +1124,7 @@ export const PartnerContractsView: React.FC = () => {
               </p>
             )}
             <p className="text-[10px] text-slate-500">
-              Les agences sont enregistrées automatiquement (aucun contrat ni client n’est enregistré). L’emplacement du cachet reste vide.
+              Les agences sont enregistrées automatiquement (identité de l’agence). L’emplacement du cachet reste vide.
             </p>
           </Card>
 
@@ -929,8 +1143,19 @@ export const PartnerContractsView: React.FC = () => {
                   ))}
                 </select>
               </Field>
-              <Field label="N° du contrat" hint="Laissez vide pour un « — » à compléter à la main">
-                <TextInput value={form.contractNumber} onChange={(v) => setFormField({ contractNumber: v })} autoComplete="off" />
+              <Field label="N° du contrat" hint="Généré automatiquement ; modifiable, ou vide pour un « — » à compléter à la main">
+                <div className="flex gap-2">
+                  <div className="flex-1 min-w-0">
+                    <TextInput value={form.contractNumber} onChange={(v) => setFormField({ contractNumber: v })} autoComplete="off" />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setFormField({ contractNumber: randomContractNumber() })}
+                    className="shrink-0 min-h-10 px-3 rounded-lg border border-sky-500/50 text-sky-200 hover:bg-sky-500/10 text-xs font-semibold cursor-pointer"
+                  >
+                    Nouveau
+                  </button>
+                </div>
               </Field>
             </div>
           </Card>
