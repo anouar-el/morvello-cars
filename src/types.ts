@@ -563,7 +563,8 @@ export type ActiveTab =
   | 'settings'
   | 'audit'
   | 'permissions'
-  | 'contract_templates';
+  | 'contract_templates'
+  | 'partner_contracts';
 
 import type { AssistantAction } from './lib/assistantActions';
 

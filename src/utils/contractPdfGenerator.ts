@@ -11,6 +11,8 @@ export interface GeneratePdfOptions {
   quality?: number;
   scale?: number;
   filename?: string;
+  /** Propriétés du fichier PDF ; par défaut celles de Morvello Cars (contrats d'une autre agence : les remplacer). */
+  documentProperties?: { title: string; subject?: string; author?: string; creator?: string };
 }
 
 export interface GeneratedPdfResult {
@@ -177,6 +179,7 @@ export async function generateContractPdf(
     scale = defaults.scale,
     quality = defaults.quality,
     filename: customFilename,
+    documentProperties,
   } = options;
 
   onProgress?.('Initialisation du générateur A4...', 10);
@@ -221,13 +224,15 @@ export async function generateContractPdf(
 
   // Métadonnées du document PDF
   const filename = customFilename || getContractPdfFilename(contract);
-  pdf.setDocumentProperties({
-    title: `Contrat de Location ${contract.contractNumber} - Morvello Cars`,
-    subject: `Contrat officiel de location de véhicule n° ${contract.contractNumber}`,
-    author: 'Morvello Cars SARL',
-    keywords: 'contrat, location, morvello, voitures, casablanca',
-    creator: 'Morvello Fleet Management System',
-  });
+  pdf.setDocumentProperties(
+    documentProperties ?? {
+      title: `Contrat de Location ${contract.contractNumber} - Morvello Cars`,
+      subject: `Contrat officiel de location de véhicule n° ${contract.contractNumber}`,
+      author: 'Morvello Cars SARL',
+      keywords: 'contrat, location, morvello, voitures, casablanca',
+      creator: 'Morvello Fleet Management System',
+    }
+  );
 
   // Page 1 (Recto - 210mm x 297mm)
   pdf.addImage(imgData1, 'JPEG', 0, 0, 210, 297, undefined, 'FAST');

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import newStampImg from '../assets/images/morvello_nouveau_cachet_transp.png';
 
 import { useI18n } from '../i18n/I18nContext';
+import { usePartnerAgency } from '../context/PartnerAgencyContext';
 export interface CompanyStampProps {
   className?: string;
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
@@ -19,6 +20,7 @@ export const CompanyStamp: React.FC<CompanyStampProps> = ({
 }) => {
   const { t } = useI18n();
   const [imgFailed, setImgFailed] = useState(false);
+  const partner = usePartnerAgency();
 
   // Rectangular Dimensions Map
   const rectDimensions = {
@@ -37,6 +39,12 @@ export const CompanyStamp: React.FC<CompanyStampProps> = ({
     lg: 168,
     xl: 210,
   }[size];
+
+  // Contrat d'une autre agence : l'emplacement du cachet reste vide, l'agence y pose le sien
+  if (partner) {
+    const blank = format === 'circular' ? { width: circleDimensions, height: circleDimensions } : rectDimensions;
+    return <div className={`shrink-0 ${className}`} style={blank} aria-hidden="true" />;
+  }
 
   // If circular format is requested explicitly
   if (format === 'circular') {

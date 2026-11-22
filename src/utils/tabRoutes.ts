@@ -15,6 +15,7 @@ const TAB_PATHS: Partial<Record<ActiveTab, string>> = {
   terms: '/conditions',
   permissions: '/equipe',
   contract_templates: '/modeles',
+  partner_contracts: '/contrats-agences',
   audit: '/journal',
   settings: '/parametres',
 };

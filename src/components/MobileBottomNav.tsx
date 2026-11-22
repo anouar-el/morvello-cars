@@ -12,6 +12,7 @@ import {
   Settings,
   Shield,
   FileCode,
+  Handshake,
   ScrollText,
   History,
   LogOut,
@@ -80,6 +81,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
     'ai_assistant',
     'permissions',
     'contract_templates',
+    'partner_contracts',
     'terms',
     'audit',
     'settings',
@@ -380,6 +382,27 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                       <div className="text-start">
                         <div className="font-semibold text-white">{t('Modèles de Contrats A4')}</div>
                         <div className="text-[11px] text-slate-400">{t('Standard, VIP Prestige, B2B Corporate')}</div>
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* Contrats pour d'autres agences (PDF sans enregistrement) */}
+                  <button
+                    type="button"
+                    onClick={() => handleSelectTab('partner_contracts')}
+                    className={`w-full flex items-center justify-between p-3 rounded-xl transition-colors ${
+                      activeTab === 'partner_contracts'
+                        ? 'bg-amber-500/15 text-amber-400 font-bold border border-amber-500/30'
+                        : 'text-slate-300 hover:bg-slate-800/70 hover:text-white'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-sky-500/10 border border-sky-500/25 text-sky-400 flex items-center justify-center">
+                        <Handshake className="w-4 h-4" />
+                      </div>
+                      <div className="text-start">
+                        <div className="font-semibold text-white">{t('Contrats autres agences')}</div>
+                        <div className="text-[11px] text-slate-400">{t('Contrat de location pour une autre agence, sans enregistrement')}</div>
                       </div>
                     </div>
                   </button>

@@ -52,6 +52,10 @@ const ContractTemplatesManager = lazyView(() =>
   import('./components/ContractTemplatesManager').then((m) => m.ContractTemplatesManager)
 );
 
+const PartnerContractsView = lazyView(() =>
+  import('./components/PartnerContractsView').then((m) => m.PartnerContractsView)
+);
+
 // Most-used screens first: the preload runs sequentially
 const BACKGROUND_PRELOAD_ORDER = [
   ContractsList,
@@ -66,6 +70,7 @@ const BACKGROUND_PRELOAD_ORDER = [
   SettingsView,
   PermissionsManager,
   ContractTemplatesManager,
+  PartnerContractsView,
   TermsManager,
   AuditView,
 ];
@@ -175,6 +180,16 @@ function MainAppContent() {
           );
         }
         return <ContractTemplatesManager />;
+      case 'partner_contracts':
+        if (currentUser.role !== 'admin') {
+          return (
+            <Dashboard
+              onOpenCheckInModal={(contract) => setCheckInContract(contract)}
+              onOpenAllAlerts={() => setIsNotificationsOpen(true)}
+            />
+          );
+        }
+        return <PartnerContractsView />;
       case 'settings':
         return <SettingsView />;
       case 'audit':
