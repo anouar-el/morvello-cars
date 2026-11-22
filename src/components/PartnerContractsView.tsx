@@ -27,10 +27,10 @@ import type { CompanySettings, Contract, ContractTemplateId, DocumentType, FuelT
 /**
  * Contrats pour d'AUTRES agences : on garde nos modèles, on change l'identité de l'agence et on laisse le cachet vide.
  * Rien n'est enregistré dans l'application (ni contrat, ni client, ni véhicule) : on télécharge le PDF.
- * Seule l'identité de la dernière agence est gardée dans ce navigateur pour ne pas la retaper.
+ * Seules les identités des agences (Alaylichi Car, etc.) sont gardées dans ce navigateur pour ne pas les retaper.
  */
 
-const AGENCY_STORAGE_KEY = 'morvello_partner_agency_v1';
+const AGENCY_STORAGE_KEY = 'morvello_partner_agencies_v2';
 const EXPORT_PREFIX = 'partner';
 const A4_WIDTH_PX = 794; // 210 mm à 96 dpi
 
@@ -143,21 +143,45 @@ function freshContract(templateId: ContractTemplateId = 'standard'): ContractFor
   };
 }
 
-function loadAgency(): AgencyForm {
+/** Première agence enregistrée : Alaylichi Car. IF, RC, ICE, patente et logo restent à compléter. */
+const DEFAULT_AGENCY: AgencyForm = {
+  ...EMPTY_AGENCY,
+  name: 'Alaylichi Car',
+  city: 'Casablanca',
+  address: 'Ennakhil 76, Magasin N° 92, Immeuble 2 FB 2, Nouaceur, Casablanca',
+  phone1: '06 45 12 44 65',
+  phone2: '06 49 51 66 97',
+  email: 'Alaylichicar@gmail.com',
+};
+
+type SavedAgency = AgencyForm & { id: string };
+
+interface AgencyStore {
+  list: SavedAgency[];
+  activeId: string;
+}
+
+const newAgencyId = () => `ag-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+
+function loadAgencies(): AgencyStore {
+  const seed: AgencyStore = { list: [{ ...DEFAULT_AGENCY, id: 'alaylichi' }], activeId: 'alaylichi' };
   try {
     const raw = localStorage.getItem(AGENCY_STORAGE_KEY);
-    if (!raw) return EMPTY_AGENCY;
-    return { ...EMPTY_AGENCY, ...(JSON.parse(raw) as Partial<AgencyForm>) };
+    if (!raw) return seed;
+    const parsed = JSON.parse(raw) as Partial<AgencyStore>;
+    const list = (parsed.list || []).map((a) => ({ ...EMPTY_AGENCY, ...a })) as SavedAgency[];
+    if (list.length === 0) return seed;
+    return { list, activeId: list.some((a) => a.id === parsed.activeId) ? (parsed.activeId as string) : list[0].id };
   } catch {
-    return EMPTY_AGENCY;
+    return seed;
   }
 }
 
-function saveAgency(agency: AgencyForm) {
+function saveAgencies(store: AgencyStore) {
   try {
-    localStorage.setItem(AGENCY_STORAGE_KEY, JSON.stringify(agency));
+    localStorage.setItem(AGENCY_STORAGE_KEY, JSON.stringify(store));
   } catch {
-    // Stockage plein ou bloqué : on garde simplement l'agence en mémoire pour cette session
+    // Stockage plein ou bloqué : les agences restent en mémoire pour cette session
   }
 }
 
@@ -387,7 +411,8 @@ const PersonFields: React.FC<{
 
 export const PartnerContractsView: React.FC = () => {
   const { termsVersion } = useApp();
-  const [agency, setAgency] = useState<AgencyForm>(loadAgency);
+  const [store, setStore] = useState<AgencyStore>(loadAgencies);
+  const agency = store.list.find((a) => a.id === store.activeId) ?? store.list[0];
   const [form, setForm] = useState<ContractForm>(() => freshContract());
   const [logoError, setLogoError] = useState('');
   const [exporting, setExporting] = useState(false);
@@ -399,10 +424,20 @@ export const PartnerContractsView: React.FC = () => {
   const isIos = useMemo(() => isIosDevice(), []);
 
   useEffect(() => {
-    saveAgency(agency);
-  }, [agency]);
+    saveAgencies(store);
+  }, [store]);
 
-  const setAgencyField = (patch: Partial<AgencyForm>) => setAgency((prev) => ({ ...prev, ...patch }));
+  const setAgencyField = (patch: Partial<AgencyForm>) =>
+    setStore((prev) => ({ ...prev, list: prev.list.map((a) => (a.id === prev.activeId ? { ...a, ...patch } : a)) }));
+  const selectAgency = (id: string) => {
+    setStore((prev) => ({ ...prev, activeId: id }));
+    setLogoError('');
+  };
+  const addAgency = () => {
+    const created: SavedAgency = { ...EMPTY_AGENCY, id: newAgencyId() };
+    setStore((prev) => ({ list: [...prev.list, created], activeId: created.id }));
+    setLogoError('');
+  };
   const setFormField = (patch: Partial<ContractForm>) => setForm((prev) => ({ ...prev, ...patch }));
 
   // L'aperçu suit la frappe sans la ralentir
@@ -514,8 +549,15 @@ export const PartnerContractsView: React.FC = () => {
     setReadyPdf(null);
   };
 
-  const clearAgency = () => {
-    setAgency(EMPTY_AGENCY);
+  const deleteAgency = () => {
+    setStore((prev) => {
+      const rest = prev.list.filter((a) => a.id !== prev.activeId);
+      if (rest.length === 0) {
+        const blank: SavedAgency = { ...EMPTY_AGENCY, id: newAgencyId() };
+        return { list: [blank], activeId: blank.id };
+      }
+      return { list: rest, activeId: rest[0].id };
+    });
     setLogoError('');
   };
 
@@ -627,14 +669,41 @@ export const PartnerContractsView: React.FC = () => {
             aside={
               <button
                 type="button"
-                onClick={clearAgency}
+                onClick={() => {
+                  if (window.confirm(`Supprimer l’agence « ${agency.name.trim() || 'sans nom'} » ?`)) deleteAgency();
+                }}
                 className="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-rose-300 cursor-pointer"
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                Vider
+                Supprimer
               </button>
             }
           >
+            <div className="flex flex-wrap gap-2" role="tablist" aria-label="Agences enregistrées">
+              {store.list.map((a) => (
+                <button
+                  key={a.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={a.id === agency.id}
+                  onClick={() => selectAgency(a.id)}
+                  className={`min-h-9 px-3 rounded-full border text-xs font-semibold cursor-pointer ${
+                    a.id === agency.id
+                      ? 'bg-sky-500/20 border-sky-400/60 text-sky-200'
+                      : 'border-slate-700 text-slate-300 hover:bg-slate-800'
+                  }`}
+                >
+                  {a.name.trim() || 'Nouvelle agence'}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={addAgency}
+                className="min-h-9 px-3 rounded-full border border-dashed border-slate-600 text-xs font-semibold text-slate-300 hover:bg-slate-800 cursor-pointer"
+              >
+                + Nouvelle agence
+              </button>
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="Nom de l’agence *" className="sm:col-span-2">
                 <TextInput
@@ -724,7 +793,7 @@ export const PartnerContractsView: React.FC = () => {
               </Field>
             </div>
             <p className="text-[10px] text-slate-500">
-              L’identité de l’agence est gardée dans ce navigateur pour le prochain contrat. L’emplacement du cachet reste vide.
+              Les agences sont gardées dans ce navigateur (aucun contrat ni client n’est enregistré). L’emplacement du cachet reste vide.
             </p>
           </Card>
 
